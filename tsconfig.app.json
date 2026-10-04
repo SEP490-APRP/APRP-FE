@@ -4,7 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "react", "react-dom", "vitest/globals"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
@@ -22,10 +22,8 @@
       "@/*": ["src/*"]
     },
 
-    /* Bỏ qua cảnh báo deprecation của baseUrl (được thêm từ TS 6.0, sẽ dừng hoạt động ở TS 7.0) */
-    "ignoreDeprecations": "6.0",
-
     /* Linting */
+    "ignoreDeprecations": "6.0",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,

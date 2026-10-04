@@ -27,5 +27,6 @@ export const ROUTES = {
   FORGOT_PASSWORD: '/forgot-password',
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
+  SHOP_ORDERS: '/shop/orders',
   NOT_FOUND: '*',
 } as const

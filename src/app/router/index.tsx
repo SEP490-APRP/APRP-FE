@@ -1,7 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 
 import { MainLayout } from '@/components/layout'
-import { HomePage, LoginPage, RegisterPage, NotFoundPage, OtpVerificationPage } from '@/pages'
+import { HomePage, LoginPage, RegisterPage, NotFoundPage, OtpVerificationPage, ShopOrdersPage } from '@/pages'
 import { ROUTES } from '@/utils/constants'
 
 /**
@@ -27,6 +27,10 @@ const router = createBrowserRouter([
       {
         path: ROUTES.OTP_VERIFICATION,
         element: <OtpVerificationPage />,
+      },
+      {
+        path: ROUTES.SHOP_ORDERS,
+        element: <ShopOrdersPage />,
       },
       {
         path: '*',

@@ -14,4 +14,14 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: [],
+    resolve: {
+      alias: {
+        '@': import.meta.dirname + '/src',
+      },
+    },
+  },
 })
