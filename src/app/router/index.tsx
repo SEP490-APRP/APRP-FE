@@ -1,9 +1,12 @@
-import { createHashRouter, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import type { AuthUser } from '@/features/auth'
-import { HOME_SECTION_IDS } from '@/features/home'
-import { useAuth, useUiStore } from '@/stores'
-import RootLayout from '../layouts/RootLayout'
-import StorefrontLayout, { useStorefront } from '../layouts/StorefrontLayout'
+import {
+  createHashRouter,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
+import StorefrontLayout, { useStorefront } from '@/app/layouts/StorefrontLayout'
 import AdminPortal from '@/pages/admin/AdminPortal'
 import AiPage from '@/pages/AiPage'
 import AuthPage from '@/pages/AuthPage'
@@ -17,12 +20,37 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy'
 import ProductDetail from '@/pages/product/ProductDetail'
 import ShopPage from '@/pages/product/ShopPage'
 import ShopVouchers from '@/pages/product/ShopVouchers'
+import ForgotPasswordPage from '@/pages/ForgotPasswordPage/ForgotPasswordPage'
+import OtpVerificationPage from '@/pages/OtpVerificationPage/OtpVerificationPage'
 import RequireRole from './RequireRole'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
 
 // Id mặc định khi URL thiếu id (giữ hành vi của App.tsx cũ).
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
+
+import type { AuthUser } from '@/types/auth.types'
+
+/** Layout gốc: gom thẻ cuộn lên đầu trang khi đổi route */
+function RootLayout() {
+  return (
+    <div className="min-h-screen bg-sand text-soil-800 antialiased font-sans">
+      <Outlet />
+    </div>
+  )
+}
+
+/** Khớp các hash section trên trang chủ: #fresh, #combos, #farmer-story... */
+const HOME_SECTION_IDS = [
+  'fresh',
+  'combos',
+  'farmer-story',
+  'ai-features',
+  'categories',
+  'today-rescue',
+  'process',
+  'reviews',
+] as const
 
 const isHomeSection = (segment?: string) =>
   (HOME_SECTION_IDS as readonly string[]).includes(segment ?? '')
@@ -104,31 +132,22 @@ function ShopVouchersRoute() {
 function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  const { login } = useAuth()
-  const showToast = useUiStore((s) => s.showToast)
-  const onInfo = useUiStore((s) => s.showInfo)
-
-  const url = pathname + search
+  // Mock auth handler from stores
   const initialRole =
-    url.includes('role=shop') || url.includes('ban-nong-san') || url.includes('nha-vuon')
+    search.includes('role=shop') || search.includes('ban-nong-san')
       ? 'shop'
-      : url.includes('role=shipper') || url.includes('giao-hang')
+      : search.includes('role=shipper')
         ? 'shipper'
         : 'buyer'
 
-  const handleLoginSuccess = (user: AuthUser) => {
-    login(user)
-    showToast(`Chào mừng ${user.name} (${user.role.toUpperCase()})!`)
-    navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
-  }
-
   return (
     <AuthPage
-      key={url}
+      key={pathname + search}
       initialMode={mode}
       initialRole={initialRole}
-      onLoginSuccess={handleLoginSuccess}
-      onInfo={onInfo}
+      onLoginSuccess={(user: AuthUser) => {
+        navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+      }}
     />
   )
 }
@@ -143,18 +162,10 @@ function SectionOrNotFound() {
 
 function usePortalProps() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const showToast = useUiStore((s) => s.showToast)
-  const onInfo = useUiStore((s) => s.showInfo)
   return {
-    user,
-    onInfo,
     onNavigateStore: () => navigate('/'),
-    // Rời portal trước rồi mới xóa phiên, để không thoáng hiện màn "không có quyền".
     onLogout: async () => {
       await navigate('/')
-      logout()
-      showToast('Bạn đã đăng xuất khỏi hệ thống CapNong.')
     },
   }
 }
@@ -194,7 +205,6 @@ export const router = createHashRouter([
         element: <SellerRoute />,
         handle: title('Bảng Điều Khiển Nông Dân · Kênh Người Bán'),
       },
-      // Trước đây /shop/:id/vouchers rơi vào cổng người bán vì cùng tiền tố /shop.
       { path: 'shop/:shopId/vouchers', element: <ShopVouchersAlias /> },
       { path: 'farmer/*', element: <Alias to="/shop" /> },
       { path: 'kenh-nguoi-ban/*', element: <Alias to="/shop" /> },
@@ -257,6 +267,7 @@ export const router = createHashRouter([
           { path: 'voucher-shop', element: <ShopVouchersAlias /> },
           { path: 'voucher-shop/:shopId/*', element: <ShopVouchersAlias /> },
 
+          // Auth routes
           {
             path: 'dang-nhap/*',
             element: <AuthRoute mode="login" />,
@@ -269,6 +280,19 @@ export const router = createHashRouter([
           },
           { path: 'login/*', element: <Alias to="/dang-nhap" /> },
           { path: 'register/*', element: <Alias to="/dang-ky" /> },
+          {
+            path: 'quen-mat-khau/*',
+            element: <ForgotPasswordPage />,
+            handle: title('Quên Mật Khẩu'),
+          },
+          { path: 'forgot-password/*', element: <Alias to="/quen-mat-khau" /> },
+          {
+            path: 'xac-thuc-otp/*',
+            element: <OtpVerificationPage />,
+            handle: title('Xác Thực Mã OTP'),
+          },
+          { path: 'verify-otp/*', element: <Alias to="/xac-thuc-otp" /> },
+          { path: 'otp-verification/*', element: <Alias to="/xac-thuc-otp" /> },
 
           {
             path: '*',
@@ -282,3 +306,5 @@ export const router = createHashRouter([
     ],
   },
 ])
+
+export default router

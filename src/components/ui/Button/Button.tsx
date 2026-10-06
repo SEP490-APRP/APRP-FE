@@ -12,7 +12,7 @@ import { cn } from '@/utils'
  * (btn btn-green, bg-[#4a7c2f] ... rounded-xl, bg-[#f1eee6] hover:bg-primary ...).
  * Tất cả kích thước đều đạt vùng chạm tối thiểu 40px (md: 44px).
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'accent' | 'danger'
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'accent' | 'danger' | 'outline'
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
 const base =
@@ -26,6 +26,7 @@ const variants: Record<ButtonVariant, string> = {
   ghost: 'text-ink-muted hover:bg-leaf-50 hover:text-leaf-700',
   accent: 'bg-sun-300 text-leaf-900 shadow-sm hover:bg-sun-500',
   danger: 'bg-sale text-white hover:bg-red-800',
+  outline: 'border border-line bg-white text-leaf-700 hover:border-leaf-600 hover:bg-leaf-50',
 }
 
 const sizes: Record<ButtonSize, string> = {
@@ -54,6 +55,7 @@ type CommonProps = {
 export type ButtonProps = CommonProps &
   ButtonHTMLAttributes<HTMLButtonElement> & {
     loading?: boolean
+    isLoading?: boolean
   }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -63,6 +65,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     fullWidth,
     leftIcon,
     loading = false,
+    isLoading = false,
     className,
     children,
     type = 'button',
@@ -75,12 +78,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
+      disabled={disabled || loading || isLoading}
+      aria-busy={(loading || isLoading) || undefined}
       className={buttonClasses({ variant, size, fullWidth, className })}
       {...rest}
     >
-      {loading ? <Loader2 size={16} className="animate-spin" aria-hidden /> : leftIcon}
+      {(loading || isLoading) ? <Loader2 size={16} className="animate-spin" aria-hidden /> : leftIcon}
       {children}
     </button>
   )
