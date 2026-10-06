@@ -1,7 +1,10 @@
 /* ===== Application Constants ===== */
 
 /** API base URL from environment variables */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string || 'http://localhost:8080'
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string) ||
+  (import.meta.env.VITE_API_URL as string) ||
+  'http://localhost:8080'
 
 /** Pagination defaults */
 export const PAGINATION = {
@@ -14,8 +17,11 @@ export const PAGINATION = {
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
-  USER: 'user',
+  USER: 'capnong-user',
   THEME: 'theme',
+  CART: 'capnong-cart',
+  TOKEN: 'capnong-token',
+  FARMER_TOUR_DONE: 'capnong_farmer_tour_done',
 } as const
 
 /** Route paths */

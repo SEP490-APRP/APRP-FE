@@ -1,15 +1,11 @@
-/**
- * Auth feature module
- *
- * This is an example feature module structure. Each feature should contain:
- * - components/  : Feature-specific components
- * - hooks/       : Feature-specific custom hooks
- * - services/    : Feature-specific API services
- * - types/       : Feature-specific types
- * - index.ts     : Barrel exports
- */
-
-// Export feature-specific items here as they are created
-// export { LoginForm } from './components/LoginForm'
-// export { useAuth } from './hooks/useAuth'
-// export { authService } from './services/authService'
+// Type user dùng toàn app nằm ở @/types; re-export để feature auth vẫn tự đủ.
+export type { AuthUser, SessionUser, UserRole } from '@/types'
+export {
+  loginSchema,
+  memberRegisterSchema,
+  REGISTER_DEFAULTS,
+  shopAccountSchema,
+  shopKycSchema,
+  type LoginValues,
+  type RegisterValues,
+} from './schemas/auth.schemas'
