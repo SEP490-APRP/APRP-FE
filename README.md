@@ -29,8 +29,8 @@ Codebase frontend chuẩn cho dự án Capstone, được xây dựng trên nề
 ### 2. Các bước khởi chạy
 
 ```bash
-# 1. Di chuyển vào thư mục FE
-cd FE
+# 1. Di chuyển vào thư mục APRP-FE
+cd APRP-FE
 
 # 2. Cài đặt các thư viện phụ thuộc
 npm install

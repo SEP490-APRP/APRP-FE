@@ -1,87 +1,107 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import {
+  forwardRef,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from 'react'
+import { Loader2 } from 'lucide-react'
+import { cn } from '@/utils'
 
-import { cn } from '@/utils/helpers'
+/**
+ * Một nút dùng chung thay cho khoảng 10 biến thể className viết tay
+ * (btn btn-green, bg-[#4a7c2f] ... rounded-xl, bg-[#f1eee6] hover:bg-primary ...).
+ * Tất cả kích thước đều đạt vùng chạm tối thiểu 40px (md: 44px).
+ */
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'accent' | 'danger'
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
-/* ===== Button Types ===== */
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
-type ButtonSize = 'sm' | 'md' | 'lg'
+const base =
+  'inline-flex items-center justify-center gap-2 font-bold transition-colors duration-200 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600 focus-visible:ring-offset-2 ' +
+  'disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]'
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children: ReactNode
-  variant?: ButtonVariant
-  size?: ButtonSize
-  isLoading?: boolean
-  fullWidth?: boolean
+const variants: Record<ButtonVariant, string> = {
+  primary: 'bg-leaf-700 text-white shadow-sm hover:bg-leaf-800',
+  secondary: 'border border-line bg-white text-leaf-700 hover:border-leaf-600 hover:bg-leaf-50',
+  ghost: 'text-ink-muted hover:bg-leaf-50 hover:text-leaf-700',
+  accent: 'bg-sun-300 text-leaf-900 shadow-sm hover:bg-sun-500',
+  danger: 'bg-sale text-white hover:bg-red-800',
 }
 
-/* ===== Variant Styles ===== */
-const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    'bg-primary text-white hover:bg-primary-dark active:bg-primary-dark shadow-sm',
-  secondary:
-    'bg-secondary text-white hover:bg-secondary-dark active:bg-secondary-dark shadow-sm',
-  outline:
-    'border-2 border-primary text-primary hover:bg-primary hover:text-white',
-  ghost:
-    'text-text-secondary hover:bg-gray-100 hover:text-text-primary',
-  danger:
-    'bg-error text-white hover:bg-red-600 active:bg-red-700 shadow-sm',
+const sizes: Record<ButtonSize, string> = {
+  sm: 'h-10 rounded-lg px-3 text-caption',
+  md: 'h-11 rounded-xl px-4 text-sm',
+  lg: 'h-12 rounded-full px-6 text-base',
+  icon: 'h-10 w-10 rounded-xl',
 }
 
-const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
-}
-
-/* ===== Button Component ===== */
-const Button = ({
-  children,
+export function buttonClasses({
   variant = 'primary',
   size = 'md',
-  isLoading = false,
   fullWidth = false,
   className,
-  disabled,
-  ...props
-}: ButtonProps) => {
+}: { variant?: ButtonVariant; size?: ButtonSize; fullWidth?: boolean; className?: string } = {}) {
+  return cn(base, variants[variant], sizes[size], fullWidth && 'w-full', className)
+}
+
+type CommonProps = {
+  variant?: ButtonVariant
+  size?: ButtonSize
+  fullWidth?: boolean
+  leftIcon?: ReactNode
+}
+
+export type ButtonProps = CommonProps &
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    loading?: boolean
+  }
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant,
+    size,
+    fullWidth,
+    leftIcon,
+    loading = false,
+    className,
+    children,
+    type = 'button',
+    disabled,
+    ...rest
+  },
+  ref,
+) {
   return (
     <button
-      className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-        variantStyles[variant],
-        sizeStyles[size],
-        fullWidth && 'w-full',
-        className,
-      )}
-      disabled={disabled || isLoading}
-      {...props}
+      ref={ref}
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={buttonClasses({ variant, size, fullWidth, className })}
+      {...rest}
     >
-      {isLoading && (
-        <svg
-          className="h-4 w-4 animate-spin"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
-      )}
+      {loading ? <Loader2 size={16} className="animate-spin" aria-hidden /> : leftIcon}
       {children}
     </button>
   )
-}
+})
 
-export default Button
+export type LinkButtonProps = CommonProps & AnchorHTMLAttributes<HTMLAnchorElement>
+
+/** Giống Button nhưng là thẻ <a>, dùng cho điều hướng (đúng ngữ nghĩa hơn button + location.hash). */
+export function LinkButton({
+  variant,
+  size,
+  fullWidth,
+  leftIcon,
+  className,
+  children,
+  ...rest
+}: LinkButtonProps) {
+  return (
+    <a className={buttonClasses({ variant, size, fullWidth, className })} {...rest}>
+      {leftIcon}
+      {children}
+    </a>
+  )
+}

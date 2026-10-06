@@ -1,0 +1,617 @@
+/* Quy trình giải cứu 4 bước & Danh mục nông sản - Chuẩn kích thước và căn lề đồng bộ với hệ thống (max-w-7xl) */
+
+/* ========================================================= */
+/* Quy Trình Giải Cứu (Rescue Process) - Thiết kế nhỏ gọn tương đương Danh mục */
+/* ========================================================= */
+
+#quy-trinh {
+  scroll-margin-top: 180px;
+  padding: 56px 0 64px;
+  background: #ffffff;
+  width: 100%;
+}
+
+#quy-trinh .rescue-container {
+  max-width: 80rem; /* max-w-7xl (1280px) */
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+@media (min-width: 640px) {
+  #quy-trinh .rescue-container {
+    padding: 0 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  #quy-trinh .rescue-container {
+    padding: 0 2rem;
+  }
+}
+@media (min-width: 1280px) {
+  #quy-trinh .rescue-container {
+    padding: 0 3rem;
+  }
+}
+
+#quy-trinh .rescue-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#quy-trinh .rescue-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  color: #326318;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#quy-trinh .rescue-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: #1c1c17;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+#quy-trinh .rescue-desc {
+  font-size: 15px;
+  color: #6e6656;
+  margin: 0;
+  line-height: 1.6;
+  max-width: 640px;
+  align-self: center;
+}
+
+#quy-trinh .rescue-flow {
+  display: grid;
+  grid-template-columns: 1fr 36px 1fr 36px 1fr 36px 1fr;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+#quy-trinh .rescue-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  height: 100%;
+}
+
+#quy-trinh .rescue-art {
+  width: 136px;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  background: #e1e6d5;
+  color: #62754d;
+  margin-bottom: 16px;
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.3s ease;
+}
+
+#quy-trinh .rescue-step:hover .rescue-art {
+  transform: translateY(-5px) scale(1.04);
+  filter: drop-shadow(0 6px 14px rgba(98, 117, 77, 0.16));
+}
+
+#quy-trinh .rescue-step:nth-child(1) .rescue-art {
+  border-radius: 36% 58% 35% 60% / 35% 65% 35% 65%;
+}
+#quy-trinh .rescue-step:nth-child(3) .rescue-art {
+  border-radius: 64% 32% 57% 35% / 65% 34% 65% 35%;
+}
+#quy-trinh .rescue-step:nth-child(5) .rescue-art {
+  border-radius: 35% 60% 32% 55% / 37% 62% 35% 57%;
+}
+#quy-trinh .rescue-step:nth-child(7) .rescue-art {
+  border-radius: 66% 32% 58% 34% / 67% 34% 60% 34%;
+}
+
+#quy-trinh .rescue-art svg {
+  width: 68px;
+  height: 68px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#quy-trinh .rescue-arrow {
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a8c66;
+  font-size: 24px;
+  font-family: inherit;
+  font-weight: 300;
+  user-select: none;
+}
+
+#quy-trinh .rescue-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+#quy-trinh .rescue-step h3 {
+  color: #2e4b1c;
+  font-size: 16.5px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+#quy-trinh .rescue-step p {
+  color: #71766b;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  max-width: 210px;
+}
+
+#quy-trinh .rescue-btn {
+  background: #536c3f;
+  color: #ffffff !important;
+  border-radius: 6px;
+  min-height: 36px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-top: auto;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(83, 108, 63, 0.15);
+}
+
+#quy-trinh .rescue-btn:hover {
+  background: #3e532d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(83, 108, 63, 0.25);
+}
+
+/* Tablet Responsive: 601px - 1023px */
+@media (min-width: 601px) and (max-width: 1023px) {
+  #quy-trinh {
+    padding: 48px 0;
+  }
+  #quy-trinh .rescue-container {
+    gap: 30px;
+  }
+  #quy-trinh .rescue-title {
+    font-size: 28px;
+  }
+  #quy-trinh .rescue-desc {
+    font-size: 14px;
+  }
+  #quy-trinh .rescue-flow {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 18px;
+  }
+  #quy-trinh .rescue-arrow {
+    display: none;
+  }
+  #quy-trinh .rescue-art {
+    width: 125px;
+    height: 102px;
+    margin-bottom: 14px;
+  }
+  #quy-trinh .rescue-art svg {
+    width: 62px;
+    height: 62px;
+  }
+  #quy-trinh .rescue-step h3 {
+    font-size: 15.5px;
+  }
+  #quy-trinh .rescue-step p {
+    font-size: 12.5px;
+    max-width: 230px;
+    margin-bottom: 14px;
+  }
+}
+
+/* Mobile Responsive: 360px - 600px */
+@media (max-width: 600px) {
+  #quy-trinh {
+    padding: 40px 0;
+  }
+  #quy-trinh .rescue-container {
+    gap: 24px;
+  }
+  #quy-trinh .rescue-eyebrow {
+    font-size: 11.5px;
+  }
+  #quy-trinh .rescue-title {
+    font-size: 23px;
+  }
+  #quy-trinh .rescue-desc {
+    font-size: 13px;
+  }
+  #quy-trinh .rescue-flow {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  #quy-trinh .rescue-arrow {
+    display: none;
+  }
+  #quy-trinh .rescue-art {
+    width: 112px;
+    height: 92px;
+    margin-bottom: 12px;
+  }
+  #quy-trinh .rescue-art svg {
+    width: 54px;
+    height: 54px;
+  }
+  #quy-trinh .rescue-step h3 {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  #quy-trinh .rescue-step p {
+    font-size: 12px;
+    max-width: 260px;
+    margin-bottom: 14px;
+  }
+  #quy-trinh .rescue-btn {
+    min-height: 36px;
+    padding: 8px 24px;
+    font-size: 13px;
+    width: min(100%, 220px);
+  }
+}
+
+/* ========================================================= */
+/* Danh Mục Nông Sản (Categories) */
+/* ========================================================= */
+
+#danh-muc {
+  scroll-margin-top: 180px;
+  padding: 56px 0 48px;
+  background: #ffffff;
+  width: 100%;
+}
+
+#danh-muc .cat-container {
+  max-width: 80rem; /* max-w-7xl (1280px) */
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+@media (min-width: 640px) {
+  #danh-muc .cat-container {
+    padding: 0 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  #danh-muc .cat-container {
+    padding: 0 2rem;
+  }
+}
+@media (min-width: 1280px) {
+  #danh-muc .cat-container {
+    padding: 0 3rem;
+  }
+}
+
+#danh-muc .cat-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+#danh-muc .cat-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  color: #326318;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#danh-muc .cat-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: #1c1c17;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 6px 0 0;
+}
+
+#danh-muc .cat-link-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #326318;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+  white-space: nowrap;
+}
+
+#danh-muc .cat-link-all:hover {
+  color: #4a7c2f;
+  transform: translateX(3px);
+}
+
+#danh-muc .cat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+#danh-muc .cat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 8px 4px;
+  border-radius: 18px;
+}
+
+#danh-muc .cat-item:hover {
+  transform: translateY(-5px);
+}
+
+#danh-muc .cat-art {
+  width: 132px;
+  height: 108px;
+  display: grid;
+  place-items: center;
+  background: #e1e6d5;
+  color: #62754d;
+  margin-bottom: 16px;
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.3s ease;
+}
+
+#danh-muc .cat-item:hover .cat-art {
+  transform: scale(1.05);
+  filter: drop-shadow(0 6px 16px rgba(98, 117, 77, 0.16));
+}
+
+#danh-muc .cat-item:nth-child(1) .cat-art {
+  border-radius: 36% 58% 35% 60% / 35% 65% 35% 65%;
+}
+#danh-muc .cat-item:nth-child(2) .cat-art {
+  border-radius: 64% 32% 57% 35% / 65% 34% 65% 35%;
+}
+#danh-muc .cat-item:nth-child(3) .cat-art {
+  border-radius: 35% 60% 32% 55% / 37% 62% 35% 57%;
+}
+#danh-muc .cat-item:nth-child(4) .cat-art {
+  border-radius: 66% 32% 58% 34% / 67% 34% 60% 34%;
+}
+#danh-muc .cat-item:nth-child(5) .cat-art {
+  border-radius: 42% 58% 38% 62% / 56% 44% 56% 44%;
+}
+#danh-muc .cat-item:nth-child(6) .cat-art {
+  border-radius: 54% 46% 62% 38% / 46% 54% 46% 54%;
+}
+
+#danh-muc .cat-art svg {
+  width: 66px;
+  height: 66px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#danh-muc .cat-item h3 {
+  color: #2e4b1c;
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+  transition: color 0.2s ease;
+}
+
+#danh-muc .cat-item:hover h3 {
+  color: #4a7c2f;
+}
+
+#danh-muc .cat-item p {
+  color: #71766b;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Tablet (601px - 1023px) */
+@media (min-width: 601px) and (max-width: 1023px) {
+  #danh-muc {
+    padding: 48px 0 36px;
+  }
+  #danh-muc .cat-container {
+    gap: 28px;
+  }
+  #danh-muc .cat-title {
+    font-size: 28px;
+  }
+  #danh-muc .cat-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px 14px;
+  }
+  #danh-muc .cat-art {
+    width: 122px;
+    height: 100px;
+  }
+  #danh-muc .cat-art svg {
+    width: 60px;
+    height: 60px;
+  }
+  #danh-muc .cat-item h3 {
+    font-size: 15.5px;
+  }
+}
+
+/* Mobile (360px - 600px) */
+@media (max-width: 600px) {
+  #danh-muc {
+    padding: 36px 0 28px;
+  }
+  #danh-muc .cat-container {
+    gap: 20px;
+  }
+  #danh-muc .cat-eyebrow {
+    font-size: 11.5px;
+  }
+  #danh-muc .cat-title {
+    font-size: 23px;
+  }
+  #danh-muc .cat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px 10px;
+  }
+  #danh-muc .cat-art {
+    width: 108px;
+    height: 90px;
+    margin-bottom: 10px;
+  }
+  #danh-muc .cat-art svg {
+    width: 52px;
+    height: 52px;
+  }
+  #danh-muc .cat-item h3 {
+    font-size: 14.5px;
+    margin-bottom: 2px;
+  }
+  #danh-muc .cat-item p {
+    font-size: 11.5px;
+  }
+}
+
+/* =========================================================
+   Sửa 03/10/2026 – trang chủ trên mobile
+   ========================================================= */
+
+/* "Xem tất cả" xuống dòng dưới tiêu đề thay vì ép tiêu đề thành cột hẹp
+   (trước đây class Tailwind `hidden` bị rule #danh-muc .cat-link-all ghi đè nên vẫn hiện). */
+@media (max-width: 600px) {
+  #danh-muc .cat-header > div {
+    flex: 1 1 100%;
+  }
+  #danh-muc .cat-link-all {
+    font-size: 13px;
+    min-height: 44px;
+  }
+}
+
+/* Quy trình 4 bước: 2 cột gọn trên mobile thay vì 4 khối xếp dọc (~1.200px) */
+@media (max-width: 600px) {
+  #quy-trinh .rescue-flow {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 12px;
+  }
+  #quy-trinh .rescue-art {
+    width: 88px;
+    height: 72px;
+    margin-bottom: 10px;
+  }
+  #quy-trinh .rescue-art svg {
+    width: 44px;
+    height: 44px;
+  }
+  #quy-trinh .rescue-step p {
+    font-size: 12.5px;
+    margin-bottom: 10px;
+  }
+  #quy-trinh .rescue-btn {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    background: transparent;
+    color: #3e532d !important;
+    border: 1.5px solid #536c3f;
+    box-shadow: none;
+  }
+}
+
+#quy-trinh .rescue-flow {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+#quy-trinh button.rescue-btn {
+  cursor: pointer;
+  font-family: inherit;
+}
+@media (min-width: 601px) {
+  #quy-trinh button.rescue-btn {
+    border: 0;
+  }
+}
+#quy-trinh .rescue-btn:focus-visible,
+#danh-muc .cat-item:focus-visible,
+#danh-muc .cat-link-all:focus-visible {
+  outline: 2px solid #326318;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #danh-muc .cat-item,
+  #danh-muc .cat-art,
+  #quy-trinh .rescue-art,
+  #quy-trinh .rescue-btn {
+    transition: none;
+  }
+  #danh-muc .cat-item:hover,
+  #quy-trinh .rescue-btn:hover {
+    transform: none;
+  }
+}
+
+/* AI section (CapNong AI Core): scan line chạy 1 lần khi đổi mẫu */
+@keyframes aiScan {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+#cong-nghe-ai .ai-scanline {
+  animation: aiScan 1.1s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  #cong-nghe-ai .ai-scanline {
+    animation: none;
+  }
+}

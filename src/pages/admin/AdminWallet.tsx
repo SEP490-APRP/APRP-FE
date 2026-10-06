@@ -1,0 +1,809 @@
+import React, { useState, useEffect, useMemo } from 'react'
+import { Wallet, TrendingUp, Download, Loader2, AlertCircle, XCircle } from 'lucide-react'
+import type { WithdrawRequestResponse } from '@/services'
+import {
+  useAdminWalletOverview,
+  useConfirmWithdraw,
+  useCreateWithdrawQr,
+  useRejectWithdraw,
+} from '@/features/wallet'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
+import { getErrorMessage } from '@/utils'
+
+function getWithdrawOwnerLabel(req: WithdrawRequestResponse): string {
+  if (req.shipperId) return `SHIPPER-${req.shipperId}`
+  if (req.buyerId) return `BUYER-${req.buyerId}`
+  if (req.shopOwnerId) return `SHOP-${req.shopOwnerId}`
+  if (req.walletType === 'MEMBER') return `BUYER-${req.walletId}`
+  if (req.walletType === 'SHIPPER') return `SHIPPER-${req.walletId}`
+  if (req.walletType === 'SHOP') return `SHOP-${req.walletId}`
+  return `WALLET-${req.walletId}`
+}
+
+function getWithdrawOwnerKind(req: WithdrawRequestResponse): 'SHIPPER' | 'BUYER' | 'SHOP' {
+  if (req.shipperId || req.walletType === 'SHIPPER') return 'SHIPPER'
+  if (req.buyerId || req.walletType === 'MEMBER' || req.walletType === 'BUYER') return 'BUYER'
+  return 'SHOP'
+}
+
+function getWithdrawKindBadgeClass(kind: 'SHIPPER' | 'BUYER' | 'SHOP'): string {
+  if (kind === 'SHIPPER') return 'bg-blue-50 text-blue-600'
+  if (kind === 'BUYER') return 'bg-emerald-50 text-emerald-700'
+  return 'bg-purple-50 text-purple-600'
+}
+
+const EMPTY_REQUESTS: WithdrawRequestResponse[] = []
+
+const AdminWallet: React.FC = () => {
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false)
+  const [qrRequest, setQrRequest] = useState<WithdrawRequestResponse | null>(null)
+  const [qrUrl, setQrUrl] = useState<string | null>(null)
+
+  const [isConfirmTransferModalOpen, setIsConfirmTransferModalOpen] = useState(false)
+  const [confirmTransferId, setConfirmTransferId] = useState<number | null>(null)
+  const [confirmTransferFiles, setConfirmTransferFiles] = useState<File[]>([])
+
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
+  const [rejectId, setRejectId] = useState<number | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [rejectFiles, setRejectFiles] = useState<File[]>([])
+
+  const [historyFilter, setHistoryFilter] = useState<'ALL' | 'SUCCESS' | 'REJECTED' | 'PENDING'>(
+    'ALL',
+  )
+
+  const overview = useAdminWalletOverview()
+  const createQr = useCreateWithdrawQr()
+  const confirmWithdraw = useConfirmWithdraw()
+  const rejectWithdraw = useRejectWithdraw()
+
+  const pendingRequests = overview.data?.pending ?? EMPTY_REQUESTS
+  const history = overview.data?.history ?? EMPTY_REQUESTS
+  const platformWallet = overview.data?.platformWallet ?? null
+  // Giống bản cũ: hiện màn tải cả khi tải lại sau mỗi thao tác.
+  const isLoading = overview.isFetching
+  const error = overview.isError
+    ? 'Mất kết nối tải dữ liệu hoặc chưa có dữ liệu. Vui lòng thử lại sau.'
+    : null
+  const isProcessing = createQr.isPending || confirmWithdraw.isPending || rejectWithdraw.isPending
+
+  // PayOS chuyển hướng về kèm ?withdrawId=...: đồng bộ kết quả giải ngân một lần khi mở trang.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const withdrawId = urlParams.get('withdrawId')
+    const cancel = urlParams.get('cancel')
+    if (!withdrawId) return
+
+    window.history.replaceState(null, '', window.location.pathname)
+    if (cancel === 'true') {
+      globalShowAlert('Đã huỷ giao dịch chuyển khoản trên PayOS', 'Thông báo', 'info')
+      return
+    }
+    confirmWithdraw
+      .mutateAsync({ requestId: Number(withdrawId), note: 'Đã giải ngân qua giao diện PayOS' })
+      .then(() => globalShowAlert('Giải ngân PayOS thành công', 'Thành công', 'success'))
+      .catch((err: unknown) =>
+        globalShowAlert(getErrorMessage(err, 'Lỗi khi đồng bộ kết quả PayOS'), 'Lỗi', 'error'),
+      )
+    // Chỉ chạy một lần khi mở trang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleApprove = async (id: number) => {
+    if (
+      !(await globalShowConfirm(
+        'Tạo thanh toán',
+        `Bạn muốn tạo mã QR để chuyển khoản cho yêu cầu #${id}?`,
+      ))
+    )
+      return
+
+    try {
+      const res = await createQr.mutateAsync(id)
+      if (res.result) {
+        setQrRequest(pendingRequests.find((r) => r.id === id) ?? null)
+        setQrUrl(res.result.qrCodeUrl || null)
+        setIsQrModalOpen(true)
+      } else {
+        globalShowAlert('Không thể tạo mã QR, vui lòng thử lại', 'Lỗi', 'error')
+      }
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Có lỗi khi tạo mã QR'), 'Lỗi', 'error')
+    }
+  }
+
+  const handleConfirmTransferClick = (id: number) => {
+    setConfirmTransferId(id)
+    setConfirmTransferFiles([])
+    setIsConfirmTransferModalOpen(true)
+  }
+
+  const handleConfirmTransferSubmit = async () => {
+    if (!confirmTransferId) return
+
+    try {
+      await confirmWithdraw.mutateAsync({
+        requestId: confirmTransferId,
+        files: confirmTransferFiles.length > 0 ? confirmTransferFiles : undefined,
+      })
+      globalShowAlert(
+        `Đã xác nhận chuyển khoản thành công cho yêu cầu #${confirmTransferId}`,
+        'Thành công',
+        'success',
+      )
+      setIsConfirmTransferModalOpen(false)
+      setConfirmTransferId(null)
+      setConfirmTransferFiles([])
+      setIsQrModalOpen(false)
+      setQrUrl(null)
+      setQrRequest(null)
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Có lỗi khi xác nhận chuyển khoản'), 'Lỗi', 'error')
+    }
+  }
+
+  const handleOpenReject = (id: number) => {
+    setRejectId(id)
+    setRejectNote('')
+    setRejectFiles([])
+    setIsRejectModalOpen(true)
+  }
+
+  const submitReject = async () => {
+    if (!rejectId || !rejectNote.trim()) {
+      globalShowAlert('Vui lòng nhập lý do từ chối', 'Lỗi', 'error')
+      return
+    }
+
+    try {
+      await rejectWithdraw.mutateAsync({
+        requestId: rejectId,
+        note: rejectNote,
+        files: rejectFiles.length > 0 ? rejectFiles : undefined,
+      })
+      globalShowAlert(`Đã từ chối yêu cầu #${rejectId}`, 'Thành công', 'success')
+      setIsRejectModalOpen(false)
+      setRejectNote('')
+      setRejectFiles([])
+      setRejectId(null)
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Có lỗi khi từ chối yêu cầu'), 'Lỗi', 'error')
+    }
+  }
+
+  // Calculate statistics from real data
+  const totalWithdrawn = history
+    .filter((h) => h.status === 'SUCCESS')
+    .reduce((sum, h) => sum + h.amount, 0)
+  const totalPending = pendingRequests.reduce((sum, req) => sum + req.amount, 0)
+  const totalRejected = history
+    .filter((h) => h.status === 'REJECTED')
+    .reduce((sum, h) => sum + h.amount, 0)
+  const totalProcessing = history
+    .filter((h) => h.status === 'PENDING')
+    .reduce((sum, h) => sum + h.amount, 0)
+  const platformTotalBalance = platformWallet?.totalBalance ?? 0
+  const platformFrozenBalance = platformWallet?.frozenBalance ?? 0
+  const platformAvailableBalance = Math.max(0, platformTotalBalance - platformFrozenBalance)
+
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'ALL') return history
+    return history.filter((tx) => tx.status === historyFilter)
+  }, [history, historyFilter])
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4">
+        <Loader2 className="size-10 text-primary animate-spin" />
+        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+          Đang tải dữ liệu admin ví...
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Quản lý Ví Sàn</h1>
+        <div className="flex gap-3">
+          <button
+            disabled
+            title="Tính năng đang cập nhật"
+            className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-400 cursor-not-allowed"
+          >
+            Xuất báo cáo
+          </button>
+          <button
+            disabled
+            title="Tính năng đang cập nhật"
+            className="px-4 py-2 bg-primary/60 text-white rounded-xl text-sm font-semibold cursor-not-allowed shadow-sm"
+          >
+            Nạp tiền hệ thống
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-semibold mb-6">
+          <AlertCircle className="size-5" />
+          {error}
+        </div>
+      )}
+
+      {/* Platform Wallet Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Ví sàn - Tổng
+          </p>
+          <h3 className="text-2xl font-black text-gray-900">
+            {platformTotalBalance.toLocaleString('vi-VN')}
+            <span className="text-sm font-normal text-gray-400 ml-1">đ</span>
+          </h3>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm">
+          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">
+            Ví sàn - Khả dụng
+          </p>
+          <h3 className="text-2xl font-black text-emerald-600">
+            {platformAvailableBalance.toLocaleString('vi-VN')}
+            <span className="text-sm font-normal text-emerald-400 ml-1">đ</span>
+          </h3>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
+          <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">
+            Ví sàn - Đang giữ
+          </p>
+          <h3 className="text-2xl font-black text-amber-600">
+            {platformFrozenBalance.toLocaleString('vi-VN')}
+            <span className="text-sm font-normal text-amber-400 ml-1">đ</span>
+          </h3>
+        </div>
+      </div>
+
+      {/* Withdraw & Processing Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Tổng đã giải ngân
+          </p>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            {totalWithdrawn.toLocaleString('vi-VN')}{' '}
+            <span className="text-sm font-normal text-gray-400">đ</span>
+          </h3>
+          <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+            <TrendingUp className="size-3" />
+            Đã thanh toán thành công
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Yêu cầu bị từ chối
+          </p>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            {totalRejected.toLocaleString('vi-VN')}{' '}
+            <span className="text-sm font-normal text-gray-400">đ</span>
+          </h3>
+          <p className="text-xs text-red-600 font-semibold">Tổng tiền từ chối giải ngân</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Đang xử lý
+          </p>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            {totalProcessing.toLocaleString('vi-VN')}{' '}
+            <span className="text-sm font-normal text-gray-400">đ</span>
+          </h3>
+          <p className="text-xs text-amber-600 font-semibold">Trong lịch sử giải ngân</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Đang chờ xử lý
+          </p>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            {totalPending.toLocaleString('vi-VN')}{' '}
+            <span className="text-sm font-normal text-gray-400">đ</span>
+          </h3>
+          <p className="text-xs text-purple-600 font-semibold">{pendingRequests.length} yêu cầu</p>
+        </div>
+      </div>
+
+      {/* Withdrawal Queue */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-8">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-10 bg-amber-50 rounded-xl flex items-center justify-center">
+              <Wallet className="size-5 text-amber-600" />
+            </div>
+            <h3 className="font-bold text-gray-800 uppercase tracking-tight text-sm">
+              Hàng đợi yêu cầu rút tiền
+            </h3>
+          </div>
+          <button
+            disabled
+            title="Tính năng đang cập nhật"
+            className="text-xs font-bold text-gray-400 cursor-not-allowed"
+          >
+            Xử lý hàng loạt
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/50 border-b border-gray-100">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Mã / Chủ ví
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Phân loại
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Số tiền yêu cầu
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Thông tin ngân hàng
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Ngày yêu cầu
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Thao tác
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {pendingRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center opacity-40">
+                      <Wallet className="size-12 mb-3 text-gray-300" />
+                      <p className="text-sm font-medium text-gray-500">
+                        Không có thêm yêu cầu nào đang chờ xử lý.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                pendingRequests.map((req) => {
+                  const kind = getWithdrawOwnerKind(req)
+                  return (
+                    <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-gray-900">
+                            {getWithdrawOwnerLabel(req)}
+                          </span>
+                          <span className="text-xs text-gray-400">Ví ID: {req.walletId}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-2 py-1 text-xs font-bold rounded-md ${getWithdrawKindBadgeClass(kind)}`}
+                        >
+                          {kind}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-bold text-gray-900">
+                          {(req.amount || 0).toLocaleString('vi-VN')}{' '}
+                          <span className="font-normal">đ</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-xs leading-tight">
+                          <p className="font-bold text-gray-700">
+                            {req.bankAccountNumber || '...'}
+                          </p>
+                          <p className="text-gray-400 uppercase">
+                            {req.bankName || 'Chưa cung cấp'}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-500 font-medium">
+                        {req.processedAt
+                          ? new Date(req.processedAt).toLocaleString('vi-VN')
+                          : 'Đang chờ'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleApprove(req.id)}
+                            disabled={isProcessing}
+                            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                          >
+                            DUYỆT
+                          </button>
+                          <button
+                            onClick={() => handleOpenReject(req.id)}
+                            disabled={isProcessing}
+                            className="px-4 py-2 bg-white border border-red-100 text-red-600 text-xs font-bold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
+                          >
+                            TỪ CHỐI
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* History Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <svg
+                className="size-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
+            </div>
+            <h3 className="font-bold text-gray-800 uppercase tracking-tight text-sm">
+              Lịch sử giao dịch chi tiết
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={historyFilter}
+              onChange={(e) =>
+                setHistoryFilter(e.target.value as 'ALL' | 'SUCCESS' | 'REJECTED' | 'PENDING')
+              }
+              className="text-xs font-semibold border-gray-200 rounded-lg bg-gray-50 px-3 py-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="ALL">Tất cả giao dịch</option>
+              <option value="SUCCESS">Thành công</option>
+              <option value="REJECTED">Từ chối</option>
+              <option value="PENDING">Đang xử lý</option>
+            </select>
+            <button
+              disabled
+              title="Tính năng đang cập nhật"
+              className="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <Download className="size-4" />
+              TẢI SAO KÊ
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/50 border-b border-gray-100">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Mã GD
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Loại
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Đối tác
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Số tiền
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Thời gian
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Trạng thái
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Ghi chú
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center opacity-40">
+                      <svg
+                        className="size-12 mb-3 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <p className="text-sm font-medium text-gray-500">
+                        Không có lịch sử giao dịch.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredHistory.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 text-xs font-bold text-gray-900">#{tx.id}</td>
+                    <td className="px-6 py-4">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600">
+                        <span className="size-1.5 rounded-full bg-purple-600"></span>
+                        RÚT TIỀN
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium text-gray-600">
+                      {getWithdrawOwnerLabel(tx)}
+                    </td>
+                    <td className="px-6 py-4 text-right text-xs font-bold text-gray-900">
+                      {tx.status === 'SUCCESS' ? '-' : ''}
+                      {(tx.amount || 0).toLocaleString('vi-VN')} đ
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-400">
+                      {tx.processedAt ? new Date(tx.processedAt).toLocaleString('vi-VN') : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          tx.status === 'SUCCESS'
+                            ? 'bg-green-50 text-green-600'
+                            : tx.status === 'REJECTED'
+                              ? 'bg-red-50 text-red-600'
+                              : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {tx.status === 'SUCCESS'
+                          ? 'THÀNH CÔNG'
+                          : tx.status === 'REJECTED'
+                            ? 'TỪ CHỐI'
+                            : 'ĐANG XỬ LÝ'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-400 max-w-[200px] truncate">
+                      {tx.adminNote || `${tx.bankName} - ${tx.bankAccountNumber}`}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex items-center justify-between">
+          <span className="text-xs text-gray-400 font-medium">
+            Hiển thị {filteredHistory.length} / {history.length} giao dịch
+          </span>
+        </div>
+      </div>
+
+      {/* QR Code Modal */}
+      {isQrModalOpen && qrUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => {
+            setIsQrModalOpen(false)
+            setQrUrl(null)
+            setQrRequest(null)
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setIsQrModalOpen(false)
+                setQrUrl(null)
+                setQrRequest(null)
+              }}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <XCircle className="size-6" />
+            </button>
+            <h3 className="text-2xl font-black text-gray-900 mb-2">Mã QR Chuyển Khoản</h3>
+            <p className="text-sm text-gray-500 mb-6">Quét mã QR để thực hiện chuyển khoản</p>
+
+            <div className="bg-gray-50 p-4 rounded-2xl mb-6 flex items-center justify-center">
+              <img src={qrUrl} alt="QR Code" className="w-64 h-64 object-contain" />
+            </div>
+
+            {qrRequest && (
+              <div className="bg-blue-50 rounded-2xl p-4 mb-6 space-y-2">
+                <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                  Thông tin chuyển khoản
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-bold">Số tiền:</span>{' '}
+                  {(qrRequest.receiveAmount ?? qrRequest.amount).toLocaleString('vi-VN')} đ
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-bold">Tài khoản:</span> {qrRequest.bankAccountNumber}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-bold">Ngân hàng:</span> {qrRequest.bankName}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => handleConfirmTransferClick(qrRequest?.id || 0)}
+                className="flex-1 py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+              >
+                ĐÃ CHUYỂN KHOẢN
+              </button>
+              <button
+                onClick={() => {
+                  setIsQrModalOpen(false)
+                  setQrUrl(null)
+                  setQrRequest(null)
+                }}
+                className="px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Transfer Modal */}
+      {isConfirmTransferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-black text-gray-900 mb-2">
+              Xác Nhận Chuyển Khoản Thành Công
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">Hãy tải lên ảnh chứng minh chuyển khoản</p>
+
+            {/* File Upload Section - Optional */}
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">
+                Ảnh chứng minh
+              </label>
+              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center hover:border-gray-300 transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    setConfirmTransferFiles(files)
+                  }}
+                  className="hidden"
+                  id="confirm-transfer-file-input"
+                />
+                <label htmlFor="confirm-transfer-file-input" className="cursor-pointer block">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Click để chọn ảnh
+                  </p>
+                  {confirmTransferFiles.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {confirmTransferFiles.map((file, idx) => (
+                        <p key={idx} className="text-xs text-gray-600">
+                          {file.name}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                disabled={isProcessing}
+                onClick={handleConfirmTransferSubmit}
+                className="flex-1 py-4 bg-green-500 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all disabled:opacity-50"
+              >
+                XÁC NHẬN
+              </button>
+              <button
+                onClick={() => {
+                  setIsConfirmTransferModalOpen(false)
+                  setConfirmTransferId(null)
+                  setConfirmTransferFiles([])
+                }}
+                disabled={isProcessing}
+                className="px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all disabled:opacity-50"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-black text-gray-900 mb-2">Từ chối Yêu Cầu #{rejectId}</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Xin vui lòng nhập lý do từ chối để thông báo cho người dùng.
+            </p>
+
+            <textarea
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              className="w-full h-24 px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500/20 transition-all resize-none mb-4"
+              placeholder="Lý do từ chối (VD: Thông tin tài khoản sai lệch...)"
+            />
+
+            {/* File Upload Section - Optional */}
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">
+                Ảnh chứng minh
+              </label>
+              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center hover:border-gray-300 transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    setRejectFiles(files)
+                  }}
+                  className="hidden"
+                  id="reject-file-input"
+                />
+                <label htmlFor="reject-file-input" className="cursor-pointer block">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Click để chọn ảnh
+                  </p>
+                  {rejectFiles.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {rejectFiles.map((file, idx) => (
+                        <p key={idx} className="text-xs text-gray-600">
+                          {file.name}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                disabled={isProcessing}
+                onClick={submitReject}
+                className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all disabled:opacity-50"
+              >
+                XÁC NHẬN TỪ CHỐI
+              </button>
+              <button
+                onClick={() => {
+                  setIsRejectModalOpen(false)
+                  setRejectNote('')
+                  setRejectFiles([])
+                  setRejectId(null)
+                }}
+                disabled={isProcessing}
+                className="px-6 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all disabled:opacity-50"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default AdminWallet

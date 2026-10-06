@@ -1,0 +1,891 @@
+﻿import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft,
+  Grid,
+  List,
+  Filter,
+  Star,
+  ShoppingCart,
+  Heart,
+  MessageCircle,
+  Clock,
+  Package,
+  TrendingUp,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Gift,
+  Share2,
+  Copy,
+  Check,
+  X,
+  ThumbsUp,
+  ThumbsDown,
+} from 'lucide-react'
+const Facebook = ({ className }: { className?: string }) => (<svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>);
+
+import { useAddToCart } from '@/features/cart'
+import { useShopMysteryBoxes } from '@/features/mystery-box'
+import { useShopProducts } from '@/features/product'
+import { useReactToReview, useShopReviews } from '@/features/review'
+import { useUser } from '@/features/user'
+import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
+import { globalShowAlert } from '@/components/common/Popup'
+import { absoluteUrl, getErrorMessage } from '@/utils'
+
+interface ShopProductsProps {
+  shopId: number
+  onBack: () => void
+  isAuthenticated?: boolean
+  onOpenLogin?: () => void
+}
+
+const ShopProducts: React.FC<ShopProductsProps> = ({
+  shopId,
+  onBack,
+  isAuthenticated = false,
+  onOpenLogin = () => {},
+}) => {
+  const navigate = useNavigate()
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState('default')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const productsQuery = useShopProducts(shopId)
+  const shopQuery = useUser(shopId)
+  const reviewsQuery = useShopReviews(shopId)
+  const boxesQuery = useShopMysteryBoxes(shopId)
+  const products = productsQuery.data ?? []
+  const shopInfo = shopQuery.data ?? null
+  const reviews = reviewsQuery.data ?? []
+  const mysteryBoxes = boxesQuery.data ?? []
+  // NhÆ° báº£n cÅ©: chá» Ä‘á»§ 4 nguá»“n; nguá»“n nÃ o lá»—i thÃ¬ coi nhÆ° rá»—ng.
+  const loading =
+    productsQuery.isPending || shopQuery.isPending || reviewsQuery.isPending || boxesQuery.isPending
+
+  const vouchersQuery = useShopVouchers(shopId, 0, 3, isAuthenticated)
+  const shopVouchers = vouchersQuery.data?.vouchers ?? []
+  const canReceiveMap = vouchersQuery.data?.canReceive ?? {}
+  const voucherLoading = vouchersQuery.isFetching
+  const voucherError = vouchersQuery.isError ? 'KhÃ´ng táº£i Ä‘Æ°á»£c voucher cá»§a shop.' : null
+
+  const addToCart = useAddToCart()
+  const addingToCart = addToCart.isPending ? (addToCart.variables.productId ?? null) : null
+  const addingBoxToCart = addToCart.isPending ? (addToCart.variables.mysteryBoxId ?? null) : null
+  const receiveVoucher = useReceiveVoucher()
+  const receivingVoucher = receiveVoucher.isPending ? receiveVoucher.variables : null
+  const reactToReview = useReactToReview()
+  const reactingReviewId = reactToReview.isPending ? reactToReview.variables.reviewId : null
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
+  const handleAddToCart = async (productId: number) => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    try {
+      await addToCart.mutateAsync({ productId, quantity: 1, quantityKg: 1 })
+      window.dispatchEvent(new Event('cart-updated'))
+      globalShowAlert('ÄÃ£ thÃªm vÃ o giá» hÃ ng!', 'ThÃ nh cÃ´ng', 'success')
+    } catch {
+      globalShowAlert('KhÃ´ng thá»ƒ thÃªm vÃ o giá» hÃ ng. Vui lÃ²ng thá»­ láº¡i.', 'Lá»—i', 'error')
+    }
+  }
+
+  const handleAddBoxToCart = async (boxId: number) => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    try {
+      await addToCart.mutateAsync({ mysteryBoxId: boxId, quantity: 1 })
+      window.dispatchEvent(new Event('cart-updated'))
+      globalShowAlert('ÄÃ£ thÃªm tÃºi mÃ¹ vÃ o giá» hÃ ng!', 'ThÃ nh cÃ´ng', 'success')
+    } catch {
+      globalShowAlert('KhÃ´ng thá»ƒ thÃªm vÃ o giá» hÃ ng. Vui lÃ²ng thá»­ láº¡i.', 'Lá»—i', 'error')
+    }
+  }
+
+  const handleReceiveVoucher = async (voucherCode: string) => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    try {
+      await receiveVoucher.mutateAsync(voucherCode)
+      globalShowAlert('ÄÃ£ lÆ°u voucher vÃ o kho cá»§a báº¡n.', 'ThÃ nh cÃ´ng', 'success')
+    } catch (err) {
+      globalShowAlert(
+        getErrorMessage(err, 'KhÃ´ng thá»ƒ nháº­n voucher. Vui lÃ²ng thá»­ láº¡i.'),
+        'Lá»—i',
+        'error',
+      )
+    }
+  }
+
+  const handleReact = async (reviewId: number, reactionType: 'LIKE' | 'DISLIKE') => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    if (reactingReviewId === reviewId) return
+    try {
+      await reactToReview.mutateAsync({ reviewId, reaction: reactionType })
+    } catch {
+      /* silent */
+    }
+  }
+
+  const handleChatNow = () => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    window.dispatchEvent(
+      new CustomEvent('open-chat-with-user', {
+        detail: { userId: shopId, userName: shopName },
+      }),
+    )
+  }
+
+  // Filter and sort products
+  let filteredProducts = products
+
+  if (sortBy === 'asc') {
+    filteredProducts = [...filteredProducts].sort(
+      (a, b) =>
+        (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0) -
+        (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0),
+    )
+  } else if (sortBy === 'desc') {
+    filteredProducts = [...filteredProducts].sort(
+      (a, b) =>
+        (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0) -
+        (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0),
+    )
+  } else if (sortBy === 'name') {
+    filteredProducts = [...filteredProducts].sort((a, b) =>
+      a.productName.localeCompare(b.productName),
+    )
+  }
+
+  const activeProducts = products.filter(
+    (p) => (p.stockKg ?? p.stockQuantity ?? p.stock ?? 0) > 0,
+  ).length
+
+  // Calculate average rating
+  const calculateAverageRating = () => {
+    if (reviews.length === 0) return 0
+    const sum = reviews.reduce((acc, rev) => acc + rev.ratingStar, 0)
+    return (sum / reviews.length).toFixed(1)
+  }
+
+  const averageRating = calculateAverageRating()
+
+  // Get shop name from shopInfo first, then from first product, then fallback
+  const shopName =
+    shopInfo?.shopName ||
+    shopInfo?.fullName ||
+    (products.length > 0 ? products[0].shopName : null) ||
+    'Cá»­a hÃ ng'
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="size-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-sm text-gray-600 font-medium">Äang táº£i thÃ´ng tin cá»­a hÃ ng...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold text-sm transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Quay láº¡i
+          </button>
+          <h3 className="font-black text-gray-900 text-lg">{shopName}</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-lg transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-gray-100 text-gray-400'
+              }`}
+            >
+              <Grid className="size-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-gray-100 text-gray-400'
+              }`}
+            >
+              <List className="size-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Shop Info Card */}
+      <div className="bg-gradient-to-br from-green-50 to-blue-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Shop Avatar */}
+            <div className="size-20 rounded-2xl overflow-hidden bg-gradient-to-br from-green-100 to-blue-100 flex-shrink-0 border-4 border-white shadow-lg">
+              <img
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(shopName)}&background=63b34a&color=fff&size=200&bold=true`}
+                alt={shopName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Shop Info */}
+            <div className="flex-1">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 mb-1">{shopName}</h2>
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    {shopInfo?.status === 'ACTIVE' && (
+                      <span className="flex items-center gap-1 text-primary font-bold">
+                        <ShieldCheck className="size-3.5" />
+                        ÄÃ£ xÃ¡c thá»±c
+                      </span>
+                    )}
+                    {shopInfo?.address && (
+                      <span className="flex items-center gap-1 text-gray-600 font-medium">
+                        <MapPin className="size-3.5" />
+                        {shopInfo.address}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button className="text-red-500 hover:scale-110 transition-transform">
+                  <Heart className="size-5" />
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Package className="size-4 text-blue-600" />
+                    <span className="text-lg font-black text-gray-900">{products.length}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Sáº£n pháº©m</p>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="size-4 text-primary" />
+                    <span className="text-lg font-black text-gray-900">{activeProducts}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Äang bÃ¡n</p>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Star className="size-4 text-yellow-600" />
+                    <span className="text-lg font-black text-gray-900">
+                      {reviews.length > 0 ? averageRating : 'N/A'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">
+                    ÄÃ¡nh giÃ¡ {reviews.length > 0 && `(${reviews.length})`}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="size-4 text-purple-600" />
+                    <span className="text-lg font-black text-gray-900">Online</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Tráº¡ng thÃ¡i</p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={handleChatNow}
+                  className="px-4 py-2 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary-dark transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+                >
+                  <MessageCircle className="size-3.5" />
+                  Chat ngay
+                </button>
+                <button className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200">
+                  <Heart className="size-3.5" />
+                  Theo dÃµi
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowShareMenu((v) => !v)}
+                    className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200"
+                  >
+                    <Share2 className="size-3.5" />
+                    Chia sáº»
+                  </button>
+                  {showShareMenu && (
+                    <div className="absolute left-0 top-11 z-30 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 w-52 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                          Chia sáº» cá»­a hÃ ng
+                        </p>
+                        <button
+                          onClick={() => setShowShareMenu(false)}
+                          className="size-5 flex items-center justify-center hover:bg-gray-100 rounded-lg"
+                        >
+                          <X className="size-3 text-gray-400" />
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(absoluteUrl(`/cua-hang/${shopId}`))
+                            setCopied(true)
+                            setTimeout(() => setCopied(false), 2000)
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-700 transition-colors"
+                        >
+                          {copied ? (
+                            <Check className="size-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="size-3.5 text-gray-400" />
+                          )}
+                          {copied ? 'ÄÃ£ sao chÃ©p!' : 'Sao chÃ©p link'}
+                        </button>
+                        <button
+                          onClick={() =>
+                            window.open(
+                              `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absoluteUrl(`/cua-hang/${shopId}`))}`,
+                              '_blank',
+                              'width=600,height=400',
+                            )
+                          }
+                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-600 transition-colors"
+                        >
+                          <Facebook className="size-3.5" /> Facebook
+                        </button>
+                        <button
+                          onClick={() => {
+                            const rawUrl = absoluteUrl(`/cua-hang/${shopId}`)
+                            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                            if (isMobile) {
+                              window.location.href = `zalo://share?url=${encodeURIComponent(rawUrl)}`
+                            } else {
+                              navigator.clipboard.writeText(rawUrl)
+                              alert('ÄÃ£ sao chÃ©p link! Má»Ÿ Zalo vÃ  dÃ¡n vÃ o há»™i thoáº¡i Ä‘á»ƒ chia sáº».')
+                            }
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-500 transition-colors"
+                        >
+                          <span className="size-3.5 rounded-full bg-blue-500 text-white text-[7px] font-black flex items-center justify-center flex-shrink-0">
+                            Z
+                          </span>
+                          Zalo
+                        </button>
+                        <button
+                          onClick={() => {
+                            const rawUrl = absoluteUrl(`/cua-hang/${shopId}`)
+                            const url = encodeURIComponent(rawUrl)
+                            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                            if (isMobile) {
+                              window.location.href = `fb-messenger://share?link=${url}`
+                            } else {
+                              window.open(
+                                `https://www.facebook.com/dialog/send?link=${url}&app_id=&redirect_uri=${url}`,
+                                '_blank',
+                                'width=600,height=400',
+                              )
+                            }
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-indigo-600 transition-colors"
+                        >
+                          <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.913 1.405 5.514 3.608 7.24V22l3.259-1.793c.872.242 1.795.372 2.748.372 5.523 0 10-4.145 10-9.336C21.615 6.145 17.523 2 12 2zm1.067 12.573l-2.545-2.715-4.965 2.715 5.463-5.8 2.609 2.715 4.9-2.715-5.462 5.8z" />
+                          </svg>
+                          Messenger
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          {shopInfo?.description && (
+            <div className="mt-4 p-4 bg-white rounded-xl border border-gray-100">
+              <p className="text-sm text-gray-600 font-medium">{shopInfo.description}</p>
+            </div>
+          )}
+
+          <div className="mt-4 bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Gift className="size-5 text-primary" />
+                <h3 className="text-sm font-black text-gray-900">Voucher cá»§a shop</h3>
+              </div>
+              <button
+                onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
+                className="text-xs font-black text-primary hover:text-primary-dark"
+              >
+                Xem táº¥t cáº£
+              </button>
+            </div>
+
+            {voucherLoading ? (
+              <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
+                Äang táº£i voucher...
+              </div>
+            ) : voucherError ? (
+              <div className="rounded-2xl bg-red-50 p-4 text-xs font-bold text-red-600">
+                {voucherError}
+              </div>
+            ) : shopVouchers.length === 0 ? (
+              <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
+                Shop hiá»‡n chÆ°a cÃ³ voucher Ä‘á»ƒ nháº­n.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {shopVouchers.map((voucher) => {
+                  const canReceive = canReceiveMap[voucher.voucherCode] !== false
+                  return (
+                    <div
+                      key={voucher.voucherCode}
+                      className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 flex flex-col gap-3"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-primary">{voucher.voucherCode}</p>
+                        <p className="mt-1 text-lg font-black text-gray-900">
+                          Giáº£m {voucher.discountValue}%
+                        </p>
+                        <p className="text-xs text-gray-500 font-bold">
+                          Tá»‘i Ä‘a {Number(voucher.maxDiscount).toLocaleString('vi-VN')}Ä‘ Â· ÄÆ¡n tá»«{' '}
+                          {Number(voucher.minOrderValue).toLocaleString('vi-VN')}Ä‘
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleReceiveVoucher(voucher.voucherCode)}
+                        disabled={
+                          receivingVoucher === voucher.voucherCode ||
+                          (isAuthenticated && !canReceive)
+                        }
+                        className="w-full rounded-xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:bg-gray-200 disabled:text-gray-500"
+                      >
+                        {receivingVoucher === voucher.voucherCode
+                          ? 'Äang lÆ°u...'
+                          : isAuthenticated && !canReceive
+                            ? 'ÄÃ£ nháº­n'
+                            : 'Nháº­n voucher'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar Filter */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm sticky top-20">
+              <div className="flex items-center gap-2 mb-5">
+                <Filter className="size-4 text-primary" />
+                <h3 className="font-black text-gray-900 text-sm">Bá»™ lá»c</h3>
+              </div>
+
+              <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4">
+                <h4 className="font-black text-gray-700 text-xs mb-2 uppercase">
+                  ÄÆ¡n vá»‹ thá»‘ng nháº¥t
+                </h4>
+                <p className="text-xs font-bold text-gray-500">Táº¥t cáº£ sáº£n pháº©m Ä‘Æ°á»£c bÃ¡n theo kg.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              {/* Controls */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-100">
+                <p className="text-sm font-bold text-gray-600">
+                  Hiá»ƒn thá»‹{' '}
+                  <span className="text-primary font-black">{filteredProducts.length}</span> sáº£n
+                  pháº©m
+                </p>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:border-gray-300 transition-colors"
+                >
+                  <option value="default">Máº·c Ä‘á»‹nh</option>
+                  <option value="name">TÃªn A-Z</option>
+                  <option value="asc">GiÃ¡: Tháº¥p â†’ Cao</option>
+                  <option value="desc">GiÃ¡: Cao â†’ Tháº¥p</option>
+                </select>
+              </div>
+
+              {/* Products */}
+              {filteredProducts.length > 0 ? (
+                <div
+                  className={`grid gap-5 ${
+                    viewMode === 'grid'
+                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                      : 'grid-cols-1'
+                  }`}
+                >
+                  {filteredProducts.map((product) => {
+                    const basePricePerKg = product.pricePerKg ?? product.sellingPrice ?? 0
+                    return (
+                      <div
+                        key={product.id}
+                        className={`group ${viewMode === 'list' ? 'flex gap-4' : ''}`}
+                      >
+                        {/* Image */}
+                        <div
+                          className={`relative ${
+                            viewMode === 'list' ? 'w-32 h-32' : 'aspect-square'
+                          } rounded-xl overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-primary/50 transition-all flex-shrink-0`}
+                        >
+                          <img
+                            src={
+                              product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`
+                            }
+                            alt={product.productName}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <=
+                            0 && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <span className="text-white text-xs font-black">Háº¿t hÃ ng</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleAddToCart(product.id)}
+                            disabled={
+                              (product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <=
+                                0 || addingToCart === product.id
+                            }
+                            className={`absolute ${
+                              viewMode === 'list'
+                                ? 'bottom-2 right-2 size-8'
+                                : 'bottom-3 right-3 size-10'
+                            } bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {addingToCart === product.id ? (
+                              <Loader2
+                                className={`${viewMode === 'list' ? 'size-4' : 'size-5'} animate-spin`}
+                              />
+                            ) : (
+                              <ShoppingCart className={viewMode === 'list' ? 'size-4' : 'size-5'} />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 mt-3">
+                          <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                            {product.productName}
+                          </h4>
+                          <p className="text-xs text-gray-500 font-medium mb-2">ÄÆ¡n vá»‹: kg</p>
+
+                          <div className="flex flex-col gap-0.5 mb-2">
+                            {product.salePrice != null && product.salePrice > 0 ? (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs text-red-500 line-through font-semibold">
+                                    {basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg
+                                  </span>
+                                  <span className="bg-primary text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                                    -{product.discountPercent}%
+                                  </span>
+                                </div>
+                                <span className="text-lg font-black text-primary">
+                                  {product.salePrice.toLocaleString('vi-VN')}Ä‘/kg
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-lg font-black text-primary">
+                                {basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-gray-500 font-medium">
+                              CÃ²n:{' '}
+                              {(
+                                product.stockKg ??
+                                product.stockQuantity ??
+                                product.stock ??
+                                0
+                              ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
+                              kg
+                            </span>
+                            {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) >
+                            0 ? (
+                              <span className="text-[10px] text-primary font-bold">CÃ²n hÃ ng</span>
+                            ) : (
+                              <span className="text-[10px] text-red-600 font-bold">Háº¿t hÃ ng</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="py-16 text-center">
+                  <Package className="size-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 font-medium">KhÃ´ng cÃ³ sáº£n pháº©m nÃ o</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mystery Boxes Section */}
+        {mysteryBoxes.length > 0 && (
+          <div className="mt-6">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div className="size-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Gift className="size-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">TÃºi MÃ¹ Cá»§a Shop</h3>
+                  <p className="text-xs text-gray-400 font-bold">
+                    {mysteryBoxes.length} tÃºi mÃ¹ Ä‘ang bÃ¡n
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {mysteryBoxes.map((box) => (
+                  <div
+                    key={box.id}
+                    className="group relative bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100 overflow-hidden hover:shadow-lg hover:border-purple-200 transition-all"
+                  >
+                    {/* Image */}
+                    <div className="relative aspect-square overflow-hidden bg-purple-100">
+                      {box.imageUrl ? (
+                        <img
+                          src={box.imageUrl}
+                          alt={box.boxType}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-purple-300">
+                          <Gift className="size-16" />
+                          <span className="text-4xl font-black text-purple-200">?</span>
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                        <Gift className="size-3 text-yellow-400" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                          BÃ­ áº©n
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleAddBoxToCart(box.id)}
+                        disabled={addingBoxToCart === box.id}
+                        className="absolute bottom-3 right-3 size-10 bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95 disabled:opacity-50"
+                      >
+                        {addingBoxToCart === box.id ? (
+                          <Loader2 className="size-5 animate-spin" />
+                        ) : (
+                          <ShoppingCart className="size-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Info */}
+                    <div className="p-4">
+                      <h4 className="font-black text-gray-800 text-sm mb-1 line-clamp-1">
+                        {box.boxType}
+                      </h4>
+                      {box.description && (
+                        <p className="text-xs text-gray-500 font-medium mb-2 line-clamp-2">
+                          {box.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-lg font-black text-primary">
+                          {box.price.toLocaleString('vi-VN')}Ä‘
+                        </span>
+                        <button
+                          onClick={() => handleAddBoxToCart(box.id)}
+                          disabled={addingBoxToCart === box.id}
+                          className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {addingBoxToCart === box.id ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <ShoppingCart className="size-3" />
+                          )}
+                          ThÃªm vÃ o giá»
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reviews Section */}
+        {reviews.length > 0 && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">ÄÃ¡nh giÃ¡ tá»« khÃ¡ch hÃ ng</h3>
+                  <p className="text-sm text-gray-500 font-medium mt-1">
+                    {reviews.length} Ä‘Ã¡nh giÃ¡ â€¢ Trung bÃ¬nh {averageRating}/5.0
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex text-yellow-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`size-5 ${i < Math.round(Number(averageRating)) ? 'fill-yellow-400' : 'text-gray-200'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-2xl font-black text-gray-900">{averageRating}</span>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {reviews.map((review) => {
+                  const isLiked = review.currentUserReaction === 'LIKE'
+                  const isDisliked = review.currentUserReaction === 'DISLIKE'
+                  const isReacting = reactingReviewId === review.id
+                  return (
+                    <div
+                      key={review.id}
+                      className="flex gap-4 pb-6 border-b border-gray-50 last:border-0 last:pb-0"
+                    >
+                      {/* Avatar */}
+                      <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-sm border border-primary/20 shrink-0">
+                        {review.fullName ? review.fullName.charAt(0).toUpperCase() : 'U'}
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-bold text-gray-900 text-sm">
+                              {review.fullName || `KhÃ¡ch hÃ ng #${review.buyerId}`}
+                            </h4>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {review.createAt
+                                ? new Date(review.createAt).toLocaleDateString('vi-VN')
+                                : 'Gáº§n Ä‘Ã¢y'}
+                            </p>
+                            <div className="flex text-yellow-400 mt-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`size-3 ${i < review.ratingStar ? 'fill-yellow-400' : 'text-gray-200'}`}
+                                />
+                              ))}
+                            </div>
+                            {(review.productName || review.boxType) && (
+                              <p className="text-[10px] text-gray-400 mt-0.5 italic">
+                                {review.productName
+                                  ? `SP: ${review.productName}`
+                                  : `TÃºi mÃ¹: ${review.boxType}`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                              Há»¯u Ã­ch?
+                            </span>
+                            <button
+                              onClick={() => handleReact(review.id, 'LIKE')}
+                              disabled={isReacting}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${isLiked ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-600'} disabled:opacity-50`}
+                            >
+                              <ThumbsUp className="size-3" />({review.likeCount ?? 0})
+                            </button>
+                            <button
+                              onClick={() => handleReact(review.id, 'DISLIKE')}
+                              disabled={isReacting}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${isDisliked ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-200 hover:border-red-400 hover:text-red-500'} disabled:opacity-50`}
+                            >
+                              <ThumbsDown className="size-3" />({review.dislikeCount ?? 0})
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-700 text-sm leading-relaxed mb-3">
+                          {review.comment}
+                        </p>
+
+                        {review.evidence && (
+                          <div className="mb-3 rounded-xl overflow-hidden border border-gray-200 w-24 aspect-square">
+                            <img
+                              src={review.evidence}
+                              alt="Báº±ng chá»©ng"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+
+                        {/* Shop Reply */}
+                        {review.replyFromShop && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="size-5 bg-primary rounded-full flex items-center justify-center text-white">
+                                <MessageCircle className="size-3" />
+                              </div>
+                              <span className="text-xs font-black text-gray-900">
+                                Pháº£n há»“i tá»« Shop
+                              </span>
+                            </div>
+                            <p className="text-gray-600 text-sm pl-7 italic">
+                              {review.replyFromShop}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default ShopProducts
+

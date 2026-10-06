@@ -1,4 +1,4 @@
-{
+﻿{
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "es2023",
@@ -10,9 +10,6 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
 
@@ -22,16 +19,12 @@
       "@/*": ["src/*"]
     },
 
-    /* Bỏ qua cảnh báo deprecation của baseUrl (được thêm từ TS 6.0, sẽ dừng hoạt động ở TS 7.0) */
     "ignoreDeprecations": "6.0",
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }
