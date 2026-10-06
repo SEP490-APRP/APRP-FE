@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import {
   createHashRouter,
   Navigate,
@@ -7,35 +8,50 @@ import {
   useParams,
 } from 'react-router-dom'
 import StorefrontLayout, { useStorefront } from '@/app/layouts/StorefrontLayout'
-import AdminPortal from '@/pages/admin/AdminPortal'
-import AiPage from '@/pages/AiPage'
-import AuthPage from '@/pages/AuthPage'
-import Combos from '@/pages/Combos'
-import FarmerPortal from '@/pages/farmer/FarmerPortal'
-import FarmerStoriesPage from '@/pages/FarmerStoriesPage'
-import Fresh from '@/pages/Fresh'
-import Home from '@/pages/Home'
-import NotFoundPage from '@/pages/NotFoundPage'
-import PrivacyPolicy from '@/pages/PrivacyPolicy'
-import ProductDetail from '@/pages/product/ProductDetail'
-import ShopPage from '@/pages/product/ShopPage'
-import ShopVouchers from '@/pages/product/ShopVouchers'
-import ForgotPasswordPage from '@/pages/ForgotPasswordPage/ForgotPasswordPage'
-import OtpVerificationPage from '@/pages/OtpVerificationPage/OtpVerificationPage'
 import RequireRole from './RequireRole'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
+import type { AuthUser } from '@/types/auth.types'
+
+// ---- Code Splitting: Lazy load các trang lớn & các trang phụ để tối ưu First Load Bundle ----
+const Home = lazy(() => import('@/pages/Home'))
+const Fresh = lazy(() => import('@/pages/Fresh'))
+const Combos = lazy(() => import('@/pages/Combos'))
+const AiPage = lazy(() => import('@/pages/AiPage'))
+const FarmerStoriesPage = lazy(() => import('@/pages/FarmerStoriesPage'))
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'))
+const ProductDetail = lazy(() => import('@/pages/product/ProductDetail'))
+const ShopPage = lazy(() => import('@/pages/product/ShopPage'))
+const ShopVouchers = lazy(() => import('@/pages/product/ShopVouchers'))
+const AuthPage = lazy(() => import('@/pages/AuthPage'))
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage/ForgotPasswordPage'))
+const OtpVerificationPage = lazy(() => import('@/pages/OtpVerificationPage/OtpVerificationPage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+
+// Các portal nghiệp vụ nặng (Admin: 14 subpages, Farmer: 18 subpages) -> Chỉ tải khi vào portal
+const AdminPortal = lazy(() => import('@/pages/admin/AdminPortal'))
+const FarmerPortal = lazy(() => import('@/pages/farmer/FarmerPortal'))
 
 // Id mặc định khi URL thiếu id (giữ hành vi của App.tsx cũ).
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
 
-import type { AuthUser } from '@/types/auth.types'
+/** Loading fallback thanh thoát chuẩn thương hiệu CapNong */
+function PageLoading() {
+  return (
+    <div className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 p-8">
+      <div className="h-9 w-9 animate-spin rounded-full border-3 border-[#e5e2da] border-t-[#326318]" />
+      <span className="text-xs font-semibold text-[#5f6b57]">Đang tải dữ liệu...</span>
+    </div>
+  )
+}
 
-/** Layout gốc: gom thẻ cuộn lên đầu trang khi đổi route */
+/** Layout gốc: bọc Suspense để hiển thị loading êm ái khi tải các chunk mã nguồn */
 function RootLayout() {
   return (
     <div className="min-h-screen bg-sand text-soil-800 antialiased font-sans">
-      <Outlet />
+      <Suspense fallback={<PageLoading />}>
+        <Outlet />
+      </Suspense>
     </div>
   )
 }
@@ -71,32 +87,56 @@ function ShopVouchersAlias() {
 
 function HomeRoute() {
   const { onAdd, onInfo, cart } = useStorefront()
-  return <Home onAdd={onAdd} onInfo={onInfo} cart={cart} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Home onAdd={onAdd} onInfo={onInfo} cart={cart} />
+    </Suspense>
+  )
 }
 
 function FreshRoute() {
   const { query, setQuery, onAdd, onInfo, cart } = useStorefront()
-  return <Fresh query={query} setQuery={setQuery} onAdd={onAdd} onInfo={onInfo} cart={cart} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Fresh query={query} setQuery={setQuery} onAdd={onAdd} onInfo={onInfo} cart={cart} />
+    </Suspense>
+  )
 }
 
 function CombosRoute() {
   const { onAdd, onInfo } = useStorefront()
-  return <Combos onAdd={onAdd} onInfo={onInfo} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Combos onAdd={onAdd} onInfo={onInfo} />
+    </Suspense>
+  )
 }
 
 function AiRoute() {
   const { onInfo } = useStorefront()
-  return <AiPage onInfo={onInfo} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <AiPage onInfo={onInfo} />
+    </Suspense>
+  )
 }
 
 function StoriesRoute() {
   const { onAdd, onInfo } = useStorefront()
-  return <FarmerStoriesPage onAdd={onAdd} onInfo={onInfo} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <FarmerStoriesPage onAdd={onAdd} onInfo={onInfo} />
+    </Suspense>
+  )
 }
 
 function PrivacyRoute() {
   const navigate = useNavigate()
-  return <PrivacyPolicy onNavigateHome={() => navigate('/')} />
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <PrivacyPolicy onNavigateHome={() => navigate('/')} />
+    </Suspense>
+  )
 }
 
 function ProductRoute() {
@@ -104,7 +144,9 @@ function ProductRoute() {
   const navigate = useNavigate()
   return (
     <div className="pt-6">
-      <ProductDetail productId={productId} onBack={() => navigate('/')} />
+      <Suspense fallback={<PageLoading />}>
+        <ProductDetail productId={productId} onBack={() => navigate('/')} />
+      </Suspense>
     </div>
   )
 }
@@ -114,7 +156,9 @@ function ShopRoute() {
   const navigate = useNavigate()
   return (
     <div className="pt-6">
-      <ShopPage shopId={shopId} onBack={() => navigate('/')} />
+      <Suspense fallback={<PageLoading />}>
+        <ShopPage shopId={shopId} onBack={() => navigate('/')} />
+      </Suspense>
     </div>
   )
 }
@@ -124,7 +168,9 @@ function ShopVouchersRoute() {
   const navigate = useNavigate()
   return (
     <div className="pt-6">
-      <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
+      <Suspense fallback={<PageLoading />}>
+        <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
+      </Suspense>
     </div>
   )
 }
@@ -132,7 +178,6 @@ function ShopVouchersRoute() {
 function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  // Mock auth handler from stores
   const initialRole =
     search.includes('role=shop') || search.includes('ban-nong-san')
       ? 'shop'
@@ -141,21 +186,29 @@ function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
         : 'buyer'
 
   return (
-    <AuthPage
-      key={pathname + search}
-      initialMode={mode}
-      initialRole={initialRole}
-      onLoginSuccess={(user: AuthUser) => {
-        navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
-      }}
-    />
+    <Suspense fallback={<PageLoading />}>
+      <AuthPage
+        key={pathname + search}
+        initialMode={mode}
+        initialRole={initialRole}
+        onLoginSuccess={(user: AuthUser) => {
+          navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+        }}
+      />
+    </Suspense>
   )
 }
 
 /** /:segment không khớp route nào: section của trang chủ thì mở trang chủ, còn lại là 404. */
 function SectionOrNotFound() {
   const { '*': segment } = useParams()
-  return isHomeSection(segment) ? <HomeRoute /> : <NotFoundPage />
+  return isHomeSection(segment) ? (
+    <HomeRoute />
+  ) : (
+    <Suspense fallback={<PageLoading />}>
+      <NotFoundPage />
+    </Suspense>
+  )
 }
 
 // ---- Portal: toàn màn hình, không có Header/Footer của storefront ----
@@ -172,16 +225,20 @@ function usePortalProps() {
 
 function AdminRoute() {
   return (
-    <RequireRole roles={['admin']} audience="tài khoản Admin">
-      <AdminPortal {...usePortalProps()} />
+    <RequireRole roles={['admin']} audience="tài khoản Admin" loginHref="/dang-nhap?role=admin">
+      <Suspense fallback={<PageLoading />}>
+        <AdminPortal {...usePortalProps()} />
+      </Suspense>
     </RequireRole>
   )
 }
 
 function SellerRoute() {
   return (
-    <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="#/dang-nhap?role=shop">
-      <FarmerPortal {...usePortalProps()} />
+    <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="/dang-nhap?role=shop">
+      <Suspense fallback={<PageLoading />}>
+        <FarmerPortal {...usePortalProps()} />
+      </Suspense>
     </RequireRole>
   )
 }
@@ -192,7 +249,7 @@ export const router = createHashRouter([
   {
     element: <RootLayout />,
     children: [
-      // Portal
+      // Portal (Quản trị & Nhà vườn)
       {
         path: 'admin/*',
         element: <AdminRoute />,
@@ -210,7 +267,7 @@ export const router = createHashRouter([
       { path: 'kenh-nguoi-ban/*', element: <Alias to="/shop" /> },
       { path: 'seller/*', element: <Alias to="/shop" /> },
 
-      // Storefront
+      // Storefront (Cửa hàng khách mua)
       {
         element: <StorefrontLayout />,
         children: [
@@ -282,13 +339,21 @@ export const router = createHashRouter([
           { path: 'register/*', element: <Alias to="/dang-ky" /> },
           {
             path: 'quen-mat-khau/*',
-            element: <ForgotPasswordPage />,
+            element: (
+              <Suspense fallback={<PageLoading />}>
+                <ForgotPasswordPage />
+              </Suspense>
+            ),
             handle: title('Quên Mật Khẩu'),
           },
           { path: 'forgot-password/*', element: <Alias to="/quen-mat-khau" /> },
           {
             path: 'xac-thuc-otp/*',
-            element: <OtpVerificationPage />,
+            element: (
+              <Suspense fallback={<PageLoading />}>
+                <OtpVerificationPage />
+              </Suspense>
+            ),
             handle: title('Xác Thực Mã OTP'),
           },
           { path: 'verify-otp/*', element: <Alias to="/xac-thuc-otp" /> },
