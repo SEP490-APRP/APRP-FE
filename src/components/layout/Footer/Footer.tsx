@@ -1,11 +1,11 @@
-import { Leaf, Phone, MapPin } from 'lucide-react'
+﻿import { Leaf, Phone, MapPin } from 'lucide-react'
 
 export default function Footer({ onInfo }: { onInfo: (s: string) => void }) {
   return (
     <footer className="site-footer">
       <div className="page-container footer-grid">
         <div>
-          <a href="#/" className="flex gap-2 items-center text-xl font-bold text-white">
+          <a href="/" className="flex gap-2 items-center text-xl font-bold text-white">
             <Leaf />
             CapNong
           </a>
@@ -16,9 +16,9 @@ export default function Footer({ onInfo }: { onInfo: (s: string) => void }) {
         </div>
         <div>
           <h3>Dành cho người mua</h3>
-          <a href="#/nong-san-tuoi">Khám phá nông sản tươi</a>
-          <a href="#/combo-tui-mu">Combo &amp; Túi mù</a>
-          <a href="#/quy-trinh">Hướng dẫn mua hàng</a>
+          <a href="/nong-san-tuoi">Khám phá nông sản tươi</a>
+          <a href="/combo-tui-mu">Combo &amp; Túi mù</a>
+          <a href="/quy-trinh">Hướng dẫn mua hàng</a>
           <button type="button" onClick={() => onInfo('Chính sách đổi trả')}>
             Chính sách đổi trả
           </button>
@@ -47,7 +47,7 @@ export default function Footer({ onInfo }: { onInfo: (s: string) => void }) {
       <div className="page-container footer-bottom">
         <span>© 2026 CapNong. Vì nông dân, vì môi trường.</span>
         <a
-          href="#/bao-mat-thong-tin"
+          href="/bao-mat-thong-tin"
           className="hover:underline text-white font-medium cursor-pointer"
         >
           Bảo mật thông tin

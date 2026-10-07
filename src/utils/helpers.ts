@@ -7,8 +7,9 @@ export function cn(...classes: ClassValue[]): string {
 
 /**
  * URL tuyệt đối tới một route của app (dùng để chia sẻ/sao chép link).
- * App dùng hash router nên route nằm sau `#`: /cua-hang/101 -> https://site/#/cua-hang/101
+ * Dùng browser router với đường dẫn sạch (clean URLs): /cua-hang/101 -> https://capnong.vn/cua-hang/101
  */
 export function absoluteUrl(route: string): string {
-  return `${window.location.origin}${window.location.pathname}#${route}`
+  const cleanRoute = route.startsWith('/') ? route : `/${route}`
+  return `${window.location.origin}${cleanRoute}`
 }

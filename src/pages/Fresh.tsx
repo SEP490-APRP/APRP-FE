@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowUpDown,
   Leaf,
@@ -94,8 +94,14 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     )
   }, [query, filters, sort])
 
+  const category =
+    CATEGORIES.find((c) => c.id === filters.category) ?? {
+      id: filters.category,
+      label: filters.category,
+      bannerTitle: filters.category,
+    }
+
   const activeCount = countActiveFilters(filters) + (query.trim() ? 1 : 0)
-  const category = CATEGORIES.find((c) => c.id === filters.category) ?? CATEGORIES[0]
 
   const resetAll = () => {
     setFilters(DEFAULT_FILTERS)
@@ -142,7 +148,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
             <ol className="flex items-center gap-2">
               <li>
                 <a
-                  href="#/"
+                  href="/"
                   className="rounded hover:text-sun-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sun-300"
                 >
                   Trang chủ

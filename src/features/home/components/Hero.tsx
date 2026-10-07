@@ -1,4 +1,4 @@
-import { PlayCircle, ShoppingBasket } from 'lucide-react'
+﻿import { PlayCircle, ShoppingBasket } from 'lucide-react'
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
 
 export default function Hero() {
@@ -51,14 +51,14 @@ export default function Hero() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
             <a
               className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-primary-container hover:bg-primary text-white font-bold text-sm sm:text-base transition-all transform hover:-translate-y-0.5 shadow-lg shadow-primary-container/30 min-h-[46px]"
-              href="#/giai-cuu-hom-nay"
+              href="/giai-cuu-hom-nay"
             >
               <ShoppingBasket size={20} aria-hidden />
               <span>Mua ngay hôm nay</span>
             </a>
             <a
               className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-full bg-white/15 hover:bg-white/25 text-surface-bright border border-white/25 backdrop-blur-md font-bold text-sm sm:text-base transition-all min-h-[46px]"
-              href="#/cong-nghe-ai"
+              href="/cong-nghe-ai"
             >
               <PlayCircle size={20} aria-hidden />
               <span>Xem cách hoạt động</span>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { LogIn, Shield, Home } from 'lucide-react'
 import { LinkButton } from '@/components/ui/Button'
@@ -47,7 +47,7 @@ export default function RequireRole({
           description={`Khu vực này chỉ dành riêng cho ${audience}. Tài khoản hiện tại (${user.name} - ${user.role.toUpperCase()}) không đủ quyền.`}
           action={
             <div className="flex items-center justify-center gap-3 mt-4">
-              <LinkButton href="#/" leftIcon={<Home size={15} />}>
+              <LinkButton href="/" leftIcon={<Home size={15} />}>
                 Về trang chủ
               </LinkButton>
               <LinkButton

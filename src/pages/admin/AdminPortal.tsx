@@ -6,6 +6,7 @@ import {
   type ComponentType,
   type LazyExoticComponent,
 } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Banknote,
   BarChart3,
@@ -107,9 +108,11 @@ const SECTIONS: { title: string; items: AdminTabId[] }[] = [
 
 const isTabId = (value: string): value is AdminTabId => value in TABS
 
-/** Đọc tab từ URL (#/admin/products) để F5 hoặc chia sẻ link vẫn giữ đúng trang. */
-function tabFromHash(): AdminTabId {
-  const segment = location.hash.split('/')[2] ?? ''
+/** Đọc tab từ URL (/admin/products hoặc #/admin/products) để F5 hoặc chia sẻ link vẫn giữ đúng trang. */
+function tabFromUrl(pathname: string, hash: string): AdminTabId {
+  const pathSegment = pathname.startsWith('/admin/') ? pathname.split('/')[2] : ''
+  const hashSegment = hash.split('/')[2] ?? ''
+  const segment = pathSegment || hashSegment
   return isTabId(segment) ? segment : 'overview'
 }
 
@@ -122,14 +125,10 @@ type AdminPortalProps = {
 }
 
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
-  const [tab, setTab] = useState<AdminTabId>(tabFromHash)
+  const routerNavigate = useNavigate()
+  const routerLocation = useLocation()
+  const tab = tabFromUrl(routerLocation.pathname, routerLocation.hash)
   const [navOpen, setNavOpen] = useState(false)
-
-  useEffect(() => {
-    const sync = () => setTab(tabFromHash())
-    window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
-  }, [])
 
   // Chặn ở UI. Server vẫn phải kiểm tra quyền ở từng API, đây chỉ là lớp hiển thị.
   if (!user || user.role !== 'admin') {
@@ -141,7 +140,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
           title="Bạn không có quyền truy cập"
           description="Trang quản trị chỉ dành cho tài khoản Admin. Vui lòng đăng nhập bằng tài khoản phù hợp."
           action={
-            <LinkButton href="#/dang-nhap" leftIcon={<LogIn size={16} aria-hidden />}>
+            <LinkButton href="/dang-nhap" leftIcon={<LogIn size={16} aria-hidden />}>
               Đăng nhập
             </LinkButton>
           }
@@ -153,8 +152,8 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
   const current = TABS[tab]
   const Page = current.page
 
-  const navigate = (id: AdminTabId) => {
-    location.hash = `/admin/${id}`
+  const navigateTab = (id: AdminTabId) => {
+    routerNavigate(`/admin/${id}`)
     setNavOpen(false)
   }
 
@@ -173,10 +172,10 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
               return (
                 <li key={id}>
                   <a
-                    href={`#/admin/${id}`}
+                    href={`/admin/${id}`}
                     onClick={(e) => {
                       e.preventDefault()
-                      navigate(id)
+                      navigateTab(id)
                     }}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
@@ -269,7 +268,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
             {current.name}
           </h1>
           <LinkButton
-            href="#/shop"
+            href="/shop"
             variant="secondary"
             size="sm"
             className="hidden md:inline-flex"
@@ -280,7 +279,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => (onNavigateStore ? onNavigateStore() : (location.hash = '/'))}
+            onClick={() => (onNavigateStore ? onNavigateStore() : routerNavigate('/'))}
             leftIcon={<ShoppingBag size={15} aria-hidden />}
           >
             <span className="hidden sm:inline">Xem cửa hàng</span>

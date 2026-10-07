@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
   RootLayout,
@@ -28,7 +28,7 @@ const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
  * Cấu hình điều hướng ứng dụng CapNong (Application Router)
  * Tinh giản, phân lớp rõ ràng: Admin Portal, Farmer Portal và Khách mua (Storefront).
  */
-export const router = createHashRouter([
+export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [

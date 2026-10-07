@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+﻿import { useState, useEffect, type FormEvent } from 'react'
 import {
   Leaf,
   Lock,
@@ -306,7 +306,7 @@ export default function AuthPage({
         <div className="w-full lg:w-1/2 flex flex-col justify-between self-stretch py-4 text-white">
           <div>
             <a
-              href="#/"
+              href="/"
               className="inline-flex items-center gap-2 bg-[#326318] hover:bg-[#254b12] text-white px-4 py-2 rounded-full font-bold text-sm sm:text-base shadow-lg transition-all hover:scale-105 border border-white/20"
             >
               <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
@@ -1094,7 +1094,7 @@ export default function AuthPage({
                   </button>
 
                   <a
-                    href="#/"
+                    href="/"
                     className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-[#6a7364] hover:text-[#326318] pt-2"
                   >
                     <Home size={14} />

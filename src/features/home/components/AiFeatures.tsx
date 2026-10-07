@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+﻿import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowRight, Camera, Sprout, Utensils, type LucideIcon } from 'lucide-react'
 import aiVisionImg from '@/assets/ai-vision.jpg'
 import aiMealImg from '@/assets/ai-meal.jpg'
@@ -36,7 +36,7 @@ const TABS: Tab[] = [
     description: 'Chụp một tấm ảnh, AI chấm độ tươi và đề xuất giá giải cứu.',
     image: aiVisionImg,
     imageAlt: 'Rau củ trên thớt đá với khung quét của AI',
-    cta: { label: 'Xem nông sản đang giảm giá', href: '#/nong-san-tuoi' },
+    cta: { label: 'Xem nông sản đang giảm giá', href: '/nong-san-tuoi' },
   },
   {
     id: 'chef',
@@ -45,7 +45,7 @@ const TABS: Tab[] = [
     description: 'Lên thực đơn từ đúng những rau củ đang có trong giỏ.',
     image: aiMealImg,
     imageAlt: 'Đĩa salad rau củ nhiều màu',
-    cta: { label: 'Xem combo nấu ăn trong tuần', href: '#/combo-tui-mu' },
+    cta: { label: 'Xem combo nấu ăn trong tuần', href: '/combo-tui-mu' },
   },
   {
     id: 'copilot',
@@ -54,7 +54,7 @@ const TABS: Tab[] = [
     description: 'Chụp một ảnh tại ruộng, tin đăng bán được soạn sẵn.',
     image: aiFarmerImg,
     imageAlt: 'Đôi tay nông dân ôm bó cà rốt và củ dền vừa nhổ',
-    cta: { label: 'Mở gian hàng nhà vườn', href: '#/dang-ky?role=shop' },
+    cta: { label: 'Mở gian hàng nhà vườn', href: '/dang-ky?role=shop' },
   },
 ]
 

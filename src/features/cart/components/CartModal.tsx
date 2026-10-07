@@ -1,4 +1,4 @@
-import { Minus, Plus, ShoppingBasket, Trash2 } from 'lucide-react'
+﻿import { Minus, Plus, ShoppingBasket, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { allProducts, money } from '@/mocks/catalog'
 import { LegacyProduceImage } from '@/features/product'
@@ -75,7 +75,7 @@ export function CartModal() {
           <ShoppingBasket size={44} />
           <h3>Giỏ của bạn đang trống</h3>
           <p>Chọn những nông sản ngon lành cho bữa ăn hôm nay.</p>
-          <a className="btn btn-green" href="#/nong-san-tuoi" onClick={closeCart}>
+          <a className="btn btn-green" href="/nong-san-tuoi" onClick={closeCart}>
             Khám phá nông sản
           </a>
         </div>
