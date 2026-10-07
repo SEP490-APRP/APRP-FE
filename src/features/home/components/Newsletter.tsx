@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import {
   Mail,
   CheckCircle2,
@@ -101,7 +101,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
 
             <div className="pt-5 mt-3 border-t border-white/15">
               <a
-                href="#/dang-ky?role=buyer"
+                href="/dang-ky?role=buyer"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffea79] group-hover:text-white transition-colors"
               >
                 <span>Đăng ký mua nông sản</span>
@@ -130,7 +130,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
 
             <div className="pt-5 mt-3 border-t border-white/15">
               <a
-                href="#/dang-ky?role=shop"
+                href="/dang-ky?role=shop"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#a4e876] group-hover:text-white transition-colors"
               >
                 <span>Mở gian hàng nhà vườn</span>
@@ -159,7 +159,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
 
             <div className="pt-5 mt-3 border-t border-white/15">
               <a
-                href="#/dang-ky?role=shipper"
+                href="/dang-ky?role=shipper"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffba41] group-hover:text-white transition-colors"
               >
                 <span>Tham gia đội tài xế</span>

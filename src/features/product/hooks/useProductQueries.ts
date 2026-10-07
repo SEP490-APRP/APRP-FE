@@ -1,11 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { productService, type ProductImageResponse, type ProductResponse } from '@/services'
+import {
+  productService,
+  uploadService,
+  type GetMyProductsParams,
+  type ProductCreationRequest,
+  type ProductImageCreationRequest,
+  type ProductImageResponse,
+  type ProductResponse,
+  type ProductUpdateRequest,
+} from '@/services'
 
-/** Query key của sản phẩm; invalidate `productKeys.all` sau khi duyệt/từ chối. */
+/** Query key của sản phẩm; invalidate `productKeys.all` sau khi duyệt/từ chối/cập nhật. */
 export const productKeys = {
   all: ['products'] as const,
   list: () => [...productKeys.all, 'list'] as const,
   forBuyer: () => [...productKeys.all, 'for-buyer'] as const,
+  myShop: (params?: GetMyProductsParams) => [...productKeys.all, 'my-shop', params ?? {}] as const,
   detail: (idOrSlug: string) => [...productKeys.all, 'detail', idOrSlug] as const,
   pending: () => [...productKeys.all, 'pending'] as const,
   images: (productId: number) => [...productKeys.all, 'images', productId] as const,
@@ -91,13 +101,120 @@ export function usePendingProducts() {
   })
 }
 
+/** Lấy danh sách sản phẩm thuộc shop của nông dân đang đăng nhập */
+export function useMyProducts(params: GetMyProductsParams = {}) {
+  return useQuery({
+    queryKey: productKeys.myShop(params),
+    queryFn: async () => {
+      const res = await productService.getMyProducts(params)
+      return res.result
+    },
+  })
+}
+
+/** Tạo sản phẩm mới */
+export function useCreateProduct() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: ProductCreationRequest) => productService.createProduct(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
+/** Cập nhật sản phẩm */
+export function useUpdateProduct() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: ProductUpdateRequest }) =>
+      productService.updateProduct(id, request),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+      queryClient.invalidateQueries({ queryKey: productKeys.detail(String(variables.id)) })
+    },
+  })
+}
+
+/** Xóa sản phẩm */
+export function useDeleteProduct() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => productService.deleteProduct(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
 /** Ảnh của sản phẩm, ảnh chính lên đầu. Không gọi khi chưa chọn sản phẩm. */
 export function useProductImages(productId: number | undefined) {
   return useQuery({
     queryKey: productKeys.images(productId ?? 0),
     queryFn: async () => (await productService.getImages(productId!)).result ?? [],
-    enabled: productId != null,
+    enabled: productId != null && productId > 0,
     select: (images) => images.slice().sort(byDisplayOrder),
+  })
+}
+
+/** Upload ảnh lên Cloudinary và gắn vào gallery của sản phẩm */
+export function useUploadProductImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      file,
+      isPrimary = false,
+      displayOrder = 0,
+    }: {
+      productId: number
+      file: File
+      isPrimary?: boolean
+      displayOrder?: number
+    }) => {
+      // 1. Tải ảnh lên Cloudinary qua Backend
+      const uploadRes = await uploadService.uploadImage(file, 'products')
+      const imageUrl = uploadRes.result?.url
+      if (!imageUrl) throw new Error('Không nhận được URL ảnh từ server')
+
+      // 2. Gắn URL vào sản phẩm và kích hoạt kiểm duyệt AI ngầm tại backend
+      const imagePayload: ProductImageCreationRequest = {
+        imageUrl,
+        isPrimary,
+        displayOrder,
+      }
+      return await productService.addImage(productId, imagePayload)
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
+/** Đặt ảnh làm ảnh đại diện chính */
+export function useSetPrimaryProductImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, imageId }: { productId: number; imageId: number }) =>
+      productService.setPrimaryImage(productId, imageId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
+/** Xóa ảnh khỏi gallery của sản phẩm */
+export function useDeleteProductImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, imageId }: { productId: number; imageId: number }) =>
+      productService.deleteImage(productId, imageId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
   })
 }
 

@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react'
 import { cn } from '@/utils'
+import { useCategories } from '../hooks/useCategoryQueries'
 
 /* ------------------------------------------------------------------ */
 /* Kiểu dữ liệu bộ lọc: union type thay cho string tự do               */
@@ -130,6 +131,16 @@ export function FilterPanel({
   filters: Filters
   onChange: (next: Filters) => void
 }) {
+  const { data: apiCategories = [] } = useCategories()
+
+  const categoryOptions =
+    apiCategories.length > 0
+      ? [
+          { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
+          ...apiCategories.map((c) => ({ id: c.name as CategoryId, label: c.name })),
+        ]
+      : CATEGORIES
+
   const set =
     <K extends keyof Filters>(key: K) =>
     (value: Filters[K]) =>
@@ -140,7 +151,7 @@ export function FilterPanel({
       <RadioGroup
         legend="Danh mục"
         name={`${idPrefix}-category`}
-        options={CATEGORIES}
+        options={categoryOptions}
         value={filters.category}
         onChange={set('category')}
       />

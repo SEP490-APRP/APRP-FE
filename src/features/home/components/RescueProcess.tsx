@@ -1,4 +1,4 @@
-export default function RescueProcess({ onInfo }: { onInfo: (title: string) => void }) {
+﻿export default function RescueProcess({ onInfo }: { onInfo: (title: string) => void }) {
   return (
     <section id="quy-trinh" aria-labelledby="quy-trinh-title">
       <div className="rescue-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -27,7 +27,7 @@ export default function RescueProcess({ onInfo }: { onInfo: (title: string) => v
             <div className="rescue-info">
               <h3>Chọn nông sản</h3>
               <p>Khám phá rau củ xấu mã nhưng vẫn tươi ngon, an toàn.</p>
-              <a className="rescue-btn" href="#/giai-cuu-hom-nay">
+              <a className="rescue-btn" href="/giai-cuu-hom-nay">
                 Khám phá ngay
               </a>
             </div>
@@ -70,7 +70,7 @@ export default function RescueProcess({ onInfo }: { onInfo: (title: string) => v
             <div className="rescue-info">
               <h3>Đóng gói</h3>
               <p>Nhà vườn đóng gói bằng vật liệu tái chế, giữ trọn độ tươi.</p>
-              <a className="rescue-btn" href="#/cau-chuyen-nong-dan">
+              <a className="rescue-btn" href="/cau-chuyen-nong-dan">
                 Xem nhà vườn
               </a>
             </div>

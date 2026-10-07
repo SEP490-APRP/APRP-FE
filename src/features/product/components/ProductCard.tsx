@@ -25,7 +25,7 @@ const DETAIL_IDS: Partial<Record<string, number>> = {
 }
 
 export const productHref = (product: Pick<Product, 'id'>) =>
-  `#/san-pham/${DETAIL_IDS[product.id] ?? 701}`
+  `/san-pham/${DETAIL_IDS[product.id] ?? 701}`
 
 export const discountPercent = ({ price, original }: Pick<Product, 'price' | 'original'>) =>
   original > price ? Math.round((1 - price / original) * 100) : 0

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Gift,
   ArrowRight,
@@ -239,7 +239,7 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
           </p>
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/35 backdrop-blur-md border border-white/20 text-xs sm:text-sm text-white/90 font-medium mt-1 shadow-sm">
-            <a href="#/" className="hover:text-[#ffea79] transition-colors">
+            <a href="/" className="hover:text-[#ffea79] transition-colors">
               Trang chủ
             </a>
             <span className="text-white/40">›</span>

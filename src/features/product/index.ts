@@ -23,17 +23,27 @@ export {
   type ProductCardProps,
 } from './components/ProductCard'
 export { ProductGrid } from './components/ProductGrid'
+export { ProductImageGalleryModal } from './components/ProductImageGalleryModal'
+export { EditProductModal } from './components/EditProductModal'
 export {
   productKeys,
   type ProductDetailData,
   useAllProducts,
   useProductDetail,
   useShopProducts,
+  useMyProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
   useApproveProduct,
   usePendingProducts,
   useProductImages,
+  useUploadProductImage,
+  useSetPrimaryProductImage,
+  useDeleteProductImage,
   useRejectProduct,
 } from './hooks/useProductQueries'
+export { useCategories, categoryKeys } from './hooks/useCategoryQueries'
 export {
   productFormSchema,
   type ProductFormInput,

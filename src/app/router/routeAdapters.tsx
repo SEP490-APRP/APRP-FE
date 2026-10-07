@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useStorefront } from '@/app/layouts/StorefrontLayout'
 import RequireRole from './RequireRole'
@@ -36,6 +36,16 @@ export function PageLoading() {
 
 /** Root Layout bọc toàn bộ ứng dụng */
 export function RootLayout() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    // Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu # (VD: /#/dang-nhap -> /dang-nhap)
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
+      const cleanPath = window.location.hash.slice(1)
+      navigate(cleanPath, { replace: true })
+    }
+  }, [navigate])
+
   return (
     <div className="min-h-screen bg-sand text-soil-800 antialiased font-sans">
       <Suspense fallback={<PageLoading />}>
@@ -218,6 +228,12 @@ const HOME_SECTION_IDS = [
   'today-rescue',
   'process',
   'reviews',
+  'danh-muc',
+  'giai-cuu-hom-nay',
+  'quy-trinh',
+  'cong-dong-tieu-dung',
+  'dang-ky-dong-hanh',
+  'newsletter-contact',
 ] as const
 
 const isHomeSection = (segment?: string) =>

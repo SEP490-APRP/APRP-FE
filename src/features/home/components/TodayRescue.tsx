@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+﻿import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
 import { products, money, type Cart } from '@/mocks/catalog'
 import { ProductGrid } from '@/features/product'
@@ -35,7 +35,7 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
             </h2>
           </div>
           <a
-            href="#/nong-san-tuoi"
+            href="/nong-san-tuoi"
             className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-leaf-700 hover:text-leaf-800"
           >
             Xem tất cả nông sản <ArrowRight size={17} aria-hidden />
@@ -70,7 +70,7 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
                 ))}
               </ul>
               <LinkButton
-                href="#/nong-san-tuoi"
+                href="/nong-san-tuoi"
                 variant="secondary"
                 size="lg"
                 className="w-full border-0 sm:w-fit"
