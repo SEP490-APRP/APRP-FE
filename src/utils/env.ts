@@ -1,5 +1,8 @@
 /** Nơi DUY NHẤT đọc import.meta.env. Code khác import ENV thay vì đọc env trực tiếp. */
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://localhost:8080/api'
 
 export const ENV = {
   API_URL,
