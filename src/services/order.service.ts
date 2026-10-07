@@ -19,6 +19,8 @@ import type {
   CheckoutPreviewResponse,
   CreateOrderRequest,
 } from '@/types/order.types'
+import type { OrderResponse as MockOrderResponse } from './order.types'
+import { mockOrders } from '@/mocks/order.mock'
 
 /** BE luôn wrap response trong { code, message, result } */
 interface ApiResponse<T> {
@@ -28,7 +30,15 @@ interface ApiResponse<T> {
 }
 
 function unwrap<T>(res: unknown): T {
-  return (res as ApiResponse<T>).result
+  if (res && typeof res === 'object') {
+    if ('data' in res && (res as { data: unknown }).data && typeof (res as { data: unknown }).data === 'object' && 'result' in (res as { data: { result: unknown } }).data) {
+      return ((res as { data: ApiResponse<T> }).data).result
+    }
+    if ('result' in res) {
+      return (res as ApiResponse<T>).result
+    }
+  }
+  return res as T
 }
 
 // ── BUYER: Xem trước & Tạo đơn ───────────────────────────────────────────────
@@ -130,4 +140,20 @@ export async function failOrder(orderId: number): Promise<OrderResponse> {
 export async function cancelOrder(orderId: number): Promise<OrderResponse> {
   const res = await axiosInstance.put(`/orders/${orderId}/cancel`)
   return unwrap<OrderResponse>(res)
+}
+
+export const orderService = {
+  previewCheckout,
+  createOrder,
+  fetchShopOrders,
+  confirmOrder,
+  readyOrder,
+  shipOrder,
+  deliverOrder,
+  failOrder,
+  cancelOrder,
+  async getAllOrders(): Promise<{ code: number; result: MockOrderResponse[] }> {
+    await new Promise((r) => setTimeout(r, 200))
+    return { code: 200, result: structuredClone(mockOrders) }
+  },
 }

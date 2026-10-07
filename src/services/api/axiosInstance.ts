@@ -1,47 +1,42 @@
-import axios from 'axios'
+import { create, type AxiosError } from 'axios'
+import type { ApiError, ApiResponse } from '@/types'
+import { ENV, STORAGE_KEYS } from '@/utils'
 
-import { API_BASE_URL, STORAGE_KEYS } from '@/utils/constants'
-import { clearAuthData } from '@/utils/helpers'
+/** Phát ra khi API trả 401; AuthProvider nghe event này để đăng xuất. */
+export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized'
 
-/**
- * Axios instance with base configuration.
- * - Base URL from environment variable
- * - Auto-attach Authorization header
- * - Handle 401 responses (token expired)
- */
-const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+function readToken(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.TOKEN)
+  } catch {
+    return null
+  }
+}
+
+// Không đặt Content-Type mặc định: axios tự chọn JSON cho object và multipart cho FormData.
+export const axiosInstance = create({
+  baseURL: ENV.API_URL,
+  timeout: 15_000,
 })
 
-/* ===== Request Interceptor ===== */
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  },
-)
+axiosInstance.interceptors.request.use((config) => {
+  const token = readToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
 
-/* ===== Response Interceptor ===== */
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response.data
-  },
-  (error) => {
-    if (error.response?.status === 401) {
-      clearAuthData()
-      window.location.href = '/login'
+  (response) => response,
+  (error: AxiosError<ApiResponse<unknown>>) => {
+    const status = error.response?.status ?? 0
+    const data = error.response?.data
+
+    if (status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
     }
-    return Promise.reject(error)
+
+    const apiError: ApiError = { status, data, message: data?.message || error.message }
+    return Promise.reject(apiError)
   },
 )
 

@@ -1,32 +1,16 @@
-import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from 'react-router-dom'
+import { PopupProvider } from '@/components/common/Popup'
+import { router } from '../router'
+import { queryClient } from './queryClient'
 
-/* ===== React Query Client ===== */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-})
-
-/* ===== App Providers ===== */
-interface AppProvidersProps {
-  children: ReactNode
-}
-
-/**
- * Wraps the application with all necessary providers.
- * Add new providers here as needed (e.g., ThemeProvider, AuthProvider).
- */
-const AppProviders = ({ children }: AppProvidersProps) => {
+/** Bọc mọi Provider ở một chỗ để main.tsx và App.tsx gọn. */
+export default function AppProviders() {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <PopupProvider>
+        <RouterProvider router={router} />
+      </PopupProvider>
     </QueryClientProvider>
   )
 }
-
-export default AppProviders

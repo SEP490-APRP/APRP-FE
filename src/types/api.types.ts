@@ -1,27 +1,30 @@
-/* ===== API Response Types ===== */
-
-/** Standard API response wrapper */
+/** Dạng response chuẩn của backend. */
 export interface ApiResponse<T> {
-  data: T
-  message: string
-  statusCode: number
-  success: boolean
+  code?: number
+  message?: string
+  result?: T
 }
 
-/** Paginated API response */
-export interface PaginatedResponse<T> {
-  data: T[]
-  meta: {
-    currentPage: number
-    totalPages: number
-    totalItems: number
-    itemsPerPage: number
-  }
+export interface PageResponse<T> {
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+  content: T[]
 }
 
-/** API error response */
+/** Tên theo README; cùng kiểu với PageResponse. */
+export type PaginatedResponse<T> = PageResponse<T>
+
+/**
+ * Lỗi đã chuẩn hóa mà axiosInstance reject ra.
+ * Giữ `data` từ body API để getErrorMessage() đọc được `data.message`.
+ */
 export interface ApiError {
+  /** HTTP status; 0 khi không nhận được response (mất mạng, timeout). */
+  status: number
   message: string
-  statusCode: number
-  errors?: Record<string, string[]>
+  data?: ApiResponse<unknown>
 }
