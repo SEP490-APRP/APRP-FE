@@ -9,4 +9,10 @@ export interface OrderResponse {
   shopName?: string
   createdAt: string
   itemsCount?: number
+  paymentMethod?: string
+  codAmount?: number
+  codPrepaidAmount?: number
+  shippingDiscountAmount?: number
+  refundAmount?: number
+  refundReason?: string
 }

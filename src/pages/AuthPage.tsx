@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import {
   Leaf,
   Lock,
@@ -20,6 +20,7 @@ import {
   CreditCard,
   FileText,
   Sparkles,
+  Truck,
   X,
   Check,
 } from 'lucide-react'
@@ -36,6 +37,7 @@ import {
   type RegisterValues,
 } from '@/features/auth'
 import { validate } from '@/utils'
+import { useAuth } from '@/stores'
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register' | 'kyc_pending'
@@ -50,6 +52,7 @@ export default function AuthPage({
   onLoginSuccess,
   onInfo,
 }: AuthPageProps) {
+  const { login } = useAuth()
   const [mode, setMode] = useState<'login' | 'register' | 'kyc_pending'>(initialMode)
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'shop' | 'shipper'>(initialRole)
   const [shopRegisterStep, setShopRegisterStep] = useState<1 | 2>(1)
@@ -112,37 +115,70 @@ export default function AuthPage({
     }
     const loginEmail = result.data.identifier
 
-    // Detect if logging in as shop
+    // Detect if logging in as shop or shipper
     const isShopAccount =
       loginEmail.toLowerCase().includes('shop') ||
       loginEmail.toLowerCase().includes('vuon') ||
       loginEmail.toLowerCase().includes('farmer')
 
+    const isShipperAccount =
+      loginEmail.toLowerCase().includes('shipper') ||
+      loginEmail.toLowerCase().includes('taixe') ||
+      loginEmail.toLowerCase().includes('driver')
+
     const isEmail = loginEmail.includes('@')
     const user: AuthUser = {
       name: isShopAccount
         ? 'Nông Trại Cầu Đất Farm'
-        : isEmail
-          ? loginEmail.split('@')[0]
-          : 'Thành viên CapNong',
+        : isShipperAccount
+          ? 'Trần Văn Giao (Shipper)'
+          : isEmail
+            ? loginEmail.split('@')[0]
+            : 'Thành viên CapNong',
       email: isEmail ? loginEmail : `${loginEmail}@capnong.vn`,
       phone: isEmail ? '0912 345 678' : loginEmail,
-      role: isShopAccount ? 'shop' : 'buyer',
-      detail: isShopAccount ? 'Chủ gian hàng nông sản' : 'Thành viên đang hoạt động',
+      role: isShopAccount ? 'shop' : isShipperAccount ? 'shipper' : 'buyer',
+      detail: isShopAccount
+        ? 'Chủ gian hàng nông sản'
+        : isShipperAccount
+          ? 'Tài xế giao hàng CapNong'
+          : 'Thành viên đang hoạt động',
       shopName: isShopAccount ? 'Nông Trại Cầu Đất' : undefined,
-      kycStatus: isShopAccount ? 'APPROVED' : undefined,
+      kycStatus: isShopAccount || isShipperAccount ? 'APPROVED' : undefined,
     }
 
+    login(user, 'mock-token-' + user.role)
     setSuccessNotice(
       isShopAccount
         ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
-        : 'Đăng nhập thành công! Đang chuyển hướng...',
+        : isShipperAccount
+          ? 'Đăng nhập Tài Xế thành công! Đang chuyển đến Cổng Giao Hàng...'
+          : 'Đăng nhập thành công! Đang chuyển hướng...',
     )
 
     if (onLoginSuccess) {
       setTimeout(() => {
         onLoginSuccess(user)
       }, 600)
+    }
+  }
+
+  // Quick Demo Login for Shipper
+  const handleQuickShipperLogin = () => {
+    const shipperUser: AuthUser = {
+      name: 'Trần Văn Giao (Shipper)',
+      email: 'shipper.capnong@gmail.com',
+      phone: '0933 555 789',
+      role: 'shipper',
+      detail: 'Tài xế giao hàng · Xe máy',
+      kycStatus: 'APPROVED',
+    }
+    login(shipperUser, 'mock-token-shipper')
+    setSuccessNotice('Đăng nhập Tài Xế thành công! Đang chuyển tới Cổng Shipper...')
+    if (onLoginSuccess) {
+      setTimeout(() => {
+        onLoginSuccess(shipperUser)
+      }, 500)
     }
   }
 
@@ -157,6 +193,7 @@ export default function AuthPage({
       detail: 'Đà Lạt · VietGAP & Hữu cơ',
       kycStatus: 'APPROVED',
     }
+    login(shopUser, 'mock-token-shop')
     setSuccessNotice('Đăng nhập nhanh với tài khoản Nhà Vườn thành công!')
     if (onLoginSuccess) {
       setTimeout(() => {
@@ -175,6 +212,7 @@ export default function AuthPage({
       detail: 'Ban Quản Trị Trung Tâm CapNong',
       kycStatus: 'APPROVED',
     }
+    login(adminUser, 'mock-token-admin')
     setSuccessNotice('Đăng nhập Quản Trị Viên thành công! Đang chuyển tới Admin Portal...')
     if (onLoginSuccess) {
       setTimeout(() => {
@@ -194,6 +232,7 @@ export default function AuthPage({
         selectedRole === 'shop' ? 'Đăng ký qua Google · Chờ xác thực' : 'Đăng nhập qua Google',
       kycStatus: selectedRole === 'shop' ? 'PENDING' : undefined,
     }
+    login(googleUser, 'mock-token-' + googleUser.role)
     setSuccessNotice('Đăng nhập thành công qua Google!')
     if (onLoginSuccess) {
       setTimeout(() => {
@@ -251,6 +290,7 @@ export default function AuthPage({
       detail: selectedRole === 'buyer' ? 'Khách hàng mới' : `Tài xế · ${values.shipperVehicle}`,
     }
 
+    login(newUser, 'mock-token-' + newUser.role)
     setSuccessNotice(`Đăng ký tài khoản ${getRoleLabel(selectedRole)} thành công!`)
     if (onLoginSuccess) {
       setTimeout(() => {
@@ -472,6 +512,27 @@ export default function AuthPage({
                         className="px-3 py-1.5 rounded-xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
                       >
                         Demo Nhà Vườn
+                      </button>
+                    </div>
+
+                    <div className="border-t border-[#f0dfcc] pt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-left">
+                        <Truck size={18} className="text-[#195962] shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-[#144850]">
+                            Tài Xế Giao Hàng (Shipper)
+                          </div>
+                          <div className="text-[10px] text-[#4d7980]">
+                            Nhận đơn gần, bật GPS & giao COD
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleQuickShipperLogin}
+                        className="px-3 py-1.5 rounded-xl bg-[#195962] hover:bg-[#13444b] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
+                      >
+                        Demo Shipper
                       </button>
                     </div>
 

@@ -10,4 +10,10 @@ export const orderService = freshResponses({
     await new Promise((r) => setTimeout(r, 200))
     return { code: 200, result: [...mockOrders] }
   },
+
+  async getOrderById(id: number): Promise<ApiResponse<OrderResponse>> {
+    await new Promise((r) => setTimeout(r, 150))
+    const o = mockOrders.find((order) => order.id === id) || mockOrders[0]
+    return { code: 200, result: o }
+  },
 })

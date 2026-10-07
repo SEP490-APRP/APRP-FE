@@ -16,6 +16,7 @@ import {
   OtpVerificationRoute,
   AdminRoute,
   SellerRoute,
+  ShipperRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
@@ -24,7 +25,7 @@ const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
 /**
  * Cấu hình điều hướng ứng dụng CapNong (Application Router)
- * Tinh giản, phân lớp rõ ràng: Admin Portal, Farmer Portal và Khách mua (Storefront).
+ * Tinh giản, phân lớp rõ ràng: Admin Portal, Farmer Portal, Shipper Portal và Khách mua (Storefront).
  */
 export const router = createBrowserRouter([
   {
@@ -44,7 +45,14 @@ export const router = createBrowserRouter([
         handle: title('Kênh Người Bán · Nhà Vườn CapNong'),
       },
 
-      // 3. Phân hệ Cửa hàng cho khách mua (Storefront)
+      // 3. Phân hệ Giao hàng (Shipper Portal)
+      {
+        path: 'shipper/*',
+        element: <ShipperRoute />,
+        handle: title('Cổng Giao Hàng · Shipper CapNong'),
+      },
+
+      // 4. Phân hệ Cửa hàng cho khách mua (Storefront)
       {
         element: <StorefrontLayout />,
         children: [
@@ -77,6 +85,8 @@ export const router = createBrowserRouter([
           // Điều hướng phụ trợ (Aliases)
           { path: 'farmer/*', element: <Navigate replace to="/shop" /> },
           { path: 'seller/*', element: <Navigate replace to="/shop" /> },
+          { path: 'driver/*', element: <Navigate replace to="/shipper" /> },
+          { path: 'delivery/*', element: <Navigate replace to="/shipper" /> },
           { path: 'stories/*', element: <Navigate replace to="/cau-chuyen-nong-dan" /> },
           { path: 'privacy/*', element: <Navigate replace to="/bao-mat-thong-tin" /> },
 
