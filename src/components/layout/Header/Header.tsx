@@ -1,4 +1,4 @@
-import {
+﻿import {
   Leaf,
   Search,
   Camera,
@@ -131,7 +131,7 @@ export default function Header({
     <header className="site-header relative z-50">
       {/* Main Header Row */}
       <div className="page-container header-main">
-        <a href="#/" className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
+        <a href="/" className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
           <span className="brand-leaf">
             <Leaf size={29} />
           </span>
@@ -167,7 +167,7 @@ export default function Header({
         <div className="header-actions flex items-center gap-2">
           {/* Vendor Button / Direct Registration for Shop */}
           <a
-            href="#/dang-ky?role=shop"
+            href="/dang-ky?role=shop"
             className="btn btn-gold vendor-button hidden sm:inline-flex"
             onClick={closeDropdown}
           >
@@ -214,7 +214,7 @@ export default function Header({
                 {/* Desktop: Explicit "Đăng nhập" and "Đăng ký" buttons */}
                 <div className="hidden sm:flex items-center gap-1.5">
                   <a
-                    href="#/dang-nhap"
+                    href="/dang-nhap"
                     onClick={closeDropdown}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
                       route.startsWith('/dang-nhap') || route.startsWith('/login')
@@ -227,7 +227,7 @@ export default function Header({
                   </a>
 
                   <a
-                    href="#/dang-ky"
+                    href="/dang-ky"
                     onClick={closeDropdown}
                     className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
                       route.startsWith('/dang-ky') || route.startsWith('/register')
@@ -241,7 +241,7 @@ export default function Header({
 
                 {/* Mobile icon button */}
                 <a
-                  href="#/dang-nhap"
+                  href="/dang-nhap"
                   onClick={closeDropdown}
                   className={`icon-button sm:hidden ${isAuthActive ? 'bg-[#326318] text-white' : ''}`}
                   aria-label="Đăng nhập / Đăng ký"
@@ -280,7 +280,7 @@ export default function Header({
                     <div className="flex flex-col gap-1 text-xs">
                       {user.role === 'admin' && (
                         <a
-                          href="#/admin"
+                          href="/admin"
                           onClick={closeDropdown}
                           className="w-full text-left py-2 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold flex items-center gap-2 border border-purple-200"
                         >
@@ -291,7 +291,7 @@ export default function Header({
 
                       {user.role === 'shop' ? (
                         <a
-                          href="#/shop"
+                          href="/shop"
                           onClick={closeDropdown}
                           className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
                         >
@@ -300,7 +300,7 @@ export default function Header({
                         </a>
                       ) : (
                         <a
-                          href="#/shop"
+                          href="/shop"
                           onClick={closeDropdown}
                           className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
                         >
@@ -322,7 +322,7 @@ export default function Header({
                       </button>
 
                       <a
-                        href="#/dang-ky"
+                        href="/dang-ky"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
                       >
@@ -358,7 +358,7 @@ export default function Header({
 
                     <div className="flex flex-col gap-2">
                       <a
-                        href="#/dang-nhap"
+                        href="/dang-nhap"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-xs text-center transition-colors shadow-sm"
                       >
@@ -366,7 +366,7 @@ export default function Header({
                       </a>
 
                       <a
-                        href="#/dang-ky"
+                        href="/dang-ky"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl border border-[#326318] text-[#326318] hover:bg-[#f1faea] font-bold text-xs text-center transition-colors"
                       >
@@ -378,7 +378,7 @@ export default function Header({
                           Chọn vai trò đăng ký:
                         </span>
                         <a
-                          href="#/dang-ky?role=buyer"
+                          href="/dang-ky?role=buyer"
                           onClick={closeDropdown}
                           className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
                         >
@@ -386,7 +386,7 @@ export default function Header({
                           <ArrowRight size={12} />
                         </a>
                         <a
-                          href="#/dang-ky?role=shop"
+                          href="/dang-ky?role=shop"
                           onClick={closeDropdown}
                           className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
                         >
@@ -394,7 +394,7 @@ export default function Header({
                           <ArrowRight size={12} />
                         </a>
                         <a
-                          href="#/dang-ky?role=shipper"
+                          href="/dang-ky?role=shipper"
                           onClick={closeDropdown}
                           className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
                         >
@@ -427,7 +427,7 @@ export default function Header({
           <nav aria-label="Điều hướng chính" className="hidden lg:flex items-center gap-1.5">
             {/* 1. Trang chủ */}
             <a
-              href="#/"
+              href="/"
               className={`nav-pill ${isHomeActive ? 'is-active' : ''}`}
               aria-current={isHomeActive ? 'page' : undefined}
               onClick={closeDropdown}
@@ -438,7 +438,7 @@ export default function Header({
             {/* 2. Nông sản tươi (Hover trigger) */}
             <div className="relative" onMouseEnter={() => handleMouseEnter('fresh')}>
               <a
-                href="#/nong-san-tuoi"
+                href="/nong-san-tuoi"
                 className={`nav-pill ${isFreshActive ? 'is-active' : ''} ${
                   activeDropdown === 'fresh' ? 'is-hovered' : ''
                 }`}
@@ -458,7 +458,7 @@ export default function Header({
             {/* 3. Combo & Túi mù (Hover trigger) */}
             <div className="relative" onMouseEnter={() => handleMouseEnter('combo')}>
               <a
-                href="#/combo-tui-mu"
+                href="/combo-tui-mu"
                 className={`nav-pill ${isComboActive ? 'is-active' : ''} ${
                   activeDropdown === 'combo' ? 'is-hovered' : ''
                 }`}
@@ -477,7 +477,7 @@ export default function Header({
 
             {/* 4. Công nghệ AI */}
             <a
-              href="#/cong-nghe-ai"
+              href="/cong-nghe-ai"
               className={`nav-pill ${isAiActive ? 'is-active' : ''}`}
               aria-current={isAiActive ? 'page' : undefined}
               onClick={closeDropdown}
@@ -487,7 +487,7 @@ export default function Header({
 
             {/* 5. Câu chuyện nông dân */}
             <a
-              href="#/cau-chuyen-nong-dan"
+              href="/cau-chuyen-nong-dan"
               className={`nav-pill ${isFarmerActive ? 'is-active' : ''}`}
               aria-current={isFarmerActive ? 'page' : undefined}
               onClick={closeDropdown}
@@ -875,7 +875,7 @@ export default function Header({
         <div className="lg:hidden bg-[#fbf9f4] border-t border-[#ede8df] px-4 py-4 flex flex-col gap-2 shadow-2xl max-h-[80vh] overflow-y-auto">
           {/* 1. Trang chủ */}
           <a
-            href="#/"
+            href="/"
             className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
               isHomeActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
             }`}
@@ -960,7 +960,7 @@ export default function Header({
                   </button>
                 </div>
                 <a
-                  href="#/nong-san-tuoi"
+                  href="/nong-san-tuoi"
                   onClick={closeDropdown}
                   className="mt-2 text-center py-2 rounded-xl bg-primary text-white font-bold"
                 >
@@ -1014,7 +1014,7 @@ export default function Header({
                   🍲 Combo Tiệc Lẩu &amp; Nướng (119k)
                 </button>
                 <a
-                  href="#/combo-tui-mu"
+                  href="/combo-tui-mu"
                   onClick={closeDropdown}
                   className="mt-2 text-center py-2 rounded-xl bg-[#8a4e1d] text-white font-bold"
                 >
@@ -1026,7 +1026,7 @@ export default function Header({
 
           {/* 4. Công nghệ AI */}
           <a
-            href="#/cong-nghe-ai"
+            href="/cong-nghe-ai"
             className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
               isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
             }`}
@@ -1037,7 +1037,7 @@ export default function Header({
 
           {/* 5. Câu chuyện nông dân */}
           <a
-            href="#/cau-chuyen-nong-dan"
+            href="/cau-chuyen-nong-dan"
             className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
               isFarmerActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
             }`}
@@ -1070,14 +1070,14 @@ export default function Header({
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <a
-                  href="#/dang-nhap"
+                  href="/dang-nhap"
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl bg-[#326318] text-white font-bold text-xs text-center shadow-sm"
                 >
                   Đăng Nhập
                 </a>
                 <a
-                  href="#/dang-ky"
+                  href="/dang-ky"
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl border border-[#326318] text-[#326318] bg-white font-bold text-xs text-center"
                 >

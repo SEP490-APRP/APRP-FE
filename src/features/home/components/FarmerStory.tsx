@@ -1,4 +1,4 @@
-import { Quote, Store } from 'lucide-react'
+﻿import { Quote, Store } from 'lucide-react'
 import { ProduceImage } from '@/features/product'
 
 // Ảnh đang hotlink từ Google (lh3.googleusercontent.com): nên tải về src/assets để không phụ thuộc link ngoài.
@@ -74,7 +74,7 @@ export default function FarmerStory() {
               </div>
               <a
                 className="shrink-0 px-6 py-3 rounded-full bg-secondary hover:bg-on-surface text-on-secondary text-sm font-bold transition-colors shadow-md text-center min-h-[44px] flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
-                href="#/dang-ky?role=shop"
+                href="/dang-ky?role=shop"
               >
                 <Store size={16} aria-hidden />
                 Đăng ký mở gian hàng

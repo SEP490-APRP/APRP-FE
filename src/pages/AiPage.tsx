@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Sparkles,
   UtensilsCrossed,
@@ -338,7 +338,7 @@ export default function AiPage({ onInfo }: AiPageProps) {
               {/* Nút Mua Trọn Combo 1-Click */}
               <div className="mt-4 pt-2.5 border-t border-[#e0e9d8]">
                 <a
-                  href="#/combo-tui-mu"
+                  href="/combo-tui-mu"
                   className="w-full py-2.5 px-3.5 rounded-xl bg-[#254b12] hover:bg-[#1a350c] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
                 >
                   <ShoppingBag size={15} />
@@ -418,7 +418,7 @@ export default function AiPage({ onInfo }: AiPageProps) {
             <div className="pt-2.5 border-t border-[#e5e2da] flex items-center justify-between text-xs">
               <span className="text-[#5f6b57] text-[11px]">Hỗ trợ ảnh chụp thực phẩm & món ăn</span>
               <a
-                href="#/nong-san-tuoi"
+                href="/nong-san-tuoi"
                 className="font-bold text-[#326318] hover:underline inline-flex items-center gap-1 text-[11px]"
               >
                 <span>Thử tìm kiếm</span>
@@ -475,7 +475,7 @@ export default function AiPage({ onInfo }: AiPageProps) {
             <div className="pt-2.5 border-t border-[#e5e2da] flex items-center justify-between text-xs">
               <span className="text-[#5f6b57] text-[11px]">Xử lý trong dưới 1 giây</span>
               <a
-                href="#/dang-ky?role=shop"
+                href="/dang-ky?role=shop"
                 className="font-bold text-[#326318] hover:underline inline-flex items-center gap-1 text-[11px]"
               >
                 <span>Dành cho nhà vườn</span>

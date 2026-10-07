@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   ShieldCheck,
   Lock,
@@ -588,7 +588,7 @@ export default function PrivacyPolicy({ onNavigateHome }: PrivacyPolicyProps) {
                   Về trang chủ
                 </button>
                 <a
-                  href="#/nong-san-tuoi"
+                  href="/nong-san-tuoi"
                   className="px-5 py-2.5 rounded-full bg-white/20 hover:bg-white/30 text-white font-extrabold text-xs transition-colors cursor-pointer"
                 >
                   Mua nông sản

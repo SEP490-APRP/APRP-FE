@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowRight,
   CheckCircle2,
   Gift,
@@ -177,7 +177,7 @@ function ComboCard({
           {product.id === 'mystery' ? 'Mở túi mù ngay' : 'Thêm vào giỏ'}
         </button>
       ) : (
-        <LinkButton href="#/combo-tui-mu" variant="secondary" fullWidth className="mt-3">
+        <LinkButton href="/combo-tui-mu" variant="secondary" fullWidth className="mt-3">
           Xem chi tiết combo <ArrowRight size={16} aria-hidden />
         </LinkButton>
       )}
@@ -207,7 +207,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
             </h2>
           </div>
           <a
-            href="#/combo-tui-mu"
+            href="/combo-tui-mu"
             className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-soil-600 hover:text-soil-700"
           >
             Xem tất cả Combo &amp; Túi Mù <ArrowRight size={17} aria-hidden />
@@ -270,7 +270,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
                 ))}
               </ul>
               <a
-                href="#/combo-tui-mu"
+                href="/combo-tui-mu"
                 className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[#6e3910] shadow-md transition-colors hover:bg-[#fff7ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-soil-600 sm:w-fit"
               >
                 Mở túi mù ngay <ArrowRight size={16} aria-hidden />
