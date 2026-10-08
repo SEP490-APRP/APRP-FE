@@ -4,9 +4,6 @@ import {
   BarChart3,
   Package,
   ShoppingCart,
-  Truck,
-  MapPin,
-  ChefHat,
   MessageSquare,
   Gift,
   Bell,
@@ -17,13 +14,12 @@ import {
   LogOut,
   Leaf,
   HelpCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type {
   FarmerProduct,
   FarmerOrder,
-  FarmerVehicle,
-  FarmerTrip,
   FarmerVoucher,
   FarmerReview,
 } from './types'
@@ -35,9 +31,6 @@ import Products from './Products'
 import Orders from './Orders'
 import OrderPreparation from './OrderPreparation'
 import RevenueReport from './RevenueReport'
-import Vehicles from './Vehicles'
-import Trips from './Trips'
-import TripJoinRequests from './TripJoinRequests'
 import Reviews from './Reviews'
 import Vouchers from './Vouchers'
 import Notifications from './Notifications'
@@ -82,8 +75,6 @@ export default function FarmerPortal({
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showBlindBoxTool, setShowBlindBoxTool] = useState(false)
   const [showComboBuilder, setShowComboBuilder] = useState(false)
-  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false)
-  const [showCreateTripModal, setShowCreateTripModal] = useState(false)
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
 
@@ -233,41 +224,10 @@ export default function FarmerPortal({
       phone: '0903 *** 456',
       items: 'Túi Mù Nông Sản 5kg',
       total: 79000,
-      status: 'Đã tới kho',
-      statusCode: 'ARRIVED_AT_WAREHOUSE',
+      status: 'Đang giao',
+      statusCode: 'SHIPPING',
       time: 'Hôm qua',
       payment: 'Ví CapNong Pay',
-    },
-  ])
-
-  // Central Vehicles State
-  const [vehicles, setVehicles] = useState<FarmerVehicle[]>([
-    {
-      id: '1',
-      number: '49B1-889.21',
-      type: 'Xe máy thùng bảo ôn giữ tươi',
-      capacity: '150 kg',
-      status: 'Sẵn sàng',
-    },
-    {
-      id: '2',
-      number: '49A-342.18',
-      type: 'Xe tải lạnh trung chuyển 1.5 tấn',
-      capacity: '1,500 kg',
-      status: 'Đang chở hàng',
-    },
-  ])
-
-  // Central Trips State
-  const [trips, setTrips] = useState<FarmerTrip[]>([
-    {
-      id: 'TRIP-0104',
-      origin: 'Vườn Cầu Đất, TP. Đà Lạt',
-      destination: 'Kho Trung Chuyển Tổng CapNong TP.HCM',
-      departureTime: '18:00 Hôm nay',
-      vehicle: 'Xe tải lạnh 49A-342.18',
-      weight: '850 kg / 1,500 kg',
-      status: 'Đang chuẩn bị',
     },
   ])
 
@@ -318,34 +278,6 @@ export default function FarmerPortal({
     setProducts([newProd, ...products])
   }
 
-  const handleAddNewVehicle = () => {
-    const newV: FarmerVehicle = {
-      id: Date.now().toString(),
-      number: '49C-992.11',
-      type: 'Xe ba gác nông trại',
-      capacity: '500 kg',
-      status: 'Sẵn sàng',
-    }
-    setVehicles([...vehicles, newV])
-    setShowAddVehicleModal(false)
-    onInfo?.('Đã thêm phương tiện mới thành công')
-  }
-
-  const handleAddNewTrip = () => {
-    const newT: FarmerTrip = {
-      id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
-      origin: 'Vườn Cầu Đất, TP. Đà Lạt',
-      destination: 'Kho Tổng CapNong TP.HCM',
-      departureTime: '20:00 Tối nay',
-      vehicle: 'Xe tải 49A-342.18',
-      weight: '600 kg',
-      status: 'Đang chuẩn bị',
-    }
-    setTrips([newT, ...trips])
-    setShowCreateTripModal(false)
-    onInfo?.('Đã tạo chuyến vận chuyển tới kho thành công')
-  }
-
   const handleAddNewVoucher = () => {
     const newVc: FarmerVoucher = {
       id: Date.now().toString(),
@@ -360,15 +292,13 @@ export default function FarmerPortal({
     onInfo?.('Đã tạo mã khuyến mãi mới thành công')
   }
 
-  // Sidebar Menu List (13 Modules)
+  // Sidebar Menu List (Đã đồng bộ chuẩn 10 tính năng CapNong)
   const farmerMenu = [
     { name: 'Tổng quan', icon: LayoutDashboard, id: 'overview' },
     { name: 'Báo cáo doanh thu', icon: BarChart3, id: 'revenue-report' },
     { name: 'Sản phẩm', icon: Package, id: 'products' },
     { name: 'Đơn hàng', icon: ShoppingCart, id: 'orders' },
-    { name: 'Phương tiện', icon: Truck, id: 'vehicles' },
-    { name: 'Vận chuyển tới kho', icon: MapPin, id: 'trips' },
-    { name: 'Ghép đơn', icon: ChefHat, id: 'trip-join' },
+    { name: 'Khiếu nại & Trợ giúp', icon: AlertTriangle, id: 'disputes' },
     { name: 'Đánh giá', icon: MessageSquare, id: 'reviews' },
     { name: 'Voucher', icon: Gift, id: 'vouchers' },
     { name: 'Thông báo', icon: Bell, id: 'notifications' },
@@ -404,7 +334,7 @@ export default function FarmerPortal({
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1 custom-scrollbar">
+        <nav className="farmer-sidebar-nav flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
           {farmerMenu.map((item) => {
             const isActive = currentTab === item.id && !selectedOrderIdForPrep
             return (
@@ -415,7 +345,7 @@ export default function FarmerPortal({
                   setCurrentTab(item.id)
                   setSelectedOrderIdForPrep(null)
                 }}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 cursor-pointer text-left ${
+                className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${
                   isActive
                     ? showTour
                       ? 'border-2 border-[#326318] bg-[#326318]/10 text-[#326318] font-black shadow-md'
@@ -427,14 +357,14 @@ export default function FarmerPortal({
                   size={19}
                   className={`shrink-0 ${isActive ? 'text-[#326318]' : 'text-[#879181]'}`}
                 />
-                <span className="text-xs font-extrabold flex-1">{item.name}</span>
+                <span className="font-extrabold flex-1">{item.name}</span>
                 {isActive && <ChevronRight size={14} className="text-[#326318] opacity-70" />}
               </button>
             )
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#f1f4ed] bg-[#fdfcf9]">
+        <div className="p-4 [@media(min-height:980px)]:p-5 border-t border-[#f1f4ed] bg-[#fdfcf9]">
           <div
             className={`p-2.5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-sm ${
               currentTab === 'profile' && !selectedOrderIdForPrep
@@ -548,17 +478,6 @@ export default function FarmerPortal({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentTab('trips')
-                setSelectedOrderIdForPrep(null)
-              }}
-              className="px-5 py-2.5 rounded-full bg-[#326318] hover:bg-[#254b12] text-white text-xs font-black uppercase tracking-wider shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Truck size={14} />
-              <span>VẬN CHUYỂN TỚI KHO</span>
-            </button>
 
             <button
               type="button"
@@ -625,20 +544,8 @@ export default function FarmerPortal({
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
               onInfo={onInfo}
             />
-          ) : currentTab === 'vehicles' ? (
-            <Vehicles
-              vehicles={vehicles}
-              onOpenAddVehicle={() => setShowAddVehicleModal(true)}
-              onInfo={onInfo}
-            />
-          ) : currentTab === 'trips' ? (
-            <Trips
-              trips={trips}
-              onOpenCreateTrip={() => setShowCreateTripModal(true)}
-              onInfo={onInfo}
-            />
-          ) : currentTab === 'trip-join' ? (
-            <TripJoinRequests onInfo={onInfo} />
+          ) : currentTab === 'disputes' ? (
+            <FarmerDisputes />
           ) : currentTab === 'reviews' ? (
             <Reviews reviews={reviews} />
           ) : currentTab === 'vouchers' ? (

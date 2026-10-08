@@ -26,30 +26,12 @@ export interface FarmerOrder {
   statusCode:
     | 'PENDING'
     | 'CONFIRMED'
-    | 'SHIPPING_TO_WAREHOUSE'
-    | 'ARRIVED_AT_WAREHOUSE'
+    | 'READY'
+    | 'SHIPPING'
     | 'DELIVERED'
     | 'CANCELLED'
   time: string
   payment: string
-}
-
-export interface FarmerVehicle {
-  id: string
-  number: string
-  type: string
-  capacity: string
-  status: 'Sẵn sàng' | 'Đang chở hàng' | 'Bảo dưỡng'
-}
-
-export interface FarmerTrip {
-  id: string
-  origin: string
-  destination: string
-  departureTime: string
-  vehicle: string
-  weight: string
-  status: 'Đang chuẩn bị' | 'Đang di chuyển' | 'Đã nhập kho'
 }
 
 export interface FarmerVoucher {

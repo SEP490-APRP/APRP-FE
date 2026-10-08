@@ -177,18 +177,20 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
 
   return (
     <div className="min-h-screen bg-paper">
-      {/* Banner: thấp hơn trên mobile để sản phẩm xuất hiện sớm hơn */}
-      <header className="relative flex h-52 items-center justify-center overflow-hidden text-center sm:h-72 lg:h-80">
+      {/* 1. Top Fresh Produce Hero Banner (Synchronized Centered Design) */}
+      <div className="relative w-full h-72 sm:h-84 md:h-96 lg:h-[380px] overflow-hidden flex items-center justify-center text-center shadow-lg">
         <img
           src={freshFarmerBanner}
-          alt=""
+          alt="Bà con nông dân vui mừng thu hoạch nông sản tươi xanh"
           fetchPriority="high"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-105 transition-transform duration-700"
         />
+        {/* Dark Vignette Overlay for maximum readability & clear imagery */}
         <div
           className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/35"
           aria-hidden
         />
+        {/* Dynamic Title & Breadcrumb */}
         <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-3 px-4">
           <nav
             aria-label="Breadcrumb"
@@ -209,15 +211,15 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               </li>
             </ol>
           </nav>
-          <h1 className="text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h1 className="text-3xl font-black leading-tight tracking-tight text-white drop-shadow-lg sm:text-4xl md:text-5xl">
             {category.bannerTitle}
           </h1>
-          <p className="hidden max-w-xl text-sm leading-relaxed text-white/85 sm:block md:text-base">
+          <p className="max-w-xl text-xs leading-relaxed text-white/85 drop-shadow sm:text-sm md:text-base">
             Thu hoạch trong ngày từ các nông hộ và hợp tác xã liên kết, giữ trọn độ tươi giòn và
             dinh dưỡng tự nhiên.
           </p>
         </div>
-      </header>
+      </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8">
