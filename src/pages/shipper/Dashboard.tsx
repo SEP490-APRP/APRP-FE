@@ -86,6 +86,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       } catch { console.warn('Cannot fetch shipper profile'); }
     };
     fetchProfile();
+    fetchMyOrders();
   }, []);
 
   useEffect(() => {
@@ -197,10 +198,38 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     setAcceptingOrderId(orderId);
     try {
       await shipperService.acceptOrder(orderId, codPaymentOption);
-      setAcceptSuccess(orderId);
       setCodAcceptOrder(null);
+
+      // ✅ 1. BIẾN MẤT LIỀN KHỎI DANH SÁCH ĐƠN HÀNG MỚI
       setAvailableOrders(prev => prev.filter(o => o.orderId !== orderId));
-      setTimeout(() => setAcceptSuccess(null), 3000);
+      setOrdersPage(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          totalElements: Math.max(0, prev.totalElements - 1),
+          content: (prev.content || []).filter(o => o.orderId !== orderId),
+        };
+      });
+
+      // ✅ 2. ĐƯA NGAY VÀO DANH SÁCH ĐƠN ĐANG GIAO CỦA SHIPPER
+      const newShippingOrder: ShipperOrderResponse = {
+        ...order,
+        status: 'SHIPPING',
+        codPaymentOption: codPaymentOption ?? 'WALLET',
+      };
+      setMyOrders(prev => [newShippingOrder, ...prev.filter(o => o.orderId !== orderId)]);
+
+      // ✅ 3. THÔNG BÁO THÀNH CÔNG VÀ CHUYỂN TAB SANG ĐƠN ĐANG GIAO
+      globalShowAlert(
+        `Đã nhận đơn #${orderId} thành công! Đang chuyển đến bảng "Đơn đang giao"...`,
+        'Nhận đơn thành công',
+        'success',
+      );
+
+      setTimeout(() => {
+        setActiveTab('Đơn đang giao');
+        fetchMyOrders();
+      }, 700);
     } catch (err: any) {
       const errorCode = err?.data?.code;
       const apiMessage = err?.data?.message || err?.message;
@@ -476,7 +505,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   // ===================== RENDER: ORDER CARDS (ĐƠN MỚI) =====================
   const renderOrderCards = () => {
-    const ordersToShow = ordersPage?.content ?? availableOrders;
+    const ordersToShow = availableOrders;
     return (
       <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
@@ -664,14 +693,25 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       <div className="bg-white border-b border-gray-100 shadow-sm sticky top-[72px] z-40 px-4 md:px-10 lg:px-40">
         <div className="max-w-[1280px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-10">
-            {['Đơn hàng mới', 'Đơn đang giao', 'Hồ sơ cá nhân'].map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
-                {tab === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab ? 'fill-primary' : ''}`} />}
-                {tab === 'Đơn đang giao' && <Truck className="size-4" />}
-                {tab === 'Hồ sơ cá nhân' && <User className="size-4" />}
-                {tab}
-                {tab === 'Đơn đang giao' && trackingStatus === 'active' && <span className="size-2 bg-green-500 rounded-full animate-pulse" />}
+            {[
+              { id: 'Đơn hàng mới', label: 'Đơn hàng mới', count: availableOrders.length },
+              { id: 'Đơn đang giao', label: 'Đơn đang giao', count: myOrders.length },
+              { id: 'Hồ sơ cá nhân', label: 'Hồ sơ cá nhân' },
+            ].map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab.id ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
+                {tab.id === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab.id ? 'fill-primary' : ''}`} />}
+                {tab.id === 'Đơn đang giao' && <Truck className="size-4" />}
+                {tab.id === 'Hồ sơ cá nhân' && <User className="size-4" />}
+                <span>{tab.label}</span>
+                {typeof tab.count === 'number' && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-all ${
+                    activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+                {tab.id === 'Đơn đang giao' && trackingStatus === 'active' && <span className="size-2 bg-green-500 rounded-full animate-pulse" />}
               </button>
             ))}
           </div>
