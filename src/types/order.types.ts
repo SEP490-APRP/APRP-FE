@@ -21,14 +21,17 @@ export interface OrderItem {
   orderDetailId?: number
   productId?: number
   mysteryBoxId?: number
+  buildComboId?: number
+  itemName?: string
   productName?: string
   mysteryBoxType?: string
   quantity: number
   quantityKg?: number
   unitPrice: number
   pricePerKg?: number
+  subtotal?: number
   imageUrl?: string
-  itemType: 'PRODUCT' | 'MYSTERY_BOX'
+  itemType?: 'PRODUCT' | 'MYSTERY_BOX' | 'BUILD_COMBO' | string
 }
 
 /** Thông tin shop gắn trong đơn hàng */

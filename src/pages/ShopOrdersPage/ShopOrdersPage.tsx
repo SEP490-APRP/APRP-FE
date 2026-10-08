@@ -15,14 +15,18 @@ import { OrderCard } from '@/features/shop/components/OrderCard'
 import { OrderDetailModal } from '@/features/shop/components/OrderDetailModal'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 
-/* ── Tab definitions ────────────────────────────────────────────── */
-const TABS: { label: string; statuses: OrderStatus[] | undefined }[] = [
-  { label: 'Tất cả',         statuses: undefined },
+/* ── Tab definitions (Loại bỏ hoàn toàn AWAITING_PAYMENT khỏi phía Shop) ── */
+const SHOP_ALL_STATUSES: OrderStatus[] = [
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+]
+
+const TABS: { label: string; statuses: OrderStatus[] }[] = [
+  { label: 'Tất cả',         statuses: SHOP_ALL_STATUSES },
   { label: 'Cần xử lý',      statuses: ['PENDING', 'PAID'] },
   { label: 'Đang chuẩn bị',  statuses: ['CONFIRMED'] },
   { label: 'Chờ shipper',    statuses: ['READY'] },
   { label: 'Đang giao',      statuses: ['SHIPPING'] },
-  { label: 'Hoàn thành',     statuses: ['DELIVERED'] },
+  { label: 'Hoàn thành',     statuses: ['DELIVERED', 'COMPLETED'] },
   { label: 'Đã hủy',         statuses: ['CANCELLED', 'FAILED'] },
 ]
 
@@ -40,14 +44,15 @@ export function ShopOrdersPage() {
     statuses: TABS[activeTab].statuses,
   })
 
-  const orders = data?.content ?? []
+  // Đảm bảo không bao giờ hiển thị đơn AWAITING_PAYMENT phía shop
+  const orders = (data?.content ?? []).filter((o: OrderResponse) => o.status !== 'AWAITING_PAYMENT')
 
   // Filter search phía client (mã đơn / tên khách)
   const filtered = search.trim()
     ? orders.filter(
         (o: OrderResponse) =>
-          `#${o.id}`.includes(search) ||
-          o.recipientName.toLowerCase().includes(search.toLowerCase()),
+          `#${o.orderId ?? o.id}`.includes(search) ||
+          (o.recipientName || '').toLowerCase().includes(search.toLowerCase()),
       )
     : orders
 

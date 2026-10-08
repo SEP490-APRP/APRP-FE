@@ -34,25 +34,26 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
   const isProcessing =
     confirmMutation.isPending || readyMutation.isPending || cancelMutation.isPending
 
+  const orderId = order.orderId ?? order.id
   const isPending   = order.status === 'PENDING' || order.status === 'PAID'
   const isConfirmed = order.status === 'CONFIRMED'
   const canCancel   = CANCELLABLE_STATUSES.includes(order.status) && !isProcessing
 
   const handleConfirm = async () => {
-    if (!weightAgreed || order.id == null) return
-    await confirmMutation.mutateAsync(order.id)
+    if (!weightAgreed || orderId == null) return
+    await confirmMutation.mutateAsync(orderId)
     onClose()
   }
 
   const handleReady = async () => {
-    if (order.id == null) return
-    await readyMutation.mutateAsync(order.id)
+    if (orderId == null) return
+    await readyMutation.mutateAsync(orderId)
     onClose()
   }
 
   const handleCancel = async () => {
-    if (order.id == null) return
-    await cancelMutation.mutateAsync(order.id)
+    if (orderId == null) return
+    await cancelMutation.mutateAsync(orderId)
     setShowCancelConfirm(false)
     onClose()
   }
@@ -65,11 +66,11 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-black text-gray-900">#{order.id}</span>
+              <span className="text-lg font-black text-gray-900">#ORD-{orderId}</span>
               <OrderStatusBadge status={order.status} />
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
-              {new Date(order.createdAt).toLocaleString('vi-VN')}
+              {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa xong'}
             </p>
           </div>
           <button
@@ -93,10 +94,10 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
           </Section>
 
           {/* Sản phẩm */}
-          <Section label={`Sản phẩm (${order.items.length})`}>
+          <Section label={`Sản phẩm (${(order.items || []).length})`}>
             <div className="space-y-3">
-              {order.items.map((item, i) => {
-                const name = item.productName || item.mysteryBoxType || 'Sản phẩm'
+              {(order.items || []).map((item, i) => {
+                const name = item.itemName || item.productName || item.mysteryBoxType || 'Sản phẩm'
                 const qty  = item.quantityKg ?? item.quantity
                 const unit = item.quantityKg != null ? 'kg' : 'cái'
                 const price = item.pricePerKg ?? item.unitPrice
@@ -210,7 +211,7 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
             <AlertTriangle className="size-10 text-red-500 mx-auto" />
-            <h3 className="text-lg font-black text-gray-900">Xác nhận hủy đơn #{order.id}?</h3>
+            <h3 className="text-lg font-black text-gray-900">Xác nhận hủy đơn #ORD-{orderId}?</h3>
             <p className="text-sm text-gray-500">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3">
               <button

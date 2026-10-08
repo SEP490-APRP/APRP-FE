@@ -28,7 +28,7 @@ export function OrderCard({ order, onSelect }: OrderCardProps) {
       {/* Header: mã đơn + status + thời gian */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-black text-emerald-600">#{order.id}</span>
+          <span className="text-sm font-black text-emerald-600">#ORD-{order.orderId ?? order.id}</span>
           <OrderStatusBadge status={order.status} />
           {order.paymentMethod && (
             <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md uppercase">
@@ -37,7 +37,7 @@ export function OrderCard({ order, onSelect }: OrderCardProps) {
           )}
         </div>
         <span className="text-xs text-gray-400 whitespace-nowrap">
-          {new Date(order.createdAt).toLocaleString('vi-VN')}
+          {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa xong'}
         </span>
       </div>
 
@@ -49,11 +49,11 @@ export function OrderCard({ order, onSelect }: OrderCardProps) {
       <div className="flex items-center gap-2 flex-wrap mb-3">
         <Package className="size-3.5 text-gray-400 shrink-0" />
         <span className="text-xs text-gray-500">
-          {order.items
-            .map((i) => i.productName || i.mysteryBoxType || 'Sản phẩm')
+          {(order.items || [])
+            .map((i) => i.itemName || i.productName || i.mysteryBoxType || 'Sản phẩm')
             .slice(0, 3)
             .join(' • ')}
-          {order.items.length > 3 && ` +${order.items.length - 3}`}
+          {(order.items || []).length > 3 && ` +${(order.items || []).length - 3}`}
         </span>
       </div>
 
