@@ -17,6 +17,9 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  optimizeDeps: {
+    include: ['@stomp/stompjs', 'sockjs-client'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',
