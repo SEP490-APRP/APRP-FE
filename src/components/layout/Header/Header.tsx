@@ -1,4 +1,4 @@
-﻿import {
+import {
   Leaf,
   Search,
   Camera,
@@ -16,6 +16,7 @@
   ShieldCheck,
   LogOut,
   User,
+  FileText,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -290,14 +291,24 @@ export default function Header({
                       )}
 
                       {user.role === 'shop' ? (
-                        <a
-                          href="/shop"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
-                        >
-                          <Store size={15} className="text-[#8a4e1d]" />
-                          <span>🌾 Bảng Điều Khiển Nông Dân</span>
-                        </a>
+                        <>
+                          <a
+                            href="/shop"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
+                          >
+                            <Store size={15} className="text-[#8a4e1d]" />
+                            <span>🌾 Bảng Điều Khiển Nông Dân</span>
+                          </a>
+                          <a
+                            href="/shop/orders"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                          >
+                            <FileText size={15} className="text-[#8a4e1d]" />
+                            <span>📦 Quản Lý Đơn Hàng</span>
+                          </a>
+                        </>
                       ) : (
                         <a
                           href="/shop"
@@ -1049,23 +1060,54 @@ export default function Header({
           {/* 6. Auth Mobile Section */}
           <div className="mt-3 pt-3 border-t border-[#ede8df] flex flex-col gap-2">
             {user ? (
-              <div className="p-3 bg-[#f0ebd9] rounded-2xl flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
-                  <div className="text-[11px] text-[#555d4e]">
-                    Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
+              <div className="p-3 bg-[#f0ebd9] rounded-2xl flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
+                    <div className="text-[11px] text-[#555d4e]">
+                      Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeDropdown()
+                      onLogout?.()
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-700 font-bold text-xs hover:bg-red-200 cursor-pointer"
+                  >
+                    Đăng xuất
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeDropdown()
-                    onLogout?.()
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-red-100 text-red-700 font-bold text-xs hover:bg-red-200"
-                >
-                  Đăng xuất
-                </button>
+
+                {user.role === 'admin' && (
+                  <a
+                    href="/admin"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-purple-100 text-purple-900 font-bold text-xs text-center border border-purple-300"
+                  >
+                    🛡️ Quản Trị Hệ Thống Admin
+                  </a>
+                )}
+
+                {user.role === 'shop' && (
+                  <div className="grid grid-cols-2 gap-2 mt-0.5">
+                    <a
+                      href="/shop"
+                      onClick={closeDropdown}
+                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm"
+                    >
+                      🌾 Kênh Nhà Vườn
+                    </a>
+                    <a
+                      href="/shop/orders"
+                      onClick={closeDropdown}
+                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center"
+                    >
+                      📦 Quản Lý Đơn
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">

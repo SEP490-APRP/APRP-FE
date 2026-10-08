@@ -16,6 +16,9 @@ import {
   OtpVerificationRoute,
   AdminRoute,
   SellerRoute,
+  CartRoute,
+  CheckoutRoute,
+  PaymentResultRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
@@ -64,11 +67,20 @@ export const router = createBrowserRouter([
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
 
           // Sản phẩm & Gian hàng
-          { path: 'san-pham', element: <ProductRoute /> },
+          { path: 'san-pham', element: <Navigate replace to="/nong-san-tuoi" /> },
           { path: 'san-pham/:productId/*', element: <ProductRoute /> },
           { path: 'cua-hang', element: <ShopRoute /> },
           { path: 'cua-hang/:shopId/*', element: <ShopRoute /> },
           { path: 'cua-hang/:shopId/voucher', element: <ShopVouchersRoute /> },
+
+          // Mua sắm & Đơn hàng (English routing)
+          { path: 'cart/*', element: <CartRoute />, handle: title('Giỏ hàng · CapNong') },
+          { path: 'checkout/*', element: <CheckoutRoute />, handle: title('Thanh toán đơn hàng · CapNong') },
+          { path: 'payment/result/*', element: <PaymentResultRoute />, handle: title('Kết quả thanh toán · CapNong') },
+          { path: 'payment/success/*', element: <Navigate replace to="/payment/result" /> },
+          { path: 'payment/cancel/*', element: <Navigate replace to="/payment/result" /> },
+          { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
+          { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
           // Xác thực & Tài khoản
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },

@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ROUTES } from '@/utils/constants'
-import { axiosInstance } from '@/services'
+import { authService } from '@/services'
 
 /* ===== Validation Schema ===== */
 const registerSchema = z
@@ -70,20 +70,46 @@ export const RegisterPage = () => {
   const onSubmit = async (data: RegisterFormData) => {
     setErrorMsg('')
     try {
-      const payload = { ...data }
-      let endpoint = '/users'
       if (data.role === 'SHOP') {
-        endpoint = '/users/shops'
+        await authService.registerShop({
+          email: data.email.trim(),
+          password: data.password,
+          fullName: data.fullName.trim(),
+          phoneNumber: data.phoneNumber.trim(),
+          address: data.address.trim(),
+          shopName: data.shopName?.trim() || '',
+        })
       } else if (data.role === 'SHIPPER') {
-        endpoint = '/users/shippers'
+        await authService.registerShipper({
+          email: data.email.trim(),
+          password: data.password,
+          fullName: data.fullName.trim(),
+          phoneNumber: data.phoneNumber.trim(),
+          address: data.address.trim(),
+          vehicleNumber: data.vehicleNumber?.trim() || '',
+        })
+      } else {
+        await authService.registerBuyer({
+          email: data.email.trim(),
+          password: data.password,
+          fullName: data.fullName.trim(),
+          phoneNumber: data.phoneNumber.trim(),
+          address: data.address.trim(),
+        })
       }
 
-      await axiosInstance.post(endpoint, payload)
-      // Redirect to OTP page and pass email
-      navigate(ROUTES.OTP_VERIFICATION, { state: { email: data.email } })
+      // Chuyển sang màn hình xác thực OTP kèm email
+      navigate(ROUTES.OTP_VERIFICATION, {
+        state: {
+          email: data.email.trim(),
+          isShop: data.role === 'SHOP',
+          isShipper: data.role === 'SHIPPER',
+        },
+      })
     } catch (err: any) {
       console.error('Registration failed:', err)
-      setErrorMsg(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.')
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message
+      setErrorMsg(msg || 'Đăng ký thất bại. Vui lòng thử lại.')
     }
   }
 

@@ -9,3 +9,10 @@ export {
   type LoginValues,
   type RegisterValues,
 } from './schemas/auth.schemas'
+export {
+  authService,
+  parseJwt,
+  mapBackendRoleToFrontend,
+  buildSessionUser,
+} from '@/services/auth.service'
+export type * from '@/services/auth.types'

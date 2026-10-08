@@ -38,7 +38,12 @@ export interface OrderShopInfo {
 
 /** Response đầy đủ của 1 đơn hàng từ BE */
 export interface OrderResponse {
-  id: number
+  id?: number
+  orderId?: number
+  batchId?: number
+  shopId?: number
+  buyerName?: string
+  shopName?: string
   status: OrderStatus
   recipientName: string
   recipientPhone: string
@@ -47,6 +52,7 @@ export interface OrderResponse {
   note?: string
   totalAmount: number
   shippingFee?: number
+  voucherDiscountAmount?: number
   createdAt: string
   items: OrderItem[]
   shopOwner?: OrderShopInfo
@@ -76,37 +82,52 @@ export interface FetchOrdersParams {
 export interface OrderItemRequest {
   productId?: number
   mysteryBoxId?: number
+  buildComboId?: number
   quantity: number
   quantityKg?: number
 }
 
+export interface ShopOrderPreview {
+  shopId: number
+  shopName: string
+  goodsAmount: number
+  shippingFee: number
+  voucherDiscount: number
+  totalAmount: number
+  items: OrderItem[]
+}
+
 /** Request xem trước đơn hàng (tính phí, voucher...) */
 export interface CheckoutPreviewRequest {
-  recipientName: string
-  recipientPhone: string
-  shippingAddress: string
-  note?: string
-  paymentMethod: 'COD' | 'TRANSFER'
+  shippingAddress?: string
   voucherCodes?: string[]
   items: OrderItemRequest[]
+  cartItemIds?: number[]
 }
 
 /** Response xem trước — BE tính toán phí */
 export interface CheckoutPreviewResponse {
-  subtotal: number
-  shippingFee: number
-  discount: number
-  totalAmount: number
+  shopOrders?: ShopOrderPreview[]
+  totalGoodsAmount?: number
+  totalShippingFee?: number
+  totalVoucherDiscount?: number
+  finalTotalAmount?: number
+  // Aliases backward compatible
+  subtotal?: number
+  shippingFee?: number
+  discount?: number
+  totalAmount?: number
   estimatedDelivery?: string
 }
 
 /** Request tạo đơn hàng thật */
 export interface CreateOrderRequest {
-  recipientName: string
-  recipientPhone: string
+  recipientName?: string
+  recipientPhone?: string
   shippingAddress: string
   note?: string
-  paymentMethod: 'COD' | 'TRANSFER'
+  paymentMethod: 'COD' | 'TRANSFER' | 'PAYOS' | string
   voucherCodes?: string[]
   items: OrderItemRequest[]
+  cartItemIds?: number[]
 }

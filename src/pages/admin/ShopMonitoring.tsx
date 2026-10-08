@@ -20,7 +20,7 @@ import { getErrorMessage } from '@/utils'
 
 const PAGE_SIZE = 10
 
-const SHOP_ROLES = ['SHOP_OWNER']
+const SHOP_ROLES = ['SHOP']
 
 const ShopMonitoring: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')

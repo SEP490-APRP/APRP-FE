@@ -5,7 +5,7 @@ export const mockConversationsList: Conversation[] = [
     id: 'conv-1',
     otherUserId: 101,
     otherUserName: 'Nông Trại Hữu Cơ Đà Lạt (Chủ vườn)',
-    otherUserRole: 'SHOP_OWNER',
+    otherUserRole: 'SHOP',
     otherUserAvatar:
       'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=120&q=80',
     lastMessage: 'Admin duyệt giúp em sản phẩm bơ 034 mới với ạ!',

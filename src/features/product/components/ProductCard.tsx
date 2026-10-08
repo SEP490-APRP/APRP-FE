@@ -1,19 +1,11 @@
 import { memo, useState } from 'react'
-import { Leaf, MapPin, ShoppingBasket } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Eye, Leaf, MapPin, ShoppingCart } from 'lucide-react'
 import { money, type Product } from '@/mocks/catalog'
-import { cn } from '@/utils'
-import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
-
-/**
- * Card sản phẩm DUY NHẤT cho toàn site.
- * Trước đây có 3 bản khác nhau (components/ProductCard, card inline trong Fresh,
- * card inline trong TodayRescue) với 3 kiểu giá, 3 kiểu nút và 2 kiểu link chi tiết
- * (#/san-pham/702 và #/san-pham/carrot) dẫn tới cùng một sản phẩm.
- */
+import { cn } from '@/utils'
 
 // Một nơi duy nhất quy đổi id catalog sang id trang chi tiết.
-// Nên chuyển thành trường `detailId` trong type Product khi có API thật.
 const DETAIL_IDS: Partial<Record<string, number>> = {
   carrot: 702,
   tomato: 704,
@@ -25,7 +17,7 @@ const DETAIL_IDS: Partial<Record<string, number>> = {
 }
 
 export const productHref = (product: Pick<Product, 'id'>) =>
-  `/san-pham/${DETAIL_IDS[product.id] ?? 701}`
+  `/san-pham/${DETAIL_IDS[product.id] ?? product.id}`
 
 export const discountPercent = ({ price, original }: Pick<Product, 'price' | 'original'>) =>
   original > price ? Math.round((1 - price / original) * 100) : 0
@@ -34,7 +26,6 @@ type ProduceImageProps = {
   src: string
   alt: string
   className?: string
-  /** Ảnh nằm trong màn hình đầu tiên thì không lazy-load (tránh LCP chậm). */
   priority?: boolean
 }
 
@@ -75,7 +66,6 @@ export function ProduceImage({ src, alt, className, priority = false }: ProduceI
 export type ProductCardProps = {
   product: Product
   onAdd: (id: string) => void
-  /** Đánh dấu khi sản phẩm đã có trong giỏ, để nút phản hồi trạng thái. */
   inCartQuantity?: number
   priority?: boolean
   className?: string
@@ -97,113 +87,126 @@ function ProductCardBase({
   return (
     <article
       className={cn(
-        'group relative flex h-full flex-col overflow-hidden rounded-card border border-line bg-white shadow-card',
-        'transition-[box-shadow,border-color] duration-300 hover:border-leaf-600/50 hover:shadow-card-hover',
-        'focus-within:ring-2 focus-within:ring-leaf-600/40',
+        'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#e8ece3] bg-white shadow-sm',
+        'transition-all duration-300 hover:border-[#326318]/50 hover:shadow-md',
         className,
       )}
     >
-      {/* Ảnh: tabIndex -1 vì link ở tiêu đề đã là điểm focus chính, tránh 2 lần Tab cho cùng 1 đích */}
-      <a
-        href={href}
-        tabIndex={-1}
-        aria-hidden
-        className="relative block aspect-square overflow-hidden bg-paper-warm"
+      {/* Ảnh sản phẩm */}
+      <Link
+        to={href}
+        className="relative block aspect-square overflow-hidden bg-[#faf7ef]"
       >
         <ProduceImage
           src={p.image}
-          alt=""
+          alt={p.name}
           priority={priority}
           className="transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none"
         />
         {discount > 0 && (
-          <span className="absolute left-2 top-2 rounded-md bg-sale px-2 py-0.5 text-caption font-extrabold text-white shadow-sm">
+          <span className="absolute left-2 top-2 rounded-md bg-[#e53935] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-sm">
             -{discount}%
           </span>
         )}
         <span
-          className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-0.5 text-caption font-bold text-sun-300 backdrop-blur-sm"
-          title="Điểm chất lượng do AI chấm (minh họa)"
+          className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-[#ffd54f] backdrop-blur-sm"
+          title="Điểm chất lượng tươi sạch"
         >
           AI {p.score}%
         </span>
-        <span className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-white/95 px-2 py-0.5 text-caption font-semibold text-soil-600 shadow-sm">
+        <span className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-[#5f6b57] shadow-sm">
           {p.flaw}
         </span>
-      </a>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
-        <p className="flex items-center justify-between gap-2 text-caption text-ink-muted">
+        {/* Nguồn gốc & Nhà vườn */}
+        <p className="flex items-center justify-between gap-2 text-xs text-[#5f6b57]">
           <span className="flex min-w-0 items-center gap-1">
-            <MapPin size={12} className="shrink-0 text-leaf-600" aria-hidden />
-            <span className="truncate">{p.farm}</span>
+            <MapPin size={13} className="shrink-0 text-[#326318]" aria-hidden />
+            <span className="truncate font-medium">{p.farm}</span>
           </span>
           <span className="shrink-0 font-medium">{p.region}</span>
         </p>
 
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-ink sm:text-[0.9375rem]">
-          {/* after:inset-0 làm cả card bấm được mà vẫn chỉ có 1 link trong cây accessibility */}
-          <a
-            href={href}
-            className="after:absolute after:inset-0 after:content-[''] hover:text-leaf-700 focus-visible:outline-none"
+        {/* Tên sản phẩm */}
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-[#1f241a]">
+          <Link
+            to={href}
+            className="hover:text-[#326318] transition-colors"
           >
             {p.name}
-          </a>
+          </Link>
         </h3>
 
+        {/* Giá tiền */}
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-1">
-          <strong className="text-base font-extrabold text-leaf-700 sm:text-lg">
+          <strong className="text-base font-extrabold text-[#326318] sm:text-lg">
             {money(p.price)}
           </strong>
-          <span className="text-caption text-ink-subtle">/{p.unit}</span>
+          <span className="text-xs text-[#838d7b]">/{p.unit}</span>
           {discount > 0 && (
-            <del className="text-caption text-ink-subtle">
+            <del className="text-xs text-[#838d7b]">
               <span className="sr-only">Giá gốc </span>
               {money(p.original)}
             </del>
           )}
         </div>
 
+        {/* Tiến độ giải cứu & Tồn kho */}
         <div className="flex flex-col gap-1">
           <div
             role="progressbar"
             aria-valuenow={rescued}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Đã giải cứu ${rescued}%`}
-            className="h-1.5 w-full overflow-hidden rounded-full bg-leaf-100"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-[#e8ece3]"
           >
             <div
-              className="h-full rounded-full bg-leaf-600 transition-[width] duration-500"
+              className="h-full rounded-full bg-[#326318] transition-[width] duration-500"
               style={{ width: `${rescued}%` }}
             />
           </div>
-          <p className="flex justify-between gap-2 whitespace-nowrap text-caption font-medium text-ink-muted">
+          <p className="flex justify-between gap-2 whitespace-nowrap text-xs font-medium text-[#5f6b57]">
             <span>Đã cứu {rescued}%</span>
-            <span className={cn(p.stock < 20 && 'font-bold text-soil-600')}>
+            <span className={cn(p.stock < 20 && 'font-bold text-[#b71c1c]')}>
               {soldOut ? 'Hết hàng' : `Còn ${p.stock} ${p.unit}`}
             </span>
           </p>
         </div>
 
-        {/* z-10 để nút nằm trên lớp link phủ cả card */}
-        <Button
-          size="sm"
-          fullWidth
-          className="relative z-10 mt-1"
-          disabled={soldOut || reachedStock}
-          onClick={() => onAdd(p.id)}
-          leftIcon={<ShoppingBasket size={16} aria-hidden />}
-          aria-label={`Thêm ${p.name} vào giỏ`}
-        >
-          {soldOut
-            ? 'Hết hàng'
-            : reachedStock
-              ? 'Đã đủ tồn kho'
-              : inCartQuantity > 0
-                ? `Trong giỏ: ${inCartQuantity}`
-                : 'Thêm vào giỏ'}
-        </Button>
+        {/* Nút hành động: 1 nút Xem chi tiết + 1 nút Thêm vào giỏ */}
+        <div className="mt-3 flex items-center gap-2 pt-2.5 border-t border-[#f0eee6]">
+          <Link
+            to={href}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-xl border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+          >
+            <Eye size={14} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+            <span className="truncate">Chi tiết</span>
+          </Link>
+
+          <button
+            type="button"
+            disabled={soldOut || reachedStock}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onAdd(p.id)
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center"
+          >
+            <ShoppingCart size={14} className="shrink-0" />
+            <span className="truncate">
+              {soldOut
+                ? 'Hết hàng'
+                : reachedStock
+                  ? 'Đã đủ'
+                  : inCartQuantity > 0
+                    ? `Trong giỏ (${inCartQuantity})`
+                    : 'Thêm giỏ'}
+            </span>
+          </button>
+        </div>
       </div>
     </article>
   )

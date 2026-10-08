@@ -8,6 +8,6 @@ export const ENV = {
   API_URL,
   /** Gốc server (không có /api), dùng cho file tĩnh như ảnh KYC. */
   API_ORIGIN: new URL(API_URL).origin,
-  /** Mặc định bật mock; chỉ tắt khi đặt rõ VITE_USE_MOCK=false. */
-  USE_MOCK: import.meta.env.VITE_USE_MOCK !== 'false',
+  /** Mặc định dùng API thật; chỉ bật mock khi đặt rõ VITE_USE_MOCK=true. */
+  USE_MOCK: import.meta.env.VITE_USE_MOCK === 'true',
 } as const

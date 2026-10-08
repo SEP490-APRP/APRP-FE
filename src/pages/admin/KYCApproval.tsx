@@ -15,7 +15,7 @@ import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { ENV } from '@/utils'
 
 const PAGE_SIZE = 10
-const KYC_ROLES = ['SHOP_OWNER', 'SHIPPER']
+const KYC_ROLES = ['SHOP', 'SHIPPER']
 
 const KYCApproval: React.FC = () => {
   const [viewingUser, setViewingUser] = useState<UserResponse | null>(null)
@@ -173,12 +173,12 @@ const KYCApproval: React.FC = () => {
                           </p>
                           <span
                             className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${
-                              u.role?.name === 'SHOP_OWNER'
+                              u.role?.name === 'SHOP'
                                 ? 'bg-orange-50 text-orange-600'
                                 : 'bg-blue-50 text-blue-600'
                             }`}
                           >
-                            {u.role?.name === 'SHOP_OWNER' ? 'Nhà vườn' : 'Shipper'}
+                            {u.role?.name === 'SHOP' ? 'Nhà vườn' : 'Shipper'}
                           </span>
                         </div>
                       </div>
@@ -372,9 +372,9 @@ const KYCApproval: React.FC = () => {
                 />
                 <div>
                   <span
-                    className={`inline-block mb-2 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${viewingUser.role?.name === 'SHOP_OWNER' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}
+                    className={`inline-block mb-2 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${viewingUser.role?.name === 'SHOP' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}
                   >
-                    {viewingUser.role?.name === 'SHOP_OWNER' ? 'Nhà vườn' : 'Shipper'}
+                    {viewingUser.role?.name === 'SHOP' ? 'Nhà vườn' : 'Shipper'}
                   </span>
                   <h3 className="text-3xl font-black text-gray-900 tracking-tight">
                     {viewingUser.fullName || 'Người dùng Xấu Mã'}
@@ -413,14 +413,14 @@ const KYCApproval: React.FC = () => {
               <div>
                 <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">
-                    {viewingUser.role?.name === 'SHOP_OWNER' ? 'store' : 'local_shipping'}
+                    {viewingUser.role?.name === 'SHOP' ? 'store' : 'local_shipping'}
                   </span>
-                  {viewingUser.role?.name === 'SHOP_OWNER'
+                  {viewingUser.role?.name === 'SHOP'
                     ? 'Thông tin cửa hàng'
                     : 'Thông tin hoạt động'}
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
-                  {viewingUser.role?.name === 'SHOP_OWNER' ? (
+                  {viewingUser.role?.name === 'SHOP' ? (
                     <>
                       <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">

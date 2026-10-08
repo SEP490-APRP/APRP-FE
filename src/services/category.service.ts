@@ -16,36 +16,28 @@ const MOCK_CATEGORIES: CategoryResponse[] = [
 
 export const categoryService = {
   async getAll(): Promise<ApiResponse<CategoryResponse[]>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 100))
-      return { code: 1000, result: [...MOCK_CATEGORIES] }
-    }
-
     try {
       const response = await axiosInstance.get<ApiResponse<CategoryResponse[]>>('/categories')
       const result = response.data.result
       if (Array.isArray(result) && result.length > 0) {
         return response.data
       }
-      return { code: 1000, result: [...MOCK_CATEGORIES] }
     } catch {
       // Graceful fallback nếu server đang tắt hoặc DB chưa có category
-      return { code: 1000, result: [...MOCK_CATEGORIES] }
     }
+    return { code: 1000, result: [...MOCK_CATEGORIES] }
   },
 
   async getById(id: number): Promise<ApiResponse<CategoryResponse | null>> {
-    if (ENV.USE_MOCK) {
-      const found = MOCK_CATEGORIES.find((c) => c.categoryId === id) ?? null
-      return { code: 1000, result: found }
-    }
-
     try {
       const response = await axiosInstance.get<ApiResponse<CategoryResponse>>(`/categories/${id}`)
-      return response.data
+      if (response.data.result) {
+        return response.data
+      }
     } catch {
-      const found = MOCK_CATEGORIES.find((c) => c.categoryId === id) ?? null
-      return { code: 1000, result: found }
+      // fallback
     }
+    const found = MOCK_CATEGORIES.find((c) => c.categoryId === id) ?? null
+    return { code: 1000, result: found }
   },
 }

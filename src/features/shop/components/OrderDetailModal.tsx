@@ -39,17 +39,19 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
   const canCancel   = CANCELLABLE_STATUSES.includes(order.status) && !isProcessing
 
   const handleConfirm = async () => {
-    if (!weightAgreed) return
+    if (!weightAgreed || order.id == null) return
     await confirmMutation.mutateAsync(order.id)
     onClose()
   }
 
   const handleReady = async () => {
+    if (order.id == null) return
     await readyMutation.mutateAsync(order.id)
     onClose()
   }
 
   const handleCancel = async () => {
+    if (order.id == null) return
     await cancelMutation.mutateAsync(order.id)
     setShowCancelConfirm(false)
     onClose()

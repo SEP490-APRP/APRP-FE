@@ -64,6 +64,31 @@ export async function createOrder(data: CreateOrderRequest): Promise<OrderRespon
   return unwrap<OrderResponse[]>(res)
 }
 
+/**
+ * Lấy chi tiết đơn hàng theo ID.
+ * GET /orders/{id}
+ */
+export async function getOrderById(orderId: number): Promise<OrderResponse> {
+  const res = await axiosInstance.get(`/orders/${orderId}`)
+  return unwrap<OrderResponse>(res)
+}
+
+/**
+ * Lấy danh sách đơn hàng của Buyer hiện tại.
+ * GET /orders/my
+ */
+export async function fetchMyOrders(params: FetchOrdersParams = {}): Promise<OrderPageResponse> {
+  const { page = 0, size = 10, statuses } = params
+  const query = new URLSearchParams()
+  query.set('page', String(page))
+  query.set('size', String(size))
+  if (statuses?.length) {
+    statuses.forEach((s: string) => query.append('statuses', s))
+  }
+  const res = await axiosInstance.get(`/orders/my?${query.toString()}`)
+  return unwrap<OrderPageResponse>(res)
+}
+
 // ── SHOP: Lấy danh sách & Xác nhận ───────────────────────────────────────────
 
 /**
@@ -145,6 +170,8 @@ export async function cancelOrder(orderId: number): Promise<OrderResponse> {
 export const orderService = {
   previewCheckout,
   createOrder,
+  getOrderById,
+  fetchMyOrders,
   fetchShopOrders,
   confirmOrder,
   readyOrder,

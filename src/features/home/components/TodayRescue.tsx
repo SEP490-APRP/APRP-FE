@@ -1,7 +1,8 @@
-﻿import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { useMemo } from 'react'
+import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
-import { products, money, type Cart } from '@/mocks/catalog'
-import { ProductGrid } from '@/features/product'
+import { money, type Cart, type Product as StorefrontProduct } from '@/mocks/catalog'
+import { ProductGrid, useAllProducts } from '@/features/product'
 import { LinkButton } from '@/components/ui/Button'
 
 const BENEFITS = [
@@ -10,10 +11,41 @@ const BENEFITS = [
   { icon: ShieldCheck, text: 'Đổi trả 1-1 nhanh chóng' },
 ] as const
 
-// Lấy giá thấp nhất thật từ catalog thay vì ghi cứng "15.000đ"
-const lowestPrice = Math.min(...products.map((p) => p.price))
-
 export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Cart }) {
+  const { data: apiProducts, isLoading } = useAllProducts()
+
+  const displayProducts = useMemo<StorefrontProduct[]>(() => {
+    if (apiProducts && apiProducts.length > 0) {
+      return apiProducts.map((p) => {
+        const price = p.sellingPrice ?? p.price ?? 0
+        const original = p.discountPercent
+          ? Math.round(price / (1 - p.discountPercent / 100))
+          : price
+        const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+        return {
+          id: String(p.productId || p.id),
+          name: p.productName || p.name || 'Nông sản',
+          price,
+          original,
+          image,
+          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
+          farm: p.shop?.shopName || 'Nhà vườn CapNong',
+          region: 'Đà Lạt',
+          flaw: 'Ngoại hình tự nhiên',
+          score: 96,
+          stock: p.stockQuantity ?? p.stock ?? 100,
+          rescued: 50,
+          unit: p.unit || 'kg',
+        }
+      })
+    }
+    return []
+  }, [apiProducts])
+
+  const lowestPrice = useMemo(() => {
+    if (displayProducts.length === 0) return 10000
+    return Math.min(...displayProducts.map((p) => p.price))
+  }, [displayProducts])
   return (
     <section
       id="giai-cuu-hom-nay"
@@ -90,7 +122,8 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
           {/* Dùng lại ProductGrid/ProductCard; mobile chỉ hiện 4 sản phẩm đầu, phần còn lại ở trang Nông sản tươi */}
           <div className="lg:col-span-8 xl:col-span-9">
             <ProductGrid
-              products={products}
+              products={displayProducts}
+              status={isLoading ? 'loading' : 'success'}
               onAdd={onAdd}
               cart={cart}
               columns="wide"

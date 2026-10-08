@@ -68,18 +68,32 @@ export function useProductDetail(idOrSlug: string) {
     queryKey: productKeys.detail(idOrSlug),
     enabled: idOrSlug !== '',
     queryFn: async (): Promise<ProductDetailData> => {
-      const products = await fetchForBuyer()
       const idNum = Number(idOrSlug)
-      const targetId =
-        !isNaN(idNum) && idNum > 0 ? idNum : SLUG_TO_ID[idOrSlug.toLowerCase()] || 701
-      const found =
-        products.find((p) => p.id === targetId || String(p.id) === idOrSlug) ?? products[0]
+      let found: ProductResponse | null = null
+
+      if (!isNaN(idNum) && idNum > 0) {
+        try {
+          const res = await productService.getById(idNum)
+          if (res.result) found = res.result
+        } catch {
+          /* fallback to list */
+        }
+      }
+
+      const products = await fetchForBuyer()
+      if (!found) {
+        const targetId =
+          !isNaN(idNum) && idNum > 0 ? idNum : SLUG_TO_ID[idOrSlug.toLowerCase()] || 701
+        found = products.find((p) => p.id === targetId || String(p.id) === idOrSlug) ?? products[0]
+      }
       if (!found) return { product: null, related: [] }
 
       let product = found
       try {
-        const images = (await productService.getImages(found.id)).result
-        if (images && images.length > 0) product = { ...found, images }
+        if (!product.images || product.images.length === 0) {
+          const images = (await productService.getImages(found.id)).result
+          if (images && images.length > 0) product = { ...found, images }
+        }
       } catch {
         /* không có gallery thì dùng ảnh chính */
       }

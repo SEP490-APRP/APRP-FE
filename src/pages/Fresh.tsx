@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowUpDown,
   Leaf,
@@ -24,6 +24,7 @@ import {
   countActiveFilters,
   filtersFromHash,
   ProductGrid,
+  useAllProducts,
   type Filters,
 } from '@/features/product'
 import { cn } from '@/utils'
@@ -80,11 +81,59 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
   }, [])
   const [sort, setSort] = useState<SortId>('featured')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const { data: apiProducts, isLoading: isProductsLoading } = useAllProducts()
 
   const items = useMemo(() => {
     const range = PRICE_RANGES.find((r) => r.id === filters.price)
     const min = range && 'min' in range ? range.min : 0
     const max = range && 'max' in range ? range.max : Number.POSITIVE_INFINITY
+
+    if (apiProducts && apiProducts.length > 0) {
+      let filtered = apiProducts.map((p) => {
+        const price = p.sellingPrice ?? p.price ?? 0
+        const original = p.discountPercent
+          ? Math.round(price / (1 - p.discountPercent / 100))
+          : price
+        const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+        return {
+          id: String(p.productId || p.id),
+          name: p.productName || p.name || 'Nông sản',
+          price,
+          original,
+          image,
+          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
+          farm: p.shop?.shopName || 'Nhà vườn CapNong',
+          region: 'Đà Lạt',
+          flaw: 'Ngoại hình tự nhiên',
+          score: 96,
+          stock: p.stockQuantity ?? p.stock ?? 100,
+          rescued: 50,
+          unit: p.unit || 'kg',
+        }
+      })
+
+      if (query.trim()) {
+        const q = query.toLowerCase()
+        filtered = filtered.filter((p) => p.name.toLowerCase().includes(q))
+      }
+
+      if (filters.category && filters.category !== 'Tất cả') {
+        filtered = filtered.filter(
+          (p) =>
+            p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
+            filters.category.toLowerCase().includes(p.category.toLowerCase()),
+        )
+      }
+
+      filtered = filtered.filter((p) => p.price >= min && p.price <= max)
+
+      if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
+      else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
+      else if (sort === 'name-asc') filtered.sort((a, b) => a.name.localeCompare(b.name))
+
+      return filtered
+    }
+
     return filterProducts(query, filters.category, sort).filter(
       (p) =>
         p.price >= min &&
@@ -92,7 +141,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
         (filters.region === 'all' || p.region.includes(filters.region)) &&
         p.score >= filters.minScore,
     )
-  }, [query, filters, sort])
+  }, [query, filters, sort, apiProducts])
 
   const category =
     CATEGORIES.find((c) => c.id === filters.category) ?? {
@@ -288,6 +337,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
             <ProductGrid
               products={items}
               onAdd={onAdd}
+              status={isProductsLoading ? 'loading' : 'success'}
               cart={cart}
               priorityCount={4}
               empty={{

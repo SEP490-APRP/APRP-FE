@@ -1,0 +1,229 @@
+import { axiosInstance } from './api'
+import type { ApiResponse } from '@/types/api.types'
+import type { SessionUser, UserRole } from '@/types/auth.types'
+import type {
+  LoginRequest,
+  LoginResponse,
+  BuyerRegisterRequest,
+  ShopRegisterRequest,
+  ShipperRegisterRequest,
+  VerifyOtpRequest,
+  ResendOtpRequest,
+  IntrospectRequest,
+  IntrospectResponse,
+  RefreshTokenRequest,
+  JwtTokenPayload,
+  UserResponse,
+} from './auth.types'
+import { STORAGE_KEYS } from '@/utils'
+
+/**
+ * Giải mã JWT Payload (Base64Url) an toàn trên Browser không cần thư viện bên ngoài.
+ */
+export function parseJwt(token: string): JwtTokenPayload | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const base64Url = parts[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    )
+    return JSON.parse(jsonPayload) as JwtTokenPayload
+  } catch (err) {
+    console.error('Lỗi khi giải mã JWT:', err)
+    return null
+  }
+}
+
+/**
+ * Chuyển đổi tên Role từ Spring Boot Backend (`BUYER`, `SHOP`, `SHIPPER`, `ADMIN`)
+ * sang `UserRole` chuẩn của Frontend (`buyer`, `shop`, `shipper`, `admin`, `staff`).
+ */
+export function mapBackendRoleToFrontend(roleInput?: string[] | string): UserRole {
+  const rolesList: string[] = Array.isArray(roleInput)
+    ? roleInput
+    : roleInput
+      ? [roleInput]
+      : []
+
+  const upperRoles = rolesList.map((r) => String(r).toUpperCase().trim())
+
+  if (upperRoles.some((r) => r === 'ADMIN' || r === 'ROLE_ADMIN')) {
+    return 'admin'
+  }
+  if (upperRoles.some((r) => r === 'SHOP' || r === 'ROLE_SHOP')) {
+    return 'shop'
+  }
+  if (upperRoles.some((r) => r === 'SHIPPER' || r === 'ROLE_SHIPPER')) {
+    return 'shipper'
+  }
+  if (upperRoles.some((r) => r === 'STAFF' || r === 'ROLE_STAFF')) {
+    return 'staff'
+  }
+  return 'buyer'
+}
+
+/**
+ * Tạo `SessionUser` chuẩn của Frontend từ DTO `UserResponse` trả về bởi Backend.
+ */
+export function buildSessionUser(userData: UserResponse, fallbackRole?: UserRole): SessionUser {
+  const resolvedRole =
+    fallbackRole || mapBackendRoleToFrontend(userData.role?.name || userData.roleName)
+
+  let kycStatus: 'APPROVED' | 'PENDING' | 'REJECTED' | undefined
+  if (userData.kycStatus === 'APPROVED' || userData.kycStatus === 'ACTIVE') {
+    kycStatus = 'APPROVED'
+  } else if (userData.kycStatus === 'PENDING') {
+    kycStatus = 'PENDING'
+  } else if (userData.kycStatus === 'REJECTED') {
+    kycStatus = 'REJECTED'
+  } else if (userData.status === 'PENDING') {
+    kycStatus = 'PENDING'
+  } else if (userData.status === 'ACTIVE') {
+    kycStatus = 'APPROVED'
+  } else if (userData.status === 'REJECTED') {
+    kycStatus = 'REJECTED'
+  }
+
+  return {
+    id: String(userData.id),
+    name: userData.fullName || userData.username || userData.email.split('@')[0],
+    email: userData.email,
+    phone: userData.phoneNumber || userData.phone,
+    role: resolvedRole,
+    avatar: userData.logoUrl || userData.avatar,
+    shopName: userData.shopName,
+    kycStatus,
+    detail:
+      resolvedRole === 'shop'
+        ? userData.shopName || 'Chủ gian hàng nông sản'
+        : resolvedRole === 'admin'
+          ? 'Quản trị viên hệ thống'
+          : resolvedRole === 'shipper'
+            ? 'Đối tác giao vận'
+            : 'Thành viên CapNong',
+  }
+}
+
+/**
+ * Authentication Service kết nối trực tiếp với Spring Boot backend (APRP-BE)
+ */
+export const authService = {
+  /**
+   * Đăng nhập người dùng qua POST /auth/login
+   */
+  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
+    const response = await axiosInstance.post<ApiResponse<LoginResponse>>(
+      '/auth/login',
+      credentials,
+    )
+    return response.data
+  },
+
+  /**
+   * Đăng ký tài khoản Khách mua (Buyer) qua POST /users
+   * BE tự động gửi OTP đến email đã đăng ký.
+   */
+  async registerBuyer(data: BuyerRegisterRequest): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.post<ApiResponse<UserResponse>>('/users', data)
+    return response.data
+  },
+
+  /**
+   * Đăng ký tài khoản Chủ shop (Shop Owner) qua POST /users/shops
+   * BE tự động gửi OTP đến email đã đăng ký.
+   */
+  async registerShop(data: ShopRegisterRequest): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.post<ApiResponse<UserResponse>>('/users/shops', data)
+    return response.data
+  },
+
+  /**
+   * Đăng ký tài khoản Tài xế (Shipper) qua POST /users/shippers
+   * BE tự động gửi OTP đến email đã đăng ký.
+   */
+  async registerShipper(data: ShipperRegisterRequest): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.post<ApiResponse<UserResponse>>('/users/shippers', data)
+    return response.data
+  },
+
+  /**
+   * Xác thực tài khoản bằng OTP qua POST /users/verify-otp
+   */
+  async verifyOtp(data: VerifyOtpRequest): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.post<ApiResponse<UserResponse>>(
+      '/users/verify-otp',
+      data,
+    )
+    return response.data
+  },
+
+  /**
+   * Gửi lại mã OTP qua POST /users/resend-otp
+   */
+  async resendOtp(data: ResendOtpRequest): Promise<ApiResponse<void>> {
+    const response = await axiosInstance.post<ApiResponse<void>>('/users/resend-otp', data)
+    return response.data
+  },
+
+  /**
+   * Lấy thông tin tài khoản hiện tại qua GET /users/me
+   */
+  async getMyInfo(): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.get<ApiResponse<UserResponse>>('/users/me')
+    return response.data
+  },
+
+  /**
+   * Thu hồi token đăng xuất qua POST /auth/logout
+   */
+  async logout(token?: string): Promise<ApiResponse<void>> {
+    const currentToken = token || localStorage.getItem(STORAGE_KEYS.TOKEN)
+    if (currentToken) {
+      try {
+        const response = await axiosInstance.post<ApiResponse<void>>('/auth/logout', {
+          token: currentToken,
+        })
+        return response.data
+      } catch (err) {
+        console.warn('Lỗi khi gọi logout API:', err)
+      }
+    }
+    return { code: 200, message: 'Logged out locally' }
+  },
+
+  /**
+   * Kiểm tra tính hợp lệ của token qua POST /auth/introspect
+   */
+  async introspect(token: string): Promise<ApiResponse<IntrospectResponse>> {
+    const response = await axiosInstance.post<ApiResponse<IntrospectResponse>>(
+      '/auth/introspect',
+      { token } as IntrospectRequest,
+    )
+    return response.data
+  },
+
+  /**
+   * Làm mới token qua POST /auth/refresh
+   */
+  async refreshToken(token: string): Promise<ApiResponse<LoginResponse>> {
+    const response = await axiosInstance.post<ApiResponse<LoginResponse>>(
+      '/auth/refresh',
+      { token } as RefreshTokenRequest,
+    )
+    return response.data
+  },
+
+  /**
+   * Tiện ích giải mã JWT
+   */
+  parseJwt,
+  mapBackendRoleToFrontend,
+  buildSessionUser,
+}
+
+export default authService

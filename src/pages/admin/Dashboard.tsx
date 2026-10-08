@@ -83,10 +83,8 @@ const AdminDashboard: React.FC = () => {
   const pendingKyc = users.filter((u) => u.status === 'PENDING' || u.kycStatus === 'PENDING')
   const shopOwners = users.filter(
     (u) =>
-      u.roleName === 'SHOP_OWNER' ||
-      u.roleName === 'FARMER' ||
-      u.role?.name === 'SHOP_OWNER' ||
-      u.role?.name === 'FARMER',
+      u.roleName === 'SHOP' ||
+      u.role?.name === 'SHOP',
   )
   const buyers = users.filter((u) => u.roleName === 'BUYER' || u.role?.name === 'BUYER')
 
@@ -266,7 +264,7 @@ const AdminDashboard: React.FC = () => {
                         <button
                           onClick={() =>
                             approve.mutate(
-                              { userId: item.id, roleName: 'SHOP_OWNER' },
+                              { userId: item.id, roleName: 'SHOP' },
                               { onError: (e) => console.error(e) },
                             )
                           }

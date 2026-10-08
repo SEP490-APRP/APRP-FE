@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import {
   Leaf,
   Lock,
@@ -24,6 +24,7 @@ import {
   Check,
 } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
 import authBannerImg from '../assets/auth-shelf-banner.jpg'
 import {
   loginSchema,
@@ -35,7 +36,9 @@ import {
   type LoginValues,
   type RegisterValues,
 } from '@/features/auth'
-import { validate } from '@/utils'
+import { authService, type UserResponse } from '@/services'
+import { useAuth } from '@/stores'
+import { validate, STORAGE_KEYS, API_BASE_URL } from '@/utils'
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register' | 'kyc_pending'
@@ -50,6 +53,8 @@ export default function AuthPage({
   onLoginSuccess,
   onInfo,
 }: AuthPageProps) {
+  const navigate = useNavigate()
+  const { login } = useAuth()
   const [mode, setMode] = useState<'login' | 'register' | 'kyc_pending'>(initialMode)
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'shop' | 'shipper'>(initialRole)
   const [shopRegisterStep, setShopRegisterStep] = useState<1 | 2>(1)
@@ -60,6 +65,7 @@ export default function AuthPage({
   const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
   const [successNotice, setSuccessNotice] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Form đăng nhập / đăng ký: React Hook Form giữ giá trị, schema Zod (features/auth) kiểm tra.
   // Một form đăng ký chung cho mọi vai trò để không mất dữ liệu khi đổi vai trò hoặc bước.
@@ -100,49 +106,122 @@ export default function AuthPage({
     }
   }, [])
 
-  // Standard Login Submit
-  const handleLoginSubmit = (e: FormEvent) => {
+  // Standard Login Submit tích hợp API Backend Spring Boot
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessNotice('')
 
     const result = validate(loginSchema, loginForm.getValues())
     if (!result.ok) {
       setError(result.error)
       return
     }
-    const loginEmail = result.data.identifier
+    const { identifier, password } = result.data
+    const loginEmail = identifier.trim()
 
-    // Detect if logging in as shop
-    const isShopAccount =
-      loginEmail.toLowerCase().includes('shop') ||
-      loginEmail.toLowerCase().includes('vuon') ||
-      loginEmail.toLowerCase().includes('farmer')
+    setIsSubmitting(true)
+    try {
+      const response = await authService.login({
+        email: loginEmail,
+        password: password,
+      })
 
-    const isEmail = loginEmail.includes('@')
-    const user: AuthUser = {
-      name: isShopAccount
-        ? 'Nông Trại Cầu Đất Farm'
-        : isEmail
-          ? loginEmail.split('@')[0]
-          : 'Thành viên CapNong',
-      email: isEmail ? loginEmail : `${loginEmail}@capnong.vn`,
-      phone: isEmail ? '0912 345 678' : loginEmail,
-      role: isShopAccount ? 'shop' : 'buyer',
-      detail: isShopAccount ? 'Chủ gian hàng nông sản' : 'Thành viên đang hoạt động',
-      shopName: isShopAccount ? 'Nông Trại Cầu Đất' : undefined,
-      kycStatus: isShopAccount ? 'APPROVED' : undefined,
-    }
+      const token = response.result?.token
+      if (!token) {
+        throw new Error('Không nhận được token xác thực từ máy chủ.')
+      }
 
-    setSuccessNotice(
-      isShopAccount
-        ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
-        : 'Đăng nhập thành công! Đang chuyển hướng...',
-    )
+      // Lưu token vào storage để axiosInstance tự động đính kèm Bearer token
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
 
-    if (onLoginSuccess) {
+      // 1. Giải mã token JWT lấy roles, sub (userId), email
+      const payload = authService.parseJwt(token)
+      const mappedRole = authService.mapBackendRoleToFrontend(payload?.roles)
+
+      // 2. Gọi API /users/me để lấy profile đầy đủ
+      let profileUser: UserResponse | null = null
+      try {
+        const meRes = await authService.getMyInfo()
+        if (meRes.result) {
+          profileUser = meRes.result
+        }
+      } catch (meErr) {
+        console.warn('Không thể tải profile /users/me:', meErr)
+      }
+
+      // 3. Xây dựng SessionUser chuẩn dựa trên Role trích xuất từ JWT
+      const sessionUser = profileUser
+        ? authService.buildSessionUser(profileUser, mappedRole)
+        : {
+            id: String(payload?.sub || crypto.randomUUID()),
+            name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
+            email: payload?.email || loginEmail,
+            role: mappedRole,
+            detail:
+              mappedRole === 'shop'
+                ? 'Chủ gian hàng nông sản'
+                : mappedRole === 'admin'
+                  ? 'Quản trị viên hệ thống'
+                  : mappedRole === 'shipper'
+                    ? 'Đối tác giao vận'
+                    : 'Thành viên CapNong',
+          }
+
+      // 4. Lưu vào Zustand Auth Store
+      login(sessionUser, token)
+
+      setSuccessNotice(
+        mappedRole === 'shop'
+          ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
+          : mappedRole === 'admin'
+            ? 'Đăng nhập Quản Trị Viên thành công! Đang chuyển đến Admin Portal...'
+            : 'Đăng nhập thành công! Đang chuyển hướng...',
+      )
+
       setTimeout(() => {
-        onLoginSuccess(user)
-      }, 600)
+        if (onLoginSuccess) {
+          onLoginSuccess(sessionUser)
+        } else {
+          if (mappedRole === 'admin') navigate('/admin')
+          else if (mappedRole === 'shop') navigate('/shop')
+          else navigate('/')
+        }
+      }, 500)
+    } catch (err: any) {
+      console.error('Đăng nhập thất bại:', err)
+      const errorCode = err?.data?.code || err?.response?.data?.code
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message
+
+      // ErrorCode 1022: Account is not verified yet. Please verify your OTP
+      if (
+        errorCode === 1022 ||
+        msg?.toLowerCase().includes('otp') ||
+        msg?.toLowerCase().includes('not active') ||
+        msg?.toLowerCase().includes('verify')
+      ) {
+        setError('Tài khoản chưa được kích hoạt OTP. Đang chuyển đến trang xác thực OTP...')
+        setTimeout(() => {
+          navigate('/xac-thuc-otp', { state: { email: loginEmail } })
+        }, 1200)
+        return
+      }
+      if (errorCode === 1025) {
+        setError('Tài khoản đang chờ Ban Quản Trị phê duyệt trước khi có thể đăng nhập.')
+        return
+      }
+      if (errorCode === 1026) {
+        setError('Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.')
+        return
+      }
+      if (errorCode === 1003) {
+        setError('Email hoặc mật khẩu không chính xác.')
+        return
+      }
+      setError(msg || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -158,10 +237,13 @@ export default function AuthPage({
       kycStatus: 'APPROVED',
     }
     setSuccessNotice('Đăng nhập nhanh với tài khoản Nhà Vườn thành công!')
+    login(shopUser)
     if (onLoginSuccess) {
       setTimeout(() => {
         onLoginSuccess(shopUser)
       }, 500)
+    } else {
+      setTimeout(() => navigate('/shop'), 500)
     }
   }
 
@@ -176,30 +258,19 @@ export default function AuthPage({
       kycStatus: 'APPROVED',
     }
     setSuccessNotice('Đăng nhập Quản Trị Viên thành công! Đang chuyển tới Admin Portal...')
+    login(adminUser)
     if (onLoginSuccess) {
       setTimeout(() => {
         onLoginSuccess(adminUser)
       }, 500)
+    } else {
+      setTimeout(() => navigate('/admin'), 500)
     }
   }
 
-  // Google Login
+  // Google OAuth2 Login
   const handleGoogleLogin = () => {
-    const googleUser: AuthUser = {
-      name: selectedRole === 'shop' ? 'Nông Hộ Xanh Organic' : 'Nguyễn Thu Trang',
-      email: 'thutrang.capnong@gmail.com',
-      phone: '0912 345 678',
-      role: selectedRole,
-      detail:
-        selectedRole === 'shop' ? 'Đăng ký qua Google · Chờ xác thực' : 'Đăng nhập qua Google',
-      kycStatus: selectedRole === 'shop' ? 'PENDING' : undefined,
-    }
-    setSuccessNotice('Đăng nhập thành công qua Google!')
-    if (onLoginSuccess) {
-      setTimeout(() => {
-        onLoginSuccess(googleUser)
-      }, 500)
-    }
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
   }
 
   // Step 1 to Step 2 validation for Shop
@@ -207,9 +278,15 @@ export default function AuthPage({
     e.preventDefault()
     setError('')
 
-    const result = validate(shopAccountSchema, registerForm.getValues())
+    const values = registerForm.getValues()
+    const result = validate(shopAccountSchema, values)
     if (!result.ok) {
       setError(result.error)
+      return
+    }
+
+    if (!values.email || !values.email.includes('@')) {
+      setError('Vui lòng nhập email hợp lệ để nhận mã xác thực OTP cho gian hàng')
       return
     }
 
@@ -217,9 +294,10 @@ export default function AuthPage({
   }
 
   // Final Register Submit
-  const handleRegisterSubmit = (e: FormEvent) => {
+  const handleRegisterSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessNotice('')
 
     const values = registerForm.getValues()
 
@@ -230,9 +308,39 @@ export default function AuthPage({
         return
       }
 
-      // Transition to KYC Pending Screen for Shop
-      setMode('kyc_pending')
-      setSuccessNotice('Hồ sơ gian hàng đã nộp thành công! Hệ thống đang chờ phê duyệt.')
+      if (!values.email || !values.email.includes('@')) {
+        setError('Vui lòng cung cấp email hợp lệ để nhận mã xác thực OTP')
+        return
+      }
+
+      setIsSubmitting(true)
+      try {
+        await authService.registerShop({
+          email: values.email.trim(),
+          password: values.password,
+          fullName: values.fullName.trim(),
+          phoneNumber: values.phone.trim(),
+          address: values.shopAddress?.trim() || 'Lâm Đồng, Việt Nam',
+          shopName: values.shopName.trim(),
+          bankAccount: values.shopBankAccount?.trim(),
+          bankAccountHolder: values.shopBankHolder?.trim() || values.fullName.trim(),
+          bankName: values.shopBankName?.trim() || 'Vietcombank',
+          description: values.shopRegion
+            ? `Khu vực: ${values.shopRegion}. Canh tác: ${values.shopFarmingType}`
+            : undefined,
+        })
+
+        setSuccessNotice('Đăng ký gian hàng thành công! Mã OTP đã được gửi đến email của bạn.')
+        setTimeout(() => {
+          navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isShop: true } })
+        }, 1000)
+      } catch (err: any) {
+        console.error('Đăng ký shop thất bại:', err)
+        const msg = err?.data?.message || err?.response?.data?.message || err?.message
+        setError(msg || 'Đăng ký gian hàng thất bại. Vui lòng kiểm tra lại thông tin.')
+      } finally {
+        setIsSubmitting(false)
+      }
       return
     }
 
@@ -243,19 +351,46 @@ export default function AuthPage({
       return
     }
 
-    const newUser: AuthUser = {
-      name: values.fullName,
-      email: values.email || `${values.phone}@capnong.vn`,
-      phone: values.phone || '0900 000 000',
-      role: selectedRole,
-      detail: selectedRole === 'buyer' ? 'Khách hàng mới' : `Tài xế · ${values.shipperVehicle}`,
+    if (!values.email || !values.email.includes('@')) {
+      setError('Vui lòng nhập địa chỉ email hợp lệ để nhận mã xác thực OTP')
+      return
     }
 
-    setSuccessNotice(`Đăng ký tài khoản ${getRoleLabel(selectedRole)} thành công!`)
-    if (onLoginSuccess) {
-      setTimeout(() => {
-        onLoginSuccess(newUser)
-      }, 700)
+    setIsSubmitting(true)
+    try {
+      if (selectedRole === 'shipper') {
+        await authService.registerShipper({
+          email: values.email.trim(),
+          password: values.password,
+          fullName: values.fullName.trim(),
+          phoneNumber: values.phone.trim(),
+          address: values.shipperArea?.trim() || 'TP. Hồ Chí Minh',
+          vehicleNumber: values.shipperVehicle?.trim() || '59-A1 12345',
+        })
+        setSuccessNotice('Đăng ký tài xế thành công! Mã OTP đã được gửi đến email của bạn.')
+        setTimeout(() => {
+          navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isShipper: true } })
+        }, 1000)
+      } else {
+        // Buyer
+        await authService.registerBuyer({
+          email: values.email.trim(),
+          password: values.password,
+          fullName: values.fullName.trim(),
+          phoneNumber: values.phone.trim(),
+          address: values.buyerAddress?.trim() || 'TP. Hồ Chí Minh',
+        })
+        setSuccessNotice('Đăng ký tài khoản thành công! Mã OTP đã được gửi đến email của bạn.')
+        setTimeout(() => {
+          navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isBuyer: true } })
+        }, 1000)
+      }
+    } catch (err: any) {
+      console.error('Đăng ký thất bại:', err)
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message
+      setError(msg || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -447,9 +582,10 @@ export default function AuthPage({
                   {/* Primary Login Button */}
                   <button
                     type="submit"
-                    className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 cursor-pointer"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    ĐĂNG NHẬP NGAY
+                    {isSubmitting ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP NGAY'}
                   </button>
 
                   {/* Quick Role Demo Login Box */}
@@ -856,10 +992,11 @@ export default function AuthPage({
                     {/* Final Submit Button */}
                     <button
                       type="submit"
-                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white font-extrabold text-xs sm:text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white font-extrabold text-xs sm:text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <ShieldCheck size={18} />
-                      <span>NỘP HỒ SƠ XÉT DUYỆT GIAN HÀNG</span>
+                      <span>{isSubmitting ? 'ĐANG NỘP HỒ SƠ...' : 'NỘP HỒ SƠ XÉT DUYỆT GIAN HÀNG'}</span>
                     </button>
                   </form>
                 )}
@@ -904,8 +1041,9 @@ export default function AuthPage({
                         />
                         <input
                           type="email"
+                          required
                           {...registerForm.register('email')}
-                          placeholder="Email (không bắt buộc)"
+                          placeholder="Email nhận mã OTP *"
                           className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
                         />
                       </div>
@@ -998,9 +1136,14 @@ export default function AuthPage({
 
                     <button
                       type="submit"
-                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span>HOÀN TẤT ĐĂNG KÝ ({getRoleLabel(selectedRole).split(' ')[0]})</span>
+                      <span>
+                        {isSubmitting
+                          ? 'ĐANG TẠO TÀI KHOẢN...'
+                          : `HOÀN TẤT ĐĂNG KÝ (${getRoleLabel(selectedRole).split(' ')[0]})`}
+                      </span>
                     </button>
                   </form>
                 )}
