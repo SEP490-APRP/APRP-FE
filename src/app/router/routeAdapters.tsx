@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-rou
 import { useStorefront } from '@/app/layouts/StorefrontLayout'
 import RequireRole from './RequireRole'
 import type { AuthUser } from '@/types/auth.types'
+import { useAuth } from '@/stores'
 
 // ---- Lazy-loaded page chunks (Tải theo nhu cầu, không làm phình file JS chính) ----
 const Home = lazy(() => import('@/pages/Home'))
@@ -24,6 +25,7 @@ const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
 const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
+const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -154,6 +156,7 @@ export function ShopVouchersRoute() {
 export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
   const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
+  const { login } = useAuth()
   const initialRole =
     search.includes('role=shop') || search.includes('ban-nong-san')
       ? 'shop'
@@ -172,7 +175,15 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
           if (fromLocation && fromLocation !== '/dang-nhap' && fromLocation !== '/dang-ky') {
             navigate(fromLocation)
           } else {
-            navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+            navigate(
+              user.role === 'admin'
+                ? '/admin'
+                : user.role === 'shop'
+                  ? '/shop'
+                  : user.role === 'shipper'
+                    ? '/shipper'
+                    : '/',
+            )
           }
         }}
       />
@@ -257,6 +268,20 @@ export function BuyerOrdersRoute() {
     <Suspense fallback={<PageLoading />}>
       <BuyerOrdersPage />
     </Suspense>
+  )
+}
+
+export function ShipperRoute() {
+  return (
+    <RequireRole
+      roles={['shipper']}
+      audience="tài khoản Tài xế (Shipper)"
+      loginHref="/dang-nhap?role=shipper"
+    >
+      <Suspense fallback={<PageLoading />}>
+        <ShipperDashboard {...usePortalProps()} />
+      </Suspense>
+    </RequireRole>
   )
 }
 

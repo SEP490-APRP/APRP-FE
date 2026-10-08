@@ -11,6 +11,11 @@ export const notificationService = freshResponses({
     return { code: 200, result: [...mockNotifications] }
   },
 
+  async getMyNotifications(): Promise<ApiResponse<NotificationItem[]>> {
+    await new Promise((r) => setTimeout(r, 150))
+    return { code: 200, result: [...mockNotifications] }
+  },
+
   async adminSendToGroups(payload: {
     title: string
     message: string

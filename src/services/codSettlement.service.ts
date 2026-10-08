@@ -5,11 +5,24 @@ import { freshResponses } from '@/mocks/fresh'
 
 export type * from './codSettlement.types'
 
-export function getCodCollectAmount(order: CodPendingOrderResponse): number {
-  return order.codCollectAmount ?? order.collectAmount ?? order.totalAmount ?? 0
+export function isCodOrder(order: { paymentMethod?: string }): boolean {
+  return (order.paymentMethod ?? '').toUpperCase() === 'COD'
 }
 
-export function getCodPrepaidAmount(order: CodPendingOrderResponse): number {
+export function getCodCollectAmount(order: {
+  codCollectAmount?: number
+  collectAmount?: number
+  codAmount?: number
+  totalAmount?: number
+}): number {
+  return order.codCollectAmount ?? order.collectAmount ?? order.codAmount ?? order.totalAmount ?? 0
+}
+
+export function getCodPrepaidAmount(order: {
+  codPrepaidAmount?: number
+  prepaidAmount?: number
+  totalAmount?: number
+}): number {
   return (
     order.codPrepaidAmount ??
     order.prepaidAmount ??

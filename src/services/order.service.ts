@@ -203,3 +203,6 @@ export const orderService = {
     return { code: 200, result: structuredClone(mockOrders) }
   },
 }
+
+export default orderService
+

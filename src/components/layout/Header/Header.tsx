@@ -18,6 +18,7 @@ import {
   User,
   FileText,
   ShoppingBag,
+  Truck,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -218,11 +219,10 @@ export default function Header({
                   <a
                     href="/dang-nhap"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
-                      route.startsWith('/dang-nhap') || route.startsWith('/login')
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-nhap') || route.startsWith('/login')
                         ? 'bg-[#326318] text-white border-[#326318] shadow-sm'
                         : 'border-[#d6dccf] text-[#326318] hover:bg-[#326318]/10 hover:border-[#326318]'
-                    }`}
+                      }`}
                   >
                     <UserRound size={14} />
                     <span>Đăng nhập</span>
@@ -231,25 +231,16 @@ export default function Header({
                   <a
                     href="/dang-ky"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
-                      route.startsWith('/dang-ky') || route.startsWith('/register')
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-ky') || route.startsWith('/register')
                         ? 'bg-[#254b12] text-white border-[#254b12] shadow-sm'
                         : 'bg-[#326318] hover:bg-[#254b12] text-white border-[#326318] shadow-sm hover:shadow'
-                    }`}
+                      }`}
                   >
                     <span>Đăng ký</span>
                   </a>
                 </div>
 
-                {/* Mobile icon button */}
-                <a
-                  href="/dang-nhap"
-                  onClick={closeDropdown}
-                  className={`icon-button sm:hidden ${isAuthActive ? 'bg-[#326318] text-white' : ''}`}
-                  aria-label="Đăng nhập / Đăng ký"
-                >
-                  <UserRound size={20} />
-                </a>
+
               </>
             )}
 
@@ -269,9 +260,8 @@ export default function Header({
                           </h4>
                           <p className="text-[11px] text-[#6d7567] truncate">{user.email}</p>
                           <span
-                            className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              getRoleBadge(user.role).bg
-                            } ${getRoleBadge(user.role).border}`}
+                            className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(user.role).bg
+                              } ${getRoleBadge(user.role).border}`}
                           >
                             Vai trò: {getRoleBadge(user.role).label}
                           </span>
@@ -288,6 +278,17 @@ export default function Header({
                         >
                           <ShieldCheck size={15} className="text-purple-700" />
                           <span>🛡️ Trung Tâm Quản Trị Admin</span>
+                        </a>
+                      )}
+
+                      {user.role === 'shipper' && (
+                        <a
+                          href="/shipper"
+                          onClick={closeDropdown}
+                          className="w-full text-left py-2 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold flex items-center gap-2 border border-[#b1dfe4]"
+                        >
+                          <Truck size={15} className="text-[#195962]" />
+                          <span>🛵 Cổng Giao Hàng Shipper</span>
                         </a>
                       )}
 
@@ -460,18 +461,16 @@ export default function Header({
             <div className="relative" onMouseEnter={() => handleMouseEnter('fresh')}>
               <a
                 href="/nong-san-tuoi"
-                className={`nav-pill ${isFreshActive ? 'is-active' : ''} ${
-                  activeDropdown === 'fresh' ? 'is-hovered' : ''
-                }`}
+                className={`nav-pill ${isFreshActive ? 'is-active' : ''} ${activeDropdown === 'fresh' ? 'is-hovered' : ''
+                  }`}
                 aria-current={isFreshActive ? 'page' : undefined}
                 onClick={closeDropdown}
               >
                 <span>Nông sản tươi</span>
                 <ChevronDown
                   size={13}
-                  className={`transition-transform duration-200 ${
-                    activeDropdown === 'fresh' ? 'rotate-180 text-white' : 'opacity-75'
-                  }`}
+                  className={`transition-transform duration-200 ${activeDropdown === 'fresh' ? 'rotate-180 text-white' : 'opacity-75'
+                    }`}
                 />
               </a>
             </div>
@@ -480,18 +479,16 @@ export default function Header({
             <div className="relative" onMouseEnter={() => handleMouseEnter('combo')}>
               <a
                 href="/combo-tui-mu"
-                className={`nav-pill ${isComboActive ? 'is-active' : ''} ${
-                  activeDropdown === 'combo' ? 'is-hovered' : ''
-                }`}
+                className={`nav-pill ${isComboActive ? 'is-active' : ''} ${activeDropdown === 'combo' ? 'is-hovered' : ''
+                  }`}
                 aria-current={isComboActive ? 'page' : undefined}
                 onClick={closeDropdown}
               >
                 <span>Combo &amp; Túi mù</span>
                 <ChevronDown
                   size={13}
-                  className={`transition-transform duration-200 ${
-                    activeDropdown === 'combo' ? 'rotate-180 text-white' : 'opacity-75'
-                  }`}
+                  className={`transition-transform duration-200 ${activeDropdown === 'combo' ? 'rotate-180 text-white' : 'opacity-75'
+                    }`}
                 />
               </a>
             </div>
@@ -897,9 +894,8 @@ export default function Header({
           {/* 1. Trang chủ */}
           <a
             href="/"
-            className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
-              isHomeActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-            }`}
+            className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isHomeActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+              }`}
             onClick={closeDropdown}
           >
             Trang chủ
@@ -910,16 +906,14 @@ export default function Header({
             <button
               type="button"
               onClick={() => setMobileSubMenu(mobileSubMenu === 'fresh' ? null : 'fresh')}
-              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${
-                isFreshActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-              }`}
+              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${isFreshActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+                }`}
             >
               <span>Nông sản tươi</span>
               <ChevronDown
                 size={16}
-                className={`transition-transform duration-200 ${
-                  mobileSubMenu === 'fresh' ? 'rotate-180 text-primary' : ''
-                }`}
+                className={`transition-transform duration-200 ${mobileSubMenu === 'fresh' ? 'rotate-180 text-primary' : ''
+                  }`}
               />
             </button>
             {mobileSubMenu === 'fresh' && (
@@ -996,16 +990,14 @@ export default function Header({
             <button
               type="button"
               onClick={() => setMobileSubMenu(mobileSubMenu === 'combo' ? null : 'combo')}
-              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${
-                isComboActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-              }`}
+              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${isComboActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+                }`}
             >
               <span>Combo &amp; Túi mù</span>
               <ChevronDown
                 size={16}
-                className={`transition-transform duration-200 ${
-                  mobileSubMenu === 'combo' ? 'rotate-180 text-primary' : ''
-                }`}
+                className={`transition-transform duration-200 ${mobileSubMenu === 'combo' ? 'rotate-180 text-primary' : ''
+                  }`}
               />
             </button>
             {mobileSubMenu === 'combo' && (
@@ -1048,9 +1040,8 @@ export default function Header({
           {/* 4. Công nghệ AI */}
           <a
             href="/cong-nghe-ai"
-            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
-              isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-            }`}
+            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+              }`}
             onClick={closeDropdown}
           >
             Công nghệ AI
@@ -1059,9 +1050,8 @@ export default function Header({
           {/* 5. Câu chuyện nông dân */}
           <a
             href="/cau-chuyen-nong-dan"
-            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${
-              isFarmerActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-            }`}
+            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isFarmerActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+              }`}
             onClick={closeDropdown}
           >
             Câu chuyện nông dân
@@ -1070,7 +1060,7 @@ export default function Header({
           {/* 6. Auth Mobile Section */}
           <div className="mt-3 pt-3 border-t border-[#ede8df] flex flex-col gap-2">
             {user ? (
-              <div className="p-3 bg-[#f0ebd9] rounded-2xl flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2 p-3 bg-[#f0ebd9] rounded-2xl">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
@@ -1102,9 +1092,21 @@ export default function Header({
                   <a
                     href="/admin"
                     onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-purple-100 text-purple-900 font-bold text-xs text-center border border-purple-300"
+                    className="py-2.5 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold text-xs flex items-center gap-2 border border-purple-200"
                   >
-                    🛡️ Quản Trị Hệ Thống Admin
+                    <ShieldCheck size={16} className="text-purple-700" />
+                    <span>🛡️ Quản Trị Hệ Thống Admin</span>
+                  </a>
+                )}
+
+                {user.role === 'shipper' && (
+                  <a
+                    href="/shipper"
+                    onClick={closeDropdown}
+                    className="py-2.5 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold text-xs flex items-center gap-2 border border-[#b1dfe4]"
+                  >
+                    <Truck size={16} className="text-[#195962]" />
+                    <span>🛵 Cổng Giao Hàng Shipper</span>
                   </a>
                 )}
 

@@ -20,6 +20,7 @@ import {
   CreditCard,
   FileText,
   Sparkles,
+  Truck,
   X,
   Check,
 } from 'lucide-react'
@@ -177,7 +178,9 @@ export default function AuthPage({
           ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
           : mappedRole === 'admin'
             ? 'Đăng nhập Quản Trị Viên thành công! Đang chuyển đến Admin Portal...'
-            : 'Đăng nhập thành công! Đang chuyển hướng...',
+            : mappedRole === 'shipper'
+              ? 'Đăng nhập Tài Xế thành công! Đang chuyển đến Cổng Giao Hàng...'
+              : 'Đăng nhập thành công! Đang chuyển hướng...',
       )
 
       setTimeout(() => {
@@ -186,6 +189,7 @@ export default function AuthPage({
         } else {
           if (mappedRole === 'admin') navigate('/admin')
           else if (mappedRole === 'shop') navigate('/shop')
+          else if (mappedRole === 'shipper') navigate('/shipper')
           else navigate('/')
         }
       }, 500)
@@ -225,6 +229,25 @@ export default function AuthPage({
     }
   }
 
+  // Quick Demo Login for Shipper
+  const handleQuickShipperLogin = () => {
+    const shipperUser: AuthUser = {
+      name: 'Trần Văn Giao (Shipper)',
+      email: 'shipper.capnong@gmail.com',
+      phone: '0933 555 789',
+      role: 'shipper',
+      detail: 'Tài xế giao hàng · Xe máy',
+      kycStatus: 'APPROVED',
+    }
+    login(shipperUser, 'mock-token-shipper')
+    setSuccessNotice('Đăng nhập Tài Xế thành công! Đang chuyển tới Cổng Shipper...')
+    if (onLoginSuccess) {
+      setTimeout(() => {
+        onLoginSuccess(shipperUser)
+      }, 500)
+    }
+  }
+
   // Quick Demo Login for Shop
   const handleQuickShopLogin = () => {
     const shopUser: AuthUser = {
@@ -236,6 +259,7 @@ export default function AuthPage({
       detail: 'Đà Lạt · VietGAP & Hữu cơ',
       kycStatus: 'APPROVED',
     }
+    login(shopUser, 'mock-token-shop')
     setSuccessNotice('Đăng nhập nhanh với tài khoản Nhà Vườn thành công!')
     login(shopUser)
     if (onLoginSuccess) {
@@ -257,6 +281,7 @@ export default function AuthPage({
       detail: 'Ban Quản Trị Trung Tâm CapNong',
       kycStatus: 'APPROVED',
     }
+    login(adminUser, 'mock-token-admin')
     setSuccessNotice('Đăng nhập Quản Trị Viên thành công! Đang chuyển tới Admin Portal...')
     login(adminUser)
     if (onLoginSuccess) {
@@ -608,6 +633,27 @@ export default function AuthPage({
                         className="px-3 py-1.5 rounded-xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
                       >
                         Demo Nhà Vườn
+                      </button>
+                    </div>
+
+                    <div className="border-t border-[#f0dfcc] pt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-left">
+                        <Truck size={18} className="text-[#195962] shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-[#144850]">
+                            Tài Xế Giao Hàng (Shipper)
+                          </div>
+                          <div className="text-[10px] text-[#4d7980]">
+                            Nhận đơn gần, bật GPS & giao COD
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleQuickShipperLogin}
+                        className="px-3 py-1.5 rounded-xl bg-[#195962] hover:bg-[#13444b] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
+                      >
+                        Demo Shipper
                       </button>
                     </div>
 

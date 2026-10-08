@@ -16,6 +16,7 @@ import type {
   UserResponse,
 } from './auth.types'
 import { STORAGE_KEYS } from '@/utils'
+import { readStoredUser } from '@/stores'
 
 /**
  * Giải mã JWT Payload (Base64Url) an toàn trên Browser không cần thư viện bên ngoài.
@@ -218,6 +219,31 @@ export const authService = {
     return response.data
   },
 
+  getUserInfo(): UserResponse | null {
+    const user = readStoredUser()
+    if (!user) return null
+    return {
+      id: Number(user.id) || 1,
+      fullName: user.name,
+      email: user.email,
+      phoneNumber: user.phone,
+      status: 'ACTIVE',
+      role: { name: user.role.toUpperCase() },
+      kycStatus: user.kycStatus ?? 'APPROVED',
+      vehicleNumber: '59A-888.88',
+      ratingAverage: 4.9,
+      address: 'TP. Hồ Chí Minh',
+    }
+  },
+
+  getToken(): string | null {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.TOKEN)
+    } catch {
+      return null
+    }
+  },
+
   /**
    * Tiện ích giải mã JWT
    */
@@ -226,4 +252,6 @@ export const authService = {
   buildSessionUser,
 }
 
+export type { UserResponse }
 export default authService
+
