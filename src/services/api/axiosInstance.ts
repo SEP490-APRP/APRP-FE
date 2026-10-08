@@ -39,3 +39,5 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(apiError)
   },
 )
+
+export default axiosInstance

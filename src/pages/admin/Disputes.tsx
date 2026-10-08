@@ -15,6 +15,7 @@ import {
 import { returnService, ReturnRequestResponse } from '@/services/return.service'
 import { useCheckDisputePayout, useDisputeAction, useDisputes } from '@/features/order'
 import { globalShowAlert } from '@/components/common/Popup'
+import { QRCodeSVG } from 'qrcode.react'
 
 const Disputes: React.FC = () => {
   const [selectedDispute, setSelectedDispute] = useState<ReturnRequestResponse | null>(null)
@@ -489,11 +490,20 @@ const Disputes: React.FC = () => {
             </div>
             <div className="p-10 flex flex-col items-center">
               <div className="p-4 bg-gray-50 rounded-[32px] border-2 border-dashed border-gray-200 mb-8 w-full flex justify-center">
-                <img
-                  src={payOSQR.qrCodeUrl}
-                  alt="PayOS QR"
-                  className="size-64 object-contain shadow-sm"
-                />
+                {payOSQR.qrCodeUrl?.startsWith('http') ? (
+                  <img
+                    src={payOSQR.qrCodeUrl}
+                    alt="PayOS QR"
+                    className="size-64 object-contain shadow-sm"
+                  />
+                ) : (
+                  <QRCodeSVG
+                    value={payOSQR.qrCodeUrl || payOSQR.checkoutUrl}
+                    size={240}
+                    level="M"
+                    includeMargin={true}
+                  />
+                )}
               </div>
               <a
                 href={payOSQR.checkoutUrl}

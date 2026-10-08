@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
-import { CartModal } from '@/features/cart'
+import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
 
 export type StorefrontContext = {
@@ -39,7 +39,45 @@ export default function StorefrontLayout() {
   const { toast, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
   const [query, setQuery] = useState('')
 
+  const myCartQuery = useMyCart()
+  const addToCartMutation = useAddToCart()
+
+  const dbCartCount =
+    myCartQuery.data?.shopCarts?.reduce(
+      (acc: number, sc) => acc + (sc.items?.reduce((sum: number, item) => sum + item.quantity, 0) ?? 0),
+      0,
+    ) ?? 0
+
+  const currentCount = user ? dbCartCount : cartCount(cart)
+
   const onAdd = (id: string) => {
+    const idNum = Number(id)
+    if (!isNaN(idNum) && idNum > 0) {
+      if (!user) {
+        navigate('/dang-nhap', { state: { from: { pathname } } })
+        showToast('Vui lòng đăng nhập để thêm nông sản vào giỏ hàng.')
+        return
+      }
+      addToCartMutation.mutate(
+        { productId: idNum, quantity: 1 },
+        {
+          onSuccess: () => {
+            showToast('Đã thêm nông sản vào giỏ hàng!')
+          },
+          onError: (err: any) => {
+            const msg = err?.response?.data?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
+            showToast(msg)
+          },
+        },
+      )
+      return
+    }
+
+    if (user) {
+      showToast('Mục xem trước này chưa liên kết với nhà vườn cụ thể. Vui lòng chọn nông sản từ danh sách nhà vườn.')
+      return
+    }
+
     const product = allProducts.find((p) => p.id === id)
     if (!product) {
       showToast('Sản phẩm này chưa mở bán trực tuyến.')
@@ -77,7 +115,7 @@ export default function StorefrontLayout() {
 
       <Header
         route={headerRoute(pathname)}
-        count={cartCount(cart)}
+        count={currentCount}
         user={user}
         onLogout={handleLogout}
         onSearch={(s) => {
@@ -85,7 +123,7 @@ export default function StorefrontLayout() {
           if (isFresh) document.getElementById('san-pham')?.scrollIntoView()
           else navigate('/nong-san-tuoi/san-pham')
         }}
-        onCart={openCart}
+        onCart={() => openCart()}
         onInfo={showInfo}
       />
 

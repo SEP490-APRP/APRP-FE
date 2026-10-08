@@ -27,6 +27,7 @@ import type {
   FarmerVoucher,
   FarmerReview,
 } from './types'
+import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
 
 // Modular Subpage Components
 import Dashboard from './Dashboard'
@@ -69,6 +70,13 @@ export default function FarmerPortal({
   const [showTour, setShowTour] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.FARMER_TOUR_DONE) !== 'true'
   })
+
+  // Real shop orders hook from backend API (loại trừ AWAITING_PAYMENT)
+  const { data: realShopOrdersData } = useShopOrders({ page: 0, size: 50 })
+  const realShopOrders = (realShopOrdersData?.content || []).filter((o) => o.status !== 'AWAITING_PAYMENT')
+  const pendingOrdersCount = realShopOrders.filter(
+    (o) => o.status === 'PENDING' || o.status === 'PAID',
+  ).length
 
   // Modals state
   const [showAddProductModal, setShowAddProductModal] = useState(false)
@@ -516,7 +524,12 @@ export default function FarmerPortal({
             </h2>
             <p className="text-xs text-[#737c6e] font-medium mt-0.5">
               Chào buổi sáng, hôm nay bạn có{' '}
-              {orders.filter((o) => o.statusCode === 'PENDING').length} đơn hàng mới.
+              <strong className="text-[#326318]">
+                {realShopOrders.length > 0
+                  ? pendingOrdersCount
+                  : orders.filter((o) => o.statusCode === 'PENDING').length}
+              </strong>{' '}
+              đơn hàng cần xử lý.
             </p>
           </div>
 
@@ -609,7 +622,6 @@ export default function FarmerPortal({
             />
           ) : currentTab === 'orders' ? (
             <Orders
-              orders={orders}
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
               onInfo={onInfo}
             />

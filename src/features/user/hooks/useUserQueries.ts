@@ -89,7 +89,7 @@ export function useApproveKyc() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ userId, roleName }: { userId: number; roleName: string }) =>
-      roleName === 'SHOP_OWNER'
+      roleName === 'SHOP'
         ? userService.approveShopOwner(userId)
         : userService.approveShipper(userId),
     onSuccess: (_res, { userId }) => {

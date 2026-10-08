@@ -2,8 +2,11 @@ export type UserRole = 'buyer' | 'shop' | 'shipper' | 'admin' | 'staff'
 
 export interface AuthUser {
   name: string
+  fullName?: string
   email: string
   phone?: string
+  phoneNumber?: string
+  address?: string
   role: UserRole
   avatar?: string
   detail?: string

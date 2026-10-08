@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -62,7 +62,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   const shopInfo = shopQuery.data ?? null
   const reviews = reviewsQuery.data ?? []
   const mysteryBoxes = boxesQuery.data ?? []
-  // NhÆ° báº£n cÅ©: chá» Ä‘á»§ 4 nguá»“n; nguá»“n nÃ o lá»—i thÃ¬ coi nhÆ° rá»—ng.
+  // Như bản cũ: chờ đủ 4 nguồn; nguồn nào lỗi thì coi như rỗng.
   const loading =
     productsQuery.isPending || shopQuery.isPending || reviewsQuery.isPending || boxesQuery.isPending
 
@@ -70,7 +70,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   const shopVouchers = vouchersQuery.data?.vouchers ?? []
   const canReceiveMap = vouchersQuery.data?.canReceive ?? {}
   const voucherLoading = vouchersQuery.isFetching
-  const voucherError = vouchersQuery.isError ? 'KhÃ´ng táº£i Ä‘Æ°á»£c voucher cá»§a shop.' : null
+  const voucherError = vouchersQuery.isError ? 'Không tải được voucher của shop.' : null
 
   const addToCart = useAddToCart()
   const addingToCart = addToCart.isPending ? (addToCart.variables.productId ?? null) : null
@@ -90,11 +90,12 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       return
     }
     try {
-      await addToCart.mutateAsync({ productId, quantity: 1, quantityKg: 1 })
+      await addToCart.mutateAsync({ productId, quantity: 1 })
       window.dispatchEvent(new Event('cart-updated'))
-      globalShowAlert('ÄÃ£ thÃªm vÃ o giá» hÃ ng!', 'ThÃ nh cÃ´ng', 'success')
-    } catch {
-      globalShowAlert('KhÃ´ng thá»ƒ thÃªm vÃ o giá» hÃ ng. Vui lÃ²ng thá»­ láº¡i.', 'Lá»—i', 'error')
+      globalShowAlert('Đã thêm vào giỏ hàng!', 'Thành công', 'success')
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 
@@ -106,9 +107,10 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     try {
       await addToCart.mutateAsync({ mysteryBoxId: boxId, quantity: 1 })
       window.dispatchEvent(new Event('cart-updated'))
-      globalShowAlert('ÄÃ£ thÃªm tÃºi mÃ¹ vÃ o giá» hÃ ng!', 'ThÃ nh cÃ´ng', 'success')
-    } catch {
-      globalShowAlert('KhÃ´ng thá»ƒ thÃªm vÃ o giá» hÃ ng. Vui lÃ²ng thá»­ láº¡i.', 'Lá»—i', 'error')
+      globalShowAlert('Đã thêm túi mù vào giỏ hàng!', 'Thành công', 'success')
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 
@@ -119,11 +121,11 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     }
     try {
       await receiveVoucher.mutateAsync(voucherCode)
-      globalShowAlert('ÄÃ£ lÆ°u voucher vÃ o kho cá»§a báº¡n.', 'ThÃ nh cÃ´ng', 'success')
+      globalShowAlert('Đã lưu voucher vào kho của bạn.', 'Thành công', 'success')
     } catch (err) {
       globalShowAlert(
-        getErrorMessage(err, 'KhÃ´ng thá»ƒ nháº­n voucher. Vui lÃ²ng thá»­ láº¡i.'),
-        'Lá»—i',
+        getErrorMessage(err, 'Không thể nhận voucher. Vui lòng thử lại.'),
+        'Lỗi',
         'error',
       )
     }
@@ -193,14 +195,14 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     shopInfo?.shopName ||
     shopInfo?.fullName ||
     (products.length > 0 ? products[0].shopName : null) ||
-    'Cá»­a hÃ ng'
+    'Cửa hàng'
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="size-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-gray-600 font-medium">Äang táº£i thÃ´ng tin cá»­a hÃ ng...</p>
+          <p className="text-sm text-gray-600 font-medium">Đang tải thông tin cửa hàng...</p>
         </div>
       </div>
     )
@@ -216,7 +218,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold text-sm transition-colors"
           >
             <ArrowLeft className="size-4" />
-            Quay láº¡i
+            Quay lại
           </button>
           <h3 className="font-black text-gray-900 text-lg">{shopName}</h3>
           <div className="flex gap-2">
@@ -266,7 +268,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     {shopInfo?.status === 'ACTIVE' && (
                       <span className="flex items-center gap-1 text-primary font-bold">
                         <ShieldCheck className="size-3.5" />
-                        ÄÃ£ xÃ¡c thá»±c
+                        Đã xác thực
                       </span>
                     )}
                     {shopInfo?.address && (
@@ -289,7 +291,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     <Package className="size-4 text-blue-600" />
                     <span className="text-lg font-black text-gray-900">{products.length}</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Sáº£n pháº©m</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Sản phẩm</p>
                 </div>
 
                 <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
@@ -297,7 +299,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     <TrendingUp className="size-4 text-primary" />
                     <span className="text-lg font-black text-gray-900">{activeProducts}</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Äang bÃ¡n</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Đang bán</p>
                 </div>
 
                 <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
@@ -308,7 +310,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     </span>
                   </div>
                   <p className="text-[10px] text-gray-500 font-bold uppercase">
-                    ÄÃ¡nh giÃ¡ {reviews.length > 0 && `(${reviews.length})`}
+                    Đánh giá {reviews.length > 0 && `(${reviews.length})`}
                   </p>
                 </div>
 
@@ -317,7 +319,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     <Clock className="size-4 text-purple-600" />
                     <span className="text-lg font-black text-gray-900">Online</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Tráº¡ng thÃ¡i</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Trạng thái</p>
                 </div>
               </div>
 
@@ -332,7 +334,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                 </button>
                 <button className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200">
                   <Heart className="size-3.5" />
-                  Theo dÃµi
+                  Theo dõi
                 </button>
                 <div className="relative">
                   <button
@@ -340,13 +342,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200"
                   >
                     <Share2 className="size-3.5" />
-                    Chia sáº»
+                    Chia sẻ
                   </button>
                   {showShareMenu && (
                     <div className="absolute left-0 top-11 z-30 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 w-52 animate-in fade-in slide-in-from-top-2">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                          Chia sáº» cá»­a hÃ ng
+                          Chia sẻ cửa hàng
                         </p>
                         <button
                           onClick={() => setShowShareMenu(false)}
@@ -369,7 +371,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           ) : (
                             <Copy className="size-3.5 text-gray-400" />
                           )}
-                          {copied ? 'ÄÃ£ sao chÃ©p!' : 'Sao chÃ©p link'}
+                          {copied ? 'Đã sao chép!' : 'Sao chép link'}
                         </button>
                         <button
                           onClick={() =>
@@ -391,7 +393,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                               window.location.href = `zalo://share?url=${encodeURIComponent(rawUrl)}`
                             } else {
                               navigator.clipboard.writeText(rawUrl)
-                              alert('ÄÃ£ sao chÃ©p link! Má»Ÿ Zalo vÃ  dÃ¡n vÃ o há»™i thoáº¡i Ä‘á»ƒ chia sáº».')
+                              alert('Đã sao chép link! Mở Zalo và dán vào hội thoại để chia sẻ.')
                             }
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-500 transition-colors"
@@ -448,13 +450,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                 onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
                 className="text-xs font-black text-primary hover:text-primary-dark"
               >
-                Xem táº¥t cáº£
+                Xem tất cả
               </button>
             </div>
 
             {voucherLoading ? (
               <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
-                Äang táº£i voucher...
+                Đang tải voucher...
               </div>
             ) : voucherError ? (
               <div className="rounded-2xl bg-red-50 p-4 text-xs font-bold text-red-600">
@@ -462,7 +464,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               </div>
             ) : shopVouchers.length === 0 ? (
               <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
-                Shop hiá»‡n chÆ°a cÃ³ voucher Ä‘á»ƒ nháº­n.
+                Shop hiện chưa có voucher để nhận.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -476,11 +478,11 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                       <div>
                         <p className="text-xs font-black text-primary">{voucher.voucherCode}</p>
                         <p className="mt-1 text-lg font-black text-gray-900">
-                          Giáº£m {voucher.discountValue}%
+                          Giảm {voucher.discountValue}%
                         </p>
                         <p className="text-xs text-gray-500 font-bold">
-                          Tá»‘i Ä‘a {Number(voucher.maxDiscount).toLocaleString('vi-VN')}Ä‘ Â· ÄÆ¡n tá»«{' '}
-                          {Number(voucher.minOrderValue).toLocaleString('vi-VN')}Ä‘
+                          Tối đa {Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · Đơn từ{' '}
+                          {Number(voucher.minOrderValue).toLocaleString('vi-VN')}đ
                         </p>
                       </div>
                       <button
@@ -492,10 +494,10 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                         className="w-full rounded-xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:bg-gray-200 disabled:text-gray-500"
                       >
                         {receivingVoucher === voucher.voucherCode
-                          ? 'Äang lÆ°u...'
+                          ? 'Đang lưu...'
                           : isAuthenticated && !canReceive
-                            ? 'ÄÃ£ nháº­n'
-                            : 'Nháº­n voucher'}
+                            ? 'Đã nhận'
+                            : 'Nhận voucher'}
                       </button>
                     </div>
                   )
@@ -514,14 +516,14 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm sticky top-20">
               <div className="flex items-center gap-2 mb-5">
                 <Filter className="size-4 text-primary" />
-                <h3 className="font-black text-gray-900 text-sm">Bá»™ lá»c</h3>
+                <h3 className="font-black text-gray-900 text-sm">Bộ lọc</h3>
               </div>
 
               <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4">
                 <h4 className="font-black text-gray-700 text-xs mb-2 uppercase">
-                  ÄÆ¡n vá»‹ thá»‘ng nháº¥t
+                  Đơn vị thống nhất
                 </h4>
-                <p className="text-xs font-bold text-gray-500">Táº¥t cáº£ sáº£n pháº©m Ä‘Æ°á»£c bÃ¡n theo kg.</p>
+                <p className="text-xs font-bold text-gray-500">Tất cả sản phẩm được bán theo kg.</p>
               </div>
             </div>
           </div>
@@ -532,19 +534,19 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               {/* Controls */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-100">
                 <p className="text-sm font-bold text-gray-600">
-                  Hiá»ƒn thá»‹{' '}
-                  <span className="text-primary font-black">{filteredProducts.length}</span> sáº£n
-                  pháº©m
+                  Hiển thị{' '}
+                  <span className="text-primary font-black">{filteredProducts.length}</span> sản
+                  phẩm
                 </p>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:border-gray-300 transition-colors"
                 >
-                  <option value="default">Máº·c Ä‘á»‹nh</option>
-                  <option value="name">TÃªn A-Z</option>
-                  <option value="asc">GiÃ¡: Tháº¥p â†’ Cao</option>
-                  <option value="desc">GiÃ¡: Cao â†’ Tháº¥p</option>
+                  <option value="default">Mặc định</option>
+                  <option value="name">Tên A-Z</option>
+                  <option value="asc">Giá: Thấp → Cao</option>
+                  <option value="desc">Giá: Cao → Thấp</option>
                 </select>
               </div>
 
@@ -580,7 +582,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <=
                             0 && (
                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <span className="text-white text-xs font-black">Háº¿t hÃ ng</span>
+                              <span className="text-white text-xs font-black">Hết hàng</span>
                             </div>
                           )}
                           <button
@@ -610,33 +612,33 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
                             {product.productName}
                           </h4>
-                          <p className="text-xs text-gray-500 font-medium mb-2">ÄÆ¡n vá»‹: kg</p>
+                          <p className="text-xs text-gray-500 font-medium mb-2">Đơn vị: kg</p>
 
                           <div className="flex flex-col gap-0.5 mb-2">
                             {product.salePrice != null && product.salePrice > 0 ? (
                               <>
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-xs text-red-500 line-through font-semibold">
-                                    {basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg
+                                    {basePricePerKg.toLocaleString('vi-VN')}đ/kg
                                   </span>
                                   <span className="bg-primary text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
                                     -{product.discountPercent}%
                                   </span>
                                 </div>
                                 <span className="text-lg font-black text-primary">
-                                  {product.salePrice.toLocaleString('vi-VN')}Ä‘/kg
+                                  {product.salePrice.toLocaleString('vi-VN')}đ/kg
                                 </span>
                               </>
                             ) : (
                               <span className="text-lg font-black text-primary">
-                                {basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg
+                                {basePricePerKg.toLocaleString('vi-VN')}đ/kg
                               </span>
                             )}
                           </div>
 
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-gray-500 font-medium">
-                              CÃ²n:{' '}
+                              Còn:{' '}
                               {(
                                 product.stockKg ??
                                 product.stockQuantity ??
@@ -647,9 +649,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                             </span>
                             {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) >
                             0 ? (
-                              <span className="text-[10px] text-primary font-bold">CÃ²n hÃ ng</span>
+                              <span className="text-[10px] text-primary font-bold">Còn hàng</span>
                             ) : (
-                              <span className="text-[10px] text-red-600 font-bold">Háº¿t hÃ ng</span>
+                              <span className="text-[10px] text-red-600 font-bold">Hết hàng</span>
                             )}
                           </div>
                         </div>
@@ -660,7 +662,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               ) : (
                 <div className="py-16 text-center">
                   <Package className="size-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">KhÃ´ng cÃ³ sáº£n pháº©m nÃ o</p>
+                  <p className="text-gray-500 font-medium">Không có sản phẩm nào</p>
                 </div>
               )}
             </div>
@@ -676,9 +678,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                   <Gift className="size-5 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-gray-900">TÃºi MÃ¹ Cá»§a Shop</h3>
+                  <h3 className="text-lg font-black text-gray-900">Túi Mù Của Shop</h3>
                   <p className="text-xs text-gray-400 font-bold">
-                    {mysteryBoxes.length} tÃºi mÃ¹ Ä‘ang bÃ¡n
+                    {mysteryBoxes.length} túi mù đang bán
                   </p>
                 </div>
               </div>
@@ -706,7 +708,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                       <div className="absolute top-3 left-3 bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded-full flex items-center gap-1.5">
                         <Gift className="size-3 text-yellow-400" />
                         <span className="text-[9px] font-black uppercase tracking-widest">
-                          BÃ­ áº©n
+                          Bí ẩn
                         </span>
                       </div>
                       <button
@@ -734,7 +736,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                       )}
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-lg font-black text-primary">
-                          {box.price.toLocaleString('vi-VN')}Ä‘
+                          {box.price.toLocaleString('vi-VN')}đ
                         </span>
                         <button
                           onClick={() => handleAddBoxToCart(box.id)}
@@ -746,7 +748,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           ) : (
                             <ShoppingCart className="size-3" />
                           )}
-                          ThÃªm vÃ o giá»
+                          Thêm vào giỏ
                         </button>
                       </div>
                     </div>
@@ -763,9 +765,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                 <div>
-                  <h3 className="text-xl font-black text-gray-900">ÄÃ¡nh giÃ¡ tá»« khÃ¡ch hÃ ng</h3>
+                  <h3 className="text-xl font-black text-gray-900">Đánh giá từ khách hàng</h3>
                   <p className="text-sm text-gray-500 font-medium mt-1">
-                    {reviews.length} Ä‘Ã¡nh giÃ¡ â€¢ Trung bÃ¬nh {averageRating}/5.0
+                    {reviews.length} đánh giá • Trung bình {averageRating}/5.0
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -800,12 +802,12 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <h4 className="font-bold text-gray-900 text-sm">
-                              {review.fullName || `KhÃ¡ch hÃ ng #${review.buyerId}`}
+                              {review.fullName || `Khách hàng #${review.buyerId}`}
                             </h4>
                             <p className="text-[10px] text-gray-400 mt-0.5">
                               {review.createAt
                                 ? new Date(review.createAt).toLocaleDateString('vi-VN')
-                                : 'Gáº§n Ä‘Ã¢y'}
+                                : 'Gần đây'}
                             </p>
                             <div className="flex text-yellow-400 mt-1">
                               {[...Array(5)].map((_, i) => (
@@ -819,13 +821,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                               <p className="text-[10px] text-gray-400 mt-0.5 italic">
                                 {review.productName
                                   ? `SP: ${review.productName}`
-                                  : `TÃºi mÃ¹: ${review.boxType}`}
+                                  : `Túi mù: ${review.boxType}`}
                               </p>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                              Há»¯u Ã­ch?
+                              Hữu ích?
                             </span>
                             <button
                               onClick={() => handleReact(review.id, 'LIKE')}
@@ -852,7 +854,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           <div className="mb-3 rounded-xl overflow-hidden border border-gray-200 w-24 aspect-square">
                             <img
                               src={review.evidence}
-                              alt="Báº±ng chá»©ng"
+                              alt="Bằng chứng"
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -866,7 +868,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                                 <MessageCircle className="size-3" />
                               </div>
                               <span className="text-xs font-black text-gray-900">
-                                Pháº£n há»“i tá»« Shop
+                                Phản hồi từ Shop
                               </span>
                             </div>
                             <p className="text-gray-600 text-sm pl-7 italic">

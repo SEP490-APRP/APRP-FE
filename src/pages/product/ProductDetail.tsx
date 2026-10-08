@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Star,
@@ -37,7 +37,7 @@ import ShopProducts from './ShopProducts'
 import { useAuth } from '@/stores'
 import { absoluteUrl } from '@/utils'
 
-// â”€â”€ Cloudinary URL helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Cloudinary URL helper ────────────────────────────────────────────────────
 function clImg(url: string | undefined, mode: 'main' | 'thumb' = 'main'): string {
   if (!url || !url.includes('res.cloudinary.com')) return url ?? ''
   const transform =
@@ -47,7 +47,7 @@ function clImg(url: string | undefined, mode: 'main' | 'thumb' = 'main'): string
   return url.replace('/upload/', `/upload/${transform}/`)
 }
 
-// â”€â”€ Image Gallery Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Image Gallery Component ───────────────────────────────────────────────────
 interface ImageGalleryProps {
   images: ProductImageResponse[]
   productName: string
@@ -93,7 +93,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, productName }) => {
           <img
             src={clImg(sorted[activeIdx]?.imageUrl, 'main')}
             className="w-full h-full object-contain"
-            alt={`${productName} - áº£nh ${activeIdx + 1}`}
+            alt={`${productName} - ảnh ${activeIdx + 1}`}
           />
           <div className="absolute inset-0 bg-transparent group-hover:bg-black/8 transition-colors duration-200 flex items-center justify-center">
             <ZoomIn className="size-8 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200 drop-shadow-lg" />
@@ -217,13 +217,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   const relatedProducts = detailQuery.data?.related ?? []
   const isLoading = detailQuery.isPending
   const error = detailQuery.isError
-    ? 'KhÃ´ng thá»ƒ táº£i thÃ´ng tin sáº£n pháº©m. Vui lÃ²ng thá»­ láº¡i sau.'
+    ? 'Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.'
     : detailQuery.data && !detailQuery.data.product
-      ? 'Sáº£n pháº©m hiá»‡n khÃ´ng kháº£ dá»¥ng hoáº·c cá»­a hÃ ng Ä‘ang táº¡m Ä‘Ã³ng.'
+      ? 'Sản phẩm hiện không khả dụng hoặc cửa hàng đang tạm đóng.'
       : null
 
   const [quantity, setQuantity] = useState(1)
-  const [activeTab, setActiveTab] = useState('MÃ´ táº£ chi tiáº¿t')
+  const [activeTab, setActiveTab] = useState('Mô tả chi tiết')
   const [viewShopMode, setViewShopMode] = useState(false)
   const [selectedShopId, setSelectedShopId] = useState<number | null>(null)
   const [showShareMenu, setShowShareMenu] = useState(false)
@@ -236,7 +236,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   const reviews = reviewsQuery.data ?? []
   const isReviewsLoading = reviewsQuery.isLoading
   const shopReviews = useShopReviews(product?.shopId).data ?? []
-  // Endpoint há»“ sÆ¡ chá»§ shop cáº§n Ä‘Äƒng nháº­p.
+  // Endpoint hồ sơ chủ shop cần đăng nhập.
   const shopOwner =
     useUser(product?.shopOwnerId || product?.shopId, { enabled: isAuthenticated }).data ?? null
   const addToCart = useAddToCart()
@@ -245,7 +245,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   const reactingReviewId = reactToReview.isPending ? reactToReview.variables.reviewId : null
 
   const scrollToProductDetail = () => {
-    setActiveTab('MÃ´ táº£ chi tiáº¿t')
+    setActiveTab('Mô tả chi tiết')
     window.setTimeout(() => {
       detailSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
@@ -258,8 +258,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
   // OG tags cho social sharing (Telegram, Zalo, Discord)
   useEffect(() => {
-    const DEFAULT_TITLE = 'Xáº¤U MÃƒ - NÃ´ng Sáº£n Má»™c Máº¡c, GiÃ¡ Trá»‹ Tháº­t'
-    const DEFAULT_DESC = 'Ná»n táº£ng nÃ´ng sáº£n sáº¡ch, tÆ°Æ¡i ngon, giao hÃ ng táº­n nhÃ .'
+    const DEFAULT_TITLE = 'XẤU MÃ - Nông Sản Mộc Mạc, Giá Trị Thật'
+    const DEFAULT_DESC = 'Nền tảng nông sản sạch, tươi ngon, giao hàng tận nhà.'
     const DEFAULT_IMG = 'https://nongsanxauma.vn/logo.png'
 
     const setMeta = (property: string, content: string) => {
@@ -273,18 +273,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     }
 
     if (product) {
-      const shop = product.shopName || `Cá»­a hÃ ng #${product.shopId}`
+      const shop = product.shopName || `Cửa hàng #${product.shopId}`
       const price = product.salePrice ?? product.pricePerKg ?? product.sellingPrice ?? 0
-      const priceStr = price.toLocaleString('vi-VN') + 'Ä‘'
-      const desc = `${priceStr}/kg táº¡i ${shop} Â· ${product.description?.slice(0, 80) || 'NÃ´ng sáº£n sáº¡ch, tÆ°Æ¡i ngon'}`
+      const priceStr = price.toLocaleString('vi-VN') + 'đ'
+      const desc = `${priceStr}/kg tại ${shop} · ${product.description?.slice(0, 80) || 'Nông sản sạch, tươi ngon'}`
 
-      document.title = `${product.productName} - ${shop} | NÃ´ng Sáº£n Xáº¥u MÃ£`
+      document.title = `${product.productName} - ${shop} | Nông Sản Xấu Mã`
       setMeta('og:title', `${product.productName} - ${shop}`)
       setMeta('og:description', desc)
       setMeta('og:image', product.imageUrl || DEFAULT_IMG)
       setMeta('og:url', window.location.href)
       setMeta('og:type', 'product')
-      setMeta('og:site_name', 'NÃ´ng Sáº£n Xáº¥u MÃ£')
+      setMeta('og:site_name', 'Nông Sản Xấu Mã')
     }
 
     return () => {
@@ -294,7 +294,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       setMeta('og:image', DEFAULT_IMG)
       setMeta('og:url', 'https://nongsanxauma.vn')
       setMeta('og:type', 'website')
-      setMeta('og:site_name', 'NÃ´ng Sáº£n Xáº¥u MÃ£')
+      setMeta('og:site_name', 'Nông Sản Xấu Mã')
     }
   }, [product])
 
@@ -327,7 +327,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       <div className="flex flex-col items-center justify-center min-h-[600px] gap-4 w-full">
         <Loader2 className="size-10 text-primary animate-spin" />
         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-          Äang táº£i sáº£n pháº©m chi tiáº¿t...
+          Đang tải sản phẩm chi tiết...
         </p>
       </div>
     )
@@ -338,12 +338,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       <div className="flex flex-col items-center justify-center min-h-[500px] gap-4 w-full px-4">
         <div className="bg-red-50 border border-red-100 p-8 rounded-3xl flex flex-col items-center gap-4 text-red-600 font-bold max-w-lg text-center">
           <AlertCircle className="size-10" />
-          <p>{error || 'Sáº£n pháº©m khÃ´ng kháº£ dá»¥ng'}</p>
+          <p>{error || 'Sản phẩm không khả dụng'}</p>
           <button
             onClick={handleBack}
             className="mt-4 px-6 py-2 bg-white text-red-600 rounded-xl shadow-sm hover:shadow-md transition-shadow"
           >
-            Quay láº¡i trang chá»§
+            Quay lại trang chủ
           </button>
         </div>
       </div>
@@ -351,7 +351,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   }
 
   const farmName =
-    product.shopName || (product.shopId ? `NÃ´ng tráº¡i #${product.shopId}` : 'NÃ´ng tráº¡i Ä‘á»‘i tÃ¡c')
+    product.shopName || (product.shopId ? `Nông trại #${product.shopId}` : 'Nông trại đối tác')
   const stockKg = product.stockKg ?? product.stockQuantity ?? 0
   const basePricePerKg = product.pricePerKg ?? product.sellingPrice ?? 0
   const isOutOfStock = stockKg <= 0
@@ -365,12 +365,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     const url = type === 'shop' && shopUrl ? shopUrl : productUrl
     const title =
       type === 'shop'
-        ? `Cá»­a hÃ ng ${farmName} trÃªn NÃ´ng Sáº£n Xáº¥u MÃ£`
+        ? `Cửa hàng ${farmName} trên Nông Sản Xấu Mã`
         : `${product.productName} - ${farmName}`
     const text =
       type === 'shop'
-        ? `Xem cá»­a hÃ ng ${farmName} trÃªn NÃ´ng Sáº£n Xáº¥u MÃ£ - nÃ´ng sáº£n sáº¡ch tÆ°Æ¡i má»›i má»—i ngÃ y!`
-        : `${product.productName}${product.salePrice ? ` chá»‰ cÃ²n ${product.salePrice.toLocaleString('vi-VN')}Ä‘/kg` : ` - ${basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg`} táº¡i ${farmName} trÃªn NÃ´ng Sáº£n Xáº¥u MÃ£!`
+        ? `Xem cửa hàng ${farmName} trên Nông Sản Xấu Mã - nông sản sạch tươi mới mỗi ngày!`
+        : `${product.productName}${product.salePrice ? ` chỉ còn ${product.salePrice.toLocaleString('vi-VN')}đ/kg` : ` - ${basePricePerKg.toLocaleString('vi-VN')}đ/kg`} tại ${farmName} trên Nông Sản Xấu Mã!`
     if (isMobileBrowser && navigator.share) {
       try {
         await navigator.share({ title, text, url })
@@ -401,13 +401,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   const shareToZalo = (type: 'product' | 'shop') => {
     const rawUrl = type === 'shop' && shopUrl ? shopUrl : productUrl
     const url = encodeURIComponent(rawUrl)
-    // TrÃªn mobile: dÃ¹ng deep link má»Ÿ tháº³ng app Zalo (khÃ´ng cáº§n Ä‘Äƒng kÃ½ SDK)
-    // TrÃªn desktop: Zalo web share yÃªu cáº§u Ä‘Äƒng kÃ½ táº¡i developers.zalo.me â€” fallback copy link
+    // Trên mobile: dùng deep link mở thẳng app Zalo (không cần đăng ký SDK)
+    // Trên desktop: Zalo web share yêu cầu đăng ký tại developers.zalo.me — fallback copy link
     if (isMobileBrowser) {
       window.location.href = `zalo://share?url=${url}`
     } else {
       navigator.clipboard.writeText(rawUrl)
-      alert('ÄÃ£ sao chÃ©p link! Má»Ÿ Zalo vÃ  dÃ¡n vÃ o há»™i thoáº¡i Ä‘á»ƒ chia sáº».')
+      alert('Đã sao chép link! Mở Zalo và dán vào hội thoại để chia sẻ.')
     }
   }
 
@@ -415,7 +415,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     const rawUrl = type === 'shop' && shopUrl ? shopUrl : productUrl
     const url = encodeURIComponent(rawUrl)
     if (isMobileBrowser) {
-      // Deep link má»Ÿ Messenger app trÃªn mobile
+      // Deep link mở Messenger app trên mobile
       window.location.href = `fb-messenger://share?link=${url}`
     } else {
       window.open(
@@ -436,13 +436,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       : 0
   const minOrderKg = product.minOrderKg ?? 1
   const highlights = [
-    { icon: Leaf, label: 'Thu hoáº¡ch tÆ°Æ¡i', sub: 'Giao trong ngÃ y' },
-    { icon: MapPin, label: 'Nguá»“n gá»‘c rÃµ', sub: farmName },
-    { icon: Package, label: 'ÄÃ³ng gÃ³i cáº©n tháº­n', sub: 'Giá»¯ Ä‘á»™ tÆ°Æ¡i' },
+    { icon: Leaf, label: 'Thu hoạch tươi', sub: 'Giao trong ngày' },
+    { icon: MapPin, label: 'Nguồn gốc rõ', sub: farmName },
+    { icon: Package, label: 'Đóng gói cẩn thận', sub: 'Giữ độ tươi' },
     {
       icon: ShieldCheck,
-      label: 'Shop uy tÃ­n',
-      sub: shopReviews.length > 0 ? `${shopAvgRating.toFixed(1)}â˜… cá»­a hÃ ng` : 'ÄÃ£ xÃ¡c minh',
+      label: 'Shop uy tín',
+      sub: shopReviews.length > 0 ? `${shopAvgRating.toFixed(1)}★ cửa hàng` : 'Đã xác minh',
     },
   ]
 
@@ -451,17 +451,28 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       navigate('/login')
       return
     }
+    const targetId = product?.id ?? Number(productId)
+    if (!targetId || isNaN(targetId)) {
+      globalShowAlert('Không xác định được sản phẩm để thêm vào giỏ hàng.', 'Lỗi', 'error')
+      return
+    }
     try {
-      await addToCart.mutateAsync({ productId: Number(productId), quantity, quantityKg: quantity })
+      await addToCart.mutateAsync({
+        itemType: 'PRODUCT',
+        itemId: targetId,
+        productId: targetId,
+        quantity,
+      })
       window.dispatchEvent(new Event('cart-updated'))
       globalShowAlert(
-        `ÄÃ£ thÃªm ${quantity} kg ${product.productName} vÃ o giá» hÃ ng`,
-        'ThÃ nh cÃ´ng',
+        `Đã thêm ${quantity} kg ${product?.productName || 'nông sản'} vào giỏ hàng`,
+        'Thành công',
         'success',
       )
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to add to cart', e)
-      globalShowAlert('KhÃ´ng thá»ƒ thÃªm vÃ o giá» hÃ ng. Vui lÃ²ng thá»­ láº¡i.', 'Lá»—i', 'error')
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 
@@ -493,13 +504,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
               className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-xs font-bold transition-all border border-gray-200"
             >
               <Share2 className="size-4" />
-              <span className="hidden sm:inline">Chia sáº»</span>
+              <span className="hidden sm:inline">Chia sẻ</span>
             </button>
             {showShareMenu && (
               <div className="absolute right-0 top-12 z-20 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64 animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                    Chia sáº» sáº£n pháº©m
+                    Chia sẻ sản phẩm
                   </p>
                   <button
                     onClick={() => setShowShareMenu(false)}
@@ -520,13 +531,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     ) : (
                       <Copy className="size-4 text-gray-400" />
                     )}
-                    {copied ? 'ÄÃ£ sao chÃ©p!' : 'Sao chÃ©p link sáº£n pháº©m'}
+                    {copied ? 'Đã sao chép!' : 'Sao chép link sản phẩm'}
                   </button>
                   <button
                     onClick={() => shareToFacebook('product')}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 text-sm font-bold text-blue-600 transition-colors"
                   >
-                    <Facebook className="size-4" /> Chia sáº» Facebook
+                    <Facebook className="size-4" /> Chia sẻ Facebook
                   </button>
                   <button
                     onClick={() => shareToZalo('product')}
@@ -535,7 +546,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     <span className="size-4 rounded-full bg-blue-500 text-white text-[8px] font-black flex items-center justify-center flex-shrink-0">
                       Z
                     </span>
-                    Chia sáº» Zalo
+                    Chia sẻ Zalo
                   </button>
                   <button
                     onClick={() => shareToMessenger('product')}
@@ -544,13 +555,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.913 1.405 5.514 3.608 7.24V22l3.259-1.793c.872.242 1.795.372 2.748.372 5.523 0 10-4.145 10-9.336C21.615 6.145 17.523 2 12 2zm1.067 12.573l-2.545-2.715-4.965 2.715 5.463-5.8 2.609 2.715 4.9-2.715-5.462 5.8z" />
                     </svg>
-                    Chia sáº» Messenger
+                    Chia sẻ Messenger
                   </button>
                   {shopUrl && (
                     <>
                       <div className="border-t border-gray-100 my-1" />
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                        Chia sáº» cá»­a hÃ ng
+                        Chia sẻ cửa hàng
                       </p>
                       <button
                         onClick={() => {
@@ -563,13 +574,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                         ) : (
                           <Copy className="size-4 text-gray-400" />
                         )}
-                        Sao chÃ©p link cá»­a hÃ ng
+                        Sao chép link cửa hàng
                       </button>
                       <button
                         onClick={() => shareToFacebook('shop')}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 text-sm font-bold text-blue-600 transition-colors"
                       >
-                        <Facebook className="size-4" /> Facebook (Cá»­a hÃ ng)
+                        <Facebook className="size-4" /> Facebook (Cửa hàng)
                       </button>
                       <button
                         onClick={() => shareToZalo('shop')}
@@ -578,7 +589,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                         <span className="size-4 rounded-full bg-blue-500 text-white text-[8px] font-black flex items-center justify-center flex-shrink-0">
                           Z
                         </span>
-                        Zalo (Cá»­a hÃ ng)
+                        Zalo (Cửa hàng)
                       </button>
                       <button
                         onClick={() => shareToMessenger('shop')}
@@ -587,7 +598,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                         <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.913 1.405 5.514 3.608 7.24V22l3.259-1.793c.872.242 1.795.372 2.748.372 5.523 0 10-4.145 10-9.336C21.615 6.145 17.523 2 12 2zm1.067 12.573l-2.545-2.715-4.965 2.715 5.463-5.8 2.609 2.715 4.9-2.715-5.462 5.8z" />
                         </svg>
-                        Messenger (Cá»­a hÃ ng)
+                        Messenger (Cửa hàng)
                       </button>
                     </>
                   )}
@@ -617,15 +628,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
               <div className="flex flex-wrap gap-2 mt-4">
                 {isOutOfStock ? (
                   <span className="bg-red-50 text-red-600 text-xs font-bold px-3 py-1.5 rounded-full border border-red-100">
-                    Háº¿t hÃ ng
+                    Hết hàng
                   </span>
                 ) : (
                   <>
                     <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1.5 rounded-full">
-                      TÆ°Æ¡i má»›i
+                      Tươi mới
                     </span>
                     <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-100">
-                      CÃ²n {stockKg.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} kg
+                      Còn {stockKg.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} kg
                     </span>
                   </>
                 )}
@@ -666,8 +677,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                   </div>
                   <span className="text-gray-500 text-sm font-medium">
                     {reviews.length > 0
-                      ? `${productAvgRating.toFixed(1)} Â· ${reviews.length} Ä‘Ã¡nh giÃ¡`
-                      : 'ChÆ°a cÃ³ Ä‘Ã¡nh giÃ¡'}
+                      ? `${productAvgRating.toFixed(1)} · ${reviews.length} đánh giá`
+                      : 'Chưa có đánh giá'}
                   </span>
                 </div>
               </div>
@@ -677,7 +688,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-gray-400 text-base line-through font-medium">
-                        {basePricePerKg.toLocaleString('vi-VN')}Ä‘/kg
+                        {basePricePerKg.toLocaleString('vi-VN')}đ/kg
                       </span>
                       <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                         -{product.discountPercent}%
@@ -685,20 +696,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-primary font-black text-3xl sm:text-4xl">
-                        {displayPrice.toLocaleString('vi-VN')}Ä‘
+                        {displayPrice.toLocaleString('vi-VN')}đ
                       </span>
                       <span className="text-gray-500 font-semibold text-sm">/ kg</span>
                     </div>
                     <p className="text-xs text-primary font-semibold">
-                      Tiáº¿t kiá»‡m {(basePricePerKg - product.salePrice!).toLocaleString('vi-VN')}Ä‘/kg
+                      Tiết kiệm {(basePricePerKg - product.salePrice!).toLocaleString('vi-VN')}đ/kg
                       {product.discountEndDate &&
-                        ` Â· Ä‘áº¿n ${new Date(product.discountEndDate).toLocaleDateString('vi-VN')}`}
+                        ` · đến ${new Date(product.discountEndDate).toLocaleDateString('vi-VN')}`}
                     </p>
                   </div>
                 ) : (
                   <div className="flex items-baseline gap-2">
                     <span className="text-primary font-black text-3xl sm:text-4xl">
-                      {displayPrice.toLocaleString('vi-VN')}Ä‘
+                      {displayPrice.toLocaleString('vi-VN')}đ
                     </span>
                     <span className="text-gray-500 font-semibold text-sm">/ kg</span>
                   </div>
@@ -708,12 +719,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     <p className="text-lg font-black text-gray-900">
                       {stockKg.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}
                     </p>
-                    <p className="text-[10px] text-gray-500 font-semibold uppercase">Kg tá»“n kho</p>
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase">Kg tồn kho</p>
                   </div>
                   <div className="text-center border-l border-primary/10">
                     <p className="text-lg font-black text-gray-900">{minOrderKg}</p>
                     <p className="text-[10px] text-gray-500 font-semibold uppercase">
-                      Kg tá»‘i thiá»ƒu
+                      Kg tối thiểu
                     </p>
                   </div>
                 </div>
@@ -721,14 +732,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
               <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
                 {product.description ||
-                  'Sáº£n pháº©m sáº¡ch Ä‘Æ°á»£c thu hoáº¡ch ngay táº¡i vÆ°á»n, Ä‘áº£m báº£o Ä‘á»™ tÆ°Æ¡i ngon khi Ä‘áº¿n tay báº¡n.'}
+                  'Sản phẩm sạch được thu hoạch ngay tại vườn, đảm bảo độ tươi ngon khi đến tay bạn.'}
               </p>
               <button
                 type="button"
                 onClick={scrollToProductDetail}
                 className="self-start text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1"
               >
-                Xem mÃ´ táº£ Ä‘áº§y Ä‘á»§
+                Xem mô tả đầy đủ
                 <ChevronDown className="size-4" />
               </button>
 
@@ -765,7 +776,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                   ) : (
                     <ShoppingCart className="size-5" />
                   )}
-                  {isAdding ? 'Äang thÃªm...' : isOutOfStock ? 'Háº¿t hÃ ng' : 'ThÃªm vÃ o giá»'}
+                  {isAdding ? 'Đang thêm...' : isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
                 </button>
               </div>
             </div>
@@ -818,7 +829,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                     className="inline-flex items-center justify-center gap-1.5 h-10 min-w-[8.5rem] px-4 bg-white text-primary font-black text-[10px] uppercase tracking-widest rounded-xl border border-primary/20 hover:bg-primary hover:text-white transition-all shadow-sm whitespace-nowrap"
                   >
                     <Store className="size-3.5 shrink-0" />
-                    Xem cá»­a hÃ ng
+                    Xem cửa hàng
                   </button>
                   <button
                     onClick={() => {
@@ -848,13 +859,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                       className="inline-flex items-center justify-center gap-1.5 h-10 min-w-[8.5rem] px-4 bg-gray-50 text-gray-600 font-black text-[10px] uppercase tracking-widest rounded-xl border border-gray-200 hover:bg-gray-100 transition-all shadow-sm whitespace-nowrap"
                     >
                       <Share2 className="size-3.5 shrink-0" />
-                      Chia sáº»
+                      Chia sẻ
                     </button>
                     {showShopShareMenu && shopUrl && (
                       <div className="absolute left-0 top-12 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 w-56 animate-in fade-in slide-in-from-top-2">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                            Chia sáº» cá»­a hÃ ng
+                            Chia sẻ cửa hàng
                           </p>
                           <button
                             onClick={() => setShowShopShareMenu(false)}
@@ -877,7 +888,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                             ) : (
                               <Copy className="size-3.5 text-gray-400" />
                             )}
-                            {shopCopied ? 'ÄÃ£ sao chÃ©p!' : 'Sao chÃ©p link cá»­a hÃ ng'}
+                            {shopCopied ? 'Đã sao chép!' : 'Sao chép link cửa hàng'}
                           </button>
                           <button
                             onClick={() => {
@@ -889,7 +900,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-600 transition-colors"
                           >
-                            <Facebook className="size-3.5" /> Chia sáº» Facebook
+                            <Facebook className="size-3.5" /> Chia sẻ Facebook
                           </button>
                           <button
                             onClick={() => shareToZalo('shop')}
@@ -898,7 +909,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                             <span className="size-3.5 rounded-full bg-blue-500 text-white text-[7px] font-black flex items-center justify-center flex-shrink-0">
                               Z
                             </span>
-                            Chia sáº» Zalo
+                            Chia sẻ Zalo
                           </button>
                           <button
                             onClick={() => shareToMessenger('shop')}
@@ -907,7 +918,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                             <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.913 1.405 5.514 3.608 7.24V22l3.259-1.793c.872.242 1.795.372 2.748.372 5.523 0 10-4.145 10-9.336C21.615 6.145 17.523 2 12 2zm1.067 12.573l-2.545-2.715-4.965 2.715 5.463-5.8 2.609 2.715 4.9-2.715-5.462 5.8z" />
                             </svg>
-                            Chia sáº» Messenger
+                            Chia sẻ Messenger
                           </button>
                         </div>
                       </div>
@@ -927,7 +938,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                       : '5.0'}
                   </p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                    ÄÃ¡nh GiÃ¡ ({shopReviews.length > 0 ? shopReviews.length : 0})
+                    Đánh Giá ({shopReviews.length > 0 ? shopReviews.length : 0})
                   </p>
                 </div>
                 <div className="text-center border-l border-r border-gray-100 px-4">
@@ -937,7 +948,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                       : 'N/A'}
                   </p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                    Tá»‰ Lá»‡ Pháº£n Há»“i
+                    Tỉ Lệ Phản Hồi
                   </p>
                 </div>
                 <div className="text-center">
@@ -948,7 +959,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                       const years = Math.floor(
                         (Date.now() - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365),
                       )
-                      return years > 0 ? `${years} NÄƒm` : 'Má»›i tham gia'
+                      return years > 0 ? `${years} Năm` : 'Mới tham gia'
                     })()}
                   </p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
@@ -968,7 +979,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       >
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex border-b border-gray-100 overflow-x-auto">
-            {['MÃ´ táº£ chi tiáº¿t', 'Chá»©ng nháº­n', 'ÄÃ¡nh giÃ¡'].map((tab) => (
+            {['Mô tả chi tiết', 'Chứng nhận', 'Đánh giá'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -979,7 +990,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                 }`}
               >
                 {tab}
-                {tab === 'ÄÃ¡nh giÃ¡' && reviews.length > 0 && (
+                {tab === 'Đánh giá' && reviews.length > 0 && (
                   <span className="ml-1.5 text-xs font-semibold text-gray-400">
                     ({reviews.length})
                   </span>
@@ -988,48 +999,48 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
             ))}
           </div>
           <div className="p-6 lg:p-8">
-            {activeTab === 'MÃ´ táº£ chi tiáº¿t' && (
+            {activeTab === 'Mô tả chi tiết' && (
               <div className="max-w-3xl">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">ThÃ´ng tin sáº£n pháº©m</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Thông tin sản phẩm</h3>
                 <div className="text-gray-600 text-sm leading-loose whitespace-pre-wrap bg-gray-50 p-6 rounded-2xl border border-gray-100">
                   {product.description ||
-                    'NÃ´ng sáº£n sáº¡ch táº­n vÆ°á»n, Ä‘Æ°á»£c thu hoáº¡ch vÃ  Ä‘Ã³ng gÃ³i cáº©n tháº­n trÆ°á»›c khi giao Ä‘áº¿n báº¡n.'}
+                    'Nông sản sạch tận vườn, được thu hoạch và đóng gói cẩn thận trước khi giao đến bạn.'}
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4 mt-6">
                   <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/50">
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">ÄÆ¡n vá»‹</p>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Đơn vị</p>
                     <p className="font-bold text-gray-900">{product.unit || 'kg'}</p>
                   </div>
                   <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/50">
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Cá»­a hÃ ng</p>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Cửa hàng</p>
                     <p className="font-bold text-gray-900">{farmName}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {activeTab === 'Chá»©ng nháº­n' && (
+            {activeTab === 'Chứng nhận' && (
               <div className="grid sm:grid-cols-2 gap-4 max-w-3xl">
                 {[
                   {
                     icon: ShieldCheck,
-                    title: 'Shop trÃªn ná»n táº£ng',
-                    desc: 'Cá»­a hÃ ng Ä‘Ã£ Ä‘Äƒng kÃ½ vÃ  hoáº¡t Ä‘á»™ng trÃªn NÃ´ng Sáº£n Xáº¥u MÃ£.',
+                    title: 'Shop trên nền tảng',
+                    desc: 'Cửa hàng đã đăng ký và hoạt động trên Nông Sản Xấu Mã.',
                   },
                   {
                     icon: Leaf,
-                    title: 'Nguá»“n gá»‘c minh báº¡ch',
-                    desc: 'ThÃ´ng tin shop vÃ  sáº£n pháº©m Ä‘Æ°á»£c hiá»ƒn thá»‹ cÃ´ng khai cho ngÆ°á»i mua.',
+                    title: 'Nguồn gốc minh bạch',
+                    desc: 'Thông tin shop và sản phẩm được hiển thị công khai cho người mua.',
                   },
                   {
                     icon: Truck,
-                    title: 'Giao hÃ ng táº­n nÆ¡i',
-                    desc: 'ÄÆ¡n hÃ ng Ä‘Æ°á»£c xá»­ lÃ½ vÃ  giao qua há»‡ thá»‘ng váº­n chuyá»ƒn Ä‘á»‘i tÃ¡c.',
+                    title: 'Giao hàng tận nơi',
+                    desc: 'Đơn hàng được xử lý và giao qua hệ thống vận chuyển đối tác.',
                   },
                   {
                     icon: Package,
-                    title: 'ÄÃ³ng gÃ³i chuáº©n',
-                    desc: 'NÃ´ng sáº£n Ä‘Æ°á»£c báº£o quáº£n vÃ  Ä‘Ã³ng gÃ³i cáº©n tháº­n trong quÃ¡ trÃ¬nh váº­n chuyá»ƒn.',
+                    title: 'Đóng gói chuẩn',
+                    desc: 'Nông sản được bảo quản và đóng gói cẩn thận trong quá trình vận chuyển.',
                   },
                 ].map(({ icon: Icon, title, desc }) => (
                   <div
@@ -1048,7 +1059,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
               </div>
             )}
 
-            {activeTab === 'ÄÃ¡nh giÃ¡' && (
+            {activeTab === 'Đánh giá' && (
               <div className="space-y-8">
                 {isReviewsLoading ? (
                   <div className="flex justify-center py-10">
@@ -1073,12 +1084,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                             </div>
                             <div>
                               <p className="font-black text-gray-900 text-sm">
-                                {review.fullName || `NgÆ°á»i dÃ¹ng #${review.buyerId}`}
+                                {review.fullName || `Người dùng #${review.buyerId}`}
                               </p>
                               <p className="text-[10px] text-gray-400 mt-0.5">
                                 {review.createAt
                                   ? new Date(review.createAt).toLocaleDateString('vi-VN')
-                                  : 'Gáº§n Ä‘Ã¢y'}
+                                  : 'Gần đây'}
                               </p>
                               <div className="flex text-yellow-400 mt-1">
                                 {[...Array(5)].map((_, i) => (
@@ -1092,7 +1103,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                              Há»¯u Ã­ch?
+                              Hữu ích?
                             </span>
                             <button
                               onClick={() => handleReact(review.id, 'LIKE')}
@@ -1125,7 +1136,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                           <div className="mb-4 rounded-xl overflow-hidden border border-gray-200 w-32 aspect-square">
                             <img
                               src={review.evidence}
-                              alt="Báº±ng chá»©ng"
+                              alt="Bằng chứng"
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -1133,7 +1144,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                         {review.replyFromShop && (
                           <div className="bg-white p-6 rounded-2xl border border-primary/10 relative mb-4">
                             <div className="absolute -top-3 left-6 bg-primary text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-primary/20">
-                              Pháº£n há»“i tá»« NhÃ  vÆ°á»n
+                              Phản hồi từ Nhà vườn
                             </div>
                             <p className="text-gray-600 text-sm italic">{review.replyFromShop}</p>
                           </div>
@@ -1145,7 +1156,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                   <div className="text-center py-20 bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
                     <Star className="size-12 text-gray-200 mx-auto mb-4" />
                     <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">
-                      ChÆ°a cÃ³ Ä‘Ã¡nh giÃ¡ nÃ o cho sáº£n pháº©m nÃ y
+                      Chưa có đánh giá nào cho sản phẩm này
                     </p>
                   </div>
                 )}
@@ -1158,7 +1169,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       {relatedProducts.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-black text-gray-900">Sáº£n pháº©m liÃªn quan</h2>
+            <h2 className="text-xl font-black text-gray-900">Sản phẩm liên quan</h2>
             {product.shopId && (
               <button
                 type="button"
@@ -1168,7 +1179,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                 }}
                 className="text-sm font-semibold text-primary hover:underline"
               >
-                Xem táº¥t cáº£ táº¡i {farmName}
+                Xem tất cả tại {farmName}
               </button>
             )}
           </div>
@@ -1195,11 +1206,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                       {rp.productName}
                     </p>
                     <p className="text-primary font-black text-base">
-                      {rpPrice.toLocaleString('vi-VN')}Ä‘
+                      {rpPrice.toLocaleString('vi-VN')}đ
                       <span className="text-gray-400 font-medium text-xs">/kg</span>
                     </p>
                     <p className="text-[10px] text-gray-400 mt-1">
-                      {rpStock > 0 ? `CÃ²n ${rpStock} kg` : 'Háº¿t hÃ ng'}
+                      {rpStock > 0 ? `Còn ${rpStock} kg` : 'Hết hàng'}
                     </p>
                   </div>
                 </button>

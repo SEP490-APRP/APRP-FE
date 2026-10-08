@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   LogOut,
   User,
+  FileText,
+  ShoppingBag,
   Truck,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
@@ -291,14 +293,24 @@ export default function Header({
                       )}
 
                       {user.role === 'shop' ? (
-                        <a
-                          href="/shop"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
-                        >
-                          <Store size={15} className="text-[#8a4e1d]" />
-                          <span>🌾 Bảng Điều Khiển Nông Dân</span>
-                        </a>
+                        <>
+                          <a
+                            href="/shop"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
+                          >
+                            <Store size={15} className="text-[#8a4e1d]" />
+                            <span>🌾 Bảng Điều Khiển Nông Dân</span>
+                          </a>
+                          <a
+                            href="/shop/orders"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                          >
+                            <FileText size={15} className="text-[#8a4e1d]" />
+                            <span>📦 Quản Lý Đơn Hàng</span>
+                          </a>
+                        </>
                       ) : (
                         <a
                           href="/shop"
@@ -309,6 +321,15 @@ export default function Header({
                           <span>🌾 Kênh Bán Hàng Nhà Vườn</span>
                         </a>
                       )}
+
+                      <a
+                        href="/orders"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 font-bold flex items-center gap-2 border border-emerald-200"
+                      >
+                        <ShoppingBag size={15} className="text-emerald-700" />
+                        <span>📦 Đơn Hàng Của Tôi</span>
+                      </a>
 
                       <button
                         type="button"
@@ -1039,8 +1060,8 @@ export default function Header({
           {/* 6. Auth Mobile Section */}
           <div className="mt-3 pt-3 border-t border-[#ede8df] flex flex-col gap-2">
             {user ? (
-              <div className="flex flex-col gap-2">
-                <div className="p-3 bg-[#f0ebd9] rounded-2xl flex items-center justify-between">
+              <div className="flex flex-col gap-2 p-3 bg-[#f0ebd9] rounded-2xl">
+                <div className="flex items-center justify-between">
                   <div>
                     <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
                     <div className="text-[11px] text-[#555d4e]">
@@ -1053,11 +1074,19 @@ export default function Header({
                       closeDropdown()
                       onLogout?.()
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-700 font-bold text-xs hover:bg-red-200"
+                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-700 font-bold text-xs hover:bg-red-200 cursor-pointer"
                   >
                     Đăng xuất
                   </button>
                 </div>
+
+                <a
+                  href="/orders"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 block my-1"
+                >
+                  📦 Đơn Hàng Của Tôi
+                </a>
 
                 {user.role === 'admin' && (
                   <a
@@ -1082,14 +1111,22 @@ export default function Header({
                 )}
 
                 {user.role === 'shop' && (
-                  <a
-                    href="/shop"
-                    onClick={closeDropdown}
-                    className="py-2.5 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold text-xs flex items-center gap-2 border border-[#f5ddbd]"
-                  >
-                    <Store size={16} className="text-[#8a4e1d]" />
-                    <span>🌾 Kênh Bán Hàng Nhà Vườn</span>
-                  </a>
+                  <div className="grid grid-cols-2 gap-2 mt-0.5">
+                    <a
+                      href="/shop"
+                      onClick={closeDropdown}
+                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm"
+                    >
+                      🌾 Kênh Nhà Vườn
+                    </a>
+                    <a
+                      href="/shop/orders"
+                      onClick={closeDropdown}
+                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center"
+                    >
+                      📦 Quản Lý Đơn
+                    </a>
+                  </div>
                 )}
               </div>
             ) : (

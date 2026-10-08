@@ -1,3 +1,4 @@
+import axiosInstance from '@/services/api/axiosInstance'
 import type { ApiResponse, PageResponse } from '@/types'
 import { freshResponses } from '@/mocks/fresh'
 
@@ -141,9 +142,67 @@ let myMockShippingOrders: ShipperOrderResponse[] = [
   },
 ]
 
+
+function unwrap<T>(res: unknown): T {
+  if (res && typeof res === 'object') {
+    if ('data' in res && (res as { data: unknown }).data && typeof (res as { data: unknown }).data === 'object' && 'result' in (res as { data: { result: unknown } }).data) {
+      return ((res as { data: ApiResponse<T> }).data).result as T
+    }
+    if ('result' in res) {
+      return (res as ApiResponse<T>).result as T
+    }
+  }
+  return res as T
+}
+
 export const shipperService = freshResponses({
   async getAvailableOrders(page = 0, size = 10): Promise<ApiResponse<PageResponse<AvailableOrderResponse>>> {
-    await new Promise((r) => setTimeout(r, 200))
+    try {
+      const res = await axiosInstance.get('/orders/ready', { params: { page, size } })
+      const data = unwrap<any>(res)
+      if (data && data.content) {
+        const content: AvailableOrderResponse[] = data.content.map((o: any) => ({
+          orderId: o.orderId,
+          orderCode: `ORDER-${o.orderId}`,
+          shopName: o.shopName,
+          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          shopLatitude: o.shopLatitude ?? 10.845,
+          shopLongitude: o.shopLongitude ?? 106.775,
+          recipientName: o.recipientName,
+          recipientPhone: o.recipientPhone,
+          shippingAddress: o.shippingAddress,
+          shippingLatitude: o.shippingLatitude ?? 10.848,
+          shippingLongitude: o.shippingLongitude ?? 106.772,
+          totalAmount: o.totalAmount,
+          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
+          codPrepaidAmount: o.codPrepaidAmount ?? 0,
+          shippingFee: o.shippingFee,
+          paymentMethod: o.paymentMethod,
+          note: o.note,
+          createdAt: o.createdAt,
+          items: (o.items || []).map((it: any) => ({
+            productName: it.itemName,
+            quantity: it.quantity,
+            price: it.unitPrice,
+          })),
+        }))
+        return {
+          code: 200,
+          result: {
+            page: data.number ?? page,
+            size: data.size ?? size,
+            totalElements: data.totalElements ?? content.length,
+            totalPages: data.totalPages ?? 1,
+            first: data.first ?? true,
+            last: data.last ?? true,
+            content,
+          },
+        }
+      }
+    } catch (err) {
+      console.warn('Backend /orders/ready unreachable, fallback to mock data:', err)
+    }
+
     const totalElements = mockAvailableOrders.length
     const totalPages = Math.ceil(totalElements / size) || 1
     const content = mockAvailableOrders.slice(page * size, (page + 1) * size)
@@ -162,17 +221,79 @@ export const shipperService = freshResponses({
   },
 
   async getNearbyOrders(_lat: number, _lng: number): Promise<ApiResponse<AvailableOrderResponse[]>> {
-    await new Promise((r) => setTimeout(r, 250))
+    try {
+      const res = await axiosInstance.get('/orders/ready', { params: { page: 0, size: 20 } })
+      const data = unwrap<any>(res)
+      if (data && data.content && data.content.length > 0) {
+        const content: AvailableOrderResponse[] = data.content.map((o: any) => ({
+          orderId: o.orderId,
+          orderCode: `ORDER-${o.orderId}`,
+          shopName: o.shopName,
+          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          recipientName: o.recipientName,
+          recipientPhone: o.recipientPhone,
+          shippingAddress: o.shippingAddress,
+          totalAmount: o.totalAmount,
+          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
+          shippingFee: o.shippingFee,
+          paymentMethod: o.paymentMethod,
+          createdAt: o.createdAt,
+          items: (o.items || []).map((it: any) => ({
+            productName: it.itemName,
+            quantity: it.quantity,
+            price: it.unitPrice,
+          })),
+        }))
+        return { code: 200, result: content }
+      }
+    } catch (err) {
+      console.warn('Fallback to mock nearby orders:', err)
+    }
     return { code: 200, result: [...mockAvailableOrders] }
   },
 
   async getMyOrders(): Promise<ApiResponse<ShipperOrderResponse[]>> {
-    await new Promise((r) => setTimeout(r, 200))
+    try {
+      const res = await axiosInstance.get('/orders/shipper/my')
+      const data = unwrap<any>(res)
+      const list = data?.content ?? (Array.isArray(data) ? data : null)
+      if (list) {
+        const result: ShipperOrderResponse[] = list.map((o: any) => ({
+          orderId: o.orderId,
+          orderCode: `ORDER-${o.orderId}`,
+          status: o.status,
+          shopName: o.shopName,
+          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          recipientName: o.recipientName,
+          recipientPhone: o.recipientPhone,
+          shippingAddress: o.shippingAddress,
+          totalAmount: o.totalAmount,
+          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
+          shippingFee: o.shippingFee,
+          paymentMethod: o.paymentMethod,
+          note: o.note,
+          createdAt: o.createdAt,
+          items: (o.items || []).map((it: any) => ({
+            productName: it.itemName,
+            quantity: it.quantity,
+            price: it.unitPrice,
+          })),
+        }))
+        return { code: 200, result }
+      }
+    } catch (err) {
+      console.warn('Backend /orders/shipper/my unreachable, fallback to mock:', err)
+    }
     return { code: 200, result: [...myMockShippingOrders] }
   },
 
   async acceptOrder(orderId: number, codPaymentOption?: 'CASH' | 'WALLET'): Promise<ApiResponse<boolean>> {
-    await new Promise((r) => setTimeout(r, 300))
+    try {
+      await axiosInstance.put(`/orders/${orderId}/ship`)
+      return { code: 200, result: true, message: 'Nhận đơn thành công' }
+    } catch (err) {
+      console.warn('Backend /orders/:id/ship failed, using local update:', err)
+    }
     const idx = mockAvailableOrders.findIndex((o) => o.orderId === orderId)
     if (idx !== -1) {
       const order = mockAvailableOrders[idx]
@@ -191,7 +312,16 @@ export const shipperService = freshResponses({
     payload: { status: 'DELIVERED' | 'FAILED'; note?: string },
     _files?: File[],
   ): Promise<ApiResponse<boolean>> {
-    await new Promise((r) => setTimeout(r, 400))
+    try {
+      if (payload.status === 'DELIVERED') {
+        await axiosInstance.put(`/orders/${orderId}/deliver`)
+      } else if (payload.status === 'FAILED') {
+        await axiosInstance.put(`/orders/${orderId}/fail`)
+      }
+      return { code: 200, result: true, message: 'Cập nhật đơn hàng thành công' }
+    } catch (err) {
+      console.warn('Backend deliver/fail failed, using local update:', err)
+    }
     const target = myMockShippingOrders.find((o) => o.orderId === orderId)
     if (target) {
       target.status = payload.status

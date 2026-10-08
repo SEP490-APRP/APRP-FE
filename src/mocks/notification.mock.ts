@@ -6,7 +6,7 @@ export const mockNotifications: NotificationItem[] = [
     title: 'CapNong mở đợt trợ giá vận chuyển nông sản mùa khô 2026',
     message:
       'Toàn bộ các đơn hàng nông sản xấu mã giao trong tuần này được trợ giá 20.000đ/đơn từ quỹ hỗ trợ nhà vườn.',
-    receiverTypes: ['BUYER', 'SHOP_OWNER', 'SHIPPER'],
+    receiverTypes: ['BUYER', 'SHOP', 'SHIPPER'],
     receiverType: 'Tất cả người dùng',
     createdAt: '2026-03-31T08:00:00Z',
     createAt: '2026-03-31T08:00:00Z',

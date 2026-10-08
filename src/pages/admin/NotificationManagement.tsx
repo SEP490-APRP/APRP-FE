@@ -18,9 +18,9 @@ import { globalShowAlert } from '@/components/common/Popup'
 type TargetOption = 'all' | 'buyer' | 'farmer' | 'shipper'
 
 const TARGET_MAPPING: Record<TargetOption, string[]> = {
-  all: ['BUYER', 'SHOP_OWNER', 'SHIPPER'],
+  all: ['BUYER', 'SHOP', 'SHIPPER'],
   buyer: ['BUYER'],
-  farmer: ['SHOP_OWNER'],
+  farmer: ['SHOP'],
   shipper: ['SHIPPER'],
 }
 

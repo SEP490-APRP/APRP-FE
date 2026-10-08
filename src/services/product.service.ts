@@ -43,20 +43,29 @@ function normalizeProduct(p: any): ProductResponse {
 let localFarmerProducts: ProductResponse[] = [...mockBuyerProducts]
 
 export const productService = {
-  async getAll(): Promise<ApiResponse<ProductResponse[]>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      return { code: 1000, result: [...localFarmerProducts] }
-    }
+  async getAll(params?: { categoryId?: number; keyword?: string; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
     try {
       const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products', {
-        params: { status: 'ACTIVE', page: 1, size: 50 },
+        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 50, ...params },
       })
       const items = (res.data.result?.content ?? []).map(normalizeProduct)
-      return { code: 1000, result: items }
-    } catch {
-      return { code: 1000, result: [...localFarmerProducts] }
+      if (items.length > 0) {
+        return { code: 1000, result: items }
+      }
+    } catch (e) {
+      console.warn('Cannot fetch products from backend API, using local mock fallback:', e)
     }
+
+    // Fallback to local mock
+    let list = [...localFarmerProducts]
+    if (params?.categoryId) {
+      list = list.filter((p: any) => p.categoryId === params.categoryId || p.category?.categoryId === params.categoryId)
+    }
+    if (params?.keyword) {
+      const kw = params.keyword.toLowerCase()
+      list = list.filter((p: any) => (p.name || p.productName || '').toLowerCase().includes(kw))
+    }
+    return { code: 1000, result: list }
   },
 
   async getAllProducts(): Promise<ApiResponse<ProductResponse[]>> {
@@ -68,21 +77,20 @@ export const productService = {
   },
 
   async getById(id: number): Promise<ApiResponse<ProductResponse | null>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 100))
-      const found = localFarmerProducts.find((p) => p.id === id)
-      return { code: 1000, result: found ? normalizeProduct(found) : null }
-    }
     try {
       const res = await axiosInstance.get<ApiResponse<any>>(`/products/${id}`)
-      return {
-        code: 1000,
-        result: res.data.result ? normalizeProduct(res.data.result) : null,
+      if (res.data.result) {
+        return {
+          code: 1000,
+          result: normalizeProduct(res.data.result),
+        }
       }
-    } catch {
-      const found = localFarmerProducts.find((p) => p.id === id)
-      return { code: 1000, result: found ? normalizeProduct(found) : null }
+    } catch (e) {
+      console.warn(`Cannot fetch product id ${id} from backend API, using local mock:`, e)
     }
+
+    const found = localFarmerProducts.find((p) => p.id === id)
+    return { code: 1000, result: found ? normalizeProduct(found) : null }
   },
 
   /** Lấy danh sách sản phẩm của nông dân/gian hàng hiện tại (hỗ trợ lọc status, phân trang) */

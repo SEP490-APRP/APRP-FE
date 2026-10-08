@@ -91,4 +91,31 @@ export const exportService = {
     document.body.removeChild(link)
     return total
   },
+
+  async exportShopOrdersExcel(orders: import('@/types/order.types').OrderResponse[]): Promise<void> {
+    const headers = 'Mã Đơn,Khách Hàng,Số Điện Thoại,Địa Chỉ Giao,Phương Thức TT,Tổng Tiền (VNĐ),Trạng Thái,Thời Gian Đặt,Sản Phẩm\n'
+    const rows = orders.map((o) => {
+      const id = o.orderId ?? o.id ?? ''
+      const cust = `"${(o.recipientName || '').replace(/"/g, '""')}"`
+      const phone = `"${o.recipientPhone || ''}"`
+      const addr = `"${(o.shippingAddress || '').replace(/"/g, '""')}"`
+      const pay = o.paymentMethod || 'COD'
+      const total = o.totalAmount || 0
+      const status = o.status
+      const date = o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : ''
+      const items = `"${(o.items || []).map((i) => `${i.itemName || i.productName || 'Sản phẩm'} (x${i.quantity})`).join(', ').replace(/"/g, '""')}"`
+      return `#ORD-${id},${cust},${phone},${addr},${pay},${total},${status},"${date}",${items}`
+    }).join('\n')
+
+    const csvContent = `\uFEFF${headers}${rows}`
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `Danh_sach_don_hang_CapNong_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  },
 }

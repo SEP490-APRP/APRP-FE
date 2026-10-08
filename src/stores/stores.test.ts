@@ -9,8 +9,10 @@ beforeEach(() => {
     setItem: (k: string, v: string) => (store[k] = v),
     removeItem: (k: string) => delete store[k],
   })
-  vi.stubGlobal('window', new EventTarget())
-  vi.stubGlobal('location', { hash: '' })
+  const loc = { hash: '', href: 'http://localhost/' }
+  const win = Object.assign(new EventTarget(), { location: loc })
+  vi.stubGlobal('window', win)
+  vi.stubGlobal('location', loc)
   // Store đọc localStorage lúc import, nên mỗi test import lại module.
   vi.resetModules()
 })

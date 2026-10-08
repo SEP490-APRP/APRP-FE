@@ -21,6 +21,10 @@ const OtpVerificationPage = lazy(() => import('@/pages/OtpVerificationPage/OtpVe
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const AdminPortal = lazy(() => import('@/pages/admin/AdminPortal'))
 const FarmerPortal = lazy(() => import('@/pages/farmer/FarmerPortal'))
+const CartPage = lazy(() => import('@/pages/CartPage'))
+const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
+const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
+const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 
 const DEFAULT_PRODUCT_ID = '701'
@@ -150,7 +154,7 @@ export function ShopVouchersRoute() {
 }
 
 export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
-  const { pathname, search } = useLocation()
+  const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
   const { login } = useAuth()
   const initialRole =
@@ -167,16 +171,20 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
         initialMode={mode}
         initialRole={initialRole}
         onLoginSuccess={(user: AuthUser) => {
-          login(user, 'mock-token-' + user.role)
-          navigate(
-            user.role === 'admin'
-              ? '/admin'
-              : user.role === 'shop'
-                ? '/shop'
-                : user.role === 'shipper'
-                  ? '/shipper'
-                  : '/',
-          )
+          const fromLocation = (state as { from?: { pathname: string } })?.from?.pathname
+          if (fromLocation && fromLocation !== '/dang-nhap' && fromLocation !== '/dang-ky') {
+            navigate(fromLocation)
+          } else {
+            navigate(
+              user.role === 'admin'
+                ? '/admin'
+                : user.role === 'shop'
+                  ? '/shop'
+                  : user.role === 'shipper'
+                    ? '/shipper'
+                    : '/',
+            )
+          }
         }}
       />
     </Suspense>
@@ -228,6 +236,38 @@ export function SellerRoute() {
         <FarmerPortal {...usePortalProps()} />
       </Suspense>
     </RequireRole>
+  )
+}
+
+export function CartRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <CartPage />
+    </Suspense>
+  )
+}
+
+export function CheckoutRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <CheckoutPage />
+    </Suspense>
+  )
+}
+
+export function PaymentResultRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <PaymentResultPage />
+    </Suspense>
+  )
+}
+
+export function BuyerOrdersRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <BuyerOrdersPage />
+    </Suspense>
   )
 }
 

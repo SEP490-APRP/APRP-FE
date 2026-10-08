@@ -14,6 +14,7 @@ type AuthState = {
   token: string | null
   /** token tùy chọn: các luồng đăng nhập demo hiện chưa có token thật từ backend. */
   login: (user: LoginUser, token?: string) => void
+  setUser: (user: SessionUser | null) => void
   logout: () => void
 }
 
@@ -43,16 +44,21 @@ export function readStoredUser(): SessionUser | null {
  */
 const legacyAuthStorage: PersistStorage<PersistedAuth> = {
   getItem: () => ({
-    state: { user: readStoredUser(), token: readRaw(STORAGE_KEYS.TOKEN) },
+    state: {
+      user: readStoredUser(),
+      token: readRaw(STORAGE_KEYS.TOKEN) || readRaw(STORAGE_KEYS.ACCESS_TOKEN),
+    },
     version: 0,
   }),
   setItem: (_name, { state }) => {
     writeRaw(STORAGE_KEYS.USER, state.user ? JSON.stringify(state.user) : null)
     writeRaw(STORAGE_KEYS.TOKEN, state.token)
+    writeRaw(STORAGE_KEYS.ACCESS_TOKEN, state.token)
   },
   removeItem: () => {
     writeRaw(STORAGE_KEYS.USER, null)
     writeRaw(STORAGE_KEYS.TOKEN, null)
+    writeRaw(STORAGE_KEYS.ACCESS_TOKEN, null)
   },
 }
 
@@ -72,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
             'auth/login',
           ),
         logout: () => set({ user: null, token: null }, false, 'auth/logout'),
+        setUser: (user) => set({ user }, false, 'auth/setUser'),
       }),
       {
         name: 'capnong-auth',
@@ -97,6 +104,7 @@ export function useAuth() {
   const token = useAuthStore((s) => s.token)
   const login = useAuthStore((s) => s.login)
   const logout = useAuthStore((s) => s.logout)
+  const setUser = useAuthStore((s) => s.setUser)
   return {
     user,
     token,
@@ -104,5 +112,6 @@ export function useAuth() {
     hasRole: (...roles: UserRole[]) => user !== null && roles.includes(user.role),
     login,
     logout,
+    setUser,
   }
 }

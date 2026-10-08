@@ -1,13 +1,14 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ROUTES, API_BASE_URL, STORAGE_KEYS } from '@/utils/constants'
-import { axiosInstance } from '@/services'
+import { authService, type UserResponse } from '@/services'
+import { useAuth } from '@/stores'
 
 /* ===== Validation Schema ===== */
 const loginSchema = z.object({
@@ -26,6 +27,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 /* ===== Login Page ===== */
 const LoginPage = () => {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [errorMsg, setErrorMsg] = useState('')
 
   const {
@@ -39,14 +41,67 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormData) => {
     setErrorMsg('')
     try {
-      const res: any = await axiosInstance.post('/auth/login', data)
-      if (res.result?.token) {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, res.result.token)
-        navigate(ROUTES.HOME)
+      const res = await authService.login(data)
+      const token = res.result?.token
+      if (token) {
+        localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+
+        const payload = authService.parseJwt(token)
+        const mappedRole = authService.mapBackendRoleToFrontend(payload?.roles)
+
+        let profileUser: UserResponse | null = null
+        try {
+          const meRes = await authService.getMyInfo()
+          if (meRes.result) profileUser = meRes.result
+        } catch (meErr) {
+          console.warn('Failed to fetch /users/me:', meErr)
+        }
+
+        const sessionUser = profileUser
+          ? authService.buildSessionUser(profileUser, mappedRole)
+          : {
+              id: String(payload?.sub || crypto.randomUUID()),
+              name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
+              email: payload?.email || data.email,
+              role: mappedRole,
+            }
+
+        login(sessionUser, token)
+
+        if (mappedRole === 'admin') navigate('/admin')
+        else if (mappedRole === 'shop') navigate('/shop')
+        else navigate(ROUTES.HOME)
       }
     } catch (err: any) {
       console.error('Login failed:', err)
-      setErrorMsg(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.')
+      const errorCode = err?.data?.code || err?.response?.data?.code
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message
+
+      if (
+        errorCode === 1022 ||
+        msg?.toLowerCase().includes('otp') ||
+        msg?.toLowerCase().includes('verify')
+      ) {
+        setErrorMsg('Tài khoản chưa được kích hoạt OTP. Đang chuyển đến xác thực OTP...')
+        setTimeout(() => {
+          navigate(ROUTES.OTP_VERIFICATION, { state: { email: data.email } })
+        }, 1200)
+        return
+      }
+      if (errorCode === 1025) {
+        setErrorMsg('Tài khoản đang chờ Ban Quản Trị phê duyệt.')
+        return
+      }
+      if (errorCode === 1026) {
+        setErrorMsg('Tài khoản đã bị khóa.')
+        return
+      }
+      if (errorCode === 1003) {
+        setErrorMsg('Email hoặc mật khẩu không chính xác.')
+        return
+      }
+      setErrorMsg(msg || 'Đăng nhập thất bại. Vui lòng thử lại.')
     }
   }
 
