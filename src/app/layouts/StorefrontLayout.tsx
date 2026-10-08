@@ -64,11 +64,17 @@ export default function StorefrontLayout() {
           onSuccess: () => {
             showToast('Đã thêm nông sản vào giỏ hàng!')
           },
-          onError: () => {
-            showToast('Không thể thêm vào giỏ. Vui lòng thử lại.')
+          onError: (err: any) => {
+            const msg = err?.response?.data?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
+            showToast(msg)
           },
         },
       )
+      return
+    }
+
+    if (user) {
+      showToast('Mục xem trước này chưa liên kết với nhà vườn cụ thể. Vui lòng chọn nông sản từ danh sách nhà vườn.')
       return
     }
 

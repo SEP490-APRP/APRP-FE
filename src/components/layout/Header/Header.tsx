@@ -17,6 +17,7 @@ import {
   LogOut,
   User,
   FileText,
+  ShoppingBag,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -319,6 +320,15 @@ export default function Header({
                           <span>🌾 Kênh Bán Hàng Nhà Vườn</span>
                         </a>
                       )}
+
+                      <a
+                        href="/orders"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 font-bold flex items-center gap-2 border border-emerald-200"
+                      >
+                        <ShoppingBag size={15} className="text-emerald-700" />
+                        <span>📦 Đơn Hàng Của Tôi</span>
+                      </a>
 
                       <button
                         type="button"
@@ -1079,6 +1089,14 @@ export default function Header({
                     Đăng xuất
                   </button>
                 </div>
+
+                <a
+                  href="/orders"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 block my-1"
+                >
+                  📦 Đơn Hàng Của Tôi
+                </a>
 
                 {user.role === 'admin' && (
                   <a

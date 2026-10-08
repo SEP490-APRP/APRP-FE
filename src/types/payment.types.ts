@@ -18,3 +18,31 @@ export interface PaymentResponse {
   qrCodeUrl?: string
   createdAt?: string
 }
+
+export interface ResumePaymentOrderOption {
+  orderId: number
+  shopId: number
+  shopName: string
+  amount: number
+  status?: string
+}
+
+export interface PayAllOption {
+  amount: number
+  checkoutUrl?: string
+  payosOrderCode?: string
+  qrCodeUrl?: string
+}
+
+export interface ResumePaymentOptionsResponse {
+  isBatch: boolean
+  batchId?: number
+  triggerOrderId: number
+  totalAmount: number
+  payosOrderCode?: string
+  checkoutUrl?: string
+  qrCodeUrl?: string
+  unpaidOrders: ResumePaymentOrderOption[]
+  payAllOption?: PayAllOption
+}
+

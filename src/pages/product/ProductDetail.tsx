@@ -451,22 +451,28 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       navigate('/login')
       return
     }
+    const targetId = product?.id ?? Number(productId)
+    if (!targetId || isNaN(targetId)) {
+      globalShowAlert('Không xác định được sản phẩm để thêm vào giỏ hàng.', 'Lỗi', 'error')
+      return
+    }
     try {
       await addToCart.mutateAsync({
         itemType: 'PRODUCT',
-        itemId: Number(productId),
-        productId: Number(productId),
+        itemId: targetId,
+        productId: targetId,
         quantity,
       })
       window.dispatchEvent(new Event('cart-updated'))
       globalShowAlert(
-        `Đã thêm ${quantity} kg ${product.productName} vào giỏ hàng`,
+        `Đã thêm ${quantity} kg ${product?.productName || 'nông sản'} vào giỏ hàng`,
         'Thành công',
         'success',
       )
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to add to cart', e)
-      globalShowAlert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.', 'Lỗi', 'error')
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 

@@ -1,4 +1,5 @@
 export const ORDER_STATUS_LABELS: Record<string, string> = {
+  AWAITING_PAYMENT: 'Chờ thanh toán',
   PENDING: 'Chờ xử lý',
   AWAITING_CONFIRMATION: 'Chờ xác nhận',
   CONFIRMED: 'Đã xác nhận',
@@ -34,6 +35,8 @@ export function getOrderStatusBadgeClass(status?: string | null): string {
     case 'SHIPPING':
     case 'SHIPPING_TO_WAREHOUSE':
       return 'bg-blue-50 text-blue-700 border-blue-200'
+    case 'AWAITING_PAYMENT':
+      return 'bg-amber-500/10 text-amber-700 border-amber-300'
     case 'PENDING':
     case 'AWAITING_CONFIRMATION':
     case 'PREPARING':

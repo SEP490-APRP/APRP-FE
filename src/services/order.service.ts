@@ -167,11 +167,29 @@ export async function cancelOrder(orderId: number): Promise<OrderResponse> {
   return unwrap<OrderResponse>(res)
 }
 
+export interface AddressSuggestion {
+  placeId: string
+  description: string
+}
+
+export async function getAddressSuggestions(input: string): Promise<AddressSuggestion[]> {
+  if (!input || input.trim().length < 2) return []
+  try {
+    const res = await axiosInstance.get('/shipping/address-suggestions', {
+      params: { input: input.trim() },
+    })
+    return unwrap<AddressSuggestion[]>(res) || []
+  } catch {
+    return []
+  }
+}
+
 export const orderService = {
   previewCheckout,
   createOrder,
   getOrderById,
   fetchMyOrders,
+  getMyOrders: fetchMyOrders,
   fetchShopOrders,
   confirmOrder,
   readyOrder,
@@ -179,6 +197,7 @@ export const orderService = {
   deliverOrder,
   failOrder,
   cancelOrder,
+  getAddressSuggestions,
   async getAllOrders(): Promise<{ code: number; result: MockOrderResponse[] }> {
     await new Promise((r) => setTimeout(r, 200))
     return { code: 200, result: structuredClone(mockOrders) }

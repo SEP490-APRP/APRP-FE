@@ -19,6 +19,7 @@ import {
   CartRoute,
   CheckoutRoute,
   PaymentResultRoute,
+  BuyerOrdersRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
@@ -79,6 +80,9 @@ export const router = createBrowserRouter([
           { path: 'payment/result/*', element: <PaymentResultRoute />, handle: title('Kết quả thanh toán · CapNong') },
           { path: 'payment/success/*', element: <Navigate replace to="/payment/result" /> },
           { path: 'payment/cancel/*', element: <Navigate replace to="/payment/result" /> },
+          { path: 'orders/*', element: <BuyerOrdersRoute />, handle: title('Đơn hàng của tôi · CapNong') },
+          { path: 'don-hang/*', element: <Navigate replace to="/orders" /> },
+          { path: 'my-orders/*', element: <Navigate replace to="/orders" /> },
           { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 

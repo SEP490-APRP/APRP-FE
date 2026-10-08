@@ -93,8 +93,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       await addToCart.mutateAsync({ productId, quantity: 1 })
       window.dispatchEvent(new Event('cart-updated'))
       globalShowAlert('Đã thêm vào giỏ hàng!', 'Thành công', 'success')
-    } catch {
-      globalShowAlert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.', 'Lỗi', 'error')
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 
@@ -107,8 +108,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       await addToCart.mutateAsync({ mysteryBoxId: boxId, quantity: 1 })
       window.dispatchEvent(new Event('cart-updated'))
       globalShowAlert('Đã thêm túi mù vào giỏ hàng!', 'Thành công', 'success')
-    } catch {
-      globalShowAlert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.', 'Lỗi', 'error')
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 

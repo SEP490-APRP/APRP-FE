@@ -5,12 +5,14 @@
 
 /** Toàn bộ trạng thái đơn hàng BE có thể trả về */
 export type OrderStatus =
+  | 'AWAITING_PAYMENT'  // Chờ thanh toán PayOS / chuyển khoản
   | 'PENDING'           // Buyer vừa đặt (COD) — chờ shop xác nhận
   | 'PAID'              // Buyer đã thanh toán QR — chờ shop xác nhận
   | 'CONFIRMED'         // Shop đã xác nhận, đang chuẩn bị hàng
   | 'READY'             // Shop đóng gói xong, shipper có thể đến lấy
   | 'SHIPPING'          // Shipper đang giao
   | 'DELIVERED'         // Đã giao thành công
+  | 'COMPLETED'         // Hoàn thành
   | 'CANCELLED'         // Đã hủy
   | 'FAILED'            // Giao thất bại
 
@@ -125,6 +127,8 @@ export interface CreateOrderRequest {
   recipientName?: string
   recipientPhone?: string
   shippingAddress: string
+  saveAddressToBook?: boolean
+  addressLabel?: string
   note?: string
   paymentMethod: 'COD' | 'TRANSFER' | 'PAYOS' | string
   voucherCodes?: string[]

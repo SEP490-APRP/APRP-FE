@@ -1,5 +1,5 @@
 import axiosInstance from '@/services/api/axiosInstance'
-import type { CreatePaymentRequest, PaymentResponse } from '@/types/payment.types'
+import type { CreatePaymentRequest, PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 
 interface ApiResponse<T> {
   code: number
@@ -43,8 +43,17 @@ export async function confirmPayment(orderCode: string): Promise<PaymentResponse
   return unwrap<PaymentResponse>(res)
 }
 
+/**
+ * Lấy tùy chọn tiếp tục thanh toán cho đơn hàng (hỗ trợ gom đơn batch hoặc đơn lẻ)
+ */
+export async function getResumePaymentOptions(orderId: number): Promise<ResumePaymentOptionsResponse> {
+  const res = await axiosInstance.get(`/payments/order/${orderId}/resume-options`)
+  return unwrap<ResumePaymentOptionsResponse>(res)
+}
+
 export const paymentService = {
   createPayosPayment,
   getPaymentByOrderCode,
   confirmPayment,
+  getResumePaymentOptions,
 }

@@ -23,6 +23,7 @@ const FarmerPortal = lazy(() => import('@/pages/farmer/FarmerPortal'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
+const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -247,6 +248,14 @@ export function PaymentResultRoute() {
   return (
     <Suspense fallback={<PageLoading />}>
       <PaymentResultPage />
+    </Suspense>
+  )
+}
+
+export function BuyerOrdersRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <BuyerOrdersPage />
     </Suspense>
   )
 }
