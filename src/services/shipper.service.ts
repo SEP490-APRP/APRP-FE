@@ -40,6 +40,13 @@ export interface ShipperOrderResponse extends AvailableOrderResponse {
   deliveredAt?: string
 }
 
+export interface ShipperStatusResponse {
+  isOnline: boolean
+  latitude?: number
+  longitude?: number
+  updatedAt?: string
+}
+
 const mockAvailableOrders: AvailableOrderResponse[] = [
   {
     orderId: 501,
@@ -329,4 +336,70 @@ export const shipperService = freshResponses({
     }
     return { code: 200, result: true, message: 'Cập nhật đơn hàng thành công' }
   },
+
+  async goOnline(coords: { latitude: number; longitude: number }): Promise<ApiResponse<void>> {
+    try {
+      await axiosInstance.post('/shippers/status/online', coords)
+      try {
+        localStorage.setItem('shipper_is_online', 'true')
+        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
+      } catch {}
+      return { code: 200, message: 'Đã bật trực tuyến thành công' }
+    } catch (err) {
+      console.warn('Backend goOnline failed, using local status:', err)
+      try {
+        localStorage.setItem('shipper_is_online', 'true')
+        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
+      } catch {}
+      return { code: 200, message: 'Đã bật trực tuyến' }
+    }
+  },
+
+  async goOffline(): Promise<ApiResponse<void>> {
+    try {
+      await axiosInstance.post('/shippers/status/offline')
+      try {
+        localStorage.removeItem('shipper_is_online')
+      } catch {}
+      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
+    } catch (err) {
+      console.warn('Backend goOffline failed, using local status:', err)
+      try {
+        localStorage.removeItem('shipper_is_online')
+      } catch {}
+      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
+    }
+  },
+
+  async getOnlineStatus(): Promise<ApiResponse<ShipperStatusResponse>> {
+    try {
+      const res = await axiosInstance.get('/shippers/status')
+      const data = unwrap<ShipperStatusResponse>(res)
+      if (data) {
+        if (data.isOnline) {
+          localStorage.setItem('shipper_is_online', 'true')
+        } else {
+          localStorage.removeItem('shipper_is_online')
+        }
+        return { code: 200, result: data }
+      }
+    } catch (err) {
+      console.warn('Backend getOnlineStatus failed, fallback to local storage:', err)
+    }
+    const isOnline = localStorage.getItem('shipper_is_online') === 'true'
+    let coords: { latitude?: number; longitude?: number } = {}
+    try {
+      const stored = localStorage.getItem('shipper_last_coords')
+      if (stored) coords = JSON.parse(stored)
+    } catch {}
+    return {
+      code: 200,
+      result: {
+        isOnline,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      },
+    }
+  },
 })
+

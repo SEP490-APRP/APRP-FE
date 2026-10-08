@@ -70,6 +70,16 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   // ✅ Thông tin shipper đang login
   const [myProfile, setMyProfile] = useState<UserResponse | null>(() => authService.getUserInfo());
 
+  // ✅ Trạng thái trực tuyến / ngoại tuyến chuẩn sàn Grab / ShopeeFood
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('shipper_is_online') === 'true';
+    } catch {
+      return true;
+    }
+  });
+  const [togglingOnline, setTogglingOnline] = useState<boolean>(false);
+
   const stompClientRef = useRef<Client | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -77,7 +87,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // ✅ Fetch thông tin shipper đang login
+  // ✅ Fetch thông tin shipper đang login & trạng thái online
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -85,9 +95,66 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         if (res.result) setMyProfile(res.result);
       } catch { console.warn('Cannot fetch shipper profile'); }
     };
+
+    const checkOnlineStatus = async () => {
+      try {
+        const res = await shipperService.getOnlineStatus();
+        if (res.result) {
+          setIsOnline(res.result.isOnline);
+          if (res.result.latitude) setShipperLat(res.result.latitude);
+          if (res.result.longitude) setShipperLng(res.result.longitude);
+        }
+      } catch { console.warn('Cannot check online status'); }
+    };
+
     fetchProfile();
     fetchMyOrders();
+    checkOnlineStatus();
   }, []);
+
+  const handleToggleOnline = async () => {
+    if (togglingOnline) return;
+    setTogglingOnline(true);
+    try {
+      if (isOnline) {
+        // Chuyển sang Ngoại tuyến (Offline)
+        await shipperService.goOffline();
+        setIsOnline(false);
+        globalShowAlert('Đã chuyển sang Ngoại tuyến. Bạn đang tạm dừng nhận đơn mới.', 'Ngoại tuyến', 'info');
+      } else {
+        // Chuyển sang Trực tuyến (Online) - lấy GPS hiện tại
+        let lat = shipperLat ?? 10.845;
+        let lng = shipperLng ?? 106.775;
+
+        if (navigator.geolocation) {
+          try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 60000,
+              });
+            });
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+            setShipperLat(lat);
+            setShipperLng(lng);
+          } catch (geoErr) {
+            console.warn('GPS browser unavailable, using fallback coordinates:', geoErr);
+          }
+        }
+
+        await shipperService.goOnline({ latitude: lat, longitude: lng });
+        setIsOnline(true);
+        globalShowAlert('Đã bật Trực tuyến! Đang quét các đơn hàng mới sẵn sàng quanh bạn.', 'Trực tuyến', 'success');
+        fetchAvailableOrders(pageIndex, pageSize);
+      }
+    } catch (err: any) {
+      globalShowAlert(err?.message || 'Không thể cập nhật trạng thái hoạt động.', 'Lỗi', 'error');
+    } finally {
+      setTogglingOnline(false);
+    }
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -715,11 +782,27 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100 hidden md:flex">
-            <Wallet className="size-4 text-primary" />
-            <span className="text-[10px] font-black text-gray-400 uppercase">VÍ:</span>
-            {/* TODO: nối API ví khi BE có endpoint */}
-            <span className="text-sm font-black text-gray-900">--</span>
+          {/* Grab-style Online/Offline Switcher */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleToggleOnline}
+              disabled={togglingOnline}
+              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer ${
+                isOnline
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+              }`}
+              title={isOnline ? 'Bấm để tắt nhận đơn (Ngoại tuyến)' : 'Bấm để bật nhận đơn (Trực tuyến)'}
+            >
+              <span className="relative flex size-2.5">
+                {isOnline && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                )}
+                <span className={`relative inline-flex rounded-full size-2.5 ${isOnline ? 'bg-white' : 'bg-gray-400'}`} />
+              </span>
+              <span>{isOnline ? '🟢 Đang Trực Tuyến' : '⚪ Ngoại Tuyến'}</span>
+              {togglingOnline && <Loader2 className="size-3.5 animate-spin ml-1" />}
+            </button>
           </div>
         </div>
       </div>
@@ -749,11 +832,66 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
           )}
         </div>
 
-        {activeTab === 'Đơn hàng mới' && (loadingOrders ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[1, 2, 3].map(i => <div key={i} className="bg-white rounded-[40px] border border-gray-100 p-8 animate-pulse h-72" />)}
-          </div>
-        ) : renderOrderCards())}
+        {activeTab === 'Đơn hàng mới' && (
+          !isOnline ? (
+            <div className="bg-white rounded-[40px] border border-gray-100 shadow-sm p-12 mb-8 flex flex-col items-center justify-center text-center">
+              <div className="size-24 rounded-full bg-amber-50 border-4 border-amber-100 flex items-center justify-center mb-6 shadow-inner">
+                <WifiOff className="size-10 text-amber-500" />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider mb-3">
+                Chế độ nghỉ ca · Ngoại tuyến
+              </span>
+              <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">
+                Bạn đang ở trạng thái Ngoại tuyến
+              </h3>
+              <p className="text-sm text-gray-500 font-medium max-w-md mt-2 leading-relaxed">
+                Hãy bật Trực tuyến để hệ thống định vị vị trí GPS và hiển thị các đơn hàng mới sẵn sàng quanh bạn!
+              </p>
+              <button
+                onClick={handleToggleOnline}
+                disabled={togglingOnline}
+                className="mt-8 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase flex items-center gap-3 shadow-xl shadow-emerald-600/25 hover:bg-emerald-700 transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {togglingOnline ? (
+                  <><Loader2 className="size-5 animate-spin" /> Đang kết nối...</>
+                ) : (
+                  <><Zap className="size-5 fill-current" /> Bật Trực Tuyến Để Nhận Đơn Ngay</>
+                )}
+              </button>
+            </div>
+          ) : loadingOrders ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map(i => <div key={i} className="bg-white rounded-[40px] border border-gray-100 p-8 animate-pulse h-72" />)}
+            </div>
+          ) : (
+            <>
+              {/* Radar status bar when online */}
+              <div className="mb-6 px-6 py-4 bg-emerald-50/80 border border-emerald-200/60 rounded-3xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative flex size-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full size-3 bg-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-emerald-900 uppercase tracking-wide">
+                      Đang trực tuyến · Sẵn sàng nhận đơn
+                    </p>
+                    <p className="text-[11px] text-emerald-700 font-medium">
+                      Hệ thống tự động quét các đơn hàng READY đã được chuẩn bị bởi nhà vườn.
+                    </p>
+                  </div>
+                </div>
+                {shipperLat && shipperLng && (
+                  <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/80 border border-emerald-200 text-[10px] font-mono text-emerald-800">
+                    <MapPin className="size-3 text-emerald-600" />
+                    <span>{shipperLat.toFixed(4)}, {shipperLng.toFixed(4)}</span>
+                  </div>
+                )}
+              </div>
+              {renderOrderCards()}
+            </>
+          )
+        )}
 
         {activeTab === 'Đơn đang giao' && renderMyOrders()}
 
