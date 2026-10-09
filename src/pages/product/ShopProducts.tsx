@@ -686,7 +686,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {mysteryBoxes.map((box) => (
+                {mysteryBoxes.map((box: any) => (
                   <div
                     key={box.id}
                     className="group relative bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100 overflow-hidden hover:shadow-lg hover:border-purple-200 transition-all"

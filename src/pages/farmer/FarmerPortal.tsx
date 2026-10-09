@@ -642,11 +642,7 @@ export default function FarmerPortal({
           ) : currentTab === 'reviews' ? (
             <Reviews reviews={reviews} />
           ) : currentTab === 'vouchers' ? (
-            <Vouchers
-              vouchers={vouchers}
-              onOpenCreateVoucher={() => setShowCreateVoucherModal(true)}
-              onInfo={onInfo}
-            />
+            <Vouchers onInfo={onInfo} />
           ) : currentTab === 'notifications' ? (
             <Notifications />
           ) : currentTab === 'profile' ? (

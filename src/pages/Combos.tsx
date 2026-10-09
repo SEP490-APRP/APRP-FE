@@ -1,4 +1,6 @@
-﻿import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { mysteryBoxService, comboService } from '@/services'
 import {
   Gift,
   ArrowRight,
@@ -23,12 +25,14 @@ import comboKitchenImg from '../assets/combo-kitchen.jpg'
 import comboHotpotImg from '../assets/combo-hotpot.jpg'
 
 interface CombosProps {
-  onAdd: (s: string) => void
+  onAdd: (id: string | number, itemType?: string) => void
   onInfo: (s: string) => void
 }
 
 interface ComboItem {
   id: string
+  realId?: number
+  itemType?: string
   name: string
   image: string
   badgeDiscount: string
@@ -168,8 +172,73 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
   const [priceRange, setPriceRange] = useState('all')
   const [selected, setSelected] = useState<string[]>([])
 
+  const { data: mysteryBoxesData } = useQuery({
+    queryKey: ['mystery-boxes'],
+    queryFn: () => mysteryBoxService.getForBuyer(),
+  })
+
+  const { data: combosData } = useQuery({
+    queryKey: ['combos'],
+    queryFn: () => comboService.getCombos(),
+  })
+
+  const allCombosList = useMemo(() => {
+    const list: ComboItem[] = []
+
+    const mBoxes = mysteryBoxesData?.content || []
+    mBoxes.forEach((m) => {
+      list.push({
+        id: `mystery-${m.mysteryId}`,
+        realId: m.mysteryId,
+        itemType: 'MYSTERY_BOX',
+        name: m.boxType || 'Túi Mù Nông Sản May Mắn',
+        image: m.imageUrl || comboMysteryImg,
+        badgeDiscount: '-50%',
+        badgeWeight: 'Túi ngẫu nhiên',
+        badgeHighlight: 'Túi mù',
+        category: 'Túi mù',
+        portion: m.note || 'Gia đình 2–3 người',
+        feature: m.description || 'Nông sản tươi ngon ngẫu nhiên hái tại vườn trong ngày',
+        price: Number(m.price) || 79000,
+        original: (Number(m.price) || 79000) * 1.5,
+        unit: 'túi',
+        rating: 4.9,
+        reviews: 120,
+        sold: m.soldQuantity || 0,
+        stock: m.totalQuantity ? Math.max(0, m.totalQuantity - (m.soldQuantity || 0)) : 20,
+      })
+    })
+
+    const cList = combosData?.content || []
+    cList.forEach((c) => {
+      list.push({
+        id: `combo-${c.comboId}`,
+        realId: c.comboId,
+        itemType: 'BUILD_COMBO',
+        name: c.comboName,
+        image: c.imageUrl || comboGreenImg,
+        badgeDiscount: '-35%',
+        badgeWeight: c.region || 'Combo mùa vụ',
+        badgeHighlight: c.type || 'Combo nông sản',
+        category: 'Gia đình',
+        portion: c.mealType || 'Gia đình 3-4 người',
+        feature: c.description || 'Gói nông sản dinh dưỡng tươi ngon thu hoạch từ vườn',
+        price: Number(c.price) || 129000,
+        original: (Number(c.price) || 129000) * 1.4,
+        unit: 'combo',
+        rating: 4.9,
+        reviews: 85,
+        sold: c.soldQuantity || 0,
+        stock: c.totalQuantity ? Math.max(0, c.totalQuantity - (c.soldQuantity || 0)) : 15,
+      })
+    })
+
+    if (list.length > 0) return list
+    return ALL_COMBOS
+  }, [mysteryBoxesData, combosData])
+
   // Filter pipeline
-  let filteredCombos = [...ALL_COMBOS]
+  let filteredCombos = [...allCombosList]
 
   if (category === 'mystery') {
     filteredCombos = filteredCombos.filter((c) => c.id === 'mystery')
@@ -520,7 +589,12 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                     {/* Add Button */}
                     <button
                       type="button"
-                      onClick={() => onAdd(c.id)}
+                      onClick={() =>
+                        onAdd(
+                          c.realId ?? c.id,
+                          c.itemType ?? (c.id === 'mystery' ? 'MYSTERY_BOX' : 'BUILD_COMBO')
+                        )
+                      }
                       className="w-full mt-1 py-2.5 px-4 bg-[#4a7c2f] hover:bg-[#3b6624] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                     >
                       <ShoppingBasket size={16} />
@@ -629,7 +703,7 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                   type="button"
                   disabled={!selected.length}
                   onClick={() => {
-                    selected.forEach(onAdd)
+                    selected.forEach((id) => onAdd(id))
                     setSelected([])
                   }}
                   className="w-full sm:w-auto px-6 py-3 bg-[#ffea79] hover:bg-[#ffd84d] disabled:opacity-50 text-[#1d4213] rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"

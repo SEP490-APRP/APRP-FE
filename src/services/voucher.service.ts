@@ -1,43 +1,84 @@
-import type { ApiResponse, PageResponse } from '@/types'
-import type { VoucherResponse } from './voucher.types'
-import { mockVouchers } from '@/mocks/voucher.mock'
-import { freshResponses } from '@/mocks/fresh'
+import axiosInstance from '@/services/api/axiosInstance'
+import { unwrap } from '@/services/api/apiUtils'
+import type { VoucherResponse, VoucherCreateRequest } from './voucher.types'
 
 export type * from './voucher.types'
 
-export const voucherService = freshResponses({
-  async getBuyerShopVouchers(
-    shopId: number,
-    page: number = 0,
-    size: number = 10,
-  ): Promise<ApiResponse<PageResponse<VoucherResponse>>> {
-    await new Promise((r) => setTimeout(r, 150))
-    const list = mockVouchers.filter((v) => !v.shopId || v.shopId === Number(shopId))
-    return {
-      code: 200,
-      result: {
-        page,
-        size,
-        totalElements: list.length,
-        totalPages: Math.ceil(list.length / size) || 1,
-        first: page === 0,
-        last: true,
-        content: list,
-      },
-    }
+export const voucherService = {
+  // 1. Lấy danh sách voucher công khai để hiển thị trên sàn
+  async getPublicVouchers(): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/vouchers')
+    return unwrap<VoucherResponse[]>(res)
   },
 
-  async canReceiveVoucher(_voucherCode: string): Promise<ApiResponse<boolean>> {
-    await new Promise((r) => setTimeout(r, 100))
-    return { code: 200, result: true }
+  // 2. Buyer lưu (thu thập) mã hiển thị sẵn
+  async collectVoucher(voucherId: number): Promise<void> {
+    const res = await axiosInstance.post(`/vouchers/${voucherId}/collect`)
+    return unwrap<void>(res)
   },
 
-  async receiveVoucher(voucherCode: string): Promise<ApiResponse<boolean>> {
-    await new Promise((r) => setTimeout(r, 200))
-    const v = mockVouchers.find((item) => item.voucherCode === voucherCode)
-    if (v) {
-      v.claimedCount = (v.claimedCount || 0) + 1
-    }
-    return { code: 200, result: true, message: 'Đã lưu voucher thành công!' }
+  // 3. Buyer lưu mã ẩn bằng code gõ tay
+  async collectByCode(voucherCode: string): Promise<void> {
+    const res = await axiosInstance.post('/vouchers/collect-by-code', null, {
+      params: { voucherCode: voucherCode.trim().toUpperCase() },
+    })
+    return unwrap<void>(res)
   },
-})
+
+  // 4. Lấy danh sách ví voucher của người dùng đang đăng nhập
+  async getMyVouchers(): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/users/me/vouchers')
+    return unwrap<VoucherResponse[]>(res)
+  },
+
+  // 5. SHOP: Lấy danh sách voucher quản lý của Shop
+  async getShopVouchers(): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/shop/vouchers')
+    return unwrap<VoucherResponse[]>(res)
+  },
+
+  // 6. SHOP: Tạo voucher mới của Shop
+  async createShopVoucher(data: VoucherCreateRequest): Promise<VoucherResponse> {
+    const res = await axiosInstance.post('/shop/vouchers', data)
+    return unwrap<VoucherResponse>(res)
+  },
+
+  // 7. SHOP: Bật / Tắt trạng thái voucher của Shop
+  async toggleShopVoucher(voucherId: number): Promise<VoucherResponse> {
+    const res = await axiosInstance.put(`/shop/vouchers/${voucherId}/toggle-status`)
+    return unwrap<VoucherResponse>(res)
+  },
+
+  // 8. ADMIN: Lấy danh sách voucher toàn sàn của Admin
+  async getAdminVouchers(): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/admin/vouchers')
+    return unwrap<VoucherResponse[]>(res)
+  },
+
+  // 9. ADMIN: Tạo voucher toàn sàn
+  async createAdminVoucher(data: VoucherCreateRequest): Promise<VoucherResponse> {
+    const res = await axiosInstance.post('/admin/vouchers', data)
+    return unwrap<VoucherResponse>(res)
+  },
+
+  // 10. ADMIN: Bật / Tắt trạng thái voucher toàn sàn
+  async toggleAdminVoucher(voucherId: number): Promise<VoucherResponse> {
+    const res = await axiosInstance.put(`/admin/vouchers/${voucherId}/toggle-status`)
+    return unwrap<VoucherResponse>(res)
+  },
+
+  // 11. Compatibility methods for storefront shop voucher queries
+  async getBuyerShopVouchers(shopId: number, _page = 0, _size = 10): Promise<{ result: { content: VoucherResponse[]; totalPages: number } }> {
+    const list = await this.getPublicVouchers()
+    const shopList = list.filter((v) => Number(v.shopId) === shopId || v.creatorRole === 'ADMIN')
+    return { result: { content: shopList, totalPages: 1 } }
+  },
+
+  async canReceiveVoucher(_voucherCode: string): Promise<{ result: boolean }> {
+    return { result: true }
+  },
+
+  async receiveVoucher(voucherCode: string): Promise<void> {
+    return this.collectByCode(voucherCode)
+  },
+}

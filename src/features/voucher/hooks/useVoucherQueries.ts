@@ -25,7 +25,7 @@ async function fetchShopVouchers(
   // API có thể trả mảng hoặc trang phân trang.
   const content: VoucherResponse[] = Array.isArray(result) ? result : (result?.content ?? [])
   const totalPages = Array.isArray(result) ? 1 : (result?.totalPages ?? 0)
-  const vouchers = content.filter((v) => v.voucherType === 'SHOP' && Number(v.shopId) === shopId)
+  const vouchers = content.filter((v) => Number(v.shopId) === shopId || v.creatorRole === 'SHOP')
   if (!signedIn || vouchers.length === 0) return { vouchers, totalPages, canReceive: {} }
 
   const statuses = await Promise.all(

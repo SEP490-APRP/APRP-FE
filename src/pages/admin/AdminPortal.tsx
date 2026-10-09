@@ -27,6 +27,7 @@ import {
   Truck,
   UserX,
   Wallet,
+  Ticket,
   type LucideIcon,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
@@ -80,6 +81,12 @@ const TABS = {
     page: lazy(() => import('./CodSettlement')),
   },
   wallet: { name: 'Ví sàn & Rút tiền', icon: Wallet, page: lazy(() => import('./AdminWallet')) },
+  vouchers: {
+    name: 'Voucher toàn sàn',
+    icon: Ticket,
+    page: lazy(() => import('./VoucherManagement')),
+    badge: 'Mới',
+  },
   news: { name: 'Quản lý tin tức', icon: Newspaper, page: lazy(() => import('./NewsManagement')) },
   notifications: {
     name: 'Gửi thông báo',
@@ -102,7 +109,7 @@ const SECTIONS: { title: string; items: AdminTabId[] }[] = [
   { title: 'Tổng quan & Báo cáo', items: ['overview', 'user-report'] },
   { title: 'Kiểm duyệt', items: ['kyc', 'products', 'disputes'] },
   { title: 'Thành viên', items: ['shops', 'shippers', 'bad-buyers'] },
-  { title: 'Tài chính & Đối soát', items: ['cod', 'wallet'] },
+  { title: 'Tài chính & Đối soát', items: ['cod', 'wallet', 'vouchers'] },
   { title: 'Truyền thông & CSKH', items: ['news', 'notifications', 'messages'] },
 ]
 
