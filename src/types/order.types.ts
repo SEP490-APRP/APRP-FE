@@ -58,6 +58,10 @@ export interface OrderResponse {
   totalAmount: number
   shippingFee?: number
   voucherDiscountAmount?: number
+  shippingLatitude?: number
+  shippingLongitude?: number
+  shopLatitude?: number
+  shopLongitude?: number
   createdAt: string
   items: OrderItem[]
   shopOwner?: OrderShopInfo

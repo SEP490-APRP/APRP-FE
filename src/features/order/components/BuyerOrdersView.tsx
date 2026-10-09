@@ -8,6 +8,7 @@ import {
   RefreshCw,
   XCircle,
   ChevronRight,
+  Navigation,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -15,6 +16,7 @@ import { OrderStatusBadge } from './OrderStatusBadge'
 import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
+import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { orderService, paymentService } from '@/services'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
@@ -56,6 +58,7 @@ export const BuyerOrdersView: React.FC = () => {
   const [resumeOptions, setResumeOptions] = useState<ResumePaymentOptionsResponse | null>(null)
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false)
   const [isLoadingResumeOptions, setIsLoadingResumeOptions] = useState(false)
+  const [trackingModalOrder, setTrackingModalOrder] = useState<OrderResponse | null>(null)
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -485,6 +488,18 @@ export const BuyerOrdersView: React.FC = () => {
                       </Button>
                     )}
 
+                    {/* Đang vận chuyển -> Nút THEO DÕI LỘ TRÌNH (GOOGLE MAPS) */}
+                    {(order.status === 'SHIPPING' || order.status === 'READY') && (
+                      <Button
+                        variant="primary"
+                        onClick={() => setTrackingModalOrder(order)}
+                        className="gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20"
+                      >
+                        <Navigation size={14} />
+                        Theo dõi lộ trình (Map)
+                      </Button>
+                    )}
+
                     {/* Xem chi tiết kết quả */}
                     <Link
                       to={`/payment/result?orderId=${orderId}&method=${order.paymentMethod}`}
@@ -522,6 +537,20 @@ export const BuyerOrdersView: React.FC = () => {
           checkoutUrl={qrModalData.checkoutUrl}
           amount={qrModalData.amount}
           orderCode={qrModalData.payosOrderCode}
+        />
+      )}
+
+      {/* Modal Theo Dõi Vị Trí Shipper Trên Google Maps */}
+      {trackingModalOrder && (
+        <GoogleMapTrackingModal
+          orderId={trackingModalOrder.orderId ?? trackingModalOrder.id ?? 0}
+          orderCode={`#${trackingModalOrder.orderId ?? trackingModalOrder.id ?? ''}`}
+          role="BUYER"
+          initialShopLat={trackingModalOrder.shopLatitude ?? undefined}
+          initialShopLng={trackingModalOrder.shopLongitude ?? undefined}
+          initialDestLat={trackingModalOrder.shippingLatitude ?? undefined}
+          initialDestLng={trackingModalOrder.shippingLongitude ?? undefined}
+          onClose={() => setTrackingModalOrder(null)}
         />
       )}
     </div>

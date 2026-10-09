@@ -16,6 +16,7 @@ import {
   RefreshCw, Loader2, Radio, StopCircle, WifiOff, Store, MessageSquare, Camera, ImagePlus, Home
 } from 'lucide-react';
 import FakeGPS from './Fakegps';
+import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal';
 import { authService } from '../../services/auth.service';
 import type { UserResponse } from '../../services/auth.service';
 import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../services/codSettlement.service';
@@ -67,6 +68,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
   // ✅ Fake GPS: orderId đang mở panel fake GPS
   const [fakeGpsOrderId, setFakeGpsOrderId] = useState<number | null>(null);
+  // ✅ Modal Google Maps theo dõi lộ trình
+  const [mapModalOrder, setMapModalOrder] = useState<ShipperOrderResponse | null>(null);
   // ✅ Thông tin shipper đang login
   const [myProfile, setMyProfile] = useState<UserResponse | null>(() => authService.getUserInfo());
 
@@ -257,6 +260,16 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   };
 
   const handleAcceptOrder = async (order: AvailableOrderResponse, codPaymentOption?: 'CASH' | 'WALLET') => {
+    // ✅ Quy tắc 1 đơn tại 1 thời điểm
+    if (myOrders.length > 0) {
+      globalShowAlert(
+        'Bạn đang có đơn hàng đang giao dở. Vui lòng hoàn tất đơn hiện tại trước khi nhận thêm đơn mới!',
+        'Không thể nhận thêm',
+        'warning'
+      );
+      return;
+    }
+
     if ((order.paymentMethod ?? '').toUpperCase() === 'COD' && !codPaymentOption) {
       setCodAcceptOrder(order);
       return;
@@ -506,50 +519,53 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 </div>
               </div>
               {renderCodCollectLine(order)}
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${isTracking && trackingStatus === 'active' ? 'bg-green-50 border border-green-100' :
-                isTracking && trackingStatus === 'starting' ? 'bg-yellow-50 border border-yellow-100' :
-                  'bg-gray-50 border border-gray-100'
-                }`}>
-                {isTracking && trackingStatus === 'active' ? (
-                  <><div className="size-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-xs font-black text-green-700">Đang phát GPS live</span>
-                    {shipperLat && <span className="text-[10px] text-green-500 ml-auto font-mono">{shipperLat.toFixed(4)}, {shipperLng?.toFixed(4)}</span>}</>
-                ) : isTracking && trackingStatus === 'starting' ? (
-                  <><Loader2 className="size-4 text-yellow-600 animate-spin" /><span className="text-xs font-black text-yellow-700">Đang kết nối...</span></>
-                ) : (
-                  <><Radio className="size-4 text-gray-400" /><span className="text-xs font-black text-gray-400">GPS chưa bật</span></>
+              {/* Trạng thái GPS ngầm */}
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-emerald-50/70 border border-emerald-100/80">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[11px] font-black text-emerald-800">
+                    {fakeGpsOrderId === order.orderId ? 'Đang bật Demo Fake GPS' : 'GPS ngầm tự động đồng bộ (Live)'}
+                  </span>
+                </div>
+                {shipperLat && shipperLng && (
+                  <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                    {shipperLat.toFixed(3)}, {shipperLng.toFixed(3)}
+                  </span>
                 )}
               </div>
-              <div className="flex gap-3 items-stretch">
-                {!isTracking ? (
-                  <button onClick={() => startTracking(order.orderId)} disabled={trackingStatus !== 'off'}
-                    className="flex-1 min-w-0 h-12 px-3 bg-blue-500 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-blue-600 transition-all disabled:opacity-40 whitespace-nowrap">
-                    <Navigation className="size-4 shrink-0" /> Bật GPS
-                  </button>
-                ) : (
-                  <button onClick={stopTracking}
-                    className="flex-1 min-w-0 h-12 px-3 bg-gray-200 text-gray-700 text-xs font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-gray-300 transition-all whitespace-nowrap">
-                    <StopCircle className="size-4 shrink-0" /> Dừng GPS
-                  </button>
-                )}
-                <button onClick={() => openCompleteModal(order.orderId, 'DELIVERED', order.recipientName)}
+
+              {/* 2 nút hành động chính ngang hàng: Giao thành công / Giao thất bại */}
+              <div className="grid grid-cols-2 gap-3 items-stretch">
+                <button
+                  onClick={() => openCompleteModal(order.orderId, 'DELIVERED', order.recipientName)}
                   title={codOrder ? 'Xác nhận đã thu đúng tiền COD từ khách' : undefined}
-                  className="flex-1 min-w-0 h-12 px-3 bg-primary text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 whitespace-nowrap">
-                  <CheckCircle2 className="size-4 shrink-0" /> Đã giao
+                  className="h-12 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-green-600/20 cursor-pointer"
+                >
+                  <CheckCircle2 className="size-4 shrink-0" /> Giao thành công
                 </button>
-                <button onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
-                  className="h-12 w-12 shrink-0 bg-red-50 text-red-500 font-black rounded-2xl hover:bg-red-500 hover:text-white transition-all border border-red-100 flex items-center justify-center">
-                  <X className="size-4" />
+                <button
+                  onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
+                  className="h-12 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 cursor-pointer"
+                >
+                  <X className="size-4 shrink-0" /> Giao thất bại
                 </button>
               </div>
 
-              {/* ✅ FAKE GPS PANEL - Toggle hiện/ẩn */}
-              <button
-                onClick={() => setFakeGpsOrderId(prev => prev === order.orderId ? null : order.orderId)}
-                className="w-full py-2.5 border border-dashed border-yellow-300 bg-yellow-50 text-yellow-700 rounded-2xl text-[10px] font-black uppercase tracking-wider hover:bg-yellow-100 transition-all flex items-center justify-center gap-2"
-              >
-                🎭 {fakeGpsOrderId === order.orderId ? 'Ẩn' : 'Mở'} Demo GPS (Fake GPS)
-              </button>
+              {/* Nút Demo Fake GPS & Bản Đồ Google Map */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setFakeGpsOrderId(prev => prev === order.orderId ? null : order.orderId)}
+                  className="py-3 border border-dashed border-amber-300 bg-amber-50 text-amber-800 rounded-2xl text-[10px] font-black uppercase tracking-wider hover:bg-amber-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  🎭 {fakeGpsOrderId === order.orderId ? 'Ẩn' : 'Mở'} Demo GPS
+                </button>
+                <button
+                  onClick={() => setMapModalOrder(order)}
+                  className="py-3 border border-emerald-300 bg-emerald-50 text-emerald-800 rounded-2xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  🗺️ Xem Bản Đồ Map
+                </button>
+              </div>
 
               {fakeGpsOrderId === order.orderId && (
                 <FakeGPS
@@ -666,16 +682,26 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 </div>
               )}
 
+              {/* Cảnh báo khi shipper đã có đơn đang giao */}
+              {myOrders.length > 0 && (
+                <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-xs font-bold text-amber-800">
+                  <Info className="size-4 shrink-0 text-amber-600" />
+                  <span>Bạn đang có 1 đơn đang giao. Vui lòng hoàn thành đơn hiện tại trước khi nhận thêm đơn mới!</span>
+                </div>
+              )}
+
               {/* Nút nhận đơn */}
               <button
                 onClick={() => handleAcceptOrder(order)}
-                disabled={acceptingOrderId === order.orderId}
+                disabled={acceptingOrderId === order.orderId || myOrders.length > 0}
                 className={`w-full py-4 font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl transition-all transform active:scale-95
-              ${acceptSuccess === order.orderId ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-dark'}
+              ${myOrders.length > 0 ? 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-none active:scale-100' :
+                acceptSuccess === order.orderId ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-dark'}
               ${acceptingOrderId === order.orderId ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {acceptingOrderId === order.orderId ? <><Loader2 className="size-4 animate-spin" /> Đang xử lý...</> :
                   acceptSuccess === order.orderId ? <><CheckCircle2 className="size-4" /> Đã nhận!</> :
+                  myOrders.length > 0 ? <>Đang bận giao 1 đơn khác</> :
                     <>Nhận đơn này <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" /></>}
               </button>
 
@@ -1072,6 +1098,19 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             </button>
           </div>
         </div>
+      )}
+      {/* ✅ Modal xem bản đồ Google Maps thời gian thực */}
+      {mapModalOrder && (
+        <GoogleMapTrackingModal
+          orderId={mapModalOrder.orderId}
+          orderCode={`#${mapModalOrder.orderId}`}
+          role="SHIPPER"
+          initialShopLat={mapModalOrder.shopLatitude ?? undefined}
+          initialShopLng={mapModalOrder.shopLongitude ?? undefined}
+          initialDestLat={mapModalOrder.shippingLatitude ?? undefined}
+          initialDestLng={mapModalOrder.shippingLongitude ?? undefined}
+          onClose={() => setMapModalOrder(null)}
+        />
       )}
     </div>
   );
