@@ -220,20 +220,22 @@ function usePortalProps() {
 }
 
 export function AdminRoute() {
+  const { user } = useAuth()
   return (
     <RequireRole roles={['admin']} audience="tài khoản Admin" loginHref="/dang-nhap?role=admin">
       <Suspense fallback={<PageLoading />}>
-        <AdminPortal {...usePortalProps()} />
+        <AdminPortal user={user} {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )
 }
 
 export function SellerRoute() {
+  const { user } = useAuth()
   return (
     <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="/dang-nhap?role=shop">
       <Suspense fallback={<PageLoading />}>
-        <FarmerPortal {...usePortalProps()} />
+        <FarmerPortal user={user} {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )

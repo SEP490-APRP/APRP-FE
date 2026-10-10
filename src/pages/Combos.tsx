@@ -18,6 +18,12 @@ import {
 } from 'lucide-react'
 import { products, money } from '@/mocks/catalog'
 import { LegacyProduceImage } from '@/features/product'
+import {
+  isMeaningfulComboName,
+  mapComboToCard,
+  mapMysteryBoxToCard,
+  type ComboCardItem,
+} from './combos.utils'
 import comboHeroBanner from '../assets/combo-hero-banner.jpg'
 import comboMysteryImg from '../assets/combo-mystery.jpg'
 import comboGreenImg from '../assets/combo-green.jpg'
@@ -29,31 +35,12 @@ interface CombosProps {
   onInfo: (s: string) => void
 }
 
-interface ComboItem {
-  id: string
-  realId?: number
-  itemType?: string
-  name: string
-  image: string
-  badgeDiscount: string
-  badgeWeight: string
-  badgeHighlight: string
-  category: string
-  portion: string
-  feature: string
-  price: number
-  original: number
-  unit: string
-  rating: number
-  reviews: number
-  sold: number
-  stock: number
-}
+type ComboItem = ComboCardItem
 
 const ALL_COMBOS: ComboItem[] = [
   {
     id: 'mystery',
-    name: 'Túi Mù Nông Sản Thần Bí (Mystery Box)',
+    name: 'Túi mù',
     image: comboMysteryImg,
     badgeDiscount: '-60%',
     badgeWeight: '5kg ngẫu nhiên',
@@ -71,7 +58,7 @@ const ALL_COMBOS: ComboItem[] = [
   },
   {
     id: 'green',
-    name: 'Combo Rau Xanh 5 Bữa Gia Đình',
+    name: 'Combo',
     image: comboGreenImg,
     badgeDiscount: '-43%',
     badgeWeight: '6kg rau củ',
@@ -134,13 +121,13 @@ const COMBO_CATEGORIES = [
   },
   {
     id: 'mystery',
-    label: 'Túi mù Mystery Box (79k)',
+    label: 'Túi mù',
     bannerTitle: 'Túi Mù Nông Sản May Mắn',
     breadcrumb: 'Túi mù nông sản',
   },
   {
     id: 'family',
-    label: 'Combo rau củ gia đình',
+    label: 'Combo',
     bannerTitle: 'Combo Rau Củ Gia Đình',
     breadcrumb: 'Combo gia đình',
   },
@@ -187,67 +174,35 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
 
     const mBoxes = mysteryBoxesData?.content || []
     mBoxes.forEach((m) => {
-      list.push({
-        id: `mystery-${m.mysteryId}`,
-        realId: m.mysteryId,
-        itemType: 'MYSTERY_BOX',
-        name: m.boxType || 'Túi Mù Nông Sản May Mắn',
-        image: m.imageUrl || comboMysteryImg,
-        badgeDiscount: '-50%',
-        badgeWeight: 'Túi ngẫu nhiên',
-        badgeHighlight: 'Túi mù',
-        category: 'Túi mù',
-        portion: m.note || 'Gia đình 2–3 người',
-        feature: m.description || 'Nông sản tươi ngon ngẫu nhiên hái tại vườn trong ngày',
-        price: Number(m.price) || 79000,
-        original: (Number(m.price) || 79000) * 1.5,
-        unit: 'túi',
-        rating: 4.9,
-        reviews: 120,
-        sold: m.soldQuantity || 0,
-        stock: m.totalQuantity ? Math.max(0, m.totalQuantity - (m.soldQuantity || 0)) : 20,
-      })
+      list.push(mapMysteryBoxToCard(m, comboMysteryImg))
     })
 
     const cList = combosData?.content || []
     cList.forEach((c) => {
-      list.push({
-        id: `combo-${c.comboId}`,
-        realId: c.comboId,
-        itemType: 'BUILD_COMBO',
-        name: c.comboName,
-        image: c.imageUrl || comboGreenImg,
-        badgeDiscount: '-35%',
-        badgeWeight: c.region || 'Combo mùa vụ',
-        badgeHighlight: c.type || 'Combo nông sản',
-        category: 'Gia đình',
-        portion: c.mealType || 'Gia đình 3-4 người',
-        feature: c.description || 'Gói nông sản dinh dưỡng tươi ngon thu hoạch từ vườn',
-        price: Number(c.price) || 129000,
-        original: (Number(c.price) || 129000) * 1.4,
-        unit: 'combo',
-        rating: 4.9,
-        reviews: 85,
-        sold: c.soldQuantity || 0,
-        stock: c.totalQuantity ? Math.max(0, c.totalQuantity - (c.soldQuantity || 0)) : 15,
-      })
+      list.push(mapComboToCard(c, comboGreenImg))
     })
 
-    if (list.length > 0) return list
-    return ALL_COMBOS
+    const meaningfulList = list.filter((item) => isMeaningfulComboName(item.name))
+    if (meaningfulList.length > 0) return meaningfulList
+    return ALL_COMBOS.map((item) => ({
+      ...item,
+      category: item.category === 'Túi mù' ? 'Túi mù' : 'Combo',
+    }))
   }, [mysteryBoxesData, combosData])
 
   // Filter pipeline
   let filteredCombos = [...allCombosList]
 
   if (category === 'mystery') {
-    filteredCombos = filteredCombos.filter((c) => c.id === 'mystery')
+    filteredCombos = filteredCombos.filter(
+      (c) => c.itemType === 'MYSTERY_BOX' || c.id.startsWith('mystery'),
+    )
   } else if (category === 'family') {
     filteredCombos = filteredCombos.filter(
-      (c) => c.category === 'Gia đình' || c.category === 'Cuối tuần',
+      (c) => c.itemType === 'BUILD_COMBO' || c.id.startsWith('combo'),
     )
   } else if (category === 'bulk') {
-    filteredCombos = filteredCombos.filter((c) => c.category === 'Thùng lớn')
+    filteredCombos = filteredCombos.filter((c) => c.itemType === 'BUILD_COMBO')
   }
 
   if (priceRange === 'under100') {
@@ -322,10 +277,10 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* LEFT SIDEBAR: Categories & Guarantees */}
           <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-6">
-            {/* Box 1: Danh Mục Combo */}
+            {/* Box 1: Danh Mục */}
             <div className="bg-[#f2f9ed] border border-[#d6ebd0] rounded-2xl p-5 shadow-sm">
               <h2 className="text-base sm:text-lg font-black text-[#2b5619] pb-3.5 mb-2 border-b border-[#cfe6c8] flex items-center justify-between">
-                <span>Danh Mục Combo</span>
+                <span>Danh Mục</span>
                 <Gift size={18} className="text-[#4a7c2f]" />
               </h2>
 

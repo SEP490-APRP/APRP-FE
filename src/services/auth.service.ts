@@ -41,30 +41,52 @@ export function parseJwt(token: string): JwtTokenPayload | null {
 }
 
 /**
- * Chuyển đổi tên Role từ Spring Boot Backend (`BUYER`, `SHOP`, `SHIPPER`, `ADMIN`)
- * sang `UserRole` chuẩn của Frontend (`buyer`, `shop`, `shipper`, `admin`, `staff`).
+ * Chuyển đổi tên Role từ Backend theo DB thật: `BUYER`, `SHOP`, `SHIPPER`, `ADMIN`.
+ * Chúng ta vẫn hỗ trợ dạng `ROLE_ADMIN`/`ROLE_SHOP` nếu backend gửi theo chuẩn Spring Security.
  */
-export function mapBackendRoleToFrontend(roleInput?: string[] | string): UserRole {
-  const rolesList: string[] = Array.isArray(roleInput)
-    ? roleInput
-    : roleInput
-      ? [roleInput]
-      : []
+function normalizeRoleCandidates(input: unknown): string[] {
+  if (input == null) return []
 
-  const upperRoles = rolesList.map((r) => String(r).toUpperCase().trim())
+  if (Array.isArray(input)) {
+    return input.flatMap((item) => normalizeRoleCandidates(item))
+  }
 
-  if (upperRoles.some((r) => r === 'ADMIN' || r === 'ROLE_ADMIN')) {
+  if (typeof input === 'string') {
+    return [input]
+  }
+
+  if (typeof input === 'object') {
+    const record = input as Record<string, unknown>
+    const values = [
+      record.name,
+      record.role,
+      record.roleName,
+      record.authority,
+      record.authorities,
+      record.value,
+      record.roles,
+    ]
+    return values.flatMap((value) => normalizeRoleCandidates(value))
+  }
+
+  return [String(input)]
+}
+
+export function mapBackendRoleToFrontend(roleInput?: unknown): UserRole {
+  const normalizedRoles = normalizeRoleCandidates(roleInput)
+    .map((role) => String(role).trim().toUpperCase())
+    .map((role) => role.replace(/^ROLE_/, ''))
+
+  if (normalizedRoles.some((role) => ['ADMIN'].includes(role))) {
     return 'admin'
   }
-  if (upperRoles.some((r) => r === 'SHOP' || r === 'ROLE_SHOP')) {
+  if (normalizedRoles.some((role) => ['SHOP'].includes(role))) {
     return 'shop'
   }
-  if (upperRoles.some((r) => r === 'SHIPPER' || r === 'ROLE_SHIPPER')) {
+  if (normalizedRoles.some((role) => ['SHIPPER'].includes(role))) {
     return 'shipper'
   }
-  if (upperRoles.some((r) => r === 'STAFF' || r === 'ROLE_STAFF')) {
-    return 'staff'
-  }
+
   return 'buyer'
 }
 
@@ -72,8 +94,11 @@ export function mapBackendRoleToFrontend(roleInput?: string[] | string): UserRol
  * Tạo `SessionUser` chuẩn của Frontend từ DTO `UserResponse` trả về bởi Backend.
  */
 export function buildSessionUser(userData: UserResponse, fallbackRole?: UserRole): SessionUser {
-  const resolvedRole =
-    fallbackRole || mapBackendRoleToFrontend(userData.role?.name || userData.roleName)
+  const resolvedRole = mapBackendRoleToFrontend([
+    userData.role?.name,
+    userData.roleName,
+    fallbackRole,
+  ])
 
   let kycStatus: 'APPROVED' | 'PENDING' | 'REJECTED' | undefined
   if (userData.kycStatus === 'APPROVED' || userData.kycStatus === 'ACTIVE') {

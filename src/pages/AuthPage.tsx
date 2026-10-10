@@ -139,7 +139,6 @@ export default function AuthPage({
 
       // 1. Giải mã token JWT lấy roles, sub (userId), email
       const payload = authService.parseJwt(token)
-      const mappedRole = authService.mapBackendRoleToFrontend(payload?.roles)
 
       // 2. Gọi API /users/me để lấy profile đầy đủ
       let profileUser: UserResponse | null = null
@@ -151,6 +150,12 @@ export default function AuthPage({
       } catch (meErr) {
         console.warn('Không thể tải profile /users/me:', meErr)
       }
+
+      const mappedRole = authService.mapBackendRoleToFrontend([
+        payload?.roles,
+        profileUser?.role?.name,
+        profileUser?.roleName,
+      ])
 
       // 3. Xây dựng SessionUser chuẩn dựa trên Role trích xuất từ JWT
       const sessionUser = profileUser

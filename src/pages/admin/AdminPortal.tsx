@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
+import { useAuth } from '@/stores'
 import { Button, LinkButton } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
 import { Skeleton, TableSkeleton } from '@/components/ui/Skeleton'
@@ -132,13 +133,15 @@ type AdminPortalProps = {
 }
 
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
+  const { user: storeUser } = useAuth()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
   const tab = tabFromUrl(routerLocation.pathname, routerLocation.hash)
   const [navOpen, setNavOpen] = useState(false)
+  const activeUser = user ?? storeUser
 
   // Chặn ở UI. Server vẫn phải kiểm tra quyền ở từng API, đây chỉ là lớp hiển thị.
-  if (!user || user.role !== 'admin') {
+  if (!activeUser || activeUser.role !== 'admin') {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-paper p-4">
         <EmptyState
@@ -215,7 +218,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
     </nav>
   )
 
-  const initials = user.name
+  const initials = activeUser.name
     .split(/\s+/)
     .slice(-2)
     .map((w) => w[0]?.toUpperCase())
@@ -248,7 +251,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
             {initials || 'AD'}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{user.name}</p>
+            <p className="truncate text-sm font-bold">{activeUser.name}</p>
             <p className="text-caption text-ink-muted">Quản trị viên</p>
           </div>
           {onLogout && (
