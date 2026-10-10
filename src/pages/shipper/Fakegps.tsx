@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { API_BASE_URL, TOKEN_KEY } from '../../services/api.config';
+import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
   Navigation, Play, Square, MapPin, ChevronRight,
   Loader2, Route, Zap
@@ -23,17 +23,35 @@ interface RoutePoint {
   lng: number;
 }
 
-// Lấy đường đi thực tế từ OSRM (free, không cần API key)
+// Nội suy đường đi trực tiếp nếu OSRM bị timeout hoặc lỗi mạng
+function createDirectRoute(fromLat: number, fromLng: number, toLat: number, toLng: number, steps = 20): RoutePoint[] {
+  const points: RoutePoint[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const fraction = i / steps;
+    points.push({
+      lat: fromLat + (toLat - fromLat) * fraction,
+      lng: fromLng + (toLng - fromLng) * fraction,
+    });
+  }
+  return points;
+}
+
+// Lấy đường đi thực tế từ OSRM (free, không cần API key) kèm fallback tự động
 async function fetchRoute(fromLat: number, fromLng: number, toLat: number, toLng: number): Promise<RoutePoint[]> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     const data = await res.json();
-    if (!data.routes?.length) return [];
-    return data.routes[0].geometry.coordinates.map(([lng, lat]: number[]) => ({ lat, lng }));
-  } catch {
-    return [];
+    if (data.routes?.length) {
+      return data.routes[0].geometry.coordinates.map(([lng, lat]: number[]) => ({ lat, lng }));
+    }
+  } catch (err) {
+    console.warn('OSRM router fetch failed, fallback to direct route interpolation:', err);
   }
+  return createDirectRoute(fromLat, fromLng, toLat, toLng);
 }
 
 // Tạo điểm xuất phát gần shop (offset nhỏ để simulate shipper đang ở gần đó)
@@ -88,17 +106,46 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   const connectWS = useCallback((): Promise<Client> => {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem(TOKEN_KEY);
-      const baseUrl = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL.slice(0, -7) : API_BASE_URL;
+      const wsUrl = getWebSocketUrl();
+
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error('WebSocket connection timeout'));
+        }
+      }, 7000);
 
       const client = new Client({
-        webSocketFactory: () => new (SockJS as any)(`${baseUrl}/api/v1/ws`),
+        webSocketFactory: () => new (SockJS as any)(wsUrl),
         reconnectDelay: 0,
         connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
         onConnect: () => {
-          setWsStatus('connected');
-          resolve(client);
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            setWsStatus('connected');
+            resolve(client);
+          }
         },
-        onStompError: () => reject(new Error('WS error')),
+        onStompError: (frame) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            reject(new Error(frame.headers['message'] || 'STOMP error'));
+          }
+        },
+        onWebSocketError: (err) => {
+          console.warn('FakeGPS WS error:', err);
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            reject(err);
+          }
+        },
+        onWebSocketClose: () => {
+          setWsStatus('disconnected');
+        },
       });
 
       setWsStatus('connecting');
@@ -194,8 +241,9 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
         }, 2000);
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('FakeGPS error:', err);
+      globalShowAlert('Lỗi khởi động Fake GPS: ' + (err?.message || 'Không thể kết nối WebSocket.'), 'Lỗi', 'error');
       setPhase('idle');
       setWsStatus('disconnected');
     }

@@ -9,7 +9,7 @@ import {
   ShipperOrderResponse,
 } from '../../services/shipper.service';
 import { PageResponse } from '../../types';
-import { API_BASE_URL, TOKEN_KEY } from '../../services/api.config';
+import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
   Bell, MapPin, Wallet, Navigation, Zap, Clock, Bike, Package,
   ArrowRight, User, LogOut, Truck, CheckCircle2, X, Info,
@@ -327,9 +327,9 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     setTrackingStatus('starting');
     setTrackingOrderId(orderId);
     const token = localStorage.getItem(TOKEN_KEY);
-    const baseUrl = API_BASE_URL.endsWith('/api/v1') ? API_BASE_URL.slice(0, -7) : API_BASE_URL;
+    const wsUrl = getWebSocketUrl();
     const client = new Client({
-      webSocketFactory: () => new (SockJS as any)(`${baseUrl}/api/v1/ws`),
+      webSocketFactory: () => new (SockJS as any)(wsUrl),
       reconnectDelay: 5000,
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       onConnect: () => {
