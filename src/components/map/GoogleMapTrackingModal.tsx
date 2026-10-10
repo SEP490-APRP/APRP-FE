@@ -49,6 +49,12 @@ interface RoutePoint {
   lng: number;
 }
 
+// Default Coordinates for HCMC fallback if not yet geocoded
+export const DEFAULT_SHOP_LAT = 10.8515; // Số 1 Võ Văn Ngân, P. Linh Chiểu, TP. Thủ Đức
+export const DEFAULT_SHOP_LNG = 106.7719;
+export const DEFAULT_DEST_LAT = 10.7725; // 268 Lý Thường Kiệt, P. 14, Q. 10
+export const DEFAULT_DEST_LNG = 106.6578;
+
 declare global {
   interface Window {
     google: any;
@@ -219,6 +225,8 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   // Saved route geometries for dynamic trimming
   const fullShipperToShopRouteRef = useRef<RoutePoint[]>([]);
   const fullShopToBuyerRouteRef = useRef<RoutePoint[]>([]);
+  const polylinesRenderedRef = useRef<boolean>(false);
+  const renderRolePolylinesRef = useRef<any>(null);
 
   // State
   const [loading, setLoading] = useState(true);
@@ -520,13 +528,17 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     dLat?: number,
     dLng?: number
   ) => {
+    const finalShLat = shLat || locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+    const finalShLng = shLng || locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+    const finalDLat = dLat || locationDataRef.current?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+    const finalDLng = dLng || locationDataRef.current?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+    const finalSLat = sLat || currentRenderedPosRef.current?.lat || finalShLat;
+    const finalSLng = sLng || currentRenderedPosRef.current?.lng || finalShLng;
+
     // 🟠 CHẶNG 1: SHIPPER -> SHOP (ShopeeFood / Be style: #EA580C)
     // Visible for: SHIPPER and SHOP
-    if ((role === 'SHIPPER' || role === 'SHOP') && shLat && shLng) {
-      const fromLat = sLat || shLat;
-      const fromLng = sLng || shLng;
-
-      const points1 = await fetchRoutePoints(fromLat, fromLng, shLat, shLng);
+    if (role === 'SHIPPER' || role === 'SHOP') {
+      const points1 = await fetchRoutePoints(finalSLat, finalSLng, finalShLat, finalShLng);
       fullShipperToShopRouteRef.current = points1;
 
       // Google Maps
@@ -540,6 +552,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           strokeColor: '#EA580C', // Cam ShopeeFood
           strokeOpacity: 0.9,
           strokeWeight: 6,
+          zIndex: 100,
           map: googleMapRef.current,
         });
       }
@@ -562,8 +575,8 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
     // 🟢 CHẶNG 2: SHOP -> BUYER (Grab / ShopeeFood style: #00B14F)
     // Visible for: SHIPPER and BUYER
-    if ((role === 'SHIPPER' || role === 'BUYER') && shLat && shLng && dLat && dLng) {
-      const points2 = await fetchRoutePoints(shLat, shLng, dLat, dLng);
+    if (role === 'SHIPPER' || role === 'BUYER') {
+      const points2 = await fetchRoutePoints(finalShLat, finalShLng, finalDLat, finalDLng);
       fullShopToBuyerRouteRef.current = points2;
 
       // Google Maps
@@ -577,6 +590,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           strokeColor: '#00B14F', // Xanh Grab Delivery
           strokeOpacity: 0.95,
           strokeWeight: 6,
+          zIndex: 100,
           map: googleMapRef.current,
         });
       }
@@ -596,7 +610,9 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         ).addTo(leafletMapRef.current);
       }
     }
+    polylinesRenderedRef.current = true;
   };
+  renderRolePolylinesRef.current = renderRolePolylines;
 
   // Fetch initial location from REST
   const fetchInitialLocation = useCallback(async () => {
@@ -629,12 +645,12 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       }
 
       const activeData = overrideData || locationDataRef.current;
-      const shLat = activeData?.shopLatitude || initialShopLat || 10.7769;
-      const shLng = activeData?.shopLongitude || initialShopLng || 106.7009;
-      const dLat = activeData?.destinationLatitude || initialDestLat;
-      const dLng = activeData?.destinationLongitude || initialDestLng;
-      const sLat = activeData?.latitude || shLat;
-      const sLng = activeData?.longitude || shLng;
+      const shLat = activeData?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+      const shLng = activeData?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+      const dLat = activeData?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+      const dLng = activeData?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+      const sLat = activeData?.latitude || currentRenderedPosRef.current?.lat || shLat;
+      const sLng = activeData?.longitude || currentRenderedPosRef.current?.lng || shLng;
 
       const map = L.map(mapRef.current, {
         center: [sLat, sLng],
@@ -736,12 +752,12 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         }
 
         const activeData = fetchedData || locationDataRef.current;
-        const shLat = activeData?.shopLatitude || initialShopLat;
-        const shLng = activeData?.shopLongitude || initialShopLng;
-        const dLat = activeData?.destinationLatitude || initialDestLat;
-        const dLng = activeData?.destinationLongitude || initialDestLng;
-        const sLat = activeData?.latitude || shLat || 10.7769;
-        const sLng = activeData?.longitude || shLng || 106.7009;
+        const shLat = activeData?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+        const shLng = activeData?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+        const dLat = activeData?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+        const dLng = activeData?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+        const sLat = activeData?.latitude || currentRenderedPosRef.current?.lat || shLat;
+        const sLng = activeData?.longitude || currentRenderedPosRef.current?.lng || shLng;
 
         const defaultCenter = { lat: sLat, lng: sLng };
 
@@ -849,6 +865,15 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
               // Trigger 60FPS marker movement
               startMarkerAnimationRef.current(newLat, newLng);
+
+              // Render polylines if not rendered yet
+              if (!polylinesRenderedRef.current && renderRolePolylinesRef.current) {
+                const activeShLat = body.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+                const activeShLng = body.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+                const activeDLat = body.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+                const activeDLng = body.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+                renderRolePolylinesRef.current(newLat, newLng, activeShLat, activeShLng, activeDLat, activeDLng);
+              }
             }
 
             setLocationData((prev) => ({
