@@ -155,7 +155,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   }, []);
 
   // ---- Gửi vị trí qua WebSocket ----
-  const sendLocation = useCallback((lat: number, lng: number) => {
+  const sendLocation = useCallback((lat: number, lng: number, deliveryPhase: string = 'TO_SHOP') => {
     const client = stompClientRef.current;
     if (!client?.connected) return;
     client.publish({
@@ -165,12 +165,13 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
         latitude: lat,
         longitude: lng,
         isFake: true, // ✅ Tracking dùng flag này để biết cắt đường hay không
+        deliveryPhase,
       }),
     });
   }, [orderId]);
 
   // ---- Chạy route theo từng bước ----
-  const runRoute = useCallback((route: RoutePoint[], phaseLabel: string, onDone: () => void) => {
+  const runRoute = useCallback((route: RoutePoint[], phaseLabel: string, deliveryPhase: string, onDone: () => void) => {
     routeRef.current = route;
     stepIndexRef.current = 0;
     const total = route.length;
@@ -185,7 +186,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
 
       const point = route[idx];
       setCurrentPos(point);
-      sendLocation(point.lat, point.lng);
+      sendLocation(point.lat, point.lng, deliveryPhase);
       setProgress(Math.round((idx / (total - 1)) * 100));
       setStepInfo(`${phaseLabel} • Bước ${idx + 1}/${total}`);
       stepIndexRef.current++;
@@ -216,27 +217,29 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
 
       // ✅ Gửi vị trí xuất phát TRƯỚC để Tracking vẽ route từ đúng điểm này
       // Đợi 1.5 giây để Tracking có thời gian fetch và vẽ route xong
-      sendLocation(startPoint.lat, startPoint.lng);
+      sendLocation(startPoint.lat, startPoint.lng, 'TO_SHOP');
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // 3. Phase 1: Shipper → Shop
       setPhase('to_shop');
       setCurrentPos(startPoint);
-      sendLocation(startPoint.lat, startPoint.lng);
+      sendLocation(startPoint.lat, startPoint.lng, 'TO_SHOP');
 
-      runRoute(route1, '🏪 Đến shop lấy hàng', () => {
+      runRoute(route1, '🏪 Đến shop lấy hàng', 'TO_SHOP', () => {
         // Dừng 2 giây tại shop
         setPhase('at_shop');
         setStepInfo('🏪 Đang lấy hàng tại shop...');
         setProgress(0);
+        sendLocation(shopLat, shopLng, 'AT_SHOP');
 
         setTimeout(() => {
           // 4. Phase 2: Shop → Nhà buyer
           setPhase('to_buyer');
-          runRoute(route2, '🏠 Giao hàng đến nhà', () => {
+          runRoute(route2, '🏠 Giao hàng đến nhà', 'TO_BUYER', () => {
             setPhase('done');
             setStepInfo('✅ Đã giao hàng thành công!');
             setProgress(100);
+            sendLocation(destLat, destLng, 'DELIVERED');
           });
         }, 2000);
       });

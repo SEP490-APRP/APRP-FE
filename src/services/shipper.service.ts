@@ -15,6 +15,9 @@ export interface AvailableOrderResponse {
   shippingLatitude?: number
   shippingLongitude?: number
   distanceKm?: number
+  shipToShopKm?: number
+  shopToBuyerKm?: number
+  totalKm?: number
   totalAmount?: number
   codAmount?: number
   codPrepaidAmount?: number
@@ -180,6 +183,7 @@ export const shipperService = freshResponses({
           shippingAddress: o.shippingAddress,
           shippingLatitude: o.shippingLatitude ?? 10.848,
           shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           codPrepaidAmount: o.codPrepaidAmount ?? 0,
@@ -237,9 +241,14 @@ export const shipperService = freshResponses({
           orderCode: `ORDER-${o.orderId}`,
           shopName: o.shopName,
           shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          shopLatitude: o.shopLatitude ?? 10.845,
+          shopLongitude: o.shopLongitude ?? 106.775,
           recipientName: o.recipientName,
           recipientPhone: o.recipientPhone,
           shippingAddress: o.shippingAddress,
+          shippingLatitude: o.shippingLatitude ?? 10.848,
+          shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           shippingFee: o.shippingFee,
@@ -271,9 +280,14 @@ export const shipperService = freshResponses({
           status: o.status,
           shopName: o.shopName,
           shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          shopLatitude: o.shopLatitude ?? 10.845,
+          shopLongitude: o.shopLongitude ?? 106.775,
           recipientName: o.recipientName,
           recipientPhone: o.recipientPhone,
           shippingAddress: o.shippingAddress,
+          shippingLatitude: o.shippingLatitude ?? 10.848,
+          shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           shippingFee: o.shippingFee,

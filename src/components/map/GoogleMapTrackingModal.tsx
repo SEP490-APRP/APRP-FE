@@ -31,6 +31,7 @@ interface ShipperLocationPayload {
   orderStatus?: string;
   isFake?: boolean;
   gpsOff?: boolean;
+  deliveryPhase?: string;
 }
 
 interface GoogleMapTrackingModalProps {
@@ -283,9 +284,64 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     });
   };
 
-  // Helper: Pan map smoothly without flooding
+  // Helper: check if Shipper is visible for the role at current phase
+  const isShipperVisibleForRole = (
+    currentRole: string,
+    phase?: string,
+    curLat?: number,
+    curLng?: number
+  ): boolean => {
+    if (currentRole === 'SHIPPER') return true;
+
+    let effPhase = phase;
+    if (!effPhase && curLat && curLng) {
+      const shLat = locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+      const shLng = locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+      const distToShop = Math.hypot(curLat - shLat, curLng - shLng);
+      const dLat = locationDataRef.current?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+      const dLng = locationDataRef.current?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+      const distToDest = Math.hypot(curLat - dLat, curLng - dLng);
+      const shopToDest = Math.hypot(shLat - dLat, shLng - dLng);
+
+      if (distToShop <= 0.001) {
+        effPhase = 'AT_SHOP';
+      } else if (distToDest < shopToDest * 0.95 && distToShop > 0.002) {
+        effPhase = 'TO_BUYER';
+      } else {
+        effPhase = 'TO_SHOP';
+      }
+    }
+    if (!effPhase) effPhase = 'TO_SHOP';
+
+    if (currentRole === 'SHOP') {
+      // Shop only sees shipper when shipper is moving to shop or at shop
+      return effPhase === 'TO_SHOP' || effPhase === 'AT_SHOP';
+    }
+
+    if (currentRole === 'BUYER') {
+      // Buyer only sees shipper once shipper has collected goods and is heading to buyer
+      return effPhase === 'TO_BUYER' || effPhase === 'DELIVERED';
+    }
+
+    return true;
+  };
+
+  // Helper: Safely hide or remove Shipper Marker from map
+  const hideShipperMarker = () => {
+    if (!isFallbackModeRef.current && shipperMarkerRef.current && window.google?.maps) {
+      shipperMarkerRef.current.setMap(null);
+    } else if (isFallbackModeRef.current && shipperMarkerRef.current && leafletMapRef.current) {
+      leafletMapRef.current.removeLayer(shipperMarkerRef.current);
+      shipperMarkerRef.current = null;
+    }
+  };
+
+  // Helper: Pan map smoothly without flooding (ONLY when shipper is visible for role)
   const safelyPanTo = (lat: number, lng: number) => {
     if (!followShipperRef.current || userInteractingRef.current) return;
+    const curPhase = locationDataRef.current?.deliveryPhase;
+    if (!isShipperVisibleForRole(role, curPhase, lat, lng)) return;
+
     const now = performance.now();
     if (now - lastPanTimeRef.current < 800) return; // throttle 800ms
     lastPanTimeRef.current = now;
@@ -365,11 +421,33 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
   // Dynamic delivery journey text based on vehicle distance and role (Grab / Shopee style)
   const getJourneyStatus = () => {
+    const curPhase = locationDataRef.current?.deliveryPhase;
     const curPos = currentRenderedPosRef.current;
-    const shLat = locationDataRef.current?.shopLatitude || initialShopLat;
-    const shLng = locationDataRef.current?.shopLongitude || initialShopLng;
-    const dLat = locationDataRef.current?.destinationLatitude || initialDestLat;
-    const dLng = locationDataRef.current?.destinationLongitude || initialDestLng;
+    const shLat = locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+    const shLng = locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+    const dLat = locationDataRef.current?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+    const dLng = locationDataRef.current?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+
+    if (curPhase === 'TO_SHOP') {
+      if (role === 'SHOP') return '🛵 Shipper đang trên đường đến quán lấy hàng';
+      if (role === 'BUYER') return '🏪 Tài xế đang đến quán nhận hàng (Bản đồ sẽ bám theo xe khi tài xế rời quán)';
+      return '🛵 Bạn đang di chuyển đến quán lấy hàng';
+    }
+    if (curPhase === 'AT_SHOP') {
+      if (role === 'SHOP') return '🏪 Shipper đã tới quán! Đang nhận hàng';
+      if (role === 'BUYER') return '🏪 Tài xế đang kiểm tra và nhận món tại quán';
+      return '🏪 Bạn đã tới quán! Đang nhận hàng';
+    }
+    if (curPhase === 'TO_BUYER') {
+      if (role === 'SHOP') return '✅ Shipper đã nhận hàng và đang trên đường giao đến khách';
+      if (role === 'BUYER') return '🚀 Tài xế đã lấy món và đang trên đường giao đến bạn';
+      return '🏠 Bạn đang di chuyển giao hàng đến khách';
+    }
+    if (curPhase === 'DELIVERED') {
+      if (role === 'SHOP') return '🎉 Đơn hàng đã được giao thành công!';
+      if (role === 'BUYER') return '🎉 Đơn hàng đã được giao đến bạn thành công!';
+      return '🎉 Bạn đã giao hàng thành công!';
+    }
 
     if (!curPos || !shLat || !shLng) return 'Đang đồng bộ lộ trình...';
 
@@ -379,26 +457,33 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     // Approaching shop
     if (distToShop > 0.0015 && distToShop >= distToDest * 0.7) {
       if (role === 'SHOP') return '🛵 Shipper đang trên đường đến quán lấy hàng';
-      if (role === 'BUYER') return '🛵 Shipper đang di chuyển đến quán lấy hàng';
+      if (role === 'BUYER') return '🏪 Tài xế đang đến quán lấy hàng (Bản đồ sẽ bám theo xe khi tài xế rời quán)';
       return '🛵 Bạn đang di chuyển đến quán lấy hàng';
     }
 
     // At shop
     if (distToShop <= 0.0015) {
       if (role === 'SHOP') return '🏪 Shipper đã tới quán! Đang nhận hàng';
-      if (role === 'BUYER') return '🏪 Đang lấy hàng tại quán';
+      if (role === 'BUYER') return '🏪 Tài xế đang kiểm tra và nhận món tại quán';
       return '🏪 Bạn đã tới quán! Đang lấy hàng';
     }
 
     // Delivering to buyer
     if (role === 'SHOP') return '✅ Shipper đã rời quán và đang đi giao cho khách';
-    if (role === 'BUYER') return '🚀 Shipper đang trên đường giao hàng đến bạn';
+    if (role === 'BUYER') return '🚀 Tài xế đã lấy món và đang trên đường giao đến bạn';
     return '🏠 Bạn đang di chuyển giao hàng đến khách';
   };
 
-  // Ensure Shipper Marker exists on map
+  // Ensure Shipper Marker exists on map (only if visible for role)
   const ensureShipperMarker = (lat: number, lng: number, heading = 0) => {
     currentRenderedPosRef.current = { lat, lng };
+
+    const curPhase = locationDataRef.current?.deliveryPhase;
+    const isVisible = isShipperVisibleForRole(role, curPhase, lat, lng);
+    if (!isVisible) {
+      hideShipperMarker();
+      return;
+    }
 
     // Google Maps mode
     if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
@@ -411,6 +496,9 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           zIndex: 9999,
         });
       } else {
+        if (shipperMarkerRef.current.getMap() !== googleMapRef.current) {
+          shipperMarkerRef.current.setMap(googleMapRef.current);
+        }
         shipperMarkerRef.current.setPosition(new window.google.maps.LatLng(lat, lng));
       }
     }
@@ -435,6 +523,15 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     const startPos = currentRenderedPosRef.current || { lat: targetLat, lng: targetLng };
     const distLat = Math.abs(targetLat - startPos.lat);
     const distLng = Math.abs(targetLng - startPos.lng);
+
+    const curPhase = locationDataRef.current?.deliveryPhase;
+    const isVisible = isShipperVisibleForRole(role, curPhase, targetLat, targetLng);
+
+    if (!isVisible) {
+      hideShipperMarker();
+      currentRenderedPosRef.current = { lat: targetLat, lng: targetLng };
+      return;
+    }
 
     // If marker not on map yet, create immediately
     ensureShipperMarker(startPos.lat, startPos.lng, currentHeadingRef.current);
@@ -468,38 +565,48 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       const curLng = startPos.lng + (targetLng - startPos.lng) * easeProgress;
       currentRenderedPosRef.current = { lat: curLat, lng: curLng };
 
-      // 1. Update in Google Maps
-      if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
-        if (!shipperMarkerRef.current) {
-          ensureShipperMarker(curLat, curLng, currentHeadingRef.current);
-        } else {
-          const gLatLng = new window.google.maps.LatLng(curLat, curLng);
-          shipperMarkerRef.current.setPosition(gLatLng);
+      const activePhase = locationDataRef.current?.deliveryPhase;
+      const currentlyVisible = isShipperVisibleForRole(role, activePhase, curLat, curLng);
 
-          // Update icon rotation only when angle changed significantly
-          if (Math.abs(currentHeadingRef.current - lastIconUpdateHeading) > 10) {
-            shipperMarkerRef.current.setIcon(createGoogleShipperIcon(currentHeadingRef.current));
-            lastIconUpdateHeading = currentHeadingRef.current;
+      if (!currentlyVisible) {
+        hideShipperMarker();
+      } else {
+        // 1. Update in Google Maps
+        if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
+          if (!shipperMarkerRef.current) {
+            ensureShipperMarker(curLat, curLng, currentHeadingRef.current);
+          } else {
+            if (shipperMarkerRef.current.getMap() !== googleMapRef.current) {
+              shipperMarkerRef.current.setMap(googleMapRef.current);
+            }
+            const gLatLng = new window.google.maps.LatLng(curLat, curLng);
+            shipperMarkerRef.current.setPosition(gLatLng);
+
+            // Update icon rotation only when angle changed significantly
+            if (Math.abs(currentHeadingRef.current - lastIconUpdateHeading) > 10) {
+              shipperMarkerRef.current.setIcon(createGoogleShipperIcon(currentHeadingRef.current));
+              lastIconUpdateHeading = currentHeadingRef.current;
+            }
           }
         }
-      }
 
-      // 2. Update in Leaflet
-      if (isFallbackModeRef.current && leafletMapRef.current) {
-        if (!shipperMarkerRef.current) {
-          ensureShipperMarker(curLat, curLng, currentHeadingRef.current);
-        } else {
-          shipperMarkerRef.current.setLatLng([curLat, curLng]);
+        // 2. Update in Leaflet
+        if (isFallbackModeRef.current && leafletMapRef.current) {
+          if (!shipperMarkerRef.current) {
+            ensureShipperMarker(curLat, curLng, currentHeadingRef.current);
+          } else {
+            shipperMarkerRef.current.setLatLng([curLat, curLng]);
 
-          if (Math.abs(currentHeadingRef.current - lastIconUpdateHeading) > 10) {
-            shipperMarkerRef.current.setIcon(createLeafletShipperIcon(currentHeadingRef.current));
-            lastIconUpdateHeading = currentHeadingRef.current;
+            if (Math.abs(currentHeadingRef.current - lastIconUpdateHeading) > 10) {
+              shipperMarkerRef.current.setIcon(createLeafletShipperIcon(currentHeadingRef.current));
+              lastIconUpdateHeading = currentHeadingRef.current;
+            }
           }
         }
-      }
 
-      // 3. Pan map throttled
-      safelyPanTo(curLat, curLng);
+        // 3. Pan map throttled (ONLY if visible for role)
+        safelyPanTo(curLat, curLng);
+      }
 
       // 4. Update polyline tail
       updateShipperToShopPolyline(curLat, curLng);
@@ -702,16 +809,25 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           .bindPopup(`<b>🏠 Điểm nhận hàng của khách</b><br/>${activeData?.destinationAddress || ''}`);
       }
 
-      // Shipper Marker
-      bounds.push([sLat, sLng]);
+      // Shipper Marker (Only show if visible for role)
+      const activePhase = activeData?.deliveryPhase;
+      const isShipperVisible = isShipperVisibleForRole(role, activePhase, sLat, sLng);
       currentRenderedPosRef.current = { lat: sLat, lng: sLng };
-      ensureShipperMarker(sLat, sLng, currentHeadingRef.current);
+
+      if (isShipperVisible) {
+        bounds.push([sLat, sLng]);
+        ensureShipperMarker(sLat, sLng, currentHeadingRef.current);
+      } else {
+        hideShipperMarker();
+      }
 
       // Render Polylines
       await renderRolePolylines(sLat, sLng, shLat, shLng, dLat, dLng);
 
-      if (bounds.length > 0) {
+      if (bounds.length > 1) {
         map.fitBounds(bounds, { padding: [50, 50] });
+      } else if (bounds.length === 1) {
+        map.setView(bounds[0], 15);
       }
 
       setTimeout(() => {
@@ -810,15 +926,28 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           });
         }
 
-        // Shipper Marker
-        bounds.extend({ lat: sLat, lng: sLng });
-        ensureShipperMarker(sLat, sLng, currentHeadingRef.current);
+        // Shipper Marker (Only show if visible for role)
+        const activePhase = activeData?.deliveryPhase;
+        const isShipperVisible = isShipperVisibleForRole(role, activePhase, sLat, sLng);
+        currentRenderedPosRef.current = { lat: sLat, lng: sLng };
+
+        if (isShipperVisible) {
+          bounds.extend({ lat: sLat, lng: sLng });
+          ensureShipperMarker(sLat, sLng, currentHeadingRef.current);
+        } else {
+          hideShipperMarker();
+        }
 
         // Render Polylines
         await renderRolePolylines(sLat, sLng, shLat, shLng, dLat, dLng);
 
         if (!bounds.isEmpty()) {
-          map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+          if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+            map.setCenter(bounds.getNorthEast());
+            map.setZoom(15);
+          } else {
+            map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+          }
         }
 
         setLoading(false);
@@ -858,6 +987,15 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
               setIsGpsPaused(false);
             }
 
+            setLocationData((prev) => ({
+              ...prev,
+              ...body,
+            }));
+            locationDataRef.current = {
+              ...locationDataRef.current,
+              ...body,
+            };
+
             if (body.latitude && body.longitude) {
               const newLat = body.latitude;
               const newLng = body.longitude;
@@ -875,15 +1013,6 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
                 renderRolePolylinesRef.current(newLat, newLng, activeShLat, activeShLng, activeDLat, activeDLng);
               }
             }
-
-            setLocationData((prev) => ({
-              ...prev,
-              ...body,
-            }));
-            locationDataRef.current = {
-              ...locationDataRef.current,
-              ...body,
-            };
           } catch (e) {
             console.error('Error parsing WS message:', e);
           }
@@ -939,13 +1068,14 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       fetchRoutePoints(shLat, shLng, dLat, dLng),
     ]);
 
-    const sendPoint = (pt: RoutePoint) => {
+    const sendPoint = (pt: RoutePoint, phase: string) => {
       client.publish({
         destination: '/app/shipper/location',
         body: JSON.stringify({
           orderId,
           latitude: pt.lat,
           longitude: pt.lng,
+          deliveryPhase: phase,
           isFake: true,
         }),
       });
@@ -958,12 +1088,13 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     fakeGpsIntervalRef.current = setInterval(() => {
       if (stepIdx < route1.length) {
         const pt = route1[stepIdx];
-        sendPoint(pt);
+        sendPoint(pt, 'TO_SHOP');
         setFakeGpsProgress(Math.round((stepIdx / (route1.length + route2.length)) * 100));
         stepIdx++;
       } else if (stepIdx === route1.length) {
         // At shop
         setFakeGpsPhaseText('🏪 Đã tới shop! Đang nhận hàng...');
+        sendPoint({ lat: shLat, lng: shLng }, 'AT_SHOP');
         stepIdx++;
       } else {
         // Phase 2: To Buyer
@@ -971,7 +1102,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         if (p2Idx < route2.length) {
           setFakeGpsPhaseText('🏠 Đang giao hàng đến khách');
           const pt = route2[p2Idx];
-          sendPoint(pt);
+          sendPoint(pt, 'TO_BUYER');
           setFakeGpsProgress(Math.round(((stepIdx) / (route1.length + route2.length)) * 100));
           stepIdx++;
         } else {
@@ -980,23 +1111,54 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           setFakeGpsRunning(false);
           setFakeGpsProgress(100);
           setFakeGpsPhaseText('✅ Đã giao hàng thành công!');
+          sendPoint({ lat: dLat, lng: dLng }, 'DELIVERED');
         }
       }
     }, fakeGpsSpeed * 1000);
   };
 
-  // Center on shipper & re-lock follow mode
+  // Center on shipper & re-lock follow mode (respects role visibility)
   const handleCenterOnShipper = () => {
     userInteractingRef.current = false;
     followShipperRef.current = true;
     setFollowShipper(true);
 
-    if (!isFallbackModeRef.current && googleMapRef.current && currentRenderedPosRef.current && window.google?.maps) {
-      googleMapRef.current.panTo(new window.google.maps.LatLng(currentRenderedPosRef.current.lat, currentRenderedPosRef.current.lng));
-      googleMapRef.current.setZoom(16);
-    }
-    if (isFallbackModeRef.current && leafletMapRef.current && currentRenderedPosRef.current) {
-      leafletMapRef.current.setView([currentRenderedPosRef.current.lat, currentRenderedPosRef.current.lng], 16);
+    const curPhase = locationDataRef.current?.deliveryPhase;
+    const curPos = currentRenderedPosRef.current;
+    const isVisible = isShipperVisibleForRole(role, curPhase, curPos?.lat, curPos?.lng);
+
+    const shLat = locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
+    const shLng = locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
+    const dLat = locationDataRef.current?.destinationLatitude || initialDestLat || DEFAULT_DEST_LAT;
+    const dLng = locationDataRef.current?.destinationLongitude || initialDestLng || DEFAULT_DEST_LNG;
+
+    if (isVisible && curPos) {
+      if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
+        googleMapRef.current.panTo(new window.google.maps.LatLng(curPos.lat, curPos.lng));
+        googleMapRef.current.setZoom(16);
+      }
+      if (isFallbackModeRef.current && leafletMapRef.current) {
+        leafletMapRef.current.setView([curPos.lat, curPos.lng], 16);
+      }
+    } else {
+      // Shipper is invisible for this role: focus on role's relevant area
+      if (role === 'BUYER') {
+        if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
+          const bounds = new window.google.maps.LatLngBounds();
+          bounds.extend({ lat: shLat, lng: shLng });
+          bounds.extend({ lat: dLat, lng: dLng });
+          googleMapRef.current.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 });
+        } else if (isFallbackModeRef.current && leafletMapRef.current) {
+          leafletMapRef.current.fitBounds([[shLat, shLng], [dLat, dLng]], { padding: [60, 60] });
+        }
+      } else {
+        if (!isFallbackModeRef.current && googleMapRef.current && window.google?.maps) {
+          googleMapRef.current.panTo(new window.google.maps.LatLng(shLat, shLng));
+          googleMapRef.current.setZoom(16);
+        } else if (isFallbackModeRef.current && leafletMapRef.current) {
+          leafletMapRef.current.setView([shLat, shLng], 16);
+        }
+      }
     }
   };
 
@@ -1237,7 +1399,13 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
               }`}
             >
               <span className={`size-2.5 rounded-full ${followShipper ? 'bg-white animate-pulse' : 'bg-emerald-500'}`} />
-              <span>{followShipper ? '🎯 Đang bám theo xe' : '🎯 Bấm để bám theo xe'}</span>
+              <span>
+                {followShipper
+                  ? isShipperVisibleForRole(role, locationData?.deliveryPhase, currentRenderedPosRef.current?.lat, currentRenderedPosRef.current?.lng)
+                    ? '🎯 Đang bám theo xe'
+                    : '🎯 Đang theo dõi tuyến'
+                  : '🎯 Bấm để bám theo xe'}
+              </span>
             </button>
 
             <button
@@ -1245,7 +1413,13 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
               className="flex items-center gap-2 px-3.5 py-2 rounded-2xl shadow-md border border-gray-200 bg-white/95 hover:bg-gray-50 text-gray-800 text-xs font-black backdrop-blur-md transition-all cursor-pointer"
             >
               <Navigation className="size-3.5 text-emerald-600" />
-              <span>Về vị trí xe</span>
+              <span>
+                {isShipperVisibleForRole(role, locationData?.deliveryPhase, currentRenderedPosRef.current?.lat, currentRenderedPosRef.current?.lng)
+                  ? 'Về vị trí xe'
+                  : role === 'BUYER'
+                  ? 'Xem tuyến Shop - Khách'
+                  : 'Về vị trí quán'}
+              </span>
             </button>
           </div>
 
@@ -1280,8 +1454,20 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
             )}
 
             <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600 pt-0.5">
-              <span className="size-2 rounded-full bg-emerald-500" />
-              <span>🛵 Vị trí xe {lastUpdated ? `(${lastUpdated})` : ''}</span>
+              <span
+                className={`size-2 rounded-full ${
+                  isShipperVisibleForRole(role, locationData?.deliveryPhase, currentRenderedPosRef.current?.lat, currentRenderedPosRef.current?.lng)
+                    ? 'bg-emerald-500'
+                    : 'bg-amber-500'
+                }`}
+              />
+              <span>
+                {isShipperVisibleForRole(role, locationData?.deliveryPhase, currentRenderedPosRef.current?.lat, currentRenderedPosRef.current?.lng)
+                  ? `🛵 Vị trí xe ${lastUpdated ? `(${lastUpdated})` : ''}`
+                  : role === 'BUYER'
+                  ? '⏳ Xe sẽ hiển thị khi tài xế lấy món rời quán'
+                  : '✅ Tài xế đã hoàn thành lấy hàng tại quán'}
+              </span>
             </div>
           </div>
         </div>

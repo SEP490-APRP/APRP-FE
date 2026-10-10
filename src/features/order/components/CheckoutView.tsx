@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
@@ -108,10 +108,16 @@ export const CheckoutView: React.FC = () => {
   const [saveToAddressBook, setSaveToAddressBook] = useState(true)
   const [checkoutAddressLabel, setCheckoutAddressLabel] = useState('Nhà')
 
-  // Autocomplete state
+  // Autocomplete state (form chính)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Autocomplete state (Modal Sổ địa chỉ)
+  const [modalSuggestions, setModalSuggestions] = useState<AddressSuggestion[]>([])
+  const [isSearchingModalSuggestions, setIsSearchingModalSuggestions] = useState(false)
+  const [showModalSuggestions, setShowModalSuggestions] = useState(false)
+  const isSelectingModalSuggestionRef = useRef(false)
 
   // Voucher state
   const [selectedVoucherCodes, setSelectedVoucherCodes] = useState<string[]>([])
@@ -204,6 +210,41 @@ export const CheckoutView: React.FC = () => {
     }
   }
 
+  // Lắng nghe thay đổi formAddress trong Modal để gợi ý Places Autocomplete
+  useEffect(() => {
+    if (isSelectingModalSuggestionRef.current) {
+      isSelectingModalSuggestionRef.current = false
+      return
+    }
+
+    if (!formAddress || formAddress.trim().length < 2) {
+      setModalSuggestions([])
+      setShowModalSuggestions(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingModalSuggestions(true)
+      try {
+        const list = await orderService.getAddressSuggestions(formAddress)
+        setModalSuggestions(list)
+        setShowModalSuggestions(list.length > 0)
+      } catch (err) {
+        console.error('Lỗi tìm gợi ý địa chỉ modal:', err)
+      } finally {
+        setIsSearchingModalSuggestions(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [formAddress])
+
+  const handleSelectModalSuggestion = (s: AddressSuggestion) => {
+    isSelectingModalSuggestionRef.current = true
+    setFormAddress(s.description)
+    setShowModalSuggestions(false)
+  }
+
   const handleSelectSavedAddress = (addr: SavedAddress) => {
     setSelectedAddressId(addr.id)
     setValue('recipientName', addr.recipientName, { shouldValidate: true })
@@ -235,6 +276,8 @@ export const CheckoutView: React.FC = () => {
     setFormPhone(addr.phone)
     setFormAddress(addr.address)
     setFormIsDefault(addr.isDefault)
+    setModalSuggestions([])
+    setShowModalSuggestions(false)
   }
 
   // Lưu chỉnh sửa địa chỉ (PUT /api/addresses/{id})
@@ -294,6 +337,8 @@ export const CheckoutView: React.FC = () => {
     setFormPhone(user?.phoneNumber || '')
     setFormAddress('')
     setFormIsDefault(savedAddresses.length === 0)
+    setModalSuggestions([])
+    setShowModalSuggestions(false)
   }
 
   // Lưu địa chỉ mới (POST /api/addresses)
@@ -1367,16 +1412,60 @@ export const CheckoutView: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-muted mb-1">
-                    Địa chỉ chi tiết <span className="text-red-500">*</span>
-                  </label>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-ink-muted">
+                      Địa chỉ chi tiết <span className="text-red-500">*</span>
+                    </label>
+                    {isSearchingModalSuggestions && (
+                      <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-normal">
+                        <Loader2 size={12} className="animate-spin" />
+                        Đang tìm gợi ý...
+                      </span>
+                    )}
+                  </div>
                   <Input
                     placeholder="Số nhà, đường, phường, quận, tỉnh/TP"
                     value={formAddress}
-                    onChange={(e) => setFormAddress(e.target.value)}
+                    onChange={(e) => {
+                      setFormAddress(e.target.value)
+                      setShowModalSuggestions(true)
+                    }}
+                    onFocus={() => {
+                      if (modalSuggestions.length > 0) setShowModalSuggestions(true)
+                    }}
+                    autoComplete="off"
                     required
                   />
+
+                  {/* Dropdown gợi ý địa chỉ trong Modal */}
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-emerald-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-gray-100 ring-1 ring-black/5 animate-in fade-in duration-150">
+                      <div className="p-2 bg-emerald-50/80 text-[11px] font-bold text-emerald-800 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span>📍</span>
+                          <span>Gợi ý địa chỉ từ Google Maps</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowModalSuggestions(false)}
+                          className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      {modalSuggestions.map((s, idx) => (
+                        <div
+                          key={s.placeId || idx}
+                          onClick={() => handleSelectModalSuggestion(s)}
+                          className="p-2.5 flex items-start gap-2.5 hover:bg-emerald-50/70 cursor-pointer text-xs text-ink transition-colors"
+                        >
+                          <MapPin size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 leading-relaxed font-medium">{s.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer pt-1">
