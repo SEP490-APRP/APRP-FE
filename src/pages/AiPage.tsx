@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import {
   Sparkles,
   UtensilsCrossed,
@@ -13,6 +13,7 @@ import {
   Info,
   ChefHat
 } from 'lucide-react'
+import aiHeroBanner from '../assets/ai-hero-banner.jpg'
 
 interface AiPageProps {
   onInfo?: (msg: string) => void
@@ -124,8 +125,43 @@ export default function AiPage({ onInfo }: AiPageProps) {
 
   return (
     <div className="w-full bg-[#fbf9f4] text-[#1c2216] min-h-screen pb-16 font-sans">
-      {/* 1. HERO HEADER: Bố cục 2 cột cân đối như Figma */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+      {/* 1. TOP CINEMATIC HERO BANNER: Đồng bộ hoàn toàn với FE_SAMPLE */}
+      <div className="relative w-full h-72 sm:h-84 md:h-96 lg:h-[380px] overflow-hidden flex items-center justify-center text-center shadow-lg">
+        <img
+          src={aiHeroBanner}
+          alt="Công nghệ AI kiểm định và phân loại nông sản CapNong"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-105 transition-transform duration-700"
+        />
+        {/* Dark Vignette Overlay for maximum readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/40" />
+
+        {/* Dynamic Title & Breadcrumb */}
+        <div className="relative z-10 flex flex-col items-center gap-3 px-4 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[#ffea79] text-xs font-bold uppercase tracking-wider shadow-sm">
+            <Sparkles size={13} />
+            <span>Hệ Thống 3 Công Nghệ AI Tiên Phong Cho Nông Nghiệp Việt</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg animate-fadeIn leading-tight">
+            Công Nghệ AI Cốt Lõi
+          </h1>
+
+          <p className="text-xs sm:text-sm md:text-base text-white/85 font-normal max-w-xl mx-auto leading-relaxed drop-shadow">
+            Minh bạch 100% chất lượng nông sản, hỗ trợ định giá tự động và gợi ý thực đơn thông minh cho mọi gia đình.
+          </p>
+
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/35 backdrop-blur-md border border-white/20 text-xs sm:text-sm text-white/90 font-medium mt-1 shadow-sm">
+            <a href="/" className="hover:text-[#ffea79] transition-colors">
+              Trang chủ
+            </a>
+            <span className="text-white/40">›</span>
+            <span className="text-[#ffea79] font-bold">Công nghệ AI</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. VALUE PROPOSITION: Khối giới thiệu 2 cột cân đối */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
           {/* Cột trái: Tiêu đề to đậm */}
           <div className="md:col-span-7">
