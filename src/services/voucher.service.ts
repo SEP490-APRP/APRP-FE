@@ -68,14 +68,36 @@ export const voucherService = {
   },
 
   // 11. Compatibility methods for storefront shop voucher queries
-  async getBuyerShopVouchers(shopId: number, _page = 0, _size = 10): Promise<{ result: { content: VoucherResponse[]; totalPages: number } }> {
+  async getBuyerShopVouchers(shopId: number, page = 0, size = 10): Promise<{ result: { content: VoucherResponse[]; totalPages: number } }> {
     const list = await this.getPublicVouchers()
-    const shopList = list.filter((v) => Number(v.shopId) === shopId || v.creatorRole === 'ADMIN')
-    return { result: { content: shopList, totalPages: 1 } }
+    const shopList = list.filter((voucher) => {
+      const isShopOwned = Number(voucher.shopId) === Number(shopId)
+      const isShopScope = voucher.voucherScope === 'SHOP' || voucher.creatorRole === 'SHOP'
+      const isPlatformScope = voucher.voucherScope === 'PLATFORM' || voucher.creatorRole === 'ADMIN'
+      return isShopOwned || (isShopScope && isShopOwned) || (isPlatformScope && !isShopOwned)
+    })
+    const start = page * size
+    const end = start + size
+    const paged = shopList.slice(start, end)
+    return {
+      result: {
+        content: paged,
+        totalPages: Math.max(1, Math.ceil(shopList.length / Math.max(size, 1))),
+      },
+    }
   },
 
-  async canReceiveVoucher(_voucherCode: string): Promise<{ result: boolean }> {
-    return { result: true }
+  async canReceiveVoucher(voucherCode: string): Promise<{ result: boolean }> {
+    try {
+      const myVouchers = await this.getMyVouchers()
+      const normalized = voucherCode.trim().toUpperCase()
+      const alreadyOwned = myVouchers.some(
+        (voucher) => voucher.voucherCode?.trim().toUpperCase() === normalized,
+      )
+      return { result: !alreadyOwned }
+    } catch {
+      return { result: true }
+    }
   },
 
   async receiveVoucher(voucherCode: string): Promise<void> {

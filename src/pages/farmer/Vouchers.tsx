@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle } from 'lucide-react'
-import { voucherService, type VoucherResponse, type VoucherCreateRequest, type VoucherType } from '@/services'
+import {
+  voucherService,
+  type VoucherResponse,
+  type VoucherCreateRequest,
+  type VoucherType,
+  type VoucherScope,
+  type VoucherTarget,
+} from '@/services'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -20,6 +27,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
   // Form State
   const [voucherCode, setVoucherCode] = useState('')
   const [voucherType, setVoucherType] = useState<VoucherType>('FIXED_AMOUNT')
+  const [voucherTarget, setVoucherTarget] = useState<VoucherTarget>('ORDER')
   const [discountValue, setDiscountValue] = useState<number>(10000)
   const [maxDiscount, setMaxDiscount] = useState<number | undefined>(undefined)
   const [minOrderValue, setMinOrderValue] = useState<number>(50000)
@@ -73,6 +81,8 @@ export default function Vouchers({ onInfo }: VouchersProps) {
       const payload: VoucherCreateRequest = {
         voucherCode: voucherCode.trim().toUpperCase(),
         voucherType,
+        voucherScope: 'SHOP',
+        voucherTarget: voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget,
         discountValue: Number(discountValue),
         maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
         minOrderValue: Number(minOrderValue),
@@ -176,6 +186,18 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       <h4 className="text-base font-black text-[#1c2216] font-mono tracking-wide">
                         {vc.voucherCode}
                       </h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        Voucher Shop
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING' ? 'Freeship Shop' : 'Đơn hàng'}
+                      </span>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           isActive
@@ -273,20 +295,42 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                 />
               </div>
 
-              {/* Loại giảm giá */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Loại giảm giá
-                </label>
-                <select
-                  value={voucherType}
-                  onChange={(e) => setVoucherType(e.target.value as VoucherType)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#326318]"
-                >
-                  <option value="FIXED_AMOUNT">Số tiền cố định (VNĐ)</option>
-                  <option value="PERCENTAGE">Phần trăm (%)</option>
-                  <option value="FREE_SHIPPING">Miễn phí vận chuyển (Freeship)</option>
-                </select>
+              {/* Loại giảm giá & Mục tiêu áp dụng */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Loại giảm giá
+                  </label>
+                  <select
+                    value={voucherType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as VoucherType
+                      setVoucherType(nextType)
+                      if (nextType === 'FREE_SHIPPING') {
+                        setVoucherTarget('SHIPPING')
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#326318]"
+                  >
+                    <option value="FIXED_AMOUNT">Số tiền cố định (VNĐ)</option>
+                    <option value="PERCENTAGE">Phần trăm (%)</option>
+                    <option value="FREE_SHIPPING">Miễn phí vận chuyển (Freeship)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Mục tiêu áp dụng
+                  </label>
+                  <select
+                    value={voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget}
+                    disabled={voucherType === 'FREE_SHIPPING'}
+                    onChange={(e) => setVoucherTarget(e.target.value as VoucherTarget)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#326318] disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    <option value="ORDER">Đơn hàng tại Shop (ORDER)</option>
+                    <option value="SHIPPING">Phí vận chuyển Shop (SHIPPING)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Giá trị giảm & Tối đa */}

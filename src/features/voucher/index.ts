@@ -1,5 +1,6 @@
 export {
   type ShopVoucherPage,
+  useMyVouchers,
   useReceiveVoucher,
   useShopVouchers,
   voucherKeys,

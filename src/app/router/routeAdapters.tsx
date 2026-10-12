@@ -25,6 +25,7 @@ const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
 const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
+const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 
 const DEFAULT_PRODUCT_ID = '701'
@@ -150,6 +151,18 @@ export function ShopVouchersRoute() {
         <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
       </Suspense>
     </div>
+  )
+}
+
+export function MyVouchersRoute() {
+  return (
+    <RequireRole roles={['buyer', 'shop', 'admin']} audience="khách mua hàng">
+      <div className="pt-6">
+        <Suspense fallback={<PageLoading />}>
+          <MyVouchersPage />
+        </Suspense>
+      </div>
+    </RequireRole>
   )
 }
 

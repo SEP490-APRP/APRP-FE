@@ -104,6 +104,7 @@ export interface ShopOrderPreview {
   voucherDiscount: number
   totalAmount: number
   items: OrderItem[]
+  voucherDiscountsDetail?: Record<string, number>
 }
 
 /** Request xem trước đơn hàng (tính phí, voucher...) */
@@ -120,6 +121,7 @@ export interface CheckoutPreviewResponse {
   totalGoodsAmount?: number
   totalShippingFee?: number
   totalVoucherDiscount?: number
+  voucherDiscountsDetail?: Record<string, number>
   finalTotalAmount?: number
   // Aliases backward compatible
   subtotal?: number

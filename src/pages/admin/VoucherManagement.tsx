@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Gift, Loader2, Power, X, Ticket, RefreshCw, AlertCircle } from 'lucide-react'
-import { voucherService, type VoucherResponse, type VoucherCreateRequest, type VoucherType } from '@/services'
+import { Plus, Gift, Loader2, Power, X, Ticket, RefreshCw, AlertCircle, Layers, Target } from 'lucide-react'
+import {
+  voucherService,
+  type VoucherResponse,
+  type VoucherCreateRequest,
+  type VoucherType,
+  type VoucherScope,
+  type VoucherTarget,
+} from '@/services'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -15,6 +22,8 @@ export default function VoucherManagement() {
   // Form State
   const [voucherCode, setVoucherCode] = useState('')
   const [voucherType, setVoucherType] = useState<VoucherType>('FIXED_AMOUNT')
+  const [voucherScope, setVoucherScope] = useState<VoucherScope>('PLATFORM')
+  const [voucherTarget, setVoucherTarget] = useState<VoucherTarget>('ORDER')
   const [discountValue, setDiscountValue] = useState<number>(30000)
   const [maxDiscount, setMaxDiscount] = useState<number | undefined>(undefined)
   const [minOrderValue, setMinOrderValue] = useState<number>(100000)
@@ -67,6 +76,8 @@ export default function VoucherManagement() {
       const payload: VoucherCreateRequest = {
         voucherCode: voucherCode.trim().toUpperCase(),
         voucherType,
+        voucherScope,
+        voucherTarget: voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget,
         discountValue: Number(discountValue),
         maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
         minOrderValue: Number(minOrderValue),
@@ -171,14 +182,34 @@ export default function VoucherManagement() {
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
                     <span className="font-black text-base font-mono text-purple-900 tracking-wide">
                       {vc.voucherCode}
                     </span>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        vc.voucherScope === 'WELCOME'
+                          ? 'bg-pink-100 text-pink-700'
+                          : vc.voucherScope === 'SYSTEM'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-purple-100 text-purple-800'
+                      }`}
+                    >
+                      {vc.voucherScope === 'WELCOME' ? 'Chào mừng' : vc.voucherScope === 'SYSTEM' ? 'Hệ thống' : 'Toàn sàn'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                          ? 'bg-teal-100 text-teal-700'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING' ? 'Freeship' : 'Đơn hàng'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${
                         isActive
-                          ? 'bg-purple-100 text-purple-800'
+                          ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-gray-200 text-gray-600'
                       }`}
                     >
@@ -277,13 +308,50 @@ export default function VoucherManagement() {
                 </label>
                 <select
                   value={voucherType}
-                  onChange={(e) => setVoucherType(e.target.value as VoucherType)}
+                  onChange={(e) => {
+                    const nextType = e.target.value as VoucherType
+                    setVoucherType(nextType)
+                    if (nextType === 'FREE_SHIPPING') {
+                      setVoucherTarget('SHIPPING')
+                    }
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600"
                 >
                   <option value="FIXED_AMOUNT">Số tiền cố định (VNĐ)</option>
                   <option value="PERCENTAGE">Phần trăm (%)</option>
                   <option value="FREE_SHIPPING">Miễn phí vận chuyển (Freeship toàn sàn)</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Phạm vi voucher
+                  </label>
+                  <select
+                    value={voucherScope}
+                    onChange={(e) => setVoucherScope(e.target.value as VoucherScope)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600"
+                  >
+                    <option value="PLATFORM">Toàn sàn (Platform)</option>
+                    <option value="WELCOME">Chào mừng khách mới (Welcome)</option>
+                    <option value="SYSTEM">Hệ thống / Đền bù (System)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Mục tiêu áp dụng
+                  </label>
+                  <select
+                    value={voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget}
+                    disabled={voucherType === 'FREE_SHIPPING'}
+                    onChange={(e) => setVoucherTarget(e.target.value as VoucherTarget)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600 disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    <option value="ORDER">Toàn bộ giỏ hàng (ORDER)</option>
+                    <option value="SHIPPING">Phí vận chuyển (SHIPPING)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
