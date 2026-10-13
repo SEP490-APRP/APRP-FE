@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   X, Navigation, Phone, Store, Home, RefreshCw, AlertCircle,
-  ExternalLink, Play, Square, FastForward, CheckCircle2, ChevronDown, ChevronUp
+  ExternalLink, Play, Square, FastForward, CheckCircle2, ChevronDown, ChevronUp,
+  Package, Loader2
 } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '@/services/api/axiosInstance';
+import { shipperService } from '@/services/shipper.service';
+import { globalShowAlert } from '@/components/common/Popup';
 import { getWebSocketUrl, TOKEN_KEY } from '@/services/api.config';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -43,6 +46,7 @@ interface GoogleMapTrackingModalProps {
   initialShopLng?: number;
   initialDestLat?: number;
   initialDestLng?: number;
+  onOrderUpdated?: () => void;
 }
 
 interface RoutePoint {
@@ -146,6 +150,21 @@ async function fetchRoutePoints(fromLat: number, fromLng: number, toLat: number,
     // Network or OSRM timeout -> Fallback to direct interpolated route
   }
   return createDirectRoute(fromLat, fromLng, toLat, toLng, 25);
+}
+
+// Tìm index của điểm gần nhất trên route với tọa độ hiện tại (Bảo toàn 100% hình dáng tuyến đường)
+function findClosestRouteIndex(points: RoutePoint[], curLat: number, curLng: number): number {
+  if (!points || points.length === 0) return 0;
+  let minDist = Infinity;
+  let bestIdx = 0;
+  for (let i = 0; i < points.length; i++) {
+    const d = (points[i].lat - curLat) ** 2 + (points[i].lng - curLng) ** 2;
+    if (d < minDist) {
+      minDist = d;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
 }
 
 // Google Maps script loader
@@ -262,6 +281,12 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   const [fakeGpsPhaseText, setFakeGpsPhaseText] = useState<string>('Sẵn sàng');
   const fakeGpsIntervalRef = useRef<any>(null);
 
+  // Checkpoint Action Modal / Banner cho Shipper (Dừng lại xác nhận tại Shop & Buyer)
+  const [checkpointAction, setCheckpointAction] = useState<'NONE' | 'AT_SHOP' | 'AT_BUYER'>('NONE');
+  const [isActionLoading, setIsActionLoading] = useState<boolean>(false);
+  const fakeGpsRoutesRef = useRef<{ route1: RoutePoint[]; route2: RoutePoint[] } | null>(null);
+  const fakeGpsStepRef = useRef<{ phase: 'TO_SHOP' | 'TO_BUYER'; stepIdx: number }>({ phase: 'TO_SHOP', stepIdx: 0 });
+
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Icon Creators
@@ -364,29 +389,53 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   const updateShipperToShopPolyline = (curLat: number, curLng: number) => {
     if (role === 'BUYER') return; // Buyer doesn't care about shipper->shop route
 
+    const isPhaseToBuyerOrDone =
+      locationDataRef.current?.orderStatus === 'PICKED_UP' ||
+      locationDataRef.current?.orderStatus === 'DELIVERED' ||
+      locationDataRef.current?.deliveryPhase === 'TO_BUYER' ||
+      locationDataRef.current?.deliveryPhase === 'DELIVERED';
+
+    // ✅ NẾU ĐÃ SANG CHẶNG 2 HOẶC HOÀN TẤT: XÓA SẠCH DÂY CAM CHẶNG 1!
+    if (isPhaseToBuyerOrDone) {
+      if (!isFallbackModeRef.current && googleShipperToShopPolylineRef.current) {
+        googleShipperToShopPolylineRef.current.setPath([]);
+      } else if (isFallbackModeRef.current && leafletShipperToShopPolylineRef.current) {
+        leafletShipperToShopPolylineRef.current.setLatLngs([]);
+      }
+      return;
+    }
+
     const activeShopLat = locationDataRef.current?.shopLatitude || initialShopLat;
     const activeShopLng = locationDataRef.current?.shopLongitude || initialShopLng;
     if (!activeShopLat || !activeShopLng) return;
 
-    // Build route from current shipper position towards shop
-    const directPoints = [
+    // Khoảng cách chim bay tới shop: nếu đã tới sát shop (<= 35m), xóa luôn dây cam!
+    const distToShop = Math.hypot(curLat - activeShopLat, curLng - activeShopLng);
+    if (distToShop <= 0.00035) {
+      if (!isFallbackModeRef.current && googleShipperToShopPolylineRef.current) {
+        googleShipperToShopPolylineRef.current.setPath([]);
+      } else if (isFallbackModeRef.current && leafletShipperToShopPolylineRef.current) {
+        leafletShipperToShopPolylineRef.current.setLatLngs([]);
+      }
+      return;
+    }
+
+    const route = fullShipperToShopRouteRef.current;
+    if (!route || route.length === 0) return;
+
+    // Cắt đường chuẩn mực: tìm index gần xe nhất, giữ nguyên tất cả khúc cua phía trước xe
+    const closestIdx = findClosestRouteIndex(route, curLat, curLng);
+    const remainingPoints = [
       { lat: curLat, lng: curLng },
-      ...(fullShipperToShopRouteRef.current.length > 0
-        ? fullShipperToShopRouteRef.current.filter((p) => {
-            const distCurrent = Math.hypot(p.lat - curLat, p.lng - curLng);
-            const distShop = Math.hypot(p.lat - activeShopLat, p.lng - activeShopLng);
-            const totalDist = Math.hypot(curLat - activeShopLat, curLng - activeShopLng);
-            return distShop <= totalDist && distCurrent > 0.0002;
-          })
-        : [{ lat: activeShopLat, lng: activeShopLng }]),
+      ...route.slice(closestIdx + 1),
     ];
 
     if (!isFallbackModeRef.current && googleShipperToShopPolylineRef.current) {
       googleShipperToShopPolylineRef.current.setPath(
-        directPoints.map((p) => new window.google.maps.LatLng(p.lat, p.lng))
+        remainingPoints.map((p) => new window.google.maps.LatLng(p.lat, p.lng))
       );
     } else if (isFallbackModeRef.current && leafletShipperToShopPolylineRef.current) {
-      leafletShipperToShopPolylineRef.current.setLatLngs(directPoints.map((p) => [p.lat, p.lng]));
+      leafletShipperToShopPolylineRef.current.setLatLngs(remainingPoints.map((p) => [p.lat, p.lng]));
     }
   };
 
@@ -396,33 +445,58 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
     const activeDestLat = locationDataRef.current?.destinationLatitude || initialDestLat;
     const activeDestLng = locationDataRef.current?.destinationLongitude || initialDestLng;
-    const activeShopLat = locationDataRef.current?.shopLatitude || initialShopLat;
-    const activeShopLng = locationDataRef.current?.shopLongitude || initialShopLng;
-    if (!activeDestLat || !activeDestLng || !activeShopLat || !activeShopLng) return;
+    if (!activeDestLat || !activeDestLng) return;
 
-    // Check if shipper is departing from shop towards buyer
-    const distToShop = Math.hypot(curLat - activeShopLat, curLng - activeShopLng);
-    const distToDest = Math.hypot(curLat - activeDestLat, curLng - activeDestLng);
-    const shopToDestDist = Math.hypot(activeShopLat - activeDestLat, activeShopLng - activeDestLng);
+    const route = fullShopToBuyerRouteRef.current;
+    if (!route || route.length === 0) return;
 
-    if (distToShop > 0.001 && distToDest < shopToDestDist + 0.002) {
-      const directPoints = [
-        { lat: curLat, lng: curLng },
-        ...(fullShopToBuyerRouteRef.current.length > 0
-          ? fullShopToBuyerRouteRef.current.filter((p) => {
-              const dDest = Math.hypot(p.lat - activeDestLat, p.lng - activeDestLng);
-              return dDest <= distToDest && Math.hypot(p.lat - curLat, p.lng - curLng) > 0.0002;
-            })
-          : [{ lat: activeDestLat, lng: activeDestLng }]),
-      ];
+    const isPhase2 =
+      locationDataRef.current?.orderStatus === 'PICKED_UP' ||
+      locationDataRef.current?.deliveryPhase === 'TO_BUYER';
 
+    // Nếu đã hoàn thành đơn: nếu xe đã tới gần đích, xóa đường xanh
+    if (
+      locationDataRef.current?.orderStatus === 'DELIVERED' ||
+      locationDataRef.current?.deliveryPhase === 'DELIVERED'
+    ) {
+      const distToDest = Math.hypot(curLat - activeDestLat, curLng - activeDestLng);
+      if (distToDest <= 0.00035) {
+        if (!isFallbackModeRef.current && googleShopToBuyerPolylineRef.current) {
+          googleShopToBuyerPolylineRef.current.setPath([]);
+        } else if (isFallbackModeRef.current && leafletShopToBuyerPolylineRef.current) {
+          leafletShopToBuyerPolylineRef.current.setLatLngs([]);
+        }
+        return;
+      }
+    }
+
+    // Nếu CHƯA sang Chặng 2 (xe đang ở Chặng 1 đến shop lấy hàng):
+    // Tuyến Shop -> Buyer giữ NGUYÊN VẸN 100% từ Shop đến Buyer!
+    if (!isPhase2) {
       if (!isFallbackModeRef.current && googleShopToBuyerPolylineRef.current) {
         googleShopToBuyerPolylineRef.current.setPath(
-          directPoints.map((p) => new window.google.maps.LatLng(p.lat, p.lng))
+          route.map((p) => new window.google.maps.LatLng(p.lat, p.lng))
         );
       } else if (isFallbackModeRef.current && leafletShopToBuyerPolylineRef.current) {
-        leafletShopToBuyerPolylineRef.current.setLatLngs(directPoints.map((p) => [p.lat, p.lng]));
+        leafletShopToBuyerPolylineRef.current.setLatLngs(route.map((p) => [p.lat, p.lng]));
       }
+      return;
+    }
+
+    // Nếu ĐÃ SANG Chặng 2 (xe đang di chuyển từ Shop -> Buyer):
+    // Cắt bỏ phần đường phía sau xe và GIỮ NGUYÊN 100% các khúc cua phía trước xe đến Buyer!
+    const closestIdx = findClosestRouteIndex(route, curLat, curLng);
+    const remainingPoints = [
+      { lat: curLat, lng: curLng },
+      ...route.slice(closestIdx + 1),
+    ];
+
+    if (!isFallbackModeRef.current && googleShopToBuyerPolylineRef.current) {
+      googleShopToBuyerPolylineRef.current.setPath(
+        remainingPoints.map((p) => new window.google.maps.LatLng(p.lat, p.lng))
+      );
+    } else if (isFallbackModeRef.current && leafletShopToBuyerPolylineRef.current) {
+      leafletShopToBuyerPolylineRef.current.setLatLngs(remainingPoints.map((p) => [p.lat, p.lng]));
     }
   };
 
@@ -1052,14 +1126,14 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       // STOP
       if (fakeGpsIntervalRef.current) clearInterval(fakeGpsIntervalRef.current);
       setFakeGpsRunning(false);
-      setFakeGpsPhaseText('Đã dừng');
+      setFakeGpsPhaseText('Đã tạm dừng');
       return;
     }
 
     // START
     const client = stompClientRef.current;
     if (!client?.connected) {
-      alert('Đang kết nối lại máy chủ WebSocket, vui lòng thử lại sau 2 giây.');
+      globalShowAlert('Đang kết nối lại máy chủ WebSocket, vui lòng thử lại sau 2 giây.', 'Thông báo', 'warning');
       return;
     }
 
@@ -1072,14 +1146,28 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     const startLat = shLat - 0.007;
     const startLng = shLng - 0.007;
 
-    setFakeGpsRunning(true);
-    setFakeGpsPhaseText('Đang nạp đường đi...');
-    setFakeGpsProgress(0);
+    const isAlreadyPickedUp =
+      locationDataRef.current?.orderStatus === 'PICKED_UP' ||
+      locationDataRef.current?.deliveryPhase === 'TO_BUYER';
 
-    const [route1, route2] = await Promise.all([
-      fetchRoutePoints(startLat, startLng, shLat, shLng),
-      fetchRoutePoints(shLat, shLng, dLat, dLng),
-    ]);
+    setFakeGpsRunning(true);
+
+    // Nạp dữ liệu đường đi nếu chưa có
+    if (!fakeGpsRoutesRef.current) {
+      setFakeGpsPhaseText('Đang nạp dữ liệu lộ trình...');
+      setFakeGpsProgress(0);
+      const [route1, route2] = await Promise.all([
+        fetchRoutePoints(startLat, startLng, shLat, shLng),
+        fetchRoutePoints(shLat, shLng, dLat, dLng),
+      ]);
+      fakeGpsRoutesRef.current = { route1, route2 };
+      fakeGpsStepRef.current = {
+        phase: isAlreadyPickedUp ? 'TO_BUYER' : 'TO_SHOP',
+        stepIdx: 0,
+      };
+    }
+
+    const { route1, route2 } = fakeGpsRoutesRef.current;
 
     const sendPoint = (pt: RoutePoint, phase: string) => {
       client.publish({
@@ -1094,40 +1182,140 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       });
     };
 
-    // Phase 1: To Shop
-    let stepIdx = 0;
-    setFakeGpsPhaseText('🏪 Đang đến lấy hàng tại Shop');
+    if (fakeGpsIntervalRef.current) clearInterval(fakeGpsIntervalRef.current);
 
     fakeGpsIntervalRef.current = setInterval(() => {
-      if (stepIdx < route1.length) {
-        const pt = route1[stepIdx];
-        sendPoint(pt, 'TO_SHOP');
-        setFakeGpsProgress(Math.round((stepIdx / (route1.length + route2.length)) * 100));
-        stepIdx++;
-      } else if (stepIdx === route1.length) {
-        // At shop
-        setFakeGpsPhaseText('🏪 Đã tới shop! Đang nhận hàng...');
-        sendPoint({ lat: shLat, lng: shLng }, 'AT_SHOP');
-        stepIdx++;
-      } else {
-        // Phase 2: To Buyer
-        const p2Idx = stepIdx - route1.length - 1;
-        if (p2Idx < route2.length) {
-          setFakeGpsPhaseText('🏠 Đang giao hàng đến khách');
-          const pt = route2[p2Idx];
-          sendPoint(pt, 'TO_BUYER');
-          setFakeGpsProgress(Math.round(((stepIdx) / (route1.length + route2.length)) * 100));
-          stepIdx++;
+      const cur = fakeGpsStepRef.current;
+
+      if (cur.phase === 'TO_SHOP') {
+        // CHẶNG 1: Đến Shop
+        setFakeGpsPhaseText('🏪 Đang đến lấy hàng tại Shop');
+        if (cur.stepIdx < route1.length) {
+          const pt = route1[cur.stepIdx];
+          sendPoint(pt, 'TO_SHOP');
+          setFakeGpsProgress(Math.round((cur.stepIdx / route1.length) * 100));
+          cur.stepIdx++;
         } else {
-          // Done
+          // 👉 ĐÃ TỚI SHOP! DỪNG LẠI TẠI ĐÂY VÀ CHỜ SHIPPER BẤM XÁC NHẬN!
           clearInterval(fakeGpsIntervalRef.current);
           setFakeGpsRunning(false);
           setFakeGpsProgress(100);
-          setFakeGpsPhaseText('✅ Đã giao hàng thành công!');
+          setFakeGpsPhaseText('🏪 Đã tới Shop · Chờ lấy hàng');
+          sendPoint({ lat: shLat, lng: shLng }, 'AT_SHOP');
+          setCheckpointAction('AT_SHOP');
+        }
+      } else {
+        // CHẶNG 2: Đến Buyer
+        setFakeGpsPhaseText('🏠 Đang giao hàng đến khách');
+        if (cur.stepIdx < route2.length) {
+          const pt = route2[cur.stepIdx];
+          sendPoint(pt, 'TO_BUYER');
+          setFakeGpsProgress(Math.round((cur.stepIdx / route2.length) * 100));
+          cur.stepIdx++;
+        } else {
+          // 👉 ĐÃ TỚI NHÀ BUYER! DỪNG LẠI TẠI ĐÂY VÀ CHỜ SHIPPER XÁC NHẬN KẾT QUẢ!
+          clearInterval(fakeGpsIntervalRef.current);
+          setFakeGpsRunning(false);
+          setFakeGpsProgress(100);
+          setFakeGpsPhaseText('🏠 Đã tới địa chỉ người nhận');
           sendPoint({ lat: dLat, lng: dLng }, 'DELIVERED');
+          setCheckpointAction('AT_BUYER');
         }
       }
     }, fakeGpsSpeed * 1000);
+  };
+
+  // Checkpoint Action: Xác nhận đã lấy hàng tại Shop ngay trên Map Modal
+  const handleConfirmPickupOnMap = async () => {
+    try {
+      setIsActionLoading(true);
+      await shipperService.pickupOrder(orderId);
+
+      // Cập nhật state nội bộ
+      setLocationData((prev) => ({
+        ...prev,
+        orderStatus: 'PICKED_UP',
+        deliveryPhase: 'TO_BUYER',
+      }));
+      locationDataRef.current = {
+        ...locationDataRef.current,
+        orderStatus: 'PICKED_UP',
+        deliveryPhase: 'TO_BUYER',
+      };
+
+      // Xóa vĩnh viễn dây cam chặng 1
+      if (!isFallbackModeRef.current && googleShipperToShopPolylineRef.current) {
+        googleShipperToShopPolylineRef.current.setPath([]);
+      }
+      if (isFallbackModeRef.current && leafletShipperToShopPolylineRef.current) {
+        leafletShipperToShopPolylineRef.current.setLatLngs([]);
+      }
+
+      setCheckpointAction('NONE');
+      // Chuyển fake GPS sang phase 2
+      fakeGpsStepRef.current = { phase: 'TO_BUYER', stepIdx: 0 };
+      setFakeGpsPhaseText('📦 Đã lấy hàng · Bắt đầu giao khách');
+      setFakeGpsProgress(0);
+
+      globalShowAlert(
+        'Đã xác nhận lấy hàng tại shop thành công! Bắt đầu chặng giao đến người mua.',
+        'Lấy hàng thành công',
+        'success'
+      );
+      onOrderUpdated?.();
+
+      // Tiếp tục tự động chạy Chặng 2 sau 1.2s
+      setTimeout(() => {
+        handleToggleFakeGps();
+      }, 1200);
+    } catch (err: any) {
+      globalShowAlert(err?.data?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Checkpoint Action: Xác nhận giao hàng thành công hoặc báo thất bại ngay trên Map
+  const handleCompleteOrderOnMap = async (status: 'DELIVERED' | 'FAILED') => {
+    try {
+      setIsActionLoading(true);
+      await shipperService.updateOrderStatus(orderId, { status });
+
+      setLocationData((prev) => ({
+        ...prev,
+        orderStatus: status,
+        deliveryPhase: status === 'DELIVERED' ? 'DELIVERED' : 'FAILED',
+      }));
+      locationDataRef.current = {
+        ...locationDataRef.current,
+        orderStatus: status,
+        deliveryPhase: status === 'DELIVERED' ? 'DELIVERED' : 'FAILED',
+      };
+
+      // Xóa sạch polylines
+      if (!isFallbackModeRef.current && googleShopToBuyerPolylineRef.current) {
+        googleShopToBuyerPolylineRef.current.setPath([]);
+      }
+      if (isFallbackModeRef.current && leafletShopToBuyerPolylineRef.current) {
+        leafletShopToBuyerPolylineRef.current.setLatLngs([]);
+      }
+
+      setCheckpointAction('NONE');
+      setFakeGpsRunning(false);
+      setFakeGpsProgress(100);
+      setFakeGpsPhaseText(status === 'DELIVERED' ? '✅ Giao thành công' : '❌ Giao thất bại');
+
+      globalShowAlert(
+        status === 'DELIVERED' ? 'Giao hàng thành công đến người nhận!' : 'Đã báo giao hàng thất bại!',
+        'Cập nhật đơn hàng',
+        status === 'DELIVERED' ? 'success' : 'warning'
+      );
+      onOrderUpdated?.();
+    } catch (err: any) {
+      globalShowAlert(err?.data?.message || 'Không thể cập nhật trạng thái đơn hàng', 'Lỗi', 'error');
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   // Center on shipper & re-lock follow mode (respects role visibility)
@@ -1441,6 +1629,105 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-rose-500/90 text-white px-4 py-2 rounded-2xl shadow-lg backdrop-blur-sm flex items-center gap-2 text-xs font-bold animate-pulse">
               <AlertCircle className="size-4" />
               <span>Tài xế đang tạm dừng cập nhật GPS</span>
+            </div>
+          )}
+
+          {/* Checkpoint Action Popup / Banner cho Shipper */}
+          {role === 'SHIPPER' && checkpointAction !== 'NONE' && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 animate-in fade-in slide-in-from-bottom-6 duration-300">
+              <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-2xl border-2 border-emerald-500/40 p-5 flex flex-col gap-3">
+                {checkpointAction === 'AT_SHOP' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 text-[11px] font-black uppercase tracking-wider border border-amber-300">
+                        <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                        🏪 Đã Đến Shop / Kho Lấy Hàng
+                      </span>
+                      <button
+                        onClick={() => setCheckpointAction('NONE')}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                        title="Đóng thông báo"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-black text-gray-900 leading-tight">
+                        {locationData?.shopName || 'Cửa hàng nông sản'}
+                      </h4>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5 line-clamp-1">
+                        📍 {locationData?.shopAddress || 'Địa chỉ kho nhận hàng'}
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2 font-medium">
+                      ⚠️ Bạn đã tới điểm nhận hàng. Hãy kiểm tra đúng số lượng & chất lượng nông sản, sau đó xác nhận lấy hàng để tiếp tục chặng giao!
+                    </p>
+
+                    <button
+                      onClick={handleConfirmPickupOnMap}
+                      disabled={isActionLoading}
+                      className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isActionLoading ? (
+                        <><Loader2 className="size-4 animate-spin" /> Đang cập nhật...</>
+                      ) : (
+                        <><Package className="size-4" /> 📦 Xác nhận đã lấy hàng tại Shop</>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-[11px] font-black uppercase tracking-wider border border-emerald-300">
+                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        🏠 Đã Đến Địa Chỉ Người Nhận
+                      </span>
+                      <button
+                        onClick={() => setCheckpointAction('NONE')}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                        title="Đóng thông báo"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-black text-gray-900 leading-tight">
+                        {locationData?.recipientName || 'Người nhận'}
+                        {locationData?.recipientPhone ? ` · ${locationData.recipientPhone}` : ''}
+                      </h4>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5 line-clamp-1">
+                        📍 {locationData?.destinationAddress || 'Địa chỉ giao hàng'}
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2 font-medium">
+                      🎉 Bạn đã đến nhà khách. Hãy giao nông sản, thu tiền COD (nếu có) và xác nhận kết quả đơn hàng:
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <button
+                        onClick={() => handleCompleteOrderOnMap('DELIVERED')}
+                        disabled={isActionLoading}
+                        className="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isActionLoading ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                        Giao Thành Công
+                      </button>
+                      <button
+                        onClick={() => handleCompleteOrderOnMap('FAILED')}
+                        disabled={isActionLoading}
+                        className="py-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isActionLoading ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                        Giao Thất Bại
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 

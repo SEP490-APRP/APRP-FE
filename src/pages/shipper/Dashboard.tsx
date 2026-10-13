@@ -694,6 +694,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                   destLng={order.shippingLongitude ?? 106.760}
                   currentLat={shipperLat ?? undefined}
                   currentLng={shipperLng ?? undefined}
+                  onOrderUpdated={fetchMyOrders}
                 />
               )}
             </div>
@@ -1277,6 +1278,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
           initialDestLat={mapModalOrder.shippingLatitude ?? undefined}
           initialDestLng={mapModalOrder.shippingLongitude ?? undefined}
           onClose={() => setMapModalOrder(null)}
+          onOrderUpdated={fetchMyOrders}
         />
       )}
     </div>

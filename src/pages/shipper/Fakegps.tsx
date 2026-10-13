@@ -4,8 +4,9 @@ import SockJS from 'sockjs-client';
 import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
   Navigation, Play, Square, MapPin, ChevronRight,
-  Loader2, Route, Zap
+  Loader2, Route, Zap, Package, CheckCircle2, X
 } from 'lucide-react';
+import { shipperService } from '@/services/shipper.service';
 import { globalShowAlert } from '@/components/common/Popup';
 
 interface FakeGPSProps {
@@ -16,6 +17,7 @@ interface FakeGPSProps {
   destLng: number;
   currentLat?: number;       // vị trí shipper hiện tại (optional, mặc định dùng vị trí gần shop)
   currentLng?: number;
+  onOrderUpdated?: () => void;
 }
 
 interface RoutePoint {
@@ -60,11 +62,11 @@ function nearbyPoint(lat: number, lng: number, offsetKm = 0.5): RoutePoint {
   return { lat: lat + offset, lng: lng + offset };
 }
 
-type Phase = 'idle' | 'loading' | 'to_shop' | 'at_shop' | 'to_buyer' | 'done';
+type Phase = 'idle' | 'loading' | 'to_shop' | 'at_shop' | 'to_buyer' | 'at_buyer' | 'done';
 
 const FakeGPS: React.FC<FakeGPSProps> = ({
   orderId, shopLat, shopLng, destLat, destLng,
-  currentLat, currentLng,
+  currentLat, currentLng, onOrderUpdated,
 }) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [wsStatus, setWsStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -72,6 +74,9 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   const [progress, setProgress] = useState(0);
   const [stepInfo, setStepInfo] = useState('');
   const [speed, setSpeed] = useState(3);
+  const [isPickedUp, setIsPickedUp] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
   // ✅ GPS thật của shipper tại thời điểm bấm "Bắt đầu"
   const [realStartPos, setRealStartPos] = useState<RoutePoint | null>(
     currentLat && currentLng ? { lat: currentLat, lng: currentLng } : null
@@ -82,6 +87,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const routeRef = useRef<RoutePoint[]>([]);
   const stepIndexRef = useRef(0);
+  const routesRef = useRef<{ route1: RoutePoint[]; route2: RoutePoint[] } | null>(null);
 
   // ✅ Lấy GPS thật của shipper khi mount
   useEffect(() => {
@@ -164,7 +170,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
         orderId,
         latitude: lat,
         longitude: lng,
-        isFake: true, // ✅ Tracking dùng flag này để biết cắt đường hay không
+        isFake: true,
         deliveryPhase,
       }),
     });
@@ -175,6 +181,8 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
     routeRef.current = route;
     stepIndexRef.current = 0;
     const total = route.length;
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
 
     intervalRef.current = setInterval(() => {
       const idx = stepIndexRef.current;
@@ -193,7 +201,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
     }, speed * 1000);
   }, [sendLocation, speed]);
 
-  // ---- Bắt đầu giả lập ----
+  // ---- Bắt đầu Chặng 1: Đến Shop ----
   const startFakeGPS = async () => {
     const startPoint = realStartPos || nearbyPoint(shopLat, shopLng);
     setPhase('loading');
@@ -212,13 +220,14 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
         return;
       }
 
+      routesRef.current = { route1, route2 };
+
       // 2. Kết nối WebSocket
       await connectWS();
 
-      // ✅ Gửi vị trí xuất phát TRƯỚC để Tracking vẽ route từ đúng điểm này
-      // Đợi 1.5 giây để Tracking có thời gian fetch và vẽ route xong
+      // Gửi vị trí xuất phát
       sendLocation(startPoint.lat, startPoint.lng, 'TO_SHOP');
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1200));
 
       // 3. Phase 1: Shipper → Shop
       setPhase('to_shop');
@@ -226,22 +235,11 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
       sendLocation(startPoint.lat, startPoint.lng, 'TO_SHOP');
 
       runRoute(route1, '🏪 Đến shop lấy hàng', 'TO_SHOP', () => {
-        // Dừng 2 giây tại shop
+        // 👉 ĐÃ TỚI SHOP! DỪNG LẠI TẠI ĐÂY!
         setPhase('at_shop');
-        setStepInfo('🏪 Đang lấy hàng tại shop...');
-        setProgress(0);
+        setStepInfo('🏪 Đã tới shop! Vui lòng xác nhận lấy hàng.');
+        setProgress(100);
         sendLocation(shopLat, shopLng, 'AT_SHOP');
-
-        setTimeout(() => {
-          // 4. Phase 2: Shop → Nhà buyer
-          setPhase('to_buyer');
-          runRoute(route2, '🏠 Giao hàng đến nhà', 'TO_BUYER', () => {
-            setPhase('done');
-            setStepInfo('✅ Đã giao hàng thành công!');
-            setProgress(100);
-            sendLocation(destLat, destLng, 'DELIVERED');
-          });
-        }, 2000);
       });
 
     } catch (err: any) {
@@ -249,6 +247,52 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
       globalShowAlert('Lỗi khởi động Fake GPS: ' + (err?.message || 'Không thể kết nối WebSocket.'), 'Lỗi', 'error');
       setPhase('idle');
       setWsStatus('disconnected');
+    }
+  };
+
+  // ---- Xác nhận đã lấy hàng tại Shop ----
+  const handleConfirmPickup = async () => {
+    try {
+      setActionLoading(true);
+      await shipperService.pickupOrder(orderId);
+      setIsPickedUp(true);
+      setStepInfo('📦 Đã lấy hàng tại Shop! Sẵn sàng giao khách.');
+      globalShowAlert('Đã xác nhận lấy hàng tại shop thành công! Bạn có thể tiếp tục lộ trình giao đến người mua.', 'Lấy hàng thành công', 'success');
+      onOrderUpdated?.();
+    } catch (err: any) {
+      globalShowAlert(err?.data?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ---- Bắt đầu Chặng 2: Shop -> Buyer ----
+  const startPhase2 = () => {
+    if (!routesRef.current?.route2) return;
+    setPhase('to_buyer');
+    setProgress(0);
+    runRoute(routesRef.current.route2, '🏠 Giao hàng đến nhà khách', 'TO_BUYER', () => {
+      // 👉 ĐÃ TỚI NHÀ BUYER! DỪNG LẠI TẠI ĐÂY!
+      setPhase('at_buyer');
+      setStepInfo('🏠 Đã tới địa chỉ người nhận! Vui lòng xác nhận giao hàng.');
+      setProgress(100);
+      sendLocation(destLat, destLng, 'DELIVERED');
+    });
+  };
+
+  // ---- Hoàn tất đơn hàng ----
+  const handleCompleteOrder = async (status: 'DELIVERED' | 'FAILED') => {
+    try {
+      setActionLoading(true);
+      await shipperService.updateOrderStatus(orderId, { status });
+      setPhase('done');
+      setStepInfo(status === 'DELIVERED' ? '✅ Đã giao hàng thành công!' : '❌ Báo giao hàng thất bại');
+      globalShowAlert(status === 'DELIVERED' ? 'Giao hàng thành công!' : 'Đã báo giao thất bại', 'Cập nhật', status === 'DELIVERED' ? 'success' : 'warning');
+      onOrderUpdated?.();
+    } catch (err: any) {
+      globalShowAlert(err?.data?.message || 'Không thể cập nhật trạng thái', 'Lỗi', 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -276,6 +320,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
     to_shop: 'bg-orange-50 border-orange-200',
     at_shop: 'bg-purple-50 border-purple-200',
     to_buyer: 'bg-blue-50 border-blue-200',
+    at_buyer: 'bg-emerald-50 border-emerald-300',
     done: 'bg-green-50 border-green-200',
   }[phase];
 
@@ -283,8 +328,9 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
     idle: 'Chưa chạy',
     loading: 'Đang tải đường đi...',
     to_shop: 'Shipper đang đến shop lấy hàng',
-    at_shop: 'Đang lấy hàng tại shop',
+    at_shop: isPickedUp ? 'Đã lấy hàng — Chờ giao khách' : 'Đã tới shop — Cần xác nhận lấy hàng',
     to_buyer: 'Đang giao đến nhà khách',
+    at_buyer: 'Đã tới nhà khách — Cần xác nhận kết quả giao',
     done: 'Đã giao hàng thành công!',
   }[phase];
 
@@ -298,7 +344,7 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
           </div>
           <div>
             <p className="text-xs font-black text-gray-700 uppercase tracking-wider">Fake GPS Demo</p>
-            <p className="text-[10px] text-gray-400 font-bold">Cho giảng viên xem thử</p>
+            <p className="text-[10px] text-gray-400 font-bold">{phaseText}</p>
           </div>
         </div>
 
@@ -333,13 +379,13 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
           <div className="text-base">🏍️</div>
           Đến Shop
         </div>
-        <div className={`p-2 rounded-xl text-[10px] font-black ${phase === 'at_shop' ? 'bg-purple-200 text-purple-800' : 'bg-white/60 text-gray-400'}`}>
+        <div className={`p-2 rounded-xl text-[10px] font-black ${phase === 'at_shop' ? 'bg-purple-200 text-purple-800' : isPickedUp ? 'bg-green-100 text-green-700' : 'bg-white/60 text-gray-400'}`}>
           <div className="text-base">🏪</div>
-          Lấy Hàng
+          {isPickedUp ? 'Đã Lấy Hàng' : 'Lấy Hàng'}
         </div>
-        <div className={`p-2 rounded-xl text-[10px] font-black ${phase === 'to_buyer' ? 'bg-blue-200 text-blue-800' : isDone ? 'bg-green-200 text-green-800' : 'bg-white/60 text-gray-400'}`}>
+        <div className={`p-2 rounded-xl text-[10px] font-black ${phase === 'to_buyer' || phase === 'at_buyer' ? 'bg-blue-200 text-blue-800' : isDone ? 'bg-green-200 text-green-800' : 'bg-white/60 text-gray-400'}`}>
           <div className="text-base">{isDone ? '✅' : '🏠'}</div>
-          Giao Hàng
+          {phase === 'at_buyer' ? 'Tại Khách' : 'Giao Hàng'}
         </div>
       </div>
 
@@ -385,24 +431,77 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
       )}
 
       {/* Buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-2">
         {phase === 'idle' || phase === 'done' ? (
           <button
             onClick={startFakeGPS}
-            className="flex-1 py-3 bg-primary text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"
+            className="w-full py-3 bg-primary text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"
           >
             <Play className="size-4 fill-white" />
-            {isDone ? 'Chạy lại' : 'Bắt đầu giả lập GPS'}
+            {isDone ? 'Chạy lại lộ trình' : 'Bắt đầu giả lập GPS'}
           </button>
         ) : phase === 'loading' ? (
-          <button disabled className="flex-1 py-3 bg-yellow-400 text-yellow-900 font-black rounded-2xl flex items-center justify-center gap-2 opacity-80">
+          <button disabled className="w-full py-3 bg-yellow-400 text-yellow-900 font-black rounded-2xl flex items-center justify-center gap-2 opacity-80">
             <Loader2 className="size-4 animate-spin" />
             Đang tải đường đi...
           </button>
+        ) : phase === 'at_shop' ? (
+          <div className="flex flex-col gap-2">
+            {!isPickedUp ? (
+              <button
+                onClick={handleConfirmPickup}
+                disabled={actionLoading}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:from-amber-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 disabled:opacity-50"
+              >
+                {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <span>📦</span>}
+                <span>Xác nhận đã lấy hàng tại Shop</span>
+              </button>
+            ) : (
+              <button
+                onClick={startPhase2}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25"
+              >
+                <Play className="size-4 fill-white" />
+                <span>Bắt đầu giao đến người mua ➔</span>
+              </button>
+            )}
+            <button
+              onClick={stopFakeGPS}
+              className="w-full py-2 bg-gray-100 text-gray-500 text-xs font-bold rounded-xl hover:bg-gray-200 transition-all"
+            >
+              Dừng giả lập
+            </button>
+          </div>
+        ) : phase === 'at_buyer' ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleCompleteOrder('DELIVERED')}
+                disabled={actionLoading}
+                className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-emerald-500/25 disabled:opacity-50"
+              >
+                {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <span>✅</span>}
+                <span>Giao thành công</span>
+              </button>
+              <button
+                onClick={() => handleCompleteOrder('FAILED')}
+                disabled={actionLoading}
+                className="py-3.5 px-4 bg-red-100 text-red-700 font-bold rounded-2xl hover:bg-red-200 transition-all disabled:opacity-50 text-xs"
+              >
+                {actionLoading ? <Loader2 className="size-4 animate-spin" /> : '❌ Thất bại'}
+              </button>
+            </div>
+            <button
+              onClick={stopFakeGPS}
+              className="w-full py-2 bg-gray-100 text-gray-500 text-xs font-bold rounded-xl hover:bg-gray-200 transition-all"
+            >
+              Dừng giả lập
+            </button>
+          </div>
         ) : (
           <button
             onClick={stopFakeGPS}
-            className="flex-1 py-3 bg-red-100 text-red-600 font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all border border-red-200"
+            className="w-full py-3 bg-red-100 text-red-600 font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all border border-red-200"
           >
             <Square className="size-4 fill-current" />
             Dừng giả lập
