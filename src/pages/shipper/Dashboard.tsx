@@ -65,6 +65,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   const [completeFiles, setCompleteFiles] = useState<File[]>([]);
   const [completePreviews, setCompletePreviews] = useState<string[]>([]);
   const [completingOrder, setCompletingOrder] = useState(false);
+  const [pickingUpOrderId, setPickingUpOrderId] = useState<number | null>(null);
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('off');
   const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
   // ✅ Fake GPS: orderId đang mở panel fake GPS
@@ -193,7 +194,9 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     setLoadingMyOrders(true);
     try {
       const res = await shipperService.getMyOrders();
-      const shippingOrders = (res.result ?? []).filter((o: ShipperOrderResponse) => o.status === 'SHIPPING');
+      const shippingOrders = (res.result ?? []).filter(
+        (o: ShipperOrderResponse) => o.status === 'SHIPPING' || o.status === 'PICKED_UP'
+      );
 
       const enriched = await Promise.all(
         shippingOrders.map(async (order: ShipperOrderResponse) => {
@@ -203,6 +206,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             if (resObj) {
               return {
                 ...order,
+                status: resObj.status ?? order.status,
+                pickedUpAt: resObj.pickedUpAt ?? order.pickedUpAt,
                 paymentMethod: resObj.paymentMethod ?? order.paymentMethod,
                 totalAmount: resObj.totalAmount ?? order.totalAmount,
                 codAmount: resObj.codAmount ?? order.codAmount,
@@ -442,6 +447,19 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     }
   };
 
+  const handlePickupOrder = async (orderId: number) => {
+    try {
+      setPickingUpOrderId(orderId);
+      await shipperService.pickupOrder(orderId);
+      globalShowAlert('Đã xác nhận lấy hàng tại shop thành công! Bắt đầu chặng giao đến người mua.', 'Lấy hàng thành công', 'success');
+      fetchMyOrders();
+    } catch (errors: any) {
+      globalShowAlert(errors?.data?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
+    } finally {
+      setPickingUpOrderId(null);
+    }
+  };
+
   // ===================== HELPERS =====================
   const fmtCur = (n?: number | null) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n ?? 0);
 
@@ -565,6 +583,36 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 </div>
               </div>
               {renderCodCollectLine(order)}
+
+              {/* Badge trạng thái 2 chặng chuẩn sàn Grab / ShopeeFood */}
+              {order.status === 'SHIPPING' ? (
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span className="text-xs font-black uppercase tracking-wider">Chặng 1: Đang đến Shop lấy hàng</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                    Chưa lấy hàng
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-800">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                    <span className="text-xs font-black uppercase tracking-wider">Chặng 2: Đã lấy hàng · Đang giao khách</span>
+                  </div>
+                  {order.pickedUpAt ? (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+                      Lấy lúc {fmtTime(order.pickedUpAt)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+                      Đã nhận hàng
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Trạng thái GPS ngầm */}
               <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-emerald-50/70 border border-emerald-100/80">
                 <div className="flex items-center gap-2">
@@ -580,22 +628,45 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 )}
               </div>
 
-              {/* 2 nút hành động chính ngang hàng: Giao thành công / Giao thất bại */}
-              <div className="grid grid-cols-2 gap-3 items-stretch">
-                <button
-                  onClick={() => openCompleteModal(order.orderId, 'DELIVERED', order.recipientName)}
-                  title={codOrder ? 'Xác nhận đã thu đúng tiền COD từ khách' : undefined}
-                  className="h-12 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-green-600/20 cursor-pointer"
-                >
-                  <CheckCircle2 className="size-4 shrink-0" /> Giao thành công
-                </button>
-                <button
-                  onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
-                  className="h-12 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 cursor-pointer"
-                >
-                  <X className="size-4 shrink-0" /> Giao thất bại
-                </button>
-              </div>
+              {/* Các nút hành động theo từng chặng */}
+              {order.status === 'SHIPPING' ? (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handlePickupOrder(order.orderId)}
+                    disabled={pickingUpOrderId === order.orderId}
+                    className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/25 cursor-pointer disabled:opacity-60"
+                  >
+                    {pickingUpOrderId === order.orderId ? (
+                      <><Loader2 className="size-4 animate-spin" /> Đang xác nhận lấy hàng...</>
+                    ) : (
+                      <><Package className="size-4 shrink-0" /> 📦 Xác nhận đã lấy hàng tại Shop</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
+                    className="h-12 px-4 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 active:scale-95 text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 transition-all border border-gray-200 cursor-pointer"
+                    title="Không lấy được hàng hoặc shop hủy"
+                  >
+                    <X className="size-3.5 shrink-0" /> Không lấy được
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 items-stretch">
+                  <button
+                    onClick={() => openCompleteModal(order.orderId, 'DELIVERED', order.recipientName)}
+                    title={codOrder ? 'Xác nhận đã thu đúng tiền COD từ khách' : undefined}
+                    className="h-12 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-green-600/20 cursor-pointer"
+                  >
+                    <CheckCircle2 className="size-4 shrink-0" /> Giao thành công
+                  </button>
+                  <button
+                    onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
+                    className="h-12 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 cursor-pointer"
+                  >
+                    <X className="size-4 shrink-0" /> Giao thất bại
+                  </button>
+                </div>
+              )}
 
               {/* Nút Demo Fake GPS & Bản Đồ Google Map */}
               <div className="grid grid-cols-2 gap-3">

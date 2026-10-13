@@ -196,8 +196,8 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
             </button>
           )}
 
-          {/* SHIPPING / READY → Xem lộ trình Shipper trên Google Maps */}
-          {(order.status === 'SHIPPING' || order.status === 'READY') && (
+          {/* SHIPPING / PICKED_UP / READY → Xem lộ trình Shipper trên Google Maps */}
+          {(order.status === 'SHIPPING' || order.status === 'PICKED_UP' || order.status === 'READY') && (
             <button
               onClick={() => setShowTrackingModal(true)}
               className="w-full py-3 rounded-2xl font-black text-sm

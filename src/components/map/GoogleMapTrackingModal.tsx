@@ -294,6 +294,13 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     if (currentRole === 'SHIPPER') return true;
 
     let effPhase = phase;
+    const orderSt = locationDataRef.current?.orderStatus;
+    if (orderSt === 'PICKED_UP') {
+      effPhase = 'TO_BUYER';
+    } else if (orderSt === 'DELIVERED') {
+      effPhase = 'DELIVERED';
+    }
+
     if (!effPhase && curLat && curLng) {
       const shLat = locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
       const shLng = locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;
@@ -421,7 +428,13 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
   // Dynamic delivery journey text based on vehicle distance and role (Grab / Shopee style)
   const getJourneyStatus = () => {
-    const curPhase = locationDataRef.current?.deliveryPhase;
+    let curPhase = locationDataRef.current?.deliveryPhase;
+    const orderSt = locationDataRef.current?.orderStatus;
+    if (orderSt === 'PICKED_UP' && !curPhase) {
+      curPhase = 'TO_BUYER';
+    } else if (orderSt === 'DELIVERED') {
+      curPhase = 'DELIVERED';
+    }
     const curPos = currentRenderedPosRef.current;
     const shLat = locationDataRef.current?.shopLatitude || initialShopLat || DEFAULT_SHOP_LAT;
     const shLng = locationDataRef.current?.shopLongitude || initialShopLng || DEFAULT_SHOP_LNG;

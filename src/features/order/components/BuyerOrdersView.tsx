@@ -69,7 +69,7 @@ export const BuyerOrdersView: React.FC = () => {
       } else if (currentTab === 'PENDING') {
         statuses = ['PENDING', 'PAID']
       } else if (currentTab === 'SHIPPING') {
-        statuses = ['CONFIRMED', 'READY', 'SHIPPING']
+        statuses = ['CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP']
       } else if (currentTab === 'COMPLETED') {
         statuses = ['DELIVERED', 'COMPLETED']
       } else if (currentTab === 'CANCELLED') {
@@ -489,7 +489,7 @@ export const BuyerOrdersView: React.FC = () => {
                     )}
 
                     {/* Đang vận chuyển -> Nút THEO DÕI LỘ TRÌNH (GOOGLE MAPS) */}
-                    {(order.status === 'SHIPPING' || order.status === 'READY') && (
+                    {(order.status === 'SHIPPING' || order.status === 'PICKED_UP' || order.status === 'READY') && (
                       <Button
                         variant="primary"
                         onClick={() => setTrackingModalOrder(order)}

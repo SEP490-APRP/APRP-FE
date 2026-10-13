@@ -34,7 +34,7 @@ export interface AvailableOrderResponse {
 }
 
 export interface ShipperOrderResponse extends AvailableOrderResponse {
-  status: 'ASSIGNED' | 'SHIPPING' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
+  status: 'ASSIGNED' | 'SHIPPING' | 'PICKED_UP' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
   codPaymentOption?: 'CASH' | 'WALLET'
   shippingDiscountAmount?: number
   refundAmount?: number
@@ -294,6 +294,7 @@ export const shipperService = freshResponses({
           paymentMethod: o.paymentMethod,
           note: o.note,
           createdAt: o.createdAt,
+          pickedUpAt: o.pickedUpAt,
           items: (o.items || []).map((it: any) => ({
             productName: it.itemName,
             quantity: it.quantity,
@@ -326,6 +327,21 @@ export const shipperService = freshResponses({
       })
     }
     return { code: 200, result: true, message: 'Nhận đơn thành công' }
+  },
+
+  async pickupOrder(orderId: number): Promise<ApiResponse<boolean>> {
+    try {
+      await axiosInstance.put(`/orders/${orderId}/pickup`)
+      return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
+    } catch (err) {
+      console.warn('Backend /orders/:id/pickup failed, using local update:', err)
+    }
+    const target = myMockShippingOrders.find((o) => o.orderId === orderId)
+    if (target) {
+      target.status = 'PICKED_UP'
+      target.pickedUpAt = new Date().toISOString()
+    }
+    return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
   },
 
   async updateOrderStatus(
