@@ -103,11 +103,11 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
     let isCancelled = false
     comboService
       .getComboById(comboId)
-      .then((res) => {
-        const items = res.result?.items
+      .then((res: any) => {
+        const items = res.result?.items || res.items
         if (isCancelled || !items) return
         setSelectedItems((prev) =>
-          items.map((it) => {
+          items.map((it: any) => {
             const matched = availableProducts.find((p) => (p.productId || p.id) === it.productId)
             const existingInState = prev.find((p) => p.productId === Number(it.productId))
             return {

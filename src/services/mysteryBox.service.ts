@@ -36,10 +36,11 @@ export const mysteryBoxService = {
       // Fallback mock nếu API gặp lỗi
       const page: PageResponse<MysteryBox> = {
         content: [...mockMysteryBoxes],
-        pageNumber: 1,
-        pageSize: 50,
+        page: 1,
+        size: 50,
         totalElements: mockMysteryBoxes.length,
         totalPages: 1,
+        first: true,
         last: true,
       }
       return {
