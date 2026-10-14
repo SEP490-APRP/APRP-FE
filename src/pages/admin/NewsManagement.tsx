@@ -564,7 +564,7 @@ const NewsManagement: React.FC = () => {
                         </button>
                         <button
                           title="Xóa bài viết"
-                          onClick={() => handleDeleteBlog(art.id)}
+                          onClick={() => handleDeleteBlog(art.blogId || art.id || 0)}
                           className="size-9 bg-gray-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-50 transition-colors"
                         >
                           <Trash2 className="size-4" />
