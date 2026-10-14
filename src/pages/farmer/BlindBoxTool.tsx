@@ -10,7 +10,7 @@ import { getErrorMessage } from '@/utils'
 interface BlindBoxToolProps {
   onAddBox?: (box: FarmerProduct) => void
   onClose: () => void
-  onInfo?: (msg: string) => void
+  onInfo?: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void
 }
 
 interface SelectedMysteryProduct {
@@ -19,13 +19,13 @@ interface SelectedMysteryProduct {
   unit: string
   stockAvailable: number
   quantity: number
+  price: number
 }
 
 export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxToolProps) {
   // Form states mapping BE MysteryBoxCreationRequest
   const [name, setName] = useState('')
   const [price, setPrice] = useState('79000')
-  const [originalPrice, setOriginalPrice] = useState('150000')
   const [note, setNote] = useState('Trọng lượng ~5kg, gồm rau củ quả tươi thu hoạch trong ngày')
   const [stock, setStock] = useState('10')
   const [description, setDescription] = useState('')
@@ -39,11 +39,13 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
 
   // Danh sách nông sản thành phần trong túi mù
   const [selectedItems, setSelectedItems] = useState<SelectedMysteryProduct[]>([])
+  const [itemSearch, setItemSearch] = useState('')
 
-  // Lấy danh sách nông sản đang bán trong kho của nhà vườn
+  // Lấy danh sách nông sản đang bán trong kho của nhà vườn (hỗ trợ tìm kiếm & tải tối đa 100 mặt hàng)
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
     status: 'ACTIVE',
-    size: 50,
+    keyword: itemSearch.trim() !== '' ? itemSearch.trim() : undefined,
+    size: 100,
   })
   const availableProducts = myProductsData?.content || []
 
@@ -52,7 +54,13 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
   const createMysteryBoxMutation = useCreateMysteryBox()
 
   // Xử lý chọn / bỏ chọn nông sản thành phần
-  const handleToggleProduct = (prodId: number, prodName: string, unit: string, stockQuantity: number) => {
+  const handleToggleProduct = (
+    prodId: number,
+    prodName: string,
+    unit: string,
+    stockQuantity: number,
+    itemPrice: number = 0,
+  ) => {
     setSelectedItems((prev) => {
       const existing = prev.find((item) => item.productId === prodId)
       if (existing) {
@@ -66,6 +74,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
             unit: unit || 'kg',
             stockAvailable: stockQuantity || 0,
             quantity: 1,
+            price: itemPrice || 0,
           },
         ]
       }
@@ -79,6 +88,18 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
       prev.map((item) => (item.productId === prodId ? { ...item, quantity: newQty } : item)),
     )
   }
+
+  // Tính tổng giá trị thị trường của các nông sản được chọn trong 1 túi mù
+  const totalMarketValue = selectedItems.reduce(
+    (sum, item) => sum + (item.price || 0) * item.quantity,
+    0,
+  )
+  const numPrice = Number(price) || 0
+  const discountPercent =
+    totalMarketValue > 0 && numPrice > 0 && totalMarketValue > numPrice
+      ? Math.round(((totalMarketValue - numPrice) / totalMarketValue) * 100)
+      : 0
+  const isOverPriced = totalMarketValue > 0 && numPrice > totalMarketValue
 
   // AI gợi ý mô tả túi mù
   const handleAiSuggest = async () => {
@@ -206,7 +227,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
       }
       console.error('Mystery box API error:', err)
       setFormError(friendlyMsg)
-      onInfo?.(friendlyMsg)
+      onInfo?.(friendlyMsg, 'error')
     }  }
 
   return (
@@ -264,31 +285,77 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
             />
           </div>
 
-          {/* Giá giải cứu & Giá gốc */}
+          {/* Giá bán túi mù & Tổng giá trị thị trường tự động tính */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-[#353d2f] mb-1">Giá giải cứu (đ) *</label>
+              <label className="block font-bold text-[#353d2f] mb-1">Giá bán túi mù (đ) *</label>
               <input
                 type="number"
                 required
                 min={1000}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
+                placeholder="VD: 79000"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none font-semibold"
               />
+              <span className="block text-[10px] text-[#7e8779] mt-1 leading-tight">
+                Giá thực tế khách thanh toán
+              </span>
             </div>
             <div>
-              <label className="block font-bold text-[#353d2f] mb-1">Giá gốc tham chiếu (đ)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-bold text-[#353d2f]">
+                  Tổng giá thị trường
+                </label>
+                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md">
+                  Tự động tính
+                </span>
+              </div>
               <input
-                type="number"
-                value={originalPrice}
-                onChange={(e) => setOriginalPrice(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
+                type="text"
+                readOnly
+                value={totalMarketValue > 0 ? `${totalMarketValue.toLocaleString('vi-VN')} đ` : '0 đ'}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#eef2e9] border border-[#d5ded0] text-xs text-[#2d3a24] font-bold outline-none cursor-default select-none"
               />
+              <span className="block text-[10px] text-[#7e8779] mt-1 leading-tight">
+                Ước tính khi mua lẻ từng món
+              </span>
             </div>
           </div>
 
-          {/* Số lượng hộp phát hành & Ghi chú/Trọng lượng */}
+          {/* Gợi ý mức tiết kiệm / cảnh báo định giá thông minh */}
+          {totalMarketValue > 0 && (
+            <div
+              className={`p-2.5 rounded-xl text-xs flex items-center gap-2.5 transition-all ${
+                discountPercent > 0
+                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                  : isOverPriced
+                  ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                  : 'bg-gray-50 border border-gray-200 text-gray-700'
+              }`}
+            >
+              <span className="text-base shrink-0">
+                {discountPercent > 0 ? '🎉' : isOverPriced ? '⚠️' : '💡'}
+              </span>
+              <div className="flex-1 text-[11px] leading-snug">
+                {discountPercent > 0 ? (
+                  <span>
+                    Tổng giá trị <strong>{totalMarketValue.toLocaleString('vi-VN')} đ</strong>. Khách mua túi mù sẽ <strong>tiết kiệm {discountPercent}%</strong> ({(totalMarketValue - numPrice).toLocaleString('vi-VN')} đ) so với mua lẻ!
+                  </span>
+                ) : isOverPriced ? (
+                  <span>
+                    Giá bán ({numPrice.toLocaleString('vi-VN')} đ) đang cao hơn tổng giá thị trường ({totalMarketValue.toLocaleString('vi-VN')} đ). Hãy cân nhắc giảm giá để giải cứu nhanh hơn!
+                  </span>
+                ) : (
+                  <span>
+                    Giá bán bằng đúng tổng giá thị trường của các nông sản được chọn ({totalMarketValue.toLocaleString('vi-VN')} đ).
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Số lượng phát hành & Ghi chú/Trọng lượng */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-[#353d2f] mb-1">
@@ -300,6 +367,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
                 min={1}
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
+                placeholder="VD: 10"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
               />
             </div>
@@ -312,7 +380,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
                 maxLength={255}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="VD: Trọng lượng 5kg, rau củ trong ngày"
+                placeholder="VD: Trọng lượng ~5kg, gồm rau củ quả tươi trong ngày"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
               />
             </div>
@@ -327,6 +395,17 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
               <span className="text-[11px] text-[#7e8779]">
                 Đã chọn: <strong className="text-[#8a4e1d]">{selectedItems.length}</strong> loại
               </span>
+            </div>
+
+            {/* Ô tìm kiếm nhanh nông sản trong kho */}
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Tìm nhanh nông sản theo tên..."
+                value={itemSearch}
+                onChange={(e) => setItemSearch(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs outline-none transition-colors"
+              />
             </div>
 
             {isLoadingProducts ? (
@@ -345,6 +424,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
                   const currentItem = selectedItems.find((item) => item.productId === pId)
                   const unitStr = p.unit || 'kg'
                   const availStock = p.stockQuantity ?? 0
+                  const itemPrice = Number(p.sellingPrice ?? p.price ?? 0)
                   const totalNeeded = (currentItem?.quantity || 1) * (Number(stock) || 1)
                   const isOverStock = isSelected && availStock < totalNeeded
 
@@ -358,7 +438,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
                           type="checkbox"
                           checked={isSelected}
                           onChange={() =>
-                            handleToggleProduct(pId, p.productName, unitStr, availStock)
+                            handleToggleProduct(pId, p.productName, unitStr, availStock, itemPrice)
                           }
                           className="w-4 h-4 rounded text-[#8a4e1d] accent-[#8a4e1d] cursor-pointer"
                         />
@@ -366,6 +446,11 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
                           <p className="font-bold text-[#1c2216] truncate">{p.productName}</p>
                           <p className="text-[10px] text-[#7e8779]">
                             Tồn kho: {availStock} {unitStr}
+                            {itemPrice > 0 && (
+                              <span className="text-[#8a4e1d] font-semibold ml-1.5">
+                                • {itemPrice.toLocaleString('vi-VN')} đ/{unitStr}
+                              </span>
+                            )}
                             {isOverStock && (
                               <span className="text-red-600 font-bold ml-1.5">
                                 (Thiếu: cần {totalNeeded} {unitStr})

@@ -152,6 +152,10 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             alert(
               '⚠️ Lưu ý: Sản phẩm đã được tạo, nhưng ảnh bị AI từ chối vì không nhận diện được nông sản thực tế. Vui lòng vào mục Quản lý Ảnh để đổi ảnh khác.',
             )
+          } else {
+            alert(
+              `⚠️ Sản phẩm đã được tạo, nhưng ảnh tải lên thất bại (${msg || 'Lỗi mạng hoặc tải ảnh'}). Vui lòng vào mục Quản lý Ảnh để thêm ảnh sau.`,
+            )
           }
         }
       }

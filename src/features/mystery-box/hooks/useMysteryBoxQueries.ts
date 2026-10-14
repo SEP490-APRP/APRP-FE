@@ -35,3 +35,16 @@ export function useCreateMysteryBox() {
     },
   })
 }
+
+/** Mutation xóa Túi Mù (gọi API thật BE DELETE /mystery-boxes/{id}) */
+export function useDeleteMysteryBox() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => mysteryBoxService.deleteMysteryBox(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mysteryBoxKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+

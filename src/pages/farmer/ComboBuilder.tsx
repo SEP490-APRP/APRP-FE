@@ -9,7 +9,7 @@ interface ComboBuilderProps {
   initialCombo?: any
   onAddCombo?: (combo: FarmerProduct) => void
   onClose: () => void
-  onInfo?: (msg: string) => void
+  onInfo?: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void
 }
 
 interface SelectedComboProduct {
@@ -68,10 +68,13 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
     return []
   })
 
+  const [itemSearch, setItemSearch] = useState('')
+
   // Lấy danh sách nông sản đang bán trong kho của nhà vườn
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
     status: 'ACTIVE',
-    size: 50,
+    keyword: itemSearch.trim() !== '' ? itemSearch.trim() : undefined,
+    size: 100,
   })
   const availableProducts = myProductsData?.content || []
 
@@ -320,7 +323,7 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
       }
       console.error('Combo API error:', err)
       setFormError(friendlyMsg)
-      onInfo?.(friendlyMsg)
+      onInfo?.(friendlyMsg, 'error')
     }
   }
 
@@ -508,6 +511,17 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
               <span className="text-[11px] text-[#7e8779]">
                 Đã chọn: <strong className="text-[#326318]">{selectedItems.length}</strong> loại
               </span>
+            </div>
+
+            {/* Ô tìm kiếm nhanh nông sản trong kho */}
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Tìm nhanh nông sản theo tên..."
+                value={itemSearch}
+                onChange={(e) => setItemSearch(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs outline-none transition-colors"
+              />
             </div>
 
             {isLoadingProducts ? (

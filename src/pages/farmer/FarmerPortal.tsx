@@ -131,10 +131,34 @@ export default function FarmerPortal({
   const [comboToEdit, setComboToEdit] = useState<any | null>(null)
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
-  const [internalToast, setInternalToast] = useState<string | null>(null)
+  const [internalToast, setInternalToast] = useState<{
+    message: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  } | null>(null)
 
-  const handleInfo = (msg: string) => {
-    setInternalToast(msg)
+  const handleInfo = (
+    msg: string,
+    type?: 'success' | 'error' | 'warning' | 'info',
+  ) => {
+    let resolvedType = type
+    if (!resolvedType) {
+      const lower = msg.toLowerCase()
+      if (
+        lower.includes('không') ||
+        lower.includes('lỗi') ||
+        lower.includes('thất bại') ||
+        lower.includes('từ chối') ||
+        lower.includes('hợp lệ') ||
+        lower.includes('vui lòng') ||
+        lower.includes('chưa đủ') ||
+        lower.includes('vượt quá')
+      ) {
+        resolvedType = 'error'
+      } else {
+        resolvedType = 'success'
+      }
+    }
+    setInternalToast({ message: msg, type: resolvedType })
     onInfo?.(msg)
   }
 
@@ -592,8 +616,6 @@ export default function FarmerPortal({
             />
           ) : currentTab === 'overview' ? (
             <Dashboard
-              products={realProductsList.length > 0 ? realProductsList : products}
-              orders={orders}
               onNavigate={(tab) => setCurrentTab(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
             />
@@ -625,7 +647,7 @@ export default function FarmerPortal({
           ) : currentTab === 'notifications' ? (
             <Notifications />
           ) : currentTab === 'profile' ? (
-            <Profile user={user} onInfo={handleInfo} />
+            <Profile user={user} shopProfile={shopProfile} onInfo={handleInfo} />
           ) : currentTab === 'wallet' ? (
             <WalletComponent onOpenWithdraw={() => setShowWithdrawModal(true)} onInfo={handleInfo} />
           ) : currentTab === 'messages' ? (
@@ -704,12 +726,28 @@ export default function FarmerPortal({
 
       {/* Floating Toast Notification */}
       {internalToast && (
-        <div className="fixed top-6 right-6 z-[100] max-w-sm w-full bg-[#1c2216] text-white p-4 rounded-2xl shadow-2xl border border-emerald-500/30 flex items-start gap-3 animate-fadeIn">
-          <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">
-            ✓
+        <div
+          className={`fixed top-6 right-6 z-[100] max-w-sm w-full bg-[#1c2216] text-white p-4 rounded-2xl shadow-2xl border flex items-start gap-3 animate-fadeIn ${
+            internalToast.type === 'error'
+              ? 'border-rose-500/50'
+              : internalToast.type === 'warning'
+              ? 'border-amber-500/50'
+              : 'border-emerald-500/30'
+          }`}
+        >
+          <div
+            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-black ${
+              internalToast.type === 'error'
+                ? 'bg-rose-500/20 text-rose-400'
+                : internalToast.type === 'warning'
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'bg-emerald-500/20 text-emerald-400'
+            }`}
+          >
+            {internalToast.type === 'error' ? '✕' : internalToast.type === 'warning' ? '⚠️' : '✓'}
           </div>
           <div className="flex-1 text-xs font-semibold leading-relaxed">
-            {internalToast}
+            {internalToast.message}
           </div>
           <button
             type="button"

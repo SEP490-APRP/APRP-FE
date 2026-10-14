@@ -3,4 +3,5 @@ export {
   useShopMysteryBoxes,
   useMyMysteryBoxes,
   useCreateMysteryBox,
+  useDeleteMysteryBox,
 } from './hooks/useMysteryBoxQueries'

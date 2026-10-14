@@ -22,9 +22,10 @@ import {
   useMyProducts,
   useDeleteProduct,
   useMyCombos,
+  useDeleteCombo,
 } from '@/features/product'
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
-import { useMyMysteryBoxes } from '@/features/mystery-box'
+import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal } from '@/features/product/components/EditProductModal'
 import Pagination from '@/components/ui/Pagination/Pagination'
@@ -123,29 +124,28 @@ export default function Products({
     product: ProductResponse | null
   }>({ isOpen: false, product: null })
 
-  // Real data fetching from TanStack Query
+  // Lấy dữ liệu kho hàng của Shop từ BE (tải tối đa 100 mặt hàng mỗi loại để phân trang & lọc Client-side đồng nhất)
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
-    categoryId: categoryFilter !== 'ALL' ? categoryFilter : undefined,
-    keyword: search.trim() !== '' ? search.trim() : undefined,
-    page: page + 1,
-    size: pageSize,
+    size: 100,
   })
 
   // Gọi API lấy danh sách Combo của shop từ BE (GET /combos/my-shop)
   const { data: myCombosData, isLoading: isLoadingCombos } = useMyCombos({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
     page: 1,
-    size: 50,
+    size: 100,
   })
 
   // Gọi API lấy danh sách Túi mù của shop từ BE (GET /mystery-boxes/my-shop)
-  const { data: myBoxesData, isLoading: isLoadingBoxes } = useMyMysteryBoxes(1, 50)
+  const { data: myBoxesData, isLoading: isLoadingBoxes } = useMyMysteryBoxes(1, 100)
 
   const isLoading = isLoadingProducts || isLoadingCombos || isLoadingBoxes
   const { data: categories = [] } = useCategories()
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
+  const deleteComboMutation = useDeleteCombo()
+  const deleteMysteryBoxMutation = useDeleteMysteryBox()
 
   // Map Combo từ BE sang ProductResponse
   const comboItems: any[] = (myCombosData?.content || []).map((c) => ({
@@ -304,10 +304,10 @@ export default function Products({
     if (window.confirm(`Bạn có chắc muốn tạm dừng/gỡ bỏ "${prodName}"?`)) {
       try {
         if (isComboItem(p)) {
-          await comboService.deleteCombo(prodId)
+          await deleteComboMutation.mutateAsync(prodId)
           onInfo?.(`Đã gỡ Combo: ${prodName}`)
         } else if (isBlindBoxItem(p)) {
-          await mysteryBoxService.deleteMysteryBox(prodId)
+          await deleteMysteryBoxMutation.mutateAsync(prodId)
           onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
         } else {
           await deleteMutation.mutateAsync(prodId)

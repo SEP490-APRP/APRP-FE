@@ -44,3 +44,15 @@ export function useUpdateCombo() {
     },
   })
 }
+
+export function useDeleteCombo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => comboService.deleteCombo(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comboKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
