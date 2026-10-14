@@ -18,6 +18,7 @@ import {
   Sparkles,
   BookOpen,
   Image as ImageIcon,
+  Flame,
 } from 'lucide-react'
 
 import heroFarmerImg from '../assets/hero-farmer.jpg'
@@ -157,7 +158,7 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     )
   }, [pagedData, searchQuery])
 
-  // Featured Post (first post on page 0 if no search)
+  // Featured Post (first post on page 0 if no search & all category)
   const featuredBlog = useMemo(() => {
     if (page === 0 && !searchQuery && selectedCategory === 'all' && blogs.length > 0) {
       return blogs[0]
@@ -165,13 +166,21 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     return null
   }, [page, searchQuery, selectedCategory, blogs])
 
+  // Trending stories (next up to 3 posts on page 0)
+  const trendingBlogs = useMemo(() => {
+    if (featuredBlog && blogs.length > 1) {
+      return blogs.slice(1, 4)
+    }
+    return []
+  }, [featuredBlog, blogs])
+
   // Normal feed blogs
   const feedBlogs = useMemo(() => {
     if (featuredBlog) {
-      return blogs.slice(1)
+      return blogs.slice(1 + trendingBlogs.length)
     }
     return blogs
-  }, [featuredBlog, blogs])
+  }, [featuredBlog, trendingBlogs, blogs])
 
   // Handlers
   const handleLike = (e: React.MouseEvent, blogId: number) => {
@@ -289,30 +298,30 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
       {/* ========================================================================= */}
       {/* 1. HERO BANNER                                                            */}
       {/* ========================================================================= */}
-      <div className="relative w-full h-80 sm:h-96 md:h-[420px] overflow-hidden flex items-center justify-center text-center shadow-lg">
+      <div className="relative w-full h-56 sm:h-64 md:h-72 overflow-hidden flex items-center justify-center text-center shadow-md">
         <img
           src={farmerForumBanner}
           alt="Bà con nông dân vui mừng thu hoạch nông sản tươi xanh"
           className="absolute inset-0 w-full h-full object-cover object-center scale-105 transition-transform duration-1000"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/30" />
 
-        <div className="relative z-10 flex flex-col items-center gap-3.5 px-4 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[#ffea79] text-xs font-bold uppercase tracking-wider shadow-sm">
-            <Sprout size={14} className="animate-bounce" />
+        <div className="relative z-10 flex flex-col items-center gap-3 px-4 max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[#ffea79] text-[11px] font-bold uppercase tracking-wider shadow-xs">
+            <Sprout size={13} className="animate-bounce" />
             <span>Bản Tin &amp; Diễn Đàn Nông Nghiệp CapNong</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight drop-shadow-md leading-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-md leading-tight">
             Câu Chuyện Nông Dân
           </h1>
 
-          <p className="text-xs sm:text-sm md:text-base text-white/90 font-normal max-w-2xl mx-auto leading-relaxed drop-shadow">
+          <p className="text-xs sm:text-sm text-white/90 font-normal max-w-xl mx-auto leading-relaxed drop-shadow line-clamp-2 sm:line-clamp-none">
             Nơi sẻ chia những phóng sự mùa vụ chân thật, nhật ký cứu trợ nông sản và
-            nhịp cầu tri ân giữa người tiêu dùng với những người đổ mồ hôi trên cánh đồng Việt.
+            nhịp cầu tri ân giữa người tiêu dùng với những người nông dân Việt.
           </p>
 
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-xs text-white/90 font-medium mt-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] text-white/90 font-medium">
             <a href="/" className="hover:text-[#ffea79] transition-colors">
               Trang chủ
             </a>
@@ -324,11 +333,11 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
         {/* ========================================================================= */}
-        {/* 2. MODERN MAGAZINE SUBNAV TOOLBAR (1 Hàng gọn gàng, không rớt dòng)      */}
+        {/* 2. MODERN MAGAZINE SUBNAV TOOLBAR (Card gọn gàng, tinh tế)               */}
         {/* ========================================================================= */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 border-b border-[#e2dcd0] pb-3">
+        <div className="bg-white rounded-2xl border border-[#e2dcd0] p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Category Tabs (Trượt ngang mượt mà, không rớt hàng) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 shrink-0 -mx-1 px-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0 -mx-1 px-1">
             {CATEGORY_TABS.map((tab) => {
               const isActive = selectedCategory === tab.id
               return (
@@ -339,11 +348,10 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                     setSelectedCategory(tab.id)
                     setPage(0)
                   }}
-                  className={`px-3.5 py-2 text-xs sm:text-[13px] whitespace-nowrap transition-all cursor-pointer rounded-xl font-bold flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-[#2e5d16] text-white shadow-sm'
-                      : 'text-[#586151] hover:text-[#191f14] hover:bg-[#f0ebe0]'
-                  }`}
+                  className={`px-3 py-1.5 text-xs sm:text-[13px] whitespace-nowrap transition-all cursor-pointer rounded-xl font-bold flex items-center gap-1.5 ${isActive
+                    ? 'bg-[#2e5d16] text-white shadow-xs'
+                    : 'text-[#586151] hover:text-[#191f14] hover:bg-[#f0ebe0]'
+                    }`}
                 >
                   <span>{tab.label}</span>
                 </button>
@@ -353,17 +361,17 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
           {/* Right Toolbar: Compact Search & Action Button */}
           <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+            <div className="relative flex-1 md:w-60">
               <Search
-                size={15}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7f8878]"
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f8878]"
               />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm bài viết, nhà vườn..."
-                className="w-full pl-9 pr-8 py-2 rounded-full bg-white border border-[#d6cfbf] text-xs focus:border-[#2e5d16] focus:ring-2 focus:ring-[#2e5d16]/15 outline-none shadow-xs transition-all placeholder:text-[#9ea698]"
+                className="w-full pl-8.5 pr-8 py-1.5 rounded-full bg-[#fbf9f3] border border-[#d6cfbf] text-xs focus:bg-white focus:border-[#2e5d16] focus:ring-2 focus:ring-[#2e5d16]/15 outline-none transition-all placeholder:text-[#9ea698]"
               />
               {searchQuery && (
                 <button
@@ -371,7 +379,7 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9ea698] hover:text-[#2e5d16]"
                 >
-                  <X size={14} />
+                  <X size={13} />
                 </button>
               )}
             </div>
@@ -380,9 +388,9 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-3.5 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                className="px-3.5 py-1.5 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
               >
-                <Plus size={15} />
+                <Plus size={14} />
                 <span className="hidden sm:inline">Viết bài mới</span>
               </button>
             )}
@@ -390,34 +398,38 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. SPOTLIGHT STORY BANNER (Bài viết nổi bật tinh gọn)                     */}
+        {/* 3. EDITORIAL MAGAZINE 2-COLUMN SECTION (Tiêu điểm & Đang quan tâm)        */}
         {/* ========================================================================= */}
         {featuredBlog && (
-          <div className="bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 lg:p-7 shadow-md hover:shadow-lg transition-shadow relative overflow-hidden flex flex-col lg:flex-row gap-6 lg:gap-8 items-center">
-            {/* Left Image */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            {/* Cột Trái: Tiêu điểm mùa vụ (Ảnh tỉ lệ 16:9 khống chế max-h gọn gàng) */}
             <div
-              onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-              className="w-full lg:w-1/2 aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden relative shadow-xs group shrink-0 cursor-pointer"
+              className={`${trendingBlogs.length > 0 ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-12'
+                } bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between gap-4`}
             >
-              <img
-                src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
-                alt={featuredBlog.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute top-3.5 left-3.5 bg-[#c82626] text-white font-extrabold text-[10px] px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                <span>Tiêu Điểm Nông Sản</span>
-              </div>
-              <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
-                <Eye size={12} />
-                <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
-              </div>
-            </div>
+              <div>
+                {/* Image Container with controlled height */}
+                <div
+                  onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                  className="w-full aspect-[16/9] max-h-60 sm:max-h-72 rounded-2xl overflow-hidden relative shadow-xs group cursor-pointer mb-4"
+                >
+                  <img
+                    src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
+                    alt={featuredBlog.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute top-3 left-3 bg-[#c82626] text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    <span>Tiêu Điểm Mùa Vụ</span>
+                  </div>
+                  <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
+                    <Eye size={12} />
+                    <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
+                  </div>
+                </div>
 
-            {/* Right Content */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-between gap-4">
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2 text-xs text-[#6e7668]">
+                {/* Metadata */}
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
                   <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
                     {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
                   </span>
@@ -432,14 +444,16 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                   </span>
                 </div>
 
+                {/* Title */}
                 <h2
                   onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="text-xl sm:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer"
+                  className="text-lg sm:text-xl md:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer mb-2 line-clamp-2"
                 >
                   {featuredBlog.title}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-3">
+                {/* Excerpt */}
+                <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-2 sm:line-clamp-3">
                   {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
                 </p>
               </div>
@@ -460,7 +474,7 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                           : 'text-[#848c7e]'
                       }
                     />
-                    <span>{featuredBlog.likeCount || 0} Cảm kích</span>
+                    <span>{featuredBlog.likeCount || 0}</span>
                   </button>
 
                   <button
@@ -469,7 +483,7 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                     className="flex items-center gap-1.5 hover:text-[#2e5d16] font-bold transition-all cursor-pointer"
                   >
                     <MessageCircle size={16} className="text-[#848c7e]" />
-                    <span>{featuredBlog.commentCount || 0} Bình luận</span>
+                    <span>{featuredBlog.commentCount || 0}</span>
                   </button>
 
                   <button
@@ -487,214 +501,306 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                   onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
                   className="px-4 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Đọc tiếp</span>
+                  <span>Đọc toàn bộ</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
             </div>
+
+            {/* Cột Phải: Đang được quan tâm (Trending Stories) */}
+            {trendingBlogs.length > 0 && (
+              <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 shadow-sm flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#f0ebd9] pb-3 mb-3">
+                    <div className="flex items-center gap-2 font-black text-sm text-[#191f14] uppercase tracking-wider">
+                      <Flame size={18} className="text-[#c82626]" />
+                      <span>Đang được quan tâm</span>
+                    </div>
+                    <span className="text-[11px] text-[#717a6c] font-medium">Bản tin nóng</span>
+                  </div>
+
+                  <div className="flex flex-col divide-y divide-[#f0ebd9]">
+                    {trendingBlogs.map((tb, idx) => {
+                      const tbId = tb.blogId || tb.id || idx
+                      const tbThumb = tb.pictureUrl || tb.imageUrl || heroFarmerImg
+                      return (
+                        <div
+                          key={tbId}
+                          onClick={() => setReadingBlogId(tbId)}
+                          className="py-3 first:pt-0 last:pb-0 flex items-center gap-3.5 group cursor-pointer"
+                        >
+                          {/* Thumbnail */}
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 relative bg-[#f5f1e8] border border-[#e6dfd2]">
+                            <img
+                              src={tbThumb}
+                              alt={tb.title}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0 flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-[10px] text-[#717a6c]">
+                              <span className="font-bold text-[#2e5d16]">
+                                {getCategoryBadge(tb.category)}
+                              </span>
+                              <span>•</span>
+                              <span>{formatPublishDate(tb.createAt || tb.createdAt)}</span>
+                            </div>
+                            <h4 className="text-xs sm:text-[13px] font-bold text-[#191f14] leading-snug group-hover:text-[#2e5d16] transition-colors line-clamp-2">
+                              {tb.title}
+                            </h4>
+                            <div className="flex items-center gap-3 text-[11px] text-[#848c7e] mt-0.5">
+                              <span className="flex items-center gap-1">
+                                <Eye size={11} />
+                                <span>{tb.views || tb.viewCount || 0}</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Heart size={11} />
+                                <span>{tb.likeCount || 0}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Callout box at bottom of trending column */}
+                <div className="p-3 rounded-2xl bg-[#f5f1e8] border border-[#e4ded2] flex items-center justify-between text-xs">
+                  <span className="text-[#555d4e] font-medium text-[11px]">
+                    Chia sẻ câu chuyện từ vườn nhà bạn?
+                  </span>
+                  {isShopOrAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="text-[#2e5d16] font-black hover:underline cursor-pointer text-xs"
+                    >
+                      Đăng ngay
+                    </button>
+                  ) : (
+                    <a
+                      href="/dang-ky-ban-hang"
+                      className="text-[#2e5d16] font-black hover:underline text-xs"
+                    >
+                      Mở shop
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ========================================================================= */}
         {/* 4. FEED GRID                                                              */}
         {/* ========================================================================= */}
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl sm:text-2xl font-black text-[#191f14] flex items-center gap-2">
-              <BookOpen size={22} className="text-[#2e5d16]" />
-              <span>Bản Tin Mùa Vụ &amp; Kinh Nghiệm ({pagedData?.totalElements || blogs.length})</span>
-            </h2>
-            <span className="text-xs text-[#717a6c] font-medium hidden sm:inline">
-              Cập nhật trực tiếp từ hệ sinh thái nhà vườn CapNong
-            </span>
-          </div>
-
-          {/* Loading Skeletons */}
-          {isLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-3xl border border-[#e6dfd2] p-5 shadow-sm animate-pulse flex flex-col gap-4"
-                >
-                  <div className="h-6 bg-[#f0ebd9] rounded-full w-2/3" />
-                  <div className="aspect-[16/10] bg-[#f0ebd9] rounded-2xl" />
-                  <div className="h-4 bg-[#f0ebd9] rounded w-full" />
-                  <div className="h-4 bg-[#f0ebd9] rounded w-4/5" />
-                </div>
-              ))}
+        {(!featuredBlog || feedBlogs.length > 0) && (
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-black text-[#191f14] flex items-center gap-2">
+                <BookOpen size={20} className="text-[#2e5d16]" />
+                <span>
+                  {featuredBlog
+                    ? 'Câu Chuyện Ruộng Vườn Khác'
+                    : 'Bản Tin Mùa Vụ & Kinh Nghiệm'}{' '}
+                  ({feedBlogs.length})
+                </span>
+              </h2>
+              <span className="text-xs text-[#717a6c] font-medium hidden sm:inline">
+                Cập nhật trực tiếp từ hệ sinh thái nhà vườn CapNong
+              </span>
             </div>
-          )}
 
-          {/* Empty State */}
-          {!isLoading && feedBlogs.length === 0 && !featuredBlog && (
-            <div className="bg-white rounded-3xl border border-[#e6dfd2] p-12 text-center flex flex-col items-center gap-3">
-              <Sprout size={48} className="text-[#2e5d16]/40" />
-              <h3 className="text-base font-bold text-[#191f14]">Chưa có bài viết phù hợp</h3>
-              <p className="text-xs text-[#6e7668] max-w-sm">
-                Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm để xem thêm câu chuyện ruộng vườn.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory('all')
-                  setSearchQuery('')
-                }}
-                className="mt-2 px-5 py-2 rounded-full bg-[#2e5d16] text-white text-xs font-bold"
-              >
-                Xem tất cả bài viết
-              </button>
-            </div>
-          )}
-
-          {/* Cards Grid */}
-          {!isLoading && feedBlogs.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
-              {feedBlogs.map((blog) => {
-                const blogId = blog.blogId || blog.id || 0
-                const isLiked = blog.isLikedByCurrentUser
-                const thumb = blog.pictureUrl || blog.imageUrl || heroFarmerImg
-
-                return (
+            {/* Loading Skeletons */}
+            {isLoading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div
-                    key={blogId}
-                    className="bg-white rounded-3xl border border-[#e6dfd2] p-5 sm:p-6 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-4 group"
+                    key={i}
+                    className="bg-white rounded-3xl border border-[#e6dfd2] p-5 shadow-sm animate-pulse flex flex-col gap-4"
                   >
-                    <div>
-                      {/* Top Shop Bar */}
-                      <div className="flex items-center justify-between mb-3.5 text-xs">
-                        <div className="flex items-center gap-2.5">
-                          {blog.shopAvatar ? (
-                            <img
-                              src={blog.shopAvatar}
-                              alt={blog.shopName || 'Shop'}
-                              className="w-8 h-8 rounded-full object-cover border border-[#e0dad0]"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-[#2e5d16] text-white font-extrabold flex items-center justify-center text-xs shadow-sm">
-                              {(blog.shopName || blog.authorName || 'C').charAt(0)}
+                    <div className="h-6 bg-[#f0ebd9] rounded-full w-2/3" />
+                    <div className="aspect-[16/10] bg-[#f0ebd9] rounded-2xl" />
+                    <div className="h-4 bg-[#f0ebd9] rounded w-full" />
+                    <div className="h-4 bg-[#f0ebd9] rounded w-4/5" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && feedBlogs.length === 0 && !featuredBlog && (
+              <div className="bg-white rounded-3xl border border-[#e6dfd2] p-12 text-center flex flex-col items-center gap-3">
+                <Sprout size={48} className="text-[#2e5d16]/40" />
+                <h3 className="text-base font-bold text-[#191f14]">Chưa có bài viết phù hợp</h3>
+                <p className="text-xs text-[#6e7668] max-w-sm">
+                  Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm để xem thêm câu chuyện ruộng vườn.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory('all')
+                    setSearchQuery('')
+                  }}
+                  className="mt-2 px-5 py-2 rounded-full bg-[#2e5d16] text-white text-xs font-bold"
+                >
+                  Xem tất cả bài viết
+                </button>
+              </div>
+            )}
+
+            {/* Cards Grid */}
+            {!isLoading && feedBlogs.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
+                {feedBlogs.map((blog) => {
+                  const blogId = blog.blogId || blog.id || 0
+                  const isLiked = blog.isLikedByCurrentUser
+                  const thumb = blog.pictureUrl || blog.imageUrl || heroFarmerImg
+
+                  return (
+                    <div
+                      key={blogId}
+                      className="bg-white rounded-3xl border border-[#e6dfd2] p-5 sm:p-6 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-4 group"
+                    >
+                      <div>
+                        {/* Top Shop Bar */}
+                        <div className="flex items-center justify-between mb-3.5 text-xs">
+                          <div className="flex items-center gap-2.5">
+                            {blog.shopAvatar ? (
+                              <img
+                                src={blog.shopAvatar}
+                                alt={blog.shopName || 'Shop'}
+                                className="w-8 h-8 rounded-full object-cover border border-[#e0dad0]"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-[#2e5d16] text-white font-extrabold flex items-center justify-center text-xs shadow-sm">
+                                {(blog.shopName || blog.authorName || 'C').charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-extrabold text-[#191f14] leading-tight truncate max-w-[150px]">
+                                {blog.shopName || blog.authorName || 'Nhà vườn CapNong'}
+                              </div>
+                              <div className="text-[10px] text-[#717a6c] flex items-center gap-1">
+                                <Calendar size={10} />
+                                <span>{formatPublishDate(blog.createAt || blog.createdAt)}</span>
+                              </div>
                             </div>
-                          )}
-                          <div>
-                            <div className="font-extrabold text-[#191f14] leading-tight truncate max-w-[150px]">
-                              {blog.shopName || blog.authorName || 'Nhà vườn CapNong'}
-                            </div>
-                            <div className="text-[10px] text-[#717a6c] flex items-center gap-1">
-                              <Calendar size={10} />
-                              <span>{formatPublishDate(blog.createAt || blog.createdAt)}</span>
-                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
+                            {getCategoryBadge(blog.category)}
+                          </span>
+                        </div>
+
+                        {/* Thumbnail Image */}
+                        <div
+                          onClick={() => setReadingBlogId(blogId)}
+                          className="aspect-[16/10] rounded-2xl overflow-hidden mb-3.5 relative cursor-pointer shadow-sm group-hover:shadow-md transition-shadow"
+                        >
+                          <img
+                            src={thumb}
+                            alt={blog.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[10px] flex items-center gap-1">
+                            <Eye size={11} />
+                            <span>{blog.views || blog.viewCount || 0}</span>
                           </div>
                         </div>
 
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
-                          {getCategoryBadge(blog.category)}
-                        </span>
+                        {/* Title & Preview */}
+                        <h3
+                          onClick={() => setReadingBlogId(blogId)}
+                          className="font-black text-base text-[#191f14] leading-snug group-hover:text-[#2e5d16] transition-colors line-clamp-2 cursor-pointer mb-2"
+                        >
+                          {blog.title}
+                        </h3>
+
+                        <p className="text-xs text-[#555d4e] leading-relaxed line-clamp-3">
+                          {blog.content.replace(/<[^>]*>?/gm, '')}
+                        </p>
                       </div>
 
-                      {/* Thumbnail Image */}
-                      <div
-                        onClick={() => setReadingBlogId(blogId)}
-                        className="aspect-[16/10] rounded-2xl overflow-hidden mb-3.5 relative cursor-pointer shadow-sm group-hover:shadow-md transition-shadow"
-                      >
-                        <img
-                          src={thumb}
-                          alt={blog.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[10px] flex items-center gap-1">
-                          <Eye size={11} />
-                          <span>{blog.views || blog.viewCount || 0}</span>
+                      {/* Bottom Interactive Bar */}
+                      <div className="pt-3.5 border-t border-[#ede7dc] flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={(e) => handleLike(e, blogId)}
+                            className="flex items-center gap-1 font-bold transition-colors cursor-pointer"
+                          >
+                            <Heart
+                              size={16}
+                              className={
+                                isLiked
+                                  ? 'text-[#c82626] fill-[#c82626]'
+                                  : 'text-[#848c7e] hover:text-[#c82626]'
+                              }
+                            />
+                            <span className={isLiked ? 'text-[#c82626]' : 'text-[#666e60]'}>
+                              {blog.likeCount || 0}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenComment(e, blog)}
+                            className="flex items-center gap-1 text-[#666e60] hover:text-[#2e5d16] font-bold transition-colors cursor-pointer"
+                          >
+                            <MessageCircle size={16} />
+                            <span>{blog.commentCount || 0}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyShareLink(blog)}
+                            className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
+                            title="Sao chép liên kết"
+                          >
+                            <Share2 size={15} />
+                          </button>
                         </div>
-                      </div>
-
-                      {/* Title & Preview */}
-                      <h3
-                        onClick={() => setReadingBlogId(blogId)}
-                        className="font-black text-base text-[#191f14] leading-snug group-hover:text-[#2e5d16] transition-colors line-clamp-2 cursor-pointer mb-2"
-                      >
-                        {blog.title}
-                      </h3>
-
-                      <p className="text-xs text-[#555d4e] leading-relaxed line-clamp-3">
-                        {blog.content.replace(/<[^>]*>?/gm, '')}
-                      </p>
-                    </div>
-
-                    {/* Bottom Interactive Bar */}
-                    <div className="pt-3.5 border-t border-[#ede7dc] flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={(e) => handleLike(e, blogId)}
-                          className="flex items-center gap-1 font-bold transition-colors cursor-pointer"
-                        >
-                          <Heart
-                            size={16}
-                            className={
-                              isLiked
-                                ? 'text-[#c82626] fill-[#c82626]'
-                                : 'text-[#848c7e] hover:text-[#c82626]'
-                            }
-                          />
-                          <span className={isLiked ? 'text-[#c82626]' : 'text-[#666e60]'}>
-                            {blog.likeCount || 0}
-                          </span>
-                        </button>
 
                         <button
                           type="button"
-                          onClick={(e) => handleOpenComment(e, blog)}
-                          className="flex items-center gap-1 text-[#666e60] hover:text-[#2e5d16] font-bold transition-colors cursor-pointer"
+                          onClick={() => setReadingBlogId(blogId)}
+                          className="text-xs font-black text-[#2e5d16] hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <MessageCircle size={16} />
-                          <span>{blog.commentCount || 0}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyShareLink(blog)}
-                          className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
-                          title="Sao chép liên kết"
-                        >
-                          <Share2 size={15} />
+                          <span>Đọc tiếp</span>
+                          <ArrowRight size={13} />
                         </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setReadingBlogId(blogId)}
-                        className="text-xs font-black text-[#2e5d16] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Đọc tiếp</span>
-                        <ArrowRight size={13} />
-                      </button>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+              </div>
+            )}
 
-          {/* Pagination */}
-          {pagedData && pagedData.totalPages > 1 && (
-            <div className="flex justify-center mt-6">
-              <Pagination
-                pageInfo={{
-                  page: pagedData.page,
-                  size: pagedData.size,
-                  totalElements: pagedData.totalElements,
-                  totalPages: pagedData.totalPages,
-                  first: pagedData.first,
-                  last: pagedData.last,
-                }}
-                onPageChange={(newPage) => {
-                  setPage(newPage)
-                  window.scrollTo({ top: 350, behavior: 'smooth' })
-                }}
-              />
-            </div>
-          )}
-        </div>
+            {/* Pagination */}
+            {pagedData && pagedData.totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <Pagination
+                  pageInfo={{
+                    page: pagedData.page,
+                    size: pagedData.size,
+                    totalElements: pagedData.totalElements,
+                    totalPages: pagedData.totalPages,
+                    first: pagedData.first,
+                    last: pagedData.last,
+                  }}
+                  onPageChange={(newPage) => {
+                    setPage(newPage)
+                    window.scrollTo({ top: 350, behavior: 'smooth' })
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* 5. COMMUNITY BOARD: GÓC TRI ÂN & ĐỘNG VIÊN NÔNG DÂN                       */}
@@ -848,11 +954,10 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                   <button
                     type="button"
                     onClick={(e) => handleLike(e, blogDetail.blogId || blogDetail.id || 1)}
-                    className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
-                      blogDetail.isLikedByCurrentUser
-                        ? 'bg-[#c82626] text-white'
-                        : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
-                    }`}
+                    className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${blogDetail.isLikedByCurrentUser
+                      ? 'bg-[#c82626] text-white'
+                      : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
+                      }`}
                   >
                     <Heart
                       size={16}
@@ -1115,11 +1220,10 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                       key={idx}
                       type="button"
                       onClick={() => setNewPictureUrl(sc.url)}
-                      className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                        newPictureUrl === sc.url
-                          ? 'border-[#2e5d16] scale-105 shadow-md'
-                          : 'border-transparent opacity-70 hover:opacity-100'
-                      }`}
+                      className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${newPictureUrl === sc.url
+                        ? 'border-[#2e5d16] scale-105 shadow-md'
+                        : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
                     >
                       <img src={sc.url} alt={sc.title} className="w-full h-full object-cover" />
                       <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded">
