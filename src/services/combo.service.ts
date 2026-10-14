@@ -1,14 +1,15 @@
-import type { ApiResponse } from '@/types'
+import { axiosInstance } from './api/axiosInstance'
+import type { ApiResponse, PageResponse } from '@/types'
 import type {
-  BuildComboResponse,
+  BuildCombo,
   BuildComboCreationRequest,
   BuildComboUpdateRequest,
 } from './combo.types'
-import { axiosInstance } from './api/axiosInstance'
 
 export type * from './combo.types'
 
 export const comboService = {
+  // Lấy danh sách build combo công khai
   async getCombos(params?: {
     status?: string
     mealType?: string
@@ -17,12 +18,51 @@ export const comboService = {
     keyword?: string
     page?: number
     size?: number
-  }): Promise<ApiResponse<{ content: BuildComboResponse[]; totalElements?: number }>> {
-    const res = await axiosInstance.get<ApiResponse<{ content: BuildComboResponse[]; totalElements?: number }>>(
-      '/combos',
-      { params },
-    )
-    return res.data
+  }): Promise<PageResponse<BuildCombo> & { result: PageResponse<BuildCombo> }> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<BuildCombo>>>('/combos', {
+      params: {
+        page: params?.page ?? 1,
+        size: params?.size ?? 50,
+        status: params?.status ?? 'ACTIVE',
+        ...params,
+      },
+    })
+    const page: PageResponse<BuildCombo> = res.data?.result ?? (res.data as any) ?? { content: [] }
+    return {
+      ...page,
+      result: page,
+    }
+  },
+
+  // Chi tiết 1 combo
+  async getById(id: number): Promise<BuildCombo> {
+    const res = await axiosInstance.get<ApiResponse<BuildCombo>>(`/combos/${id}`)
+    return (res.data?.result ?? res.data) as BuildCombo
+  },
+
+  async getComboById(id: number): Promise<BuildCombo> {
+    return this.getById(id)
+  },
+
+  // Lấy danh sách combo của shop đang đăng nhập
+  async getMyShopCombos(params?: {
+    status?: string
+    mealType?: string
+    page?: number
+    size?: number
+  }): Promise<PageResponse<BuildCombo> & { result: PageResponse<BuildCombo> }> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<BuildCombo>>>('/combos/my-shop', {
+      params: {
+        page: params?.page ?? 1,
+        size: params?.size ?? 10,
+        ...params,
+      },
+    })
+    const page: PageResponse<BuildCombo> = res.data?.result ?? (res.data as any) ?? { content: [] }
+    return {
+      ...page,
+      result: page,
+    }
   },
 
   async getMyCombos(params?: {
@@ -30,38 +70,36 @@ export const comboService = {
     mealType?: string
     page?: number
     size?: number
-  }): Promise<ApiResponse<{ content: BuildComboResponse[]; totalElements?: number }>> {
-    const res = await axiosInstance.get<ApiResponse<{ content: BuildComboResponse[]; totalElements?: number }>>(
-      '/combos/my-shop',
-      { params },
-    )
-    return res.data
+  }): Promise<PageResponse<BuildCombo> & { result: PageResponse<BuildCombo> }> {
+    return this.getMyShopCombos(params)
   },
 
-  async getComboById(id: number): Promise<ApiResponse<BuildComboResponse>> {
-    const res = await axiosInstance.get<ApiResponse<BuildComboResponse>>(`/combos/${id}`)
-    return res.data
+  // Shop tạo combo
+  async createCombo(data: BuildComboCreationRequest): Promise<BuildCombo> {
+    const res = await axiosInstance.post<ApiResponse<BuildCombo>>('/combos', data)
+    return (res.data?.result ?? res.data) as BuildCombo
   },
 
-  async createCombo(data: BuildComboCreationRequest): Promise<ApiResponse<BuildComboResponse>> {
-    const res = await axiosInstance.post<ApiResponse<BuildComboResponse>>('/combos', data)
-    return res.data
+  // Shop cập nhật combo
+  async updateCombo(id: number, data: BuildComboUpdateRequest): Promise<BuildCombo> {
+    const res = await axiosInstance.put<ApiResponse<BuildCombo>>(`/combos/${id}`, data)
+    return (res.data?.result ?? res.data) as BuildCombo
   },
 
-  async updateCombo(id: number, data: BuildComboUpdateRequest): Promise<ApiResponse<BuildComboResponse>> {
-    const res = await axiosInstance.put<ApiResponse<BuildComboResponse>>(`/combos/${id}`, data)
-    return res.data
-  },
-
-  async toggleStatus(id: number, status: string): Promise<ApiResponse<BuildComboResponse>> {
-    const res = await axiosInstance.patch<ApiResponse<BuildComboResponse>>(`/combos/${id}/status`, null, {
+  // Shop đổi trạng thái combo
+  async updateStatus(id: number, status: string): Promise<BuildCombo> {
+    const res = await axiosInstance.patch<ApiResponse<BuildCombo>>(`/combos/${id}/status`, null, {
       params: { status },
     })
-    return res.data
+    return (res.data?.result ?? res.data) as BuildCombo
   },
 
-  async deleteCombo(id: number): Promise<ApiResponse<string>> {
-    const res = await axiosInstance.delete<ApiResponse<string>>(`/combos/${id}`)
-    return res.data
+  async toggleStatus(id: number, status: string): Promise<BuildCombo> {
+    return this.updateStatus(id, status)
+  },
+
+  // Shop xóa combo
+  async deleteCombo(id: number): Promise<void> {
+    await axiosInstance.delete(`/combos/${id}`)
   },
 }

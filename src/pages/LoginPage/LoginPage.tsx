@@ -48,7 +48,6 @@ const LoginPage = () => {
         localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
 
         const payload = authService.parseJwt(token)
-        const mappedRole = authService.mapBackendRoleToFrontend(payload?.roles)
 
         let profileUser: UserResponse | null = null
         try {
@@ -57,6 +56,12 @@ const LoginPage = () => {
         } catch (meErr) {
           console.warn('Failed to fetch /users/me:', meErr)
         }
+
+        const mappedRole = authService.mapBackendRoleToFrontend([
+          payload?.roles,
+          profileUser?.role?.name,
+          profileUser?.roleName,
+        ])
 
         const sessionUser = profileUser
           ? authService.buildSessionUser(profileUser, mappedRole)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
@@ -21,13 +21,21 @@ import {
   X,
   Clock,
   Package,
+  Ticket,
+  Gift,
+  ChevronRight,
+  PackageX,
+  ShoppingCart,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { useAuth } from '@/stores'
+import { useAuth, useUiStore } from '@/stores'
 import {
   orderService,
+  voucherService,
+  type VoucherResponse,
   type AddressSuggestion,
   getSavedAddresses,
   createSavedAddress,
@@ -52,6 +60,95 @@ interface CheckoutFormValues {
   shippingAddress: string
   note?: string
   paymentMethod: 'COD' | 'PAYOS'
+}
+
+export interface StockShortageItem {
+  itemType: 'PRODUCT' | 'MYSTERY_BOX' | 'BUILD_COMBO' | 'GENERAL'
+  id?: number
+  itemName: string
+  imageUrl?: string
+  requestedQuantity?: number
+  availableQuantity?: number
+}
+
+function parseStockShortages(err: any): StockShortageItem[] {
+  // 1. Ưu tiên đọc từ trường result cấu trúc do Backend trả về
+  const resultData = err?.response?.data?.result
+  if (Array.isArray(resultData) && resultData.length > 0) {
+    return resultData.map((item: any) => ({
+      itemType: (item.itemType as any) || 'GENERAL',
+      id: item.id,
+      itemName: item.itemName || item.name || 'Mặt hàng',
+      imageUrl: item.imageUrl,
+      requestedQuantity: typeof item.requestedQuantity === 'number' ? item.requestedQuantity : undefined,
+      availableQuantity: typeof item.availableQuantity === 'number' ? item.availableQuantity : 0,
+    }))
+  }
+
+  // 2. Parse từ chuỗi message của Backend
+  const message: string =
+    err?.response?.data?.message ||
+    err?.message ||
+    ''
+
+  const items: StockShortageItem[] = []
+  const lines = message.split('\n')
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    // Mẫu bullet: • [Loại] "Tên": Kho còn X, bạn đặt Y  hoặc  • [Loại] "Tên"
+    const bulletMatch = line.match(/^•\s*\[(.*?)\]\s*"([^"]+)"(?::\s*Kho còn\s*(\d+))?,?\s*(?:bạn đặt\s*(\d+))?/i)
+    if (bulletMatch) {
+      const typeStr = bulletMatch[1].toLowerCase()
+      let itemType: StockShortageItem['itemType'] = 'GENERAL'
+      if (typeStr.includes('hộp bí ẩn') || typeStr.includes('mystery')) itemType = 'MYSTERY_BOX'
+      else if (typeStr.includes('combo')) itemType = 'BUILD_COMBO'
+      else if (typeStr.includes('sản phẩm')) itemType = 'PRODUCT'
+
+      items.push({
+        itemType,
+        itemName: bulletMatch[2],
+        availableQuantity: bulletMatch[3] !== undefined ? parseInt(bulletMatch[3], 10) : undefined,
+        requestedQuantity: bulletMatch[4] !== undefined ? parseInt(bulletMatch[4], 10) : undefined,
+      })
+      continue
+    }
+
+    // Mẫu 1 dòng đơn: Sản phẩm "Tên" trong kho chỉ còn X (bạn đặt Y)...
+    const singleMatch = line.match(/^(Sản phẩm|Hộp bí ẩn|Gói Combo)\s*"([^"]+)"\s*trong kho chỉ còn\s*(\d+)\s*\(bạn đặt\s*(\d+)\)/i)
+    if (singleMatch) {
+      const typeStr = singleMatch[1].toLowerCase()
+      let itemType: StockShortageItem['itemType'] = 'GENERAL'
+      if (typeStr.includes('hộp bí ẩn') || typeStr.includes('mystery')) itemType = 'MYSTERY_BOX'
+      else if (typeStr.includes('combo')) itemType = 'BUILD_COMBO'
+      else if (typeStr.includes('sản phẩm')) itemType = 'PRODUCT'
+
+      items.push({
+        itemType,
+        itemName: singleMatch[2],
+        availableQuantity: parseInt(singleMatch[3], 10),
+        requestedQuantity: parseInt(singleMatch[4], 10),
+      })
+    }
+  }
+
+  return items
+}
+
+function isStockShortageError(err: any): boolean {
+  const code = err?.response?.data?.code
+  if (code === 5015 || code === 8002) return true
+  const msg = (err?.response?.data?.message || err?.message || '').toLowerCase()
+  return (
+    msg.includes('kho') ||
+    msg.includes('stock') ||
+    msg.includes('không đủ số lượng') ||
+    msg.includes('hết hàng') ||
+    msg.includes('hộp bí ẩn') ||
+    msg.includes('combo')
+  )
 }
 
 export const CheckoutView: React.FC = () => {
@@ -104,10 +201,37 @@ export const CheckoutView: React.FC = () => {
   const [saveToAddressBook, setSaveToAddressBook] = useState(true)
   const [checkoutAddressLabel, setCheckoutAddressLabel] = useState('Nhà')
 
-  // Autocomplete state
+  // Autocomplete state (form chính)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Autocomplete state (Modal Sổ địa chỉ)
+  const [modalSuggestions, setModalSuggestions] = useState<AddressSuggestion[]>([])
+  const [isSearchingModalSuggestions, setIsSearchingModalSuggestions] = useState(false)
+  const [showModalSuggestions, setShowModalSuggestions] = useState(false)
+  const isSelectingModalSuggestionRef = useRef(false)
+
+  // Voucher state
+  const [selectedVoucherCodes, setSelectedVoucherCodes] = useState<string[]>([])
+  const [inputVoucherCode, setInputVoucherCode] = useState('')
+  const [myVouchers, setMyVouchers] = useState<VoucherResponse[]>([])
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
+  const [voucherError, setVoucherError] = useState<string | null>(null)
+
+  // Cảnh báo tồn kho không đủ (Tổng hợp toàn bộ Product, Mystery Box, Build Combo)
+  const [stockErrorModal, setStockErrorModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    items: StockShortageItem[]
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    items: [],
+  })
+  const [orderSubmitError, setOrderSubmitError] = useState<string | null>(null)
 
   const {
     register,
@@ -193,6 +317,41 @@ export const CheckoutView: React.FC = () => {
     }
   }
 
+  // Lắng nghe thay đổi formAddress trong Modal để gợi ý Places Autocomplete
+  useEffect(() => {
+    if (isSelectingModalSuggestionRef.current) {
+      isSelectingModalSuggestionRef.current = false
+      return
+    }
+
+    if (!formAddress || formAddress.trim().length < 2) {
+      setModalSuggestions([])
+      setShowModalSuggestions(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingModalSuggestions(true)
+      try {
+        const list = await orderService.getAddressSuggestions(formAddress)
+        setModalSuggestions(list)
+        setShowModalSuggestions(list.length > 0)
+      } catch (err) {
+        console.error('Lỗi tìm gợi ý địa chỉ modal:', err)
+      } finally {
+        setIsSearchingModalSuggestions(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [formAddress])
+
+  const handleSelectModalSuggestion = (s: AddressSuggestion) => {
+    isSelectingModalSuggestionRef.current = true
+    setFormAddress(s.description)
+    setShowModalSuggestions(false)
+  }
+
   const handleSelectSavedAddress = (addr: SavedAddress) => {
     setSelectedAddressId(addr.id)
     setValue('recipientName', addr.recipientName, { shouldValidate: true })
@@ -206,6 +365,7 @@ export const CheckoutView: React.FC = () => {
     if (checkoutItems.length > 0 && addr.address) {
       previewMutation.mutate({
         shippingAddress: addr.address,
+        voucherCodes: selectedVoucherCodes,
         items: checkoutItems.map((i) => i.itemReq),
         cartItemIds: checkoutItems.map((i) => i.cartItemId),
       })
@@ -223,6 +383,8 @@ export const CheckoutView: React.FC = () => {
     setFormPhone(addr.phone)
     setFormAddress(addr.address)
     setFormIsDefault(addr.isDefault)
+    setModalSuggestions([])
+    setShowModalSuggestions(false)
   }
 
   // Lưu chỉnh sửa địa chỉ (PUT /api/addresses/{id})
@@ -257,6 +419,7 @@ export const CheckoutView: React.FC = () => {
         if (checkoutItems.length > 0) {
           previewMutation.mutate({
             shippingAddress: updated.address,
+            voucherCodes: selectedVoucherCodes,
             items: checkoutItems.map((i) => i.itemReq),
             cartItemIds: checkoutItems.map((i) => i.cartItemId),
           })
@@ -281,6 +444,8 @@ export const CheckoutView: React.FC = () => {
     setFormPhone(user?.phoneNumber || '')
     setFormAddress('')
     setFormIsDefault(savedAddresses.length === 0)
+    setModalSuggestions([])
+    setShowModalSuggestions(false)
   }
 
   // Lưu địa chỉ mới (POST /api/addresses)
@@ -382,20 +547,226 @@ export const CheckoutView: React.FC = () => {
     )
   }, [checkoutShops])
 
+  const cartSummary = React.useMemo(() => {
+    const totalGoods = checkoutItems.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 0), 0)
+    const estimatedShipping = checkoutShops.length > 0 ? checkoutShops.length * 15000 : 15000
+    return {
+      totalGoods,
+      estimatedShipping,
+      orderCount: checkoutShops.length,
+    }
+  }, [checkoutItems, checkoutShops])
+
+  const getVoucherEligibility = React.useCallback((voucher: VoucherResponse) => {
+    if (!voucher) return false
+    if (voucher.active === false) return false
+    if (!voucher.voucherCode) return false
+
+    // Kiểm tra hạn sử dụng an toàn (hỗ trợ cả Array [yyyy, MM, dd] lẫn string)
+    let isExpired = false
+    if (voucher.expiryDate) {
+      if (Array.isArray(voucher.expiryDate)) {
+        const arr = voucher.expiryDate as unknown as number[]
+        const expDate = new Date(arr[0], (arr[1] || 1) - 1, arr[2] || 1, arr[3] || 0, arr[4] || 0)
+        isExpired = !isNaN(expDate.getTime()) && expDate < new Date()
+      } else {
+        const expDate = new Date(voucher.expiryDate)
+        isExpired = !isNaN(expDate.getTime()) && expDate < new Date()
+      }
+    }
+    if (isExpired) return false
+
+    const minOrder = Number(voucher.minOrderValue ?? 0)
+    const isPlatform =
+      voucher.voucherScope === 'PLATFORM' ||
+      voucher.voucherScope === 'SYSTEM' ||
+      voucher.voucherScope === 'WELCOME' ||
+      voucher.creatorRole === 'ADMIN'
+
+    // Nếu là Voucher của Shop:
+    if (!isPlatform) {
+      const matchingShop = checkoutShops.find((shop) => Number(shop.shopId) === Number(voucher.shopId))
+      if (!matchingShop) return false
+
+      const shopGoods = matchingShop.items.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 0), 0)
+      return shopGoods >= minOrder
+    }
+
+    // Nếu là Voucher Toàn sàn (cả Freeship lẫn Giảm giá đơn hàng):
+    // Điều kiện đơn tối thiểu luôn so sánh với TỔNG TIỀN HÀNG của cả đơn hàng
+    return cartSummary.totalGoods >= minOrder
+  }, [cartSummary, checkoutShops])
+
   const totalItemsCount = React.useMemo(() => {
     return checkoutItems.reduce((sum, it) => sum + it.quantity, 0)
   }, [checkoutItems])
 
-  // Tự động gọi preview khi có items và địa chỉ
+  // Tải danh sách voucher mà người mua ĐANG SỞ HỮU trong ví (/users/me/vouchers)
   useEffect(() => {
+    let isMounted = true
+    voucherService
+      .getMyVouchers()
+      .then((mine) => {
+        if (!isMounted) return
+        setMyVouchers(mine || [])
+      })
+      .catch((err) => {
+        console.error('Lỗi tải ví voucher của bạn:', err)
+        if (isMounted) setMyVouchers([])
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const triggerPreview = (addr?: string, codes: string[] = selectedVoucherCodes) => {
     if (checkoutItems.length > 0) {
       previewMutation.mutate({
-        shippingAddress: shippingAddress || 'Thành phố Hồ Chí Minh',
+        shippingAddress: addr || shippingAddress || 'Thành phố Hồ Chí Minh',
+        voucherCodes: codes,
         items: checkoutItems.map((i) => i.itemReq),
         cartItemIds: checkoutItems.map((i) => i.cartItemId),
       })
     }
-  }, [checkoutItems.length, shippingAddress])
+  }
+
+  const handleApplyVoucherInput = () => {
+    const code = inputVoucherCode.trim().toUpperCase()
+    if (!code) return
+
+    // CHỈ cho phép áp dụng voucher mà người mua ĐANG SỞ HỮU trong ví
+    const matchedVoucher = myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === code)
+
+    if (!matchedVoucher) {
+      setVoucherError('Bạn chưa sở hữu hoặc chưa thu thập mã voucher này. Vui lòng nhận voucher tại Cửa hàng trước khi áp dụng.')
+      return
+    }
+
+    if (selectedVoucherCodes.includes(code)) {
+      setVoucherError('Mã này đã được chọn áp dụng.')
+      return
+    }
+
+    if (!getVoucherEligibility(matchedVoucher)) {
+      setVoucherError('Đơn hàng hiện tại chưa đủ điều kiện áp dụng mã này (kiểm tra đơn tối thiểu).')
+      return
+    }
+
+    setVoucherError(null)
+    handleToggleVoucherCode(code)
+    setInputVoucherCode('')
+  }
+
+  const handleToggleVoucherCode = (code: string) => {
+    setVoucherError(null)
+    const upper = code.trim().toUpperCase()
+    const matchedVoucher = myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === upper)
+
+    if (!matchedVoucher) {
+      setVoucherError('Voucher không tồn tại trong kho.')
+      return
+    }
+
+    if (!selectedVoucherCodes.includes(upper) && !getVoucherEligibility(matchedVoucher)) {
+      setVoucherError('Voucher không đủ điều kiện với đơn hàng hiện tại.')
+      return
+    }
+
+    let nextCodes: string[]
+    if (selectedVoucherCodes.includes(upper)) {
+      nextCodes = selectedVoucherCodes.filter((c) => c !== upper)
+    } else {
+      // Cơ chế Shopee Stacking:
+      // Tối đa 1 voucher Freeship + 1 voucher Sàn + 1 voucher của từng Shop
+      const targetIsShipping =
+        matchedVoucher.voucherTarget === 'SHIPPING' ||
+        matchedVoucher.voucherType === 'FREE_SHIPPING' ||
+        Boolean(matchedVoucher.voucherCode?.toUpperCase().includes('FREESHIP'))
+      const scopeIsPlatform =
+        matchedVoucher.voucherScope === 'PLATFORM' ||
+        matchedVoucher.voucherScope === 'SYSTEM' ||
+        matchedVoucher.creatorRole === 'ADMIN'
+
+      nextCodes = selectedVoucherCodes.filter((c) => {
+        const other = myVouchers.find((v) => v.voucherCode?.trim().toUpperCase() === c)
+        if (!other) return true
+
+        const otherIsShipping =
+          other.voucherTarget === 'SHIPPING' ||
+          other.voucherType === 'FREE_SHIPPING' ||
+          Boolean(other.voucherCode?.toUpperCase().includes('FREESHIP'))
+        if (targetIsShipping && otherIsShipping) return false // Thay thế Freeship cũ
+
+        if (!targetIsShipping && !otherIsShipping) {
+          const otherIsPlatform =
+            other.voucherScope === 'PLATFORM' ||
+            other.voucherScope === 'SYSTEM' ||
+            other.creatorRole === 'ADMIN'
+          if (scopeIsPlatform && otherIsPlatform) return false // Thay thế Platform voucher cũ
+          if (!scopeIsPlatform && !otherIsPlatform && Number(other.shopId) === Number(matchedVoucher.shopId)) {
+            return false // Thay thế Shop voucher cùng shop
+          }
+        }
+        return true
+      })
+      nextCodes.push(upper)
+    }
+
+    setSelectedVoucherCodes(nextCodes)
+    triggerPreview(shippingAddress, nextCodes)
+  }
+
+  const handleRemoveVoucher = (code: string) => {
+    handleToggleVoucherCode(code)
+  }
+
+  const resolveStockShortages = React.useCallback(
+    (err: any): StockShortageItem[] => {
+      const rawItems = parseStockShortages(err)
+      return rawItems.map((shortage) => {
+        if (shortage.imageUrl) return shortage
+        const matched = checkoutItems.find(
+          (ci) =>
+            ci.itemName.toLowerCase().trim() === shortage.itemName.toLowerCase().trim() ||
+            (shortage.id &&
+              (ci.itemReq.productId === shortage.id ||
+                ci.itemReq.mysteryBoxId === shortage.id ||
+                ci.itemReq.buildComboId === shortage.id))
+        )
+        return {
+          ...shortage,
+          imageUrl: matched?.imageUrl || shortage.imageUrl,
+        }
+      })
+    },
+    [checkoutItems]
+  )
+
+  // Tự động gọi preview khi có items, địa chỉ hoặc voucher thay đổi
+  useEffect(() => {
+    triggerPreview(shippingAddress, selectedVoucherCodes)
+  }, [checkoutItems.length, shippingAddress, selectedVoucherCodes])
+
+  // Tự động phát hiện lỗi tồn kho ngay khi preview thất bại
+  useEffect(() => {
+    if (previewMutation.isError && isStockShortageError(previewMutation.error)) {
+      const parsed = resolveStockShortages(previewMutation.error)
+      const errorMsg =
+        (previewMutation.error as any)?.response?.data?.message ||
+        (previewMutation.error as any)?.message ||
+        'Một số mặt hàng trong kho không đủ số lượng.'
+      setOrderSubmitError(errorMsg)
+      setStockErrorModal({
+        isOpen: true,
+        title:
+          parsed.length > 1
+            ? `Có ${parsed.length} mặt hàng không đủ tồn kho`
+            : 'Số lượng tồn kho không đủ',
+        message: errorMsg,
+        items: parsed,
+      })
+    }
+  }, [previewMutation.isError, previewMutation.error, resolveStockShortages])
 
   const onSubmit = async (values: CheckoutFormValues) => {
     if (checkoutItems.length === 0) return
@@ -409,6 +780,7 @@ export const CheckoutView: React.FC = () => {
         addressLabel: checkoutAddressLabel,
         note: values.note,
         paymentMethod: values.paymentMethod,
+        voucherCodes: selectedVoucherCodes,
         items: checkoutItems.map((i) => i.itemReq),
         cartItemIds: checkoutItems.map((i) => i.cartItemId),
       })
@@ -461,6 +833,29 @@ export const CheckoutView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Lỗi khi đặt hàng:', err)
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng kiểm tra lại!'
+
+      const isStock = isStockShortageError(err)
+      const parsedItems = resolveStockShortages(err)
+
+      setOrderSubmitError(errorMsg)
+
+      if (isStock) {
+        setStockErrorModal({
+          isOpen: true,
+          title:
+            parsedItems.length > 1
+              ? `Có ${parsedItems.length} mặt hàng không đủ tồn kho`
+              : 'Số lượng tồn kho không đủ',
+          message: errorMsg,
+          items: parsedItems,
+        })
+      }
+
+      useUiStore.getState().showToast(errorMsg)
     }
   }
 
@@ -472,6 +867,31 @@ export const CheckoutView: React.FC = () => {
       navigate('/orders')
     }
   }
+
+  const previewData = previewMutation.data
+  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? 0
+  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
+  const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
+  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? (goodsAmount + shippingFee - discount)
+  const voucherBreakdown = React.useMemo(() => {
+    const entries = new Map<string, number>()
+
+    const addBreakdown = (record?: Record<string, number>) => {
+      if (!record) return
+      Object.entries(record).forEach(([code, value]) => {
+        const normalizedCode = code.trim().toUpperCase()
+        const next = (entries.get(normalizedCode) ?? 0) + Number(value || 0)
+        entries.set(normalizedCode, next)
+      })
+    }
+
+    addBreakdown(previewData?.voucherDiscountsDetail)
+    previewData?.shopOrders?.forEach((order) => {
+      addBreakdown(order.voucherDiscountsDetail)
+    })
+
+    return Array.from(entries.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [previewData])
 
   if (isCartLoading) {
     return (
@@ -601,12 +1021,6 @@ export const CheckoutView: React.FC = () => {
       </div>
     )
   }
-
-  const previewData = previewMutation.data
-  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? 0
-  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
-  const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
-  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? (goodsAmount + shippingFee - discount)
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -1029,7 +1443,25 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-emerald-700 font-semibold ml-1">
                           +{shopShippingFee.toLocaleString('vi-VN')} đ
                         </span>
+                        {shopPreview?.voucherDiscount && shopPreview.voucherDiscount > 0 ? (
+                          <span className="text-emerald-700 font-bold ml-1">
+                            · Giảm voucher: -{shopPreview.voucherDiscount.toLocaleString('vi-VN')} đ
+                          </span>
+                        ) : null}
                       </div>
+
+                      {shopPreview?.voucherDiscountsDetail && Object.keys(shopPreview.voucherDiscountsDetail).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {Object.entries(shopPreview.voucherDiscountsDetail).map(([code, value]) => (
+                            <span
+                              key={`${shop.shopId}-${code}`}
+                              className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                            >
+                              {code}: -{Number(value || 0).toLocaleString('vi-VN')}đ
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-end gap-2 text-ink">
                         <span>Tạm tính shop:</span>
@@ -1044,9 +1476,114 @@ export const CheckoutView: React.FC = () => {
             </div>
           </div>
 
-          {/* Cột phải: Tóm tắt chi phí & Submit */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-line p-5 shadow-xs sticky top-20 space-y-4">
+          {/* Cột phải: Voucher & Tóm tắt chi phí & Submit */}
+          <div className="lg:col-span-1 space-y-4 sticky top-20">
+            {/* Box Voucher Shopee-style */}
+            <div className="bg-white rounded-2xl border border-line p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Ticket size={20} className="text-emerald-600" />
+                  <h3 className="font-bold text-sm text-ink">CapNong Voucher</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsVoucherModalOpen(true)}
+                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 px-2.5 py-1 rounded-xl border border-emerald-200 transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>{selectedVoucherCodes.length > 0 ? `${selectedVoucherCodes.length} mã đã chọn` : 'Chọn hoặc nhập mã'}</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+
+              {/* Banner bấm vào mở modal Shopee voucher */}
+              <div
+                onClick={() => setIsVoucherModalOpen(true)}
+                className="group flex items-center justify-between p-3 bg-linear-to-r from-emerald-500/10 via-emerald-500/5 to-transparent rounded-2xl border border-dashed border-emerald-300 hover:border-emerald-500 cursor-pointer transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                    %
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-ink">
+                      {selectedVoucherCodes.length > 0
+                        ? `Đang áp dụng: ${selectedVoucherCodes.join(', ')}`
+                        : 'Mã Giảm Giá & Freeship'}
+                    </div>
+                    <div className="text-[10px] text-emerald-700 font-medium">
+                      {myVouchers.length > 0
+                        ? `Bạn có ${myVouchers.length} mã trong ví`
+                        : 'Ví trống · Bấm để xem'}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 shrink-0">
+                  {selectedVoucherCodes.length > 0 ? 'Đổi mã' : 'Chọn'} <ChevronRight size={13} />
+                </span>
+              </div>
+
+              {/* Input nhập mã nhanh */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nhập mã ưu đãi"
+                  value={inputVoucherCode}
+                  onChange={(e) => {
+                    setInputVoucherCode(e.target.value.toUpperCase())
+                    setVoucherError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleApplyVoucherInput()
+                    }
+                  }}
+                  className="text-xs uppercase font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleApplyVoucherInput}
+                  disabled={!inputVoucherCode.trim()}
+                  className="text-xs py-2 px-3.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer font-bold"
+                >
+                  Áp dụng
+                </Button>
+              </div>
+
+              {voucherError && (
+                <p className="text-xs text-red-500 font-medium">{voucherError}</p>
+              )}
+
+              {/* Các mã đang được áp dụng */}
+              {selectedVoucherCodes.length > 0 && (
+                <div className="pt-2 border-t border-line space-y-1.5">
+                  <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                    Mã đang dùng:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedVoucherCodes.map((code) => (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold"
+                      >
+                        <Tag size={12} className="text-emerald-600" />
+                        {code}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVoucher(code)}
+                          className="hover:text-red-500 ml-0.5 cursor-pointer"
+                          title="Bỏ áp dụng"
+                        >
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-line p-5 shadow-xs space-y-4">
               <h3 className="font-bold text-base text-ink pb-3 border-b border-line">
                 Chi tiết thanh toán
               </h3>
@@ -1076,6 +1613,20 @@ export const CheckoutView: React.FC = () => {
                     <span className="font-semibold">-{discount.toLocaleString('vi-VN')} đ</span>
                   </div>
                 )}
+
+                {voucherBreakdown.length > 0 && (
+                  <div className="pt-2 border-t border-line space-y-2">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+                      Chi tiết mã giảm giá
+                    </div>
+                    {voucherBreakdown.map(([code, value]) => (
+                      <div key={code} className="flex justify-between items-center gap-2 text-[11px] text-emerald-700">
+                        <span className="font-semibold">{code}</span>
+                        <span>-{Number(value || 0).toLocaleString('vi-VN')} đ</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-line flex justify-between items-baseline">
@@ -1084,6 +1635,36 @@ export const CheckoutView: React.FC = () => {
                   {finalTotal.toLocaleString('vi-VN')} đ
                 </span>
               </div>
+
+              {orderSubmitError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex flex-col gap-2 animate-in fade-in">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle size={17} className="shrink-0 mt-0.5 text-rose-600" />
+                    <div className="flex-1">
+                      <span className="font-bold block mb-0.5 text-rose-900">Không thể đặt hàng:</span>
+                      <span className="leading-relaxed line-clamp-3">{orderSubmitError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOrderSubmitError(null)}
+                      className="text-rose-400 hover:text-rose-700 p-0.5 rounded-md transition-colors cursor-pointer"
+                      title="Đóng thông báo"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                  {isStockShortageError({ message: orderSubmitError }) && stockErrorModal.items.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStockErrorModal((prev) => ({ ...prev, isOpen: true }))}
+                      className="self-start text-[11px] font-bold text-rose-700 hover:text-rose-800 underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <PackageX size={13} />
+                      Xem danh sách {stockErrorModal.items.length} mặt hàng cần điều chỉnh
+                    </button>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -1219,16 +1800,60 @@ export const CheckoutView: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-muted mb-1">
-                    Địa chỉ chi tiết <span className="text-red-500">*</span>
-                  </label>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-ink-muted">
+                      Địa chỉ chi tiết <span className="text-red-500">*</span>
+                    </label>
+                    {isSearchingModalSuggestions && (
+                      <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-normal">
+                        <Loader2 size={12} className="animate-spin" />
+                        Đang tìm gợi ý...
+                      </span>
+                    )}
+                  </div>
                   <Input
                     placeholder="Số nhà, đường, phường, quận, tỉnh/TP"
                     value={formAddress}
-                    onChange={(e) => setFormAddress(e.target.value)}
+                    onChange={(e) => {
+                      setFormAddress(e.target.value)
+                      setShowModalSuggestions(true)
+                    }}
+                    onFocus={() => {
+                      if (modalSuggestions.length > 0) setShowModalSuggestions(true)
+                    }}
+                    autoComplete="off"
                     required
                   />
+
+                  {/* Dropdown gợi ý địa chỉ trong Modal */}
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-emerald-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-gray-100 ring-1 ring-black/5 animate-in fade-in duration-150">
+                      <div className="p-2 bg-emerald-50/80 text-[11px] font-bold text-emerald-800 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span>📍</span>
+                          <span>Gợi ý địa chỉ từ Google Maps</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowModalSuggestions(false)}
+                          className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      {modalSuggestions.map((s, idx) => (
+                        <div
+                          key={s.placeId || idx}
+                          onClick={() => handleSelectModalSuggestion(s)}
+                          className="p-2.5 flex items-start gap-2.5 hover:bg-emerald-50/70 cursor-pointer text-xs text-ink transition-colors"
+                        >
+                          <MapPin size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 leading-relaxed font-medium">{s.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -1394,6 +2019,498 @@ export const CheckoutView: React.FC = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Chọn Voucher Shopee-style */}
+      {isVoucherModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  <Ticket size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-ink">CapNong Voucher</h3>
+                  <p className="text-[11px] text-ink-muted">Chọn mã giảm giá & miễn phí vận chuyển</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Input nhập mã voucher ngay trên đầu Modal */}
+            <div className="p-4 bg-stone-50 border-b border-line">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nhập mã CapNong Voucher..."
+                  value={inputVoucherCode}
+                  onChange={(e) => {
+                    setInputVoucherCode(e.target.value.toUpperCase())
+                    setVoucherError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleApplyVoucherInput()
+                    }
+                  }}
+                  className="text-xs uppercase bg-white font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleApplyVoucherInput}
+                  disabled={!inputVoucherCode.trim()}
+                  className="text-xs py-2 px-4 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer font-bold"
+                >
+                  Áp dụng
+                </Button>
+              </div>
+              {voucherError && (
+                <p className="text-[11px] text-red-500 font-medium mt-1.5">{voucherError}</p>
+              )}
+            </div>
+
+            {/* Danh sách Voucher theo 2 phân nhóm: Freeship & Giảm giá */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+              {myVouchers.length === 0 ? (
+                <div className="text-center py-12 text-ink-muted text-xs space-y-2.5">
+                  <Ticket size={40} className="mx-auto text-gray-300" />
+                  <p className="font-bold text-stone-700 text-sm">Ví voucher của bạn đang trống</p>
+                  <p className="max-w-xs mx-auto text-gray-500">
+                    Bạn chưa sở hữu mã giảm giá nào. Hãy ghé thăm trang Cửa hàng để bấm "Lưu Voucher" trước khi quay lại áp dụng thanh toán.
+                  </p>
+                  {checkoutShops.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsVoucherModalOpen(false)
+                          navigate(`/cua-hang/${checkoutShops[0].shopId}`)
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs transition-colors"
+                      >
+                        <Store size={14} />
+                        <span>Ghé gian hàng {checkoutShops[0].shopName || 'Shop'} nhận voucher</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Helper phân nhóm & format date chuẩn Shopee */}
+                  {(() => {
+                    const formatExpiryDate = (val: any) => {
+                      if (!val) return '—'
+                      if (Array.isArray(val)) {
+                        const arr = val as unknown as number[]
+                        const d = new Date(arr[0], (arr[1] || 1) - 1, arr[2] || 1, arr[3] || 0, arr[4] || 0)
+                        return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
+                      }
+                      const d = new Date(val)
+                      return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
+                    }
+
+                    const isFreeshipVoucher = (v: VoucherResponse) =>
+                      v.voucherTarget === 'SHIPPING' ||
+                      v.voucherType === 'FREE_SHIPPING' ||
+                      Boolean(v.voucherCode?.toUpperCase().includes('FREESHIP'))
+
+                    const freeshipList = myVouchers.filter(isFreeshipVoucher)
+                    const discountList = myVouchers.filter((v) => !isFreeshipVoucher(v))
+
+                    return (
+                      <>
+                        {/* Nhóm 1: Mã Miễn Phí Vận Chuyển (Freeship) */}
+                        {freeshipList.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
+                                <Truck size={14} className="text-blue-600" />
+                                Mã Miễn Phí Vận Chuyển
+                              </h4>
+                              <span className="text-[10px] text-ink-muted">Tối đa 1 mã</span>
+                            </div>
+
+                            <div className="space-y-2.5">
+                              {freeshipList.map((vc) => {
+                                const isSelected = selectedVoucherCodes.includes(vc.voucherCode.toUpperCase())
+                                const isExpired = (() => {
+                                  if (!vc.expiryDate) return false
+                                  if (Array.isArray(vc.expiryDate)) {
+                                    const arr = vc.expiryDate as unknown as number[]
+                                    const d = new Date(arr[0], (arr[1] || 1) - 1, arr[2] || 1, arr[3] || 0, arr[4] || 0)
+                                    return !isNaN(d.getTime()) && d < new Date()
+                                  }
+                                  const d = new Date(vc.expiryDate)
+                                  return !isNaN(d.getTime()) && d < new Date()
+                                })()
+                                const isEligible = getVoucherEligibility(vc)
+                                const isPlatform =
+                                  vc.voucherScope === 'PLATFORM' ||
+                                  vc.voucherScope === 'SYSTEM' ||
+                                  vc.voucherScope === 'WELCOME' ||
+                                  vc.creatorRole === 'ADMIN'
+
+                                return (
+                                  <div
+                                    key={vc.voucherId || vc.voucherCode}
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
+                                      isSelected
+                                        ? 'border-blue-600 bg-blue-50/40 shadow-xs'
+                                        : isExpired || !isEligible
+                                        ? 'border-gray-200 bg-gray-50 opacity-60'
+                                        : 'border-line hover:border-blue-300 bg-white'
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <span className="font-black text-sm text-blue-800 font-mono tracking-wide">
+                                          {vc.voucherCode}
+                                        </span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                          Freeship
+                                        </span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
+                                          {isPlatform ? 'Toàn sàn' : 'Shop'}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs font-bold text-ink">
+                                        {vc.voucherType === 'PERCENTAGE'
+                                          ? `Giảm ${vc.discountValue}% phí vận chuyển`
+                                          : `Miễn phí vận chuyển ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
+                                      </p>
+                                      <p className="text-[11px] text-ink-muted mt-0.5">
+                                        Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
+                                      </p>
+                                      {!isExpired && !isEligible && (
+                                        <p className="text-[10px] text-amber-600 mt-1 font-medium">
+                                          {!isPlatform && !checkoutShops.some((s) => Number(s.shopId) === Number(vc.shopId))
+                                            ? 'Chỉ áp dụng cho đơn hàng tại Cửa hàng phát hành'
+                                            : `Chưa đạt giá trị đơn tối thiểu (${Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ)`}
+                                        </p>
+                                      )}
+                                      {vc.expiryDate && (
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                          HSD: {formatExpiryDate(vc.expiryDate)}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      disabled={isExpired || !isEligible}
+                                      onClick={() => handleToggleVoucherCode(vc.voucherCode)}
+                                      className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                                        isSelected
+                                          ? 'bg-blue-600 text-white shadow-xs cursor-pointer'
+                                          : isExpired || !isEligible
+                                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                          : 'bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer'
+                                      }`}
+                                    >
+                                      {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
+                                    </button>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Nhóm 2: Mã Giảm Giá Sàn & Cửa Hàng (Discount Vouchers) */}
+                        {discountList.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                                <Tag size={14} className="text-emerald-600" />
+                                Mã Giảm Giá Sàn & Cửa Hàng
+                              </h4>
+                              <span className="text-[10px] text-ink-muted">Tối đa 1 mã sàn + 1 mã shop</span>
+                            </div>
+
+                            <div className="space-y-2.5">
+                              {discountList.map((vc) => {
+                                const isSelected = selectedVoucherCodes.includes(vc.voucherCode.toUpperCase())
+                                const isExpired = (() => {
+                                  if (!vc.expiryDate) return false
+                                  if (Array.isArray(vc.expiryDate)) {
+                                    const arr = vc.expiryDate as unknown as number[]
+                                    const d = new Date(arr[0], (arr[1] || 1) - 1, arr[2] || 1, arr[3] || 0, arr[4] || 0)
+                                    return !isNaN(d.getTime()) && d < new Date()
+                                  }
+                                  const d = new Date(vc.expiryDate)
+                                  return !isNaN(d.getTime()) && d < new Date()
+                                })()
+                                const isEligible = getVoucherEligibility(vc)
+                                const isPercent = vc.voucherType === 'PERCENTAGE'
+                                const isPlatform =
+                                  vc.voucherScope === 'PLATFORM' ||
+                                  vc.voucherScope === 'SYSTEM' ||
+                                  vc.voucherScope === 'WELCOME' ||
+                                  vc.creatorRole === 'ADMIN'
+
+                                return (
+                                  <div
+                                    key={vc.voucherId || vc.voucherCode}
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
+                                      isSelected
+                                        ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                                        : isExpired || !isEligible
+                                        ? 'border-gray-200 bg-gray-50 opacity-60'
+                                        : 'border-line hover:border-emerald-200 bg-white'
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <span className="font-black text-sm text-emerald-800 font-mono tracking-wide">
+                                          {vc.voucherCode}
+                                        </span>
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            isPlatform
+                                              ? 'bg-purple-100 text-purple-700'
+                                              : 'bg-amber-100 text-amber-800'
+                                          }`}
+                                        >
+                                          {isPlatform ? 'Toàn sàn' : 'Voucher Shop'}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs font-bold text-ink">
+                                        {isPercent
+                                          ? `Giảm ${vc.discountValue}%`
+                                          : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
+                                        {vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
+                                      </p>
+                                      <p className="text-[11px] text-ink-muted mt-0.5">
+                                        Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
+                                      </p>
+                                      {!isExpired && !isEligible && (
+                                        <p className="text-[10px] text-amber-600 mt-1 font-medium">
+                                          {!isPlatform && !checkoutShops.some((s) => Number(s.shopId) === Number(vc.shopId))
+                                            ? 'Chỉ áp dụng cho đơn hàng tại Cửa hàng phát hành'
+                                            : `Chưa đạt giá trị đơn tối thiểu (${Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ)`}
+                                        </p>
+                                      )}
+                                      {vc.expiryDate && (
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                          HSD: {formatExpiryDate(vc.expiryDate)}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      disabled={isExpired || !isEligible}
+                                      onClick={() => handleToggleVoucherCode(vc.voucherCode)}
+                                      className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                                        isSelected
+                                          ? 'bg-emerald-600 text-white shadow-xs cursor-pointer'
+                                          : isExpired || !isEligible
+                                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                          : 'bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 cursor-pointer'
+                                      }`}
+                                    >
+                                      {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
+                                    </button>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* Footer Modal */}
+            <div className="p-4 border-t border-line bg-gray-50 flex items-center justify-between">
+              <span className="text-xs font-bold text-ink">
+                {selectedVoucherCodes.length > 0
+                  ? `Đã chọn ${selectedVoucherCodes.length} mã ưu đãi`
+                  : 'Chưa chọn mã nào'}
+              </span>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-xs py-2 px-6 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer font-bold rounded-xl"
+              >
+                Đồng ý
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cảnh Báo Số Lượng Trong Kho Không Đủ (Tổng hợp Product, Mystery Box, Build Combo) */}
+      {stockErrorModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-rose-100 overflow-hidden relative animate-in zoom-in-95 duration-200 text-left">
+            {/* Header banner với gradient sang trọng */}
+            <div className="bg-gradient-to-br from-rose-50 via-red-50 to-amber-50 p-6 pb-4 border-b border-rose-100/60 text-center relative">
+              <button
+                type="button"
+                onClick={() => setStockErrorModal((prev) => ({ ...prev, isOpen: false }))}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-white/80 transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="w-14 h-14 rounded-2xl bg-white text-rose-600 flex items-center justify-center mx-auto mb-3 border border-rose-200 shadow-xs">
+                <PackageX size={30} className="animate-pulse" />
+              </div>
+
+              <h3 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
+                {stockErrorModal.title}
+              </h3>
+
+              {stockErrorModal.items.length > 0 ? (
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  <AlertTriangle size={13} className="text-rose-600" />
+                  <span>Cần điều chỉnh {stockErrorModal.items.length} mặt hàng trong giỏ</span>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700 font-semibold mt-1">
+                  📦 Vui lòng kiểm tra lại số lượng các mặt hàng trong đơn
+                </p>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="p-5 sm:p-6 space-y-3.5">
+              <p className="text-xs text-gray-600 leading-relaxed text-center sm:text-left">
+                Các mặt hàng sau đây hiện không còn đủ số lượng tồn kho do vừa có khách hàng khác đặt mua hoặc người bán đã cập nhật lại kho hàng:
+              </p>
+
+              {/* Danh sách các mặt hàng bị thiếu */}
+              {stockErrorModal.items.length > 0 ? (
+                <div className="max-h-72 overflow-y-auto pr-1 space-y-2.5">
+                  {stockErrorModal.items.map((item, idx) => {
+                    const isOutOfStock = item.availableQuantity === 0
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3 bg-gray-50/90 rounded-2xl border border-gray-200/80 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                      >
+                        {/* Thumbnail / Icon */}
+                        <div className="w-12 h-12 rounded-xl shrink-0 overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.itemName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none'
+                              }}
+                            />
+                          ) : item.itemType === 'MYSTERY_BOX' ? (
+                            <Gift size={24} className="text-purple-600" />
+                          ) : item.itemType === 'BUILD_COMBO' ? (
+                            <Package size={24} className="text-amber-600" />
+                          ) : (
+                            <ShoppingBag size={24} className="text-emerald-600" />
+                          )}
+                        </div>
+
+                        {/* Chi tiết mặt hàng */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                item.itemType === 'MYSTERY_BOX'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : item.itemType === 'BUILD_COMBO'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}
+                            >
+                              {item.itemType === 'MYSTERY_BOX' && '🎁 Hộp bí ẩn'}
+                              {item.itemType === 'BUILD_COMBO' && '🍱 Gói Combo'}
+                              {item.itemType === 'PRODUCT' && '🌱 Nông sản'}
+                              {item.itemType === 'GENERAL' && '📦 Mặt hàng'}
+                            </span>
+                          </div>
+
+                          <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate" title={item.itemName}>
+                            {item.itemName}
+                          </h4>
+
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs">
+                            {item.requestedQuantity !== undefined && (
+                              <span className="text-[11px] font-medium text-gray-600 bg-gray-200/70 px-2 py-0.5 rounded-md">
+                                Bạn đặt: <strong className="text-gray-900">{item.requestedQuantity}</strong>
+                              </span>
+                            )}
+                            {item.availableQuantity !== undefined && (
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                                  isOutOfStock
+                                    ? 'bg-rose-100 text-rose-700 border-rose-300'
+                                    : 'bg-amber-100 text-amber-800 border-amber-300'
+                                }`}
+                              >
+                                {isOutOfStock ? 'Hết hàng (0)' : `Kho chỉ còn: ${item.availableQuantity}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-left">
+                  <div className="flex gap-2.5 items-start">
+                    <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                    <p className="text-xs sm:text-sm font-semibold text-rose-800 leading-relaxed whitespace-pre-line">
+                      {stockErrorModal.message}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-gray-500 leading-relaxed text-center">
+                Vui lòng quay lại giỏ hàng để cập nhật số lượng hoặc xóa bỏ những mặt hàng đã hết để tiếp tục thanh toán nhé!
+              </p>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStockErrorModal((prev) => ({ ...prev, isOpen: false }))}
+                className="flex-1 justify-center py-2.5 rounded-xl border-gray-200 text-gray-700 hover:bg-gray-100 font-semibold cursor-pointer text-xs"
+              >
+                Đóng & xem lại
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setStockErrorModal((prev) => ({ ...prev, isOpen: false }))
+                  navigate('/cart')
+                }}
+                className="flex-1 justify-center py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 shadow-xs cursor-pointer text-xs"
+              >
+                <ShoppingCart size={15} />
+                Về giỏ hàng cập nhật
+              </Button>
+            </div>
           </div>
         </div>
       )}

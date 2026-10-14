@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { mysteryBoxService, comboService } from '@/services'
 import {
   Gift,
   ArrowRight,
@@ -16,6 +18,12 @@ import {
 } from 'lucide-react'
 import { products, money } from '@/mocks/catalog'
 import { LegacyProduceImage } from '@/features/product'
+import {
+  isMeaningfulComboName,
+  mapComboToCard,
+  mapMysteryBoxToCard,
+  type ComboCardItem,
+} from './combos.utils'
 import comboHeroBanner from '../assets/combo-hero-banner.jpg'
 import comboMysteryImg from '../assets/combo-mystery.jpg'
 import comboGreenImg from '../assets/combo-green.jpg'
@@ -23,33 +31,16 @@ import comboKitchenImg from '../assets/combo-kitchen.jpg'
 import comboHotpotImg from '../assets/combo-hotpot.jpg'
 
 interface CombosProps {
-  onAdd: (s: string) => void
+  onAdd: (id: string | number, itemType?: string) => void
   onInfo: (s: string) => void
 }
 
-interface ComboItem {
-  id: string
-  name: string
-  image: string
-  badgeDiscount: string
-  badgeWeight: string
-  badgeHighlight: string
-  category: string
-  portion: string
-  feature: string
-  price: number
-  original: number
-  unit: string
-  rating: number
-  reviews: number
-  sold: number
-  stock: number
-}
+type ComboItem = ComboCardItem
 
 const ALL_COMBOS: ComboItem[] = [
   {
     id: 'mystery',
-    name: 'Túi Mù Nông Sản Thần Bí (Mystery Box)',
+    name: 'Túi mù',
     image: comboMysteryImg,
     badgeDiscount: '-60%',
     badgeWeight: '5kg ngẫu nhiên',
@@ -67,7 +58,7 @@ const ALL_COMBOS: ComboItem[] = [
   },
   {
     id: 'green',
-    name: 'Combo Rau Xanh 5 Bữa Gia Đình',
+    name: 'Combo',
     image: comboGreenImg,
     badgeDiscount: '-43%',
     badgeWeight: '6kg rau củ',
@@ -130,13 +121,13 @@ const COMBO_CATEGORIES = [
   },
   {
     id: 'mystery',
-    label: 'Túi mù Mystery Box (79k)',
+    label: 'Túi mù',
     bannerTitle: 'Túi Mù Nông Sản May Mắn',
     breadcrumb: 'Túi mù nông sản',
   },
   {
     id: 'family',
-    label: 'Combo rau củ gia đình',
+    label: 'Combo',
     bannerTitle: 'Combo Rau Củ Gia Đình',
     breadcrumb: 'Combo gia đình',
   },
@@ -168,17 +159,50 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
   const [priceRange, setPriceRange] = useState('all')
   const [selected, setSelected] = useState<string[]>([])
 
+  const { data: mysteryBoxesData } = useQuery({
+    queryKey: ['mystery-boxes'],
+    queryFn: () => mysteryBoxService.getForBuyer(),
+  })
+
+  const { data: combosData } = useQuery({
+    queryKey: ['combos'],
+    queryFn: () => comboService.getCombos(),
+  })
+
+  const allCombosList = useMemo(() => {
+    const list: ComboItem[] = []
+
+    const mBoxes = mysteryBoxesData?.content || []
+    mBoxes.forEach((m) => {
+      list.push(mapMysteryBoxToCard(m, comboMysteryImg))
+    })
+
+    const cList = combosData?.content || []
+    cList.forEach((c) => {
+      list.push(mapComboToCard(c, comboGreenImg))
+    })
+
+    const meaningfulList = list.filter((item) => isMeaningfulComboName(item.name))
+    if (meaningfulList.length > 0) return meaningfulList
+    return ALL_COMBOS.map((item) => ({
+      ...item,
+      category: item.category === 'Túi mù' ? 'Túi mù' : 'Combo',
+    }))
+  }, [mysteryBoxesData, combosData])
+
   // Filter pipeline
-  let filteredCombos = [...ALL_COMBOS]
+  let filteredCombos = [...allCombosList]
 
   if (category === 'mystery') {
-    filteredCombos = filteredCombos.filter((c) => c.id === 'mystery')
+    filteredCombos = filteredCombos.filter(
+      (c) => c.itemType === 'MYSTERY_BOX' || c.id.startsWith('mystery'),
+    )
   } else if (category === 'family') {
     filteredCombos = filteredCombos.filter(
-      (c) => c.category === 'Gia đình' || c.category === 'Cuối tuần',
+      (c) => c.itemType === 'BUILD_COMBO' || c.id.startsWith('combo'),
     )
   } else if (category === 'bulk') {
-    filteredCombos = filteredCombos.filter((c) => c.category === 'Thùng lớn')
+    filteredCombos = filteredCombos.filter((c) => c.itemType === 'BUILD_COMBO')
   }
 
   if (priceRange === 'under100') {
@@ -253,10 +277,10 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* LEFT SIDEBAR: Categories & Guarantees */}
           <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-6">
-            {/* Box 1: Danh Mục Combo */}
+            {/* Box 1: Danh Mục */}
             <div className="bg-[#f2f9ed] border border-[#d6ebd0] rounded-2xl p-5 shadow-sm">
               <h2 className="text-base sm:text-lg font-black text-[#2b5619] pb-3.5 mb-2 border-b border-[#cfe6c8] flex items-center justify-between">
-                <span>Danh Mục Combo</span>
+                <span>Danh Mục</span>
                 <Gift size={18} className="text-[#4a7c2f]" />
               </h2>
 
@@ -520,7 +544,12 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                     {/* Add Button */}
                     <button
                       type="button"
-                      onClick={() => onAdd(c.id)}
+                      onClick={() =>
+                        onAdd(
+                          c.realId ?? c.id,
+                          c.itemType ?? (c.id === 'mystery' ? 'MYSTERY_BOX' : 'BUILD_COMBO')
+                        )
+                      }
                       className="w-full mt-1 py-2.5 px-4 bg-[#4a7c2f] hover:bg-[#3b6624] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                     >
                       <ShoppingBasket size={16} />
@@ -629,7 +658,7 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                   type="button"
                   disabled={!selected.length}
                   onClick={() => {
-                    selected.forEach(onAdd)
+                    selected.forEach((id) => onAdd(id))
                     setSelected([])
                   }}
                   className="w-full sm:w-auto px-6 py-3 bg-[#ffea79] hover:bg-[#ffd84d] disabled:opacity-50 text-[#1d4213] rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"

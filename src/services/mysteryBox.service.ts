@@ -1,56 +1,100 @@
-import type { ApiResponse } from '@/types'
+import { axiosInstance } from './api/axiosInstance'
+import type { ApiResponse, PageResponse } from '@/types'
 import type {
   MysteryBox,
   MysteryBoxCreationRequest,
   MysteryBoxUpdateRequest,
 } from './mysteryBox.types'
-import { axiosInstance } from './api/axiosInstance'
 import { mockMysteryBoxes } from '@/mocks/mysteryBox.mock'
 
 export type * from './mysteryBox.types'
 
 export const mysteryBoxService = {
-  async getForBuyer(): Promise<ApiResponse<MysteryBox[]>> {
+  // Lấy danh sách mystery box công khai cho buyer
+  async getForBuyer(params?: {
+    shopId?: number
+    boxType?: string
+    isActive?: boolean
+    page?: number
+    size?: number
+  }): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
     try {
-      const res = await axiosInstance.get<ApiResponse<{ content: MysteryBox[] }>>('/mystery-boxes')
-      if (res.data?.result?.content) {
-        return { code: 200, result: res.data.result.content }
+      const res = await axiosInstance.get<ApiResponse<PageResponse<MysteryBox>>>('/mystery-boxes', {
+        params: {
+          page: params?.page ?? 1,
+          size: params?.size ?? 50,
+          isActive: params?.isActive ?? true,
+          ...params,
+        },
+      })
+      const page: PageResponse<MysteryBox> = res.data?.result ?? (res.data as any) ?? { content: [] }
+      return {
+        ...page,
+        result: page,
       }
     } catch {
-      // Fallback mock nếu API chưa có data
+      // Fallback mock nếu API gặp lỗi
+      const page: PageResponse<MysteryBox> = {
+        content: [...mockMysteryBoxes],
+        pageNumber: 1,
+        pageSize: 50,
+        totalElements: mockMysteryBoxes.length,
+        totalPages: 1,
+        last: true,
+      }
+      return {
+        ...page,
+        result: page,
+      }
     }
-    return { code: 200, result: [...mockMysteryBoxes] }
   },
 
-  async getMyMysteryBoxes(page = 1, size = 10): Promise<ApiResponse<{ content: MysteryBox[]; totalElements?: number }>> {
-    const res = await axiosInstance.get<ApiResponse<{ content: MysteryBox[]; totalElements?: number }>>(
-      '/mystery-boxes/my-shop',
-      { params: { page, size } },
-    )
-    return res.data
+  // Chi tiết 1 mystery box
+  async getById(id: number): Promise<MysteryBox> {
+    const res = await axiosInstance.get<ApiResponse<MysteryBox>>(`/mystery-boxes/${id}`)
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
-  async createMysteryBox(data: MysteryBoxCreationRequest): Promise<ApiResponse<MysteryBox>> {
+  // Lấy danh sách mystery box của shop đang đăng nhập
+  async getMyShopBoxes(page = 1, size = 10): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<MysteryBox>>>('/mystery-boxes/my-shop', {
+      params: { page, size },
+    })
+    const pageData: PageResponse<MysteryBox> = res.data?.result ?? (res.data as any) ?? { content: [] }
+    return {
+      ...pageData,
+      result: pageData,
+    }
+  },
+
+  async getMyMysteryBoxes(page = 1, size = 10): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
+    return this.getMyShopBoxes(page, size)
+  },
+
+  // Shop tạo mới mystery box
+  async createMysteryBox(data: MysteryBoxCreationRequest): Promise<MysteryBox> {
     const res = await axiosInstance.post<ApiResponse<MysteryBox>>('/mystery-boxes', data)
-    return res.data
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
-  async updateMysteryBox(id: number, data: MysteryBoxUpdateRequest): Promise<ApiResponse<MysteryBox>> {
+  // Shop cập nhật mystery box
+  async updateMysteryBox(id: number, data: MysteryBoxUpdateRequest): Promise<MysteryBox> {
     const res = await axiosInstance.put<ApiResponse<MysteryBox>>(`/mystery-boxes/${id}`, data)
-    return res.data
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
-  async toggleStatus(id: number, isActive: boolean): Promise<ApiResponse<MysteryBox>> {
+  // Shop bật / tắt trạng thái
+  async toggleStatus(id: number, isActive: boolean): Promise<MysteryBox> {
     const res = await axiosInstance.patch<ApiResponse<MysteryBox>>(
       `/mystery-boxes/${id}/status`,
       null,
       { params: { isActive } },
     )
-    return res.data
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
-  async deleteMysteryBox(id: number): Promise<ApiResponse<void>> {
-    const res = await axiosInstance.delete<ApiResponse<void>>(`/mystery-boxes/${id}`)
-    return res.data
+  // Shop xóa mystery box
+  async deleteMysteryBox(id: number): Promise<void> {
+    await axiosInstance.delete(`/mystery-boxes/${id}`)
   },
 }

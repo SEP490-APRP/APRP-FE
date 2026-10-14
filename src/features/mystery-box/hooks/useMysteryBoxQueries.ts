@@ -11,8 +11,11 @@ export const mysteryBoxKeys = {
 export function useShopMysteryBoxes(shopId: number) {
   return useQuery({
     queryKey: mysteryBoxKeys.forBuyer(),
-    queryFn: async () => (await mysteryBoxService.getForBuyer()).result ?? [],
-    select: (boxes) => boxes.filter((b) => b.shopOwnerId === shopId || b.shopId === shopId),
+    queryFn: async () => {
+      const page = await mysteryBoxService.getForBuyer()
+      return page?.content ?? []
+    },
+    select: (boxes) => boxes.filter((b) => (b.shopId ? b.shopId === shopId : b.shopOwnerId === shopId)),
   })
 }
 

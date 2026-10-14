@@ -15,6 +15,9 @@ export interface AvailableOrderResponse {
   shippingLatitude?: number
   shippingLongitude?: number
   distanceKm?: number
+  shipToShopKm?: number
+  shopToBuyerKm?: number
+  totalKm?: number
   totalAmount?: number
   codAmount?: number
   codPrepaidAmount?: number
@@ -31,13 +34,20 @@ export interface AvailableOrderResponse {
 }
 
 export interface ShipperOrderResponse extends AvailableOrderResponse {
-  status: 'ASSIGNED' | 'SHIPPING' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
+  status: 'ASSIGNED' | 'SHIPPING' | 'PICKED_UP' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
   codPaymentOption?: 'CASH' | 'WALLET'
   shippingDiscountAmount?: number
   refundAmount?: number
   refundReason?: string
   pickedUpAt?: string
   deliveredAt?: string
+}
+
+export interface ShipperStatusResponse {
+  isOnline: boolean
+  latitude?: number
+  longitude?: number
+  updatedAt?: string
 }
 
 const mockAvailableOrders: AvailableOrderResponse[] = [
@@ -173,6 +183,7 @@ export const shipperService = freshResponses({
           shippingAddress: o.shippingAddress,
           shippingLatitude: o.shippingLatitude ?? 10.848,
           shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           codPrepaidAmount: o.codPrepaidAmount ?? 0,
@@ -230,9 +241,14 @@ export const shipperService = freshResponses({
           orderCode: `ORDER-${o.orderId}`,
           shopName: o.shopName,
           shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          shopLatitude: o.shopLatitude ?? 10.845,
+          shopLongitude: o.shopLongitude ?? 106.775,
           recipientName: o.recipientName,
           recipientPhone: o.recipientPhone,
           shippingAddress: o.shippingAddress,
+          shippingLatitude: o.shippingLatitude ?? 10.848,
+          shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           shippingFee: o.shippingFee,
@@ -264,15 +280,21 @@ export const shipperService = freshResponses({
           status: o.status,
           shopName: o.shopName,
           shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
+          shopLatitude: o.shopLatitude ?? 10.845,
+          shopLongitude: o.shopLongitude ?? 106.775,
           recipientName: o.recipientName,
           recipientPhone: o.recipientPhone,
           shippingAddress: o.shippingAddress,
+          shippingLatitude: o.shippingLatitude ?? 10.848,
+          shippingLongitude: o.shippingLongitude ?? 106.772,
+          distanceKm: o.distanceKm,
           totalAmount: o.totalAmount,
           codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
           shippingFee: o.shippingFee,
           paymentMethod: o.paymentMethod,
           note: o.note,
           createdAt: o.createdAt,
+          pickedUpAt: o.pickedUpAt,
           items: (o.items || []).map((it: any) => ({
             productName: it.itemName,
             quantity: it.quantity,
@@ -307,6 +329,21 @@ export const shipperService = freshResponses({
     return { code: 200, result: true, message: 'Nhận đơn thành công' }
   },
 
+  async pickupOrder(orderId: number): Promise<ApiResponse<boolean>> {
+    try {
+      await axiosInstance.put(`/orders/${orderId}/pickup`)
+      return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
+    } catch (err) {
+      console.warn('Backend /orders/:id/pickup failed, using local update:', err)
+    }
+    const target = myMockShippingOrders.find((o) => o.orderId === orderId)
+    if (target) {
+      target.status = 'PICKED_UP'
+      target.pickedUpAt = new Date().toISOString()
+    }
+    return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
+  },
+
   async updateOrderStatus(
     orderId: number,
     payload: { status: 'DELIVERED' | 'FAILED'; note?: string },
@@ -329,4 +366,70 @@ export const shipperService = freshResponses({
     }
     return { code: 200, result: true, message: 'Cập nhật đơn hàng thành công' }
   },
+
+  async goOnline(coords: { latitude: number; longitude: number }): Promise<ApiResponse<void>> {
+    try {
+      await axiosInstance.post('/shippers/status/online', coords)
+      try {
+        localStorage.setItem('shipper_is_online', 'true')
+        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
+      } catch {}
+      return { code: 200, message: 'Đã bật trực tuyến thành công' }
+    } catch (err) {
+      console.warn('Backend goOnline failed, using local status:', err)
+      try {
+        localStorage.setItem('shipper_is_online', 'true')
+        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
+      } catch {}
+      return { code: 200, message: 'Đã bật trực tuyến' }
+    }
+  },
+
+  async goOffline(): Promise<ApiResponse<void>> {
+    try {
+      await axiosInstance.post('/shippers/status/offline')
+      try {
+        localStorage.removeItem('shipper_is_online')
+      } catch {}
+      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
+    } catch (err) {
+      console.warn('Backend goOffline failed, using local status:', err)
+      try {
+        localStorage.removeItem('shipper_is_online')
+      } catch {}
+      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
+    }
+  },
+
+  async getOnlineStatus(): Promise<ApiResponse<ShipperStatusResponse>> {
+    try {
+      const res = await axiosInstance.get('/shippers/status')
+      const data = unwrap<ShipperStatusResponse>(res)
+      if (data) {
+        if (data.isOnline) {
+          localStorage.setItem('shipper_is_online', 'true')
+        } else {
+          localStorage.removeItem('shipper_is_online')
+        }
+        return { code: 200, result: data }
+      }
+    } catch (err) {
+      console.warn('Backend getOnlineStatus failed, fallback to local storage:', err)
+    }
+    const isOnline = localStorage.getItem('shipper_is_online') === 'true'
+    let coords: { latitude?: number; longitude?: number } = {}
+    try {
+      const stored = localStorage.getItem('shipper_last_coords')
+      if (stored) coords = JSON.parse(stored)
+    } catch {}
+    return {
+      code: 200,
+      result: {
+        isOnline,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      },
+    }
+  },
 })
+

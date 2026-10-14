@@ -10,6 +10,7 @@ export type ShopVoucherPage = {
 
 export const voucherKeys = {
   all: ['vouchers'] as const,
+  mine: () => [...voucherKeys.all, 'mine'] as const,
   shop: (shopId: number, page: number, size: number, signedIn: boolean) =>
     [...voucherKeys.all, 'shop', { shopId, page, size, signedIn }] as const,
 }
@@ -25,7 +26,7 @@ async function fetchShopVouchers(
   // API có thể trả mảng hoặc trang phân trang.
   const content: VoucherResponse[] = Array.isArray(result) ? result : (result?.content ?? [])
   const totalPages = Array.isArray(result) ? 1 : (result?.totalPages ?? 0)
-  const vouchers = content.filter((v) => v.voucherType === 'SHOP' && Number(v.shopId) === shopId)
+  const vouchers = content.filter((v) => Number(v.shopId) === shopId || v.creatorRole === 'SHOP')
   if (!signedIn || vouchers.length === 0) return { vouchers, totalPages, canReceive: {} }
 
   const statuses = await Promise.all(
@@ -50,12 +51,22 @@ export function useShopVouchers(shopId: number, page: number, size: number, sign
   })
 }
 
-/** Nhận voucher; cập nhật ngay danh sách đang xem (hết nhận được, +1 lượt đã nhận). */
+/** Danh sách voucher trong ví của người mua (đã nhận / sở hữu) */
+export function useMyVouchers(enabled = true) {
+  return useQuery({
+    queryKey: voucherKeys.mine(),
+    queryFn: () => voucherService.getMyVouchers(),
+    enabled,
+  })
+}
+
+/** Nhận voucher; cập nhật ngay danh sách đang xem và ví voucher */
 export function useReceiveVoucher() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (voucherCode: string) => voucherService.receiveVoucher(voucherCode),
     onSuccess: (_res, voucherCode) => {
+      queryClient.invalidateQueries({ queryKey: voucherKeys.mine() })
       queryClient.setQueriesData<ShopVoucherPage>(
         { queryKey: voucherKeys.all },
         (old) =>

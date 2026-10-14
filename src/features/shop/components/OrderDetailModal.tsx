@@ -11,10 +11,11 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { X, Loader2, AlertTriangle } from 'lucide-react'
+import { X, Loader2, AlertTriangle, Navigation } from 'lucide-react'
 import type { OrderResponse } from '../../../types/order.types'
 import { OrderStatusBadge } from './OrderStatusBadge'
 import { useConfirmOrder, useReadyOrder, useCancelOrder } from '../hooks/useShopOrders'
+import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 
 interface OrderDetailModalProps {
   order: OrderResponse
@@ -26,6 +27,7 @@ const CANCELLABLE_STATUSES = ['PENDING', 'PAID', 'CONFIRMED', 'READY']
 export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
   const [weightAgreed, setWeightAgreed] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showTrackingModal, setShowTrackingModal] = useState(false)
 
   const confirmMutation = useConfirmOrder()
   const readyMutation   = useReadyOrder()
@@ -194,6 +196,19 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
             </button>
           )}
 
+          {/* SHIPPING / PICKED_UP / READY → Xem lộ trình Shipper trên Google Maps */}
+          {(order.status === 'SHIPPING' || order.status === 'PICKED_UP' || order.status === 'READY') && (
+            <button
+              onClick={() => setShowTrackingModal(true)}
+              className="w-full py-3 rounded-2xl font-black text-sm
+                bg-blue-600 text-white hover:bg-blue-700 transition-all
+                flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              <Navigation className="size-4" />
+              Xem lộ trình Shipper (Google Maps)
+            </button>
+          )}
+
           {/* Hủy đơn */}
           {canCancel && (
             <button
@@ -230,6 +245,20 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Theo Dõi Vị Trí Shipper Trên Google Maps (Shop view) */}
+      {showTrackingModal && (
+        <GoogleMapTrackingModal
+          orderId={orderId ?? 0}
+          orderCode={`#ORD-${orderId ?? ''}`}
+          role="SHOP"
+          initialShopLat={order.shopLatitude ?? undefined}
+          initialShopLng={order.shopLongitude ?? undefined}
+          initialDestLat={order.shippingLatitude ?? undefined}
+          initialDestLng={order.shippingLongitude ?? undefined}
+          onClose={() => setShowTrackingModal(false)}
+        />
       )}
     </div>
   )

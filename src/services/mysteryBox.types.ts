@@ -1,16 +1,21 @@
 export interface ProductMysteryItemRequest {
   productId: number
-  productQuantity: number
+  productQuantity?: number
+  quantity?: number
 }
 
-export interface ProductMysteryResponse {
+export interface ProductMysteryItem {
   mysteryItemId?: number
   productId: number
   productName?: string
-  productQuantity: number
+  productQuantity?: number
+  quantity?: number
   unit?: string
   price?: number
+  sellingPrice?: number
 }
+
+export type ProductMysteryResponse = ProductMysteryItem
 
 export interface MysteryBoxCreationRequest {
   boxType: string
@@ -19,7 +24,7 @@ export interface MysteryBoxCreationRequest {
   description?: string
   note?: string
   totalQuantity: number
-  items: ProductMysteryItemRequest[]
+  items: ProductMysteryItemRequest[] | { productId: number; quantity: number }[]
 }
 
 export interface MysteryBoxUpdateRequest {
@@ -29,11 +34,11 @@ export interface MysteryBoxUpdateRequest {
   description?: string
   note?: string
   totalQuantity?: number
-  items?: ProductMysteryItemRequest[]
+  items?: ProductMysteryItemRequest[] | { productId: number; quantity: number }[]
 }
 
 export interface MysteryBox {
-  id: number
+  id?: number
   mysteryId?: number
   boxType: string
   price: number
@@ -47,5 +52,5 @@ export interface MysteryBox {
   shopOwnerId?: number
   shopName?: string
   status?: string
-  items?: ProductMysteryResponse[]
+  items?: ProductMysteryItem[]
 }

@@ -10,7 +10,8 @@ export type OrderStatus =
   | 'PAID'              // Buyer đã thanh toán QR — chờ shop xác nhận
   | 'CONFIRMED'         // Shop đã xác nhận, đang chuẩn bị hàng
   | 'READY'             // Shop đóng gói xong, shipper có thể đến lấy
-  | 'SHIPPING'          // Shipper đang giao
+  | 'SHIPPING'          // Shipper đã nhận đơn, đang đến shop lấy hàng
+  | 'PICKED_UP'         // Shipper đã lấy hàng tại shop, đang giao đến người mua
   | 'DELIVERED'         // Đã giao thành công
   | 'COMPLETED'         // Hoàn thành
   | 'CANCELLED'         // Đã hủy
@@ -58,7 +59,12 @@ export interface OrderResponse {
   totalAmount: number
   shippingFee?: number
   voucherDiscountAmount?: number
+  shippingLatitude?: number
+  shippingLongitude?: number
+  shopLatitude?: number
+  shopLongitude?: number
   createdAt: string
+  pickedUpAt?: string
   items: OrderItem[]
   shopOwner?: OrderShopInfo
 }
@@ -100,6 +106,7 @@ export interface ShopOrderPreview {
   voucherDiscount: number
   totalAmount: number
   items: OrderItem[]
+  voucherDiscountsDetail?: Record<string, number>
 }
 
 /** Request xem trước đơn hàng (tính phí, voucher...) */
@@ -116,6 +123,7 @@ export interface CheckoutPreviewResponse {
   totalGoodsAmount?: number
   totalShippingFee?: number
   totalVoucherDiscount?: number
+  voucherDiscountsDetail?: Record<string, number>
   finalTotalAmount?: number
   // Aliases backward compatible
   subtotal?: number

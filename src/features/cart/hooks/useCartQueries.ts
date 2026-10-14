@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { cartService } from '@/services'
+import { useUiStore } from '@/stores'
 import type { CartAddRequest, CartRemoveRequest, CartUpdateRequest } from '@/types/cart.types'
 
 export const cartKeys = {
@@ -20,6 +21,10 @@ export function useAddToCart() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cartKeys.all })
     },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'Không thể thêm sản phẩm vào giỏ hàng'
+      useUiStore.getState().showToast(msg)
+    },
   })
 }
 
@@ -29,6 +34,10 @@ export function useUpdateCartItem() {
     mutationFn: (data: CartUpdateRequest) => cartService.updateCartItem(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cartKeys.all })
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'Số lượng trong kho không đủ để cập nhật'
+      useUiStore.getState().showToast(msg)
     },
   })
 }

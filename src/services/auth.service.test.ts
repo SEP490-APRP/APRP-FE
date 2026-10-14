@@ -31,9 +31,10 @@ describe('auth.service - JWT & Role Utilities', () => {
     expect(parseJwt('')).toBeNull()
   })
 
-  it('chuyển đổi chính xác role Backend sang UserRole Frontend', () => {
+  it('chuyển đổi chính xác role Backend theo 4 giá trị DB thật', () => {
     expect(mapBackendRoleToFrontend('ADMIN')).toBe('admin')
     expect(mapBackendRoleToFrontend(['ROLE_ADMIN'])).toBe('admin')
+    expect(mapBackendRoleToFrontend([{ name: 'ROLE_ADMIN' }])).toBe('admin')
 
     expect(mapBackendRoleToFrontend('SHOP')).toBe('shop')
     expect(mapBackendRoleToFrontend(['ROLE_SHOP'])).toBe('shop')
@@ -41,9 +42,8 @@ describe('auth.service - JWT & Role Utilities', () => {
     expect(mapBackendRoleToFrontend('SHIPPER')).toBe('shipper')
     expect(mapBackendRoleToFrontend(['ROLE_SHIPPER'])).toBe('shipper')
 
-    expect(mapBackendRoleToFrontend('STAFF')).toBe('staff')
-
     expect(mapBackendRoleToFrontend('BUYER')).toBe('buyer')
+    expect(mapBackendRoleToFrontend('STAFF')).toBe('buyer')
     expect(mapBackendRoleToFrontend([])).toBe('buyer')
     expect(mapBackendRoleToFrontend(undefined)).toBe('buyer')
   })
@@ -71,5 +71,17 @@ describe('auth.service - JWT & Role Utilities', () => {
     expect(sessionUser.shopName).toBe('Nông Trại Xanh')
     expect(sessionUser.avatar).toBe('https://example.com/logo.jpg')
     expect(sessionUser.kycStatus).toBe('APPROVED')
+  })
+
+  it('ưu tiên role thật từ profile khi fallback mặc định là buyer', () => {
+    const adminUser: UserResponse = {
+      id: 99,
+      email: 'admin@capnong.vn',
+      fullName: 'Quản trị viên',
+      status: 'ACTIVE',
+      role: { id: 1, name: 'ADMIN' },
+    }
+
+    expect(buildSessionUser(adminUser, 'buyer').role).toBe('admin')
   })
 })

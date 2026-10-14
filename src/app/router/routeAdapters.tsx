@@ -25,6 +25,7 @@ const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
 const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
+const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 
 const DEFAULT_PRODUCT_ID = '701'
@@ -153,6 +154,18 @@ export function ShopVouchersRoute() {
   )
 }
 
+export function MyVouchersRoute() {
+  return (
+    <RequireRole roles={['buyer', 'shop', 'admin']} audience="khách mua hàng">
+      <div className="pt-6">
+        <Suspense fallback={<PageLoading />}>
+          <MyVouchersPage />
+        </Suspense>
+      </div>
+    </RequireRole>
+  )
+}
+
 export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
   const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
@@ -220,10 +233,11 @@ function usePortalProps() {
 }
 
 export function AdminRoute() {
+  const { user } = useAuth()
   return (
     <RequireRole roles={['admin']} audience="tài khoản Admin" loginHref="/dang-nhap?role=admin">
       <Suspense fallback={<PageLoading />}>
-        <AdminPortal {...usePortalProps()} />
+        <AdminPortal user={user} {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )

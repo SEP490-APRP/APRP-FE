@@ -5,7 +5,7 @@ import { AUTH_UNAUTHORIZED_EVENT } from '@/services/api'
 import { STORAGE_KEYS } from '@/utils'
 import { readJson, readRaw, writeRaw } from './storage'
 
-const ROLES: readonly UserRole[] = ['buyer', 'shop', 'shipper', 'admin', 'staff']
+const ROLES: readonly UserRole[] = ['buyer', 'shop', 'shipper', 'admin']
 
 type LoginUser = AuthUser & { id?: string | number }
 
