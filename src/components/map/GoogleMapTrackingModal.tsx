@@ -224,6 +224,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   initialShopLng,
   initialDestLat,
   initialDestLng,
+  onOrderUpdated,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
@@ -282,7 +283,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   const fakeGpsIntervalRef = useRef<any>(null);
 
   // Checkpoint Action Modal / Banner cho Shipper (Dừng lại xác nhận tại Shop & Buyer)
-  const [checkpointAction, setCheckpointAction] = useState<'NONE' | 'AT_SHOP' | 'AT_BUYER'>('NONE');
+  const [checkpointAction, setCheckpointAction] = useState<'NONE' | 'AT_SHOP' | 'PICKED_UP_READY' | 'AT_BUYER' | 'COMPLETED'>('NONE');
   const [isActionLoading, setIsActionLoading] = useState<boolean>(false);
   const fakeGpsRoutesRef = useRef<{ route1: RoutePoint[]; route2: RoutePoint[] } | null>(null);
   const fakeGpsStepRef = useRef<{ phase: 'TO_SHOP' | 'TO_BUYER'; stepIdx: number }>({ phase: 'TO_SHOP', stepIdx: 0 });
@@ -1121,8 +1122,8 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   }, [orderId]);
 
   // Mini Fake GPS Simulation Controls (Directly on Modal)
-  const handleToggleFakeGps = async () => {
-    if (fakeGpsRunning) {
+  const handleToggleFakeGps = async (forceStart?: boolean) => {
+    if (fakeGpsRunning && !forceStart) {
       // STOP
       if (fakeGpsIntervalRef.current) clearInterval(fakeGpsIntervalRef.current);
       setFakeGpsRunning(false);
@@ -1251,28 +1252,38 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         leafletShipperToShopPolylineRef.current.setLatLngs([]);
       }
 
-      setCheckpointAction('NONE');
       // Chuyển fake GPS sang phase 2
       fakeGpsStepRef.current = { phase: 'TO_BUYER', stepIdx: 0 };
-      setFakeGpsPhaseText('📦 Đã lấy hàng · Bắt đầu giao khách');
+      setFakeGpsPhaseText('📦 Đã lấy hàng · Sẵn sàng giao khách');
       setFakeGpsProgress(0);
 
+      // Hiển thị trạng thái sẵn sàng giao khách trên modal
+      setCheckpointAction('PICKED_UP_READY');
+
       globalShowAlert(
-        'Đã xác nhận lấy hàng tại shop thành công! Bắt đầu chặng giao đến người mua.',
+        'Đã xác nhận lấy hàng tại shop thành công! Sẵn sàng giao đến người mua.',
         'Lấy hàng thành công',
         'success'
       );
-      onOrderUpdated?.();
 
-      // Tiếp tục tự động chạy Chặng 2 sau 1.2s
-      setTimeout(() => {
-        handleToggleFakeGps();
-      }, 1200);
+      try {
+        onOrderUpdated?.();
+      } catch (errCb) {
+        console.warn('onOrderUpdated callback error:', errCb);
+      }
     } catch (err: any) {
-      globalShowAlert(err?.data?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
+      console.error('handleConfirmPickupOnMap error:', err);
+      globalShowAlert(err?.data?.message || err?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
     } finally {
       setIsActionLoading(false);
     }
+  };
+
+  // Bắt đầu chặng 2 (Giao đến khách) sau khi đã lấy hàng
+  const handleStartPhase2OnMap = () => {
+    setCheckpointAction('NONE');
+    setFakeGpsPhaseText('🏠 Đang giao hàng đến khách');
+    handleToggleFakeGps(true);
   };
 
   // Checkpoint Action: Xác nhận giao hàng thành công hoặc báo thất bại ngay trên Map
@@ -1300,19 +1311,25 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         leafletShopToBuyerPolylineRef.current.setLatLngs([]);
       }
 
-      setCheckpointAction('NONE');
       setFakeGpsRunning(false);
       setFakeGpsProgress(100);
       setFakeGpsPhaseText(status === 'DELIVERED' ? '✅ Giao thành công' : '❌ Giao thất bại');
+      setCheckpointAction('COMPLETED');
 
       globalShowAlert(
         status === 'DELIVERED' ? 'Giao hàng thành công đến người nhận!' : 'Đã báo giao hàng thất bại!',
         'Cập nhật đơn hàng',
         status === 'DELIVERED' ? 'success' : 'warning'
       );
-      onOrderUpdated?.();
+
+      try {
+        onOrderUpdated?.();
+      } catch (errCb) {
+        console.warn('onOrderUpdated callback error:', errCb);
+      }
     } catch (err: any) {
-      globalShowAlert(err?.data?.message || 'Không thể cập nhật trạng thái đơn hàng', 'Lỗi', 'error');
+      console.error('handleCompleteOrderOnMap error:', err);
+      globalShowAlert(err?.data?.message || err?.message || 'Không thể cập nhật trạng thái đơn hàng', 'Lỗi', 'error');
     } finally {
       setIsActionLoading(false);
     }
@@ -1677,7 +1694,44 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
                       )}
                     </button>
                   </>
-                ) : (
+                ) : checkpointAction === 'PICKED_UP_READY' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-[11px] font-black uppercase tracking-wider border border-emerald-300">
+                        <CheckCircle2 className="size-3.5 text-emerald-600" />
+                        📦 Đã Lấy Hàng Thành Công
+                      </span>
+                      <button
+                        onClick={() => setCheckpointAction('NONE')}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                        title="Đóng thông báo"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-black text-gray-900 leading-tight">
+                        Giao đến: {locationData?.recipientName || 'Khách hàng'}
+                      </h4>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5 line-clamp-1">
+                        📍 {locationData?.destinationAddress || 'Địa chỉ giao hàng'}
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2 font-medium">
+                      ✨ Đã hoàn tất lấy hàng tại shop. Bấm nút bên dưới để tiếp tục di chuyển giao đến người mua!
+                    </p>
+
+                    <button
+                      onClick={handleStartPhase2OnMap}
+                      className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30 transition-all cursor-pointer"
+                    >
+                      <Play className="size-4 fill-white" />
+                      <span>🚀 Bắt đầu giao đến người mua ➔</span>
+                    </button>
+                  </>
+                ) : checkpointAction === 'AT_BUYER' ? (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-[11px] font-black uppercase tracking-wider border border-emerald-300">
@@ -1725,6 +1779,26 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
                         Giao Thất Bại
                       </button>
                     </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-[11px] font-black uppercase tracking-wider border border-emerald-300">
+                        <CheckCircle2 className="size-3.5 text-emerald-600" />
+                        🎉 Đơn Hàng Đã Hoàn Tất
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-600 font-medium">
+                      Trạng thái đơn hàng đã được cập nhật thành công lên hệ thống. Bạn có thể đóng bản đồ theo dõi.
+                    </p>
+
+                    <button
+                      onClick={onClose}
+                      className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
+                    >
+                      Đóng bản đồ
+                    </button>
                   </>
                 )}
               </div>
