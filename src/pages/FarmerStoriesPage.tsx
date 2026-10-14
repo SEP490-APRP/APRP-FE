@@ -44,14 +44,14 @@ interface FarmerStoriesPageProps {
   onInfo?: (msg: string) => void
 }
 
-const CATEGORY_TABS: { id: string; label: string; icon: string }[] = [
-  { id: 'all', label: 'Tất cả bài viết', icon: '🌾' },
-  { id: 'STORY', label: 'Chuyện nhà nông', icon: '📖' },
-  { id: 'NEW_PRODUCT', label: 'Mùa vụ & Nông sản mới', icon: '🌱' },
-  { id: 'GUIDE', label: 'Cẩm nang & Mẹo vặt', icon: '💡' },
-  { id: 'PROMOTION', label: 'Khuyến mãi & Ưu đãi', icon: '🎁' },
-  { id: 'SUC_KHOE', label: 'Sức khỏe & Dinh dưỡng', icon: '🥗' },
-  { id: 'NONG_NGHIEP', label: 'Nông nghiệp sạch', icon: '🚜' },
+const CATEGORY_TABS: { id: string; label: string }[] = [
+  { id: 'all', label: 'Tất cả bài viết' },
+  { id: 'STORY', label: 'Chuyện nhà nông' },
+  { id: 'NEW_PRODUCT', label: 'Mùa vụ & Nông sản mới' },
+  { id: 'GUIDE', label: 'Cẩm nang & Mẹo vặt' },
+  { id: 'PROMOTION', label: 'Khuyến mãi & Ưu đãi' },
+  { id: 'SUC_KHOE', label: 'Sức khỏe dinh dưỡng' },
+  { id: 'NONG_NGHIEP', label: 'Nông nghiệp sạch' },
 ]
 
 const SAMPLE_COVERS = [
@@ -322,50 +322,13 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
         {/* ========================================================================= */}
-        {/* 2. SEARCH & FILTER TOOLBAR                                                */}
+        {/* 2. MODERN MAGAZINE SUBNAV TOOLBAR (1 Hàng gọn gàng, không rớt dòng)      */}
         {/* ========================================================================= */}
-        <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-          <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full">
-            <div className="relative flex-1 w-full">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#808a79]"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm câu chuyện mùa vụ, kinh nghiệm, tên nông trại..."
-                className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white border border-[#d8d3c5] text-xs sm:text-sm focus:border-[#2f5c16] focus:ring-2 focus:ring-[#2f5c16]/20 outline-none shadow-sm transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9da598] hover:text-[#2f5c16]"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {/* Create Story Button for Farmers */}
-            {isShopOrAdmin && (
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
-              >
-                <Plus size={18} />
-                <span>Viết câu chuyện mới</span>
-              </button>
-            )}
-          </div>
-
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 border-b border-[#e2dcd0] pb-3">
+          {/* Category Tabs (Trượt ngang mượt mà, không rớt hàng) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 shrink-0 -mx-1 px-1">
             {CATEGORY_TABS.map((tab) => {
               const isActive = selectedCategory === tab.id
               return (
@@ -376,85 +339,121 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                     setSelectedCategory(tab.id)
                     setPage(0)
                   }}
-                  className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 text-xs sm:text-[13px] whitespace-nowrap transition-all cursor-pointer rounded-xl font-bold flex items-center gap-1.5 ${
                     isActive
-                      ? 'bg-[#2e5d16] text-white shadow-md scale-105'
-                      : 'bg-white text-[#4c5445] border border-[#e0dad0] hover:bg-[#f3ede1]'
+                      ? 'bg-[#2e5d16] text-white shadow-sm'
+                      : 'text-[#586151] hover:text-[#191f14] hover:bg-[#f0ebe0]'
                   }`}
                 >
-                  <span>{tab.icon}</span>
                   <span>{tab.label}</span>
                 </button>
               )
             })}
           </div>
+
+          {/* Right Toolbar: Compact Search & Action Button */}
+          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7f8878]"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm bài viết, nhà vườn..."
+                className="w-full pl-9 pr-8 py-2 rounded-full bg-white border border-[#d6cfbf] text-xs focus:border-[#2e5d16] focus:ring-2 focus:ring-[#2e5d16]/15 outline-none shadow-xs transition-all placeholder:text-[#9ea698]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9ea698] hover:text-[#2e5d16]"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {isShopOrAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-3.5 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+              >
+                <Plus size={15} />
+                <span className="hidden sm:inline">Viết bài mới</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. SPOTLIGHT STORY BANNER (Bài viết nổi bật)                              */}
+        {/* 3. SPOTLIGHT STORY BANNER (Bài viết nổi bật tinh gọn)                     */}
         {/* ========================================================================= */}
         {featuredBlog && (
-          <div className="bg-white rounded-3xl sm:rounded-[36px] border border-[#e6dfd2] p-6 sm:p-8 lg:p-10 shadow-xl relative overflow-hidden flex flex-col lg:flex-row gap-8 items-center">
+          <div className="bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 lg:p-7 shadow-md hover:shadow-lg transition-shadow relative overflow-hidden flex flex-col lg:flex-row gap-6 lg:gap-8 items-center">
             {/* Left Image */}
             <div
               onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-              className="w-full lg:w-1/2 aspect-[16/10] sm:aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden relative shadow-md group shrink-0 cursor-pointer"
+              className="w-full lg:w-1/2 aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden relative shadow-xs group shrink-0 cursor-pointer"
             >
               <img
                 src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
                 alt={featuredBlog.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute top-4 left-4 bg-[#c82626] text-white font-extrabold text-[11px] px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <div className="absolute top-3.5 left-3.5 bg-[#c82626] text-white font-extrabold text-[10px] px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                 <span>Tiêu Điểm Nông Sản</span>
               </div>
-              <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-xs flex items-center gap-1.5">
-                <Eye size={13} />
+              <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
+                <Eye size={12} />
                 <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
               </div>
             </div>
 
             {/* Right Content */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-between gap-5">
-              <div className="flex flex-col gap-3">
+            <div className="w-full lg:w-1/2 flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2 text-xs text-[#6e7668]">
-                  <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider">
+                  <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
                     {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
                   </span>
                   <span>•</span>
-                  <span className="flex items-center gap-1 text-[#8b5521]">
-                    <Calendar size={13} />
+                  <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
+                    <Calendar size={12} />
                     {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
                   </span>
                   <span>•</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[11px]">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
                     {getCategoryBadge(featuredBlog.category)}
                   </span>
                 </div>
 
                 <h2
                   onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="text-2xl sm:text-3xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer"
+                  className="text-xl sm:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer"
                 >
                   {featuredBlog.title}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-4">
+                <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-3">
                   {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
                 </p>
               </div>
 
               {/* Action Toolbar */}
-              <div className="pt-4 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-4 text-xs text-[#5c6555]">
+              <div className="pt-3.5 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5 text-xs text-[#5c6555]">
                   <button
                     type="button"
                     onClick={(e) => handleLike(e, featuredBlog.blogId || featuredBlog.id || 1)}
                     className="flex items-center gap-1.5 hover:text-[#c82626] font-bold transition-all cursor-pointer"
                   >
                     <Heart
-                      size={18}
+                      size={16}
                       className={
                         featuredBlog.isLikedByCurrentUser
                           ? 'text-[#c82626] fill-[#c82626]'
@@ -469,27 +468,27 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                     onClick={(e) => handleOpenComment(e, featuredBlog)}
                     className="flex items-center gap-1.5 hover:text-[#2e5d16] font-bold transition-all cursor-pointer"
                   >
-                    <MessageCircle size={18} className="text-[#848c7e]" />
+                    <MessageCircle size={16} className="text-[#848c7e]" />
                     <span>{featuredBlog.commentCount || 0} Bình luận</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleCopyShareLink(featuredBlog)}
-                    className="flex items-center gap-1 text-[#848c7e] hover:text-[#2e5d16] transition-colors"
+                    className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
                     title="Chia sẻ"
                   >
-                    <Share2 size={16} />
+                    <Share2 size={15} />
                   </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="px-5 py-2.5 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Đọc trọn vẹn</span>
-                  <ArrowRight size={14} />
+                  <span>Đọc tiếp</span>
+                  <ArrowRight size={13} />
                 </button>
               </div>
             </div>
