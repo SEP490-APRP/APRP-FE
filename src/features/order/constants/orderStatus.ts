@@ -12,7 +12,8 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   QUALITY_APPROVED: 'Đạt chất lượng',
   QUALITY_CHECKED: 'Đã kiểm tra',
   QUALITY_REJECTED: 'Không đạt chất lượng',
-  SHIPPING: 'Đang giao hàng',
+  SHIPPING: 'Tài xế đang đến lấy',
+  PICKED_UP: 'Đang giao hàng',
   DELIVERED: 'Đã giao hàng',
   COMPLETED: 'Hoàn thành',
   PAID: 'Đã thanh toán',
@@ -32,6 +33,7 @@ export function getOrderStatusBadgeClass(status?: string | null): string {
     case 'DELIVERED':
     case 'QUALITY_APPROVED':
       return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    case 'PICKED_UP':
     case 'SHIPPING':
     case 'SHIPPING_TO_WAREHOUSE':
       return 'bg-blue-50 text-blue-700 border-blue-200'

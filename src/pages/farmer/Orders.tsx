@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Gift,
   Boxes,
+  Navigation,
 } from 'lucide-react'
 import {
   useShopOrders,
@@ -27,6 +28,7 @@ import {
 } from '@/features/shop/hooks/useShopOrders'
 import { exportService } from '@/services/export.service'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
+import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 
 interface OrdersProps {
   onOpenOrderPrep?: (orderId: string) => void
@@ -35,7 +37,7 @@ interface OrdersProps {
 
 /** Danh sách toàn bộ trạng thái hợp lệ của Shop (Loại bỏ hoàn toàn AWAITING_PAYMENT) */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
 ]
 
 /** Định nghĩa tabs theo tiêu chuẩn sàn TMĐT lớn (Shopee / TikTok Shop Seller Center) */
@@ -44,7 +46,7 @@ const ORDER_TABS: { label: string; statuses: OrderStatus[]; badgeColor: string }
   { label: 'Chờ xác nhận', statuses: ['PENDING', 'PAID'], badgeColor: 'bg-amber-100 text-amber-800' },
   { label: 'Đang chuẩn bị', statuses: ['CONFIRMED'], badgeColor: 'bg-emerald-100 text-emerald-800' },
   { label: 'Sẵn sàng giao', statuses: ['READY'], badgeColor: 'bg-purple-100 text-purple-800' },
-  { label: 'Đang giao', statuses: ['SHIPPING'], badgeColor: 'bg-sky-100 text-sky-800' },
+  { label: 'Đang giao', statuses: ['SHIPPING', 'PICKED_UP'], badgeColor: 'bg-sky-100 text-sky-800' },
   { label: 'Đã giao', statuses: ['DELIVERED', 'COMPLETED'], badgeColor: 'bg-green-100 text-green-800' },
   { label: 'Đã hủy', statuses: ['CANCELLED', 'FAILED'], badgeColor: 'bg-rose-100 text-rose-800' },
 ]
@@ -60,6 +62,9 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
   // Modal xem chi tiết đơn hàng
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null)
+
+  // Modal theo dõi Shipper Google Maps
+  const [trackingModalOrder, setTrackingModalOrder] = useState<OrderResponse | null>(null)
 
   // Modal xác nhận hủy đơn
   const [cancelModalOrder, setCancelModalOrder] = useState<OrderResponse | null>(null)
@@ -635,14 +640,43 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                         </div>
                       )}
 
-                      {/* FLOW D: SHIPPING */}
+                      {/* FLOW D: SHIPPING (Shipper đang đến lấy) */}
                       {ord.status === 'SHIPPING' && (
-                        <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-800 flex items-center gap-2">
-                          <Truck size={16} className="text-sky-600 shrink-0" />
-                          <span>
-                            <strong>Shipper đang giao hàng:</strong> Tài xế đang trên đường vận
-                            chuyển tới người nhận.
-                          </span>
+                        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <Truck size={18} className="text-amber-600 shrink-0" />
+                            <span>
+                              <strong>Shipper đang đến lấy hàng:</strong> Tài xế đã nhận đơn và đang di chuyển tới kho/shop của bạn.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTrackingModalOrder(ord)}
+                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                          >
+                            <Navigation size={14} />
+                            <span>🗺️ Xem lộ trình Shipper (Google Maps)</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* FLOW D2: PICKED_UP (Đã lấy hàng, đang giao khách) */}
+                      {ord.status === 'PICKED_UP' && (
+                        <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-900 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <Truck size={18} className="text-sky-600 shrink-0" />
+                            <span>
+                              <strong>Đã lấy hàng tại shop:</strong> Tài xế đã rời kho và đang trên đường vận chuyển tới người nhận.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTrackingModalOrder(ord)}
+                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                          >
+                            <Navigation size={14} />
+                            <span>🗺️ Xem lộ trình Shipper (Google Maps)</span>
+                          </button>
                         </div>
                       )}
 
@@ -771,6 +805,20 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                   {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ
                 </strong>
               </div>
+              {selectedOrder.status === 'SHIPPING' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrackingModalOrder(selectedOrder)
+                    }}
+                    className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Navigation size={16} />
+                    <span>🗺️ Xem Lộ Trình Shipper (Google Maps)</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pt-2 text-right">
@@ -835,6 +883,16 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 8. Modal Bản Đồ Google Maps Tracking */}
+      {trackingModalOrder && (
+        <GoogleMapTrackingModal
+          orderId={trackingModalOrder.orderId ?? trackingModalOrder.id ?? 0}
+          orderCode={`#ORD-${trackingModalOrder.orderId ?? trackingModalOrder.id ?? 0}`}
+          role="SHOP"
+          onClose={() => setTrackingModalOrder(null)}
+        />
       )}
     </div>
   )

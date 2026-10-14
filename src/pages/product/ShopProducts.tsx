@@ -470,19 +470,47 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {shopVouchers.map((voucher) => {
                   const canReceive = canReceiveMap[voucher.voucherCode] !== false
+                  const isPercent = voucher.voucherType === 'PERCENTAGE'
+                  const isFreeShip = voucher.voucherType === 'FREE_SHIPPING' || voucher.voucherTarget === 'SHIPPING'
+                  const discountLabel = isPercent
+                    ? `Giảm ${voucher.discountValue}%`
+                    : isFreeShip
+                      ? 'Miễn phí vận chuyển'
+                      : `Giảm ${Number(voucher.discountValue).toLocaleString('vi-VN')}đ`
+                  const scopeLabel = voucher.voucherScope === 'PLATFORM' || voucher.creatorRole === 'ADMIN' ? 'Toàn sàn' : 'Shop'
+                  const isPlatform = scopeLabel === 'Toàn sàn'
+
                   return (
                     <div
                       key={voucher.voucherCode}
-                      className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 flex flex-col gap-3"
+                      className="rounded-2xl border border-dashed border-emerald-300 bg-linear-to-br from-emerald-50/60 to-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:border-emerald-500 transition-colors"
                     >
                       <div>
-                        <p className="text-xs font-black text-primary">{voucher.voucherCode}</p>
-                        <p className="mt-1 text-lg font-black text-gray-900">
-                          Giảm {voucher.discountValue}%
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-mono text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                            {voucher.voucherCode}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isPlatform
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {scopeLabel}
+                          </span>
+                          {isFreeShip && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                              Freeship
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-base font-black text-gray-900">
+                          {discountLabel}
                         </p>
-                        <p className="text-xs text-gray-500 font-bold">
-                          Tối đa {Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · Đơn từ{' '}
-                          {Number(voucher.minOrderValue).toLocaleString('vi-VN')}đ
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                          {voucher.maxDiscount ? `Tối đa ${Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · ` : ''}
+                          Đơn từ {Number(voucher.minOrderValue || 0).toLocaleString('vi-VN')}đ
                         </p>
                       </div>
                       <button
@@ -491,13 +519,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           receivingVoucher === voucher.voucherCode ||
                           (isAuthenticated && !canReceive)
                         }
-                        className="w-full rounded-xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:bg-gray-200 disabled:text-gray-500"
+                        className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors disabled:bg-gray-200 disabled:text-gray-500 cursor-pointer disabled:cursor-not-allowed"
                       >
                         {receivingVoucher === voucher.voucherCode
                           ? 'Đang lưu...'
                           : isAuthenticated && !canReceive
-                            ? 'Đã nhận'
-                            : 'Nhận voucher'}
+                            ? 'Đã trong ví voucher'
+                            : 'Lưu Voucher'}
                       </button>
                     </div>
                   )
@@ -686,7 +714,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {mysteryBoxes.map((box) => (
+                {mysteryBoxes.map((box: any) => (
                   <div
                     key={box.id}
                     className="group relative bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100 overflow-hidden hover:shadow-lg hover:border-purple-200 transition-all"

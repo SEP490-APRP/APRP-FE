@@ -51,9 +51,18 @@ export async function getResumePaymentOptions(orderId: number): Promise<ResumePa
   return unwrap<ResumePaymentOptionsResponse>(res)
 }
 
+/**
+ * Hủy thanh toán qua PayOS (hoàn tồn kho và trả hàng về giỏ)
+ */
+export async function cancelPaymentByOrderCode(orderCode: string): Promise<string> {
+  const res = await axiosInstance.post(`/payments/${encodeURIComponent(orderCode)}/cancel`)
+  return unwrap<string>(res)
+}
+
 export const paymentService = {
   createPayosPayment,
   getPaymentByOrderCode,
   confirmPayment,
+  cancelPaymentByOrderCode,
   getResumePaymentOptions,
 }

@@ -17,7 +17,7 @@ import type { OrderResponse, OrderStatus } from '@/types/order.types'
 
 /* ── Tab definitions (Loại bỏ hoàn toàn AWAITING_PAYMENT khỏi phía Shop) ── */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
 ]
 
 const TABS: { label: string; statuses: OrderStatus[] }[] = [
@@ -25,7 +25,7 @@ const TABS: { label: string; statuses: OrderStatus[] }[] = [
   { label: 'Cần xử lý',      statuses: ['PENDING', 'PAID'] },
   { label: 'Đang chuẩn bị',  statuses: ['CONFIRMED'] },
   { label: 'Chờ shipper',    statuses: ['READY'] },
-  { label: 'Đang giao',      statuses: ['SHIPPING'] },
+  { label: 'Đang giao',      statuses: ['SHIPPING', 'PICKED_UP'] },
   { label: 'Hoàn thành',     statuses: ['DELIVERED', 'COMPLETED'] },
   { label: 'Đã hủy',         statuses: ['CANCELLED', 'FAILED'] },
 ]
