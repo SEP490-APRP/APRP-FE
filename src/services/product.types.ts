@@ -16,6 +16,46 @@ export interface ProductImageResponse {
   isPrimary?: boolean
   displayOrder?: number
   createdAt?: string
+  isApproved?: boolean
+  isFlagged?: boolean
+  flagReason?: string | null
+}
+
+export interface ModerationLabelResponse {
+  id: number
+  labelName: string
+  labelNameVi?: string
+  parentLabel?: string
+  parentLabelVi?: string
+  confidence: number
+}
+
+export interface ModerationResultResponse {
+  id: number
+  isFlagged?: boolean
+  overallConfidence?: number
+  checkedAt?: string
+  moderationLabels?: ModerationLabelResponse[]
+}
+
+export interface AiDescriptionSuggestionRequest {
+  productName: string
+  productType?: 'SINGLE' | 'MYSTERY_BOX' | 'COMBO'
+  mealType?: string
+  includedItems?: string[]
+  currentDescription?: string
+  categoryId?: number
+  categoryName?: string
+  origin?: string
+  tasteProfile?: string
+  targetCustomer?: string
+  imageUrl?: string
+}
+
+export interface AiDescriptionSuggestionResponse {
+  suggestedDescription: string
+  keyHighlights?: string[]
+  generatedSource?: string
 }
 
 export interface ProductImageCreationRequest {
@@ -59,6 +99,8 @@ export interface ProductUpdateRequest {
 
 export interface GetMyProductsParams {
   status?: string
+  categoryId?: number
+  keyword?: string
   page?: number
   size?: number
 }
@@ -96,6 +138,7 @@ export interface ProductResponse {
   image?: string
   imageUrl?: string
   primaryImageUrl?: string
+  moderationResult?: ModerationResultResponse
   region?: string
   updatedAt?: string
   createdAt?: string

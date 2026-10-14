@@ -26,7 +26,7 @@ import {
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
 
-import { ShopOrdersPage } from '@/pages'
+import { ShopOrdersPage } from '@/pages/ShopOrdersPage'
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
