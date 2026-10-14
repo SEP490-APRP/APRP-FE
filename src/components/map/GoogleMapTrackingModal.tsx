@@ -1565,7 +1565,7 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
                     <div className="flex items-center gap-2 pt-1">
                       <button
-                        onClick={handleToggleFakeGps}
+                        onClick={() => handleToggleFakeGps()}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-black text-xs transition-all shadow-sm cursor-pointer ${
                           fakeGpsRunning
                             ? 'bg-rose-500 text-white hover:bg-rose-600'
