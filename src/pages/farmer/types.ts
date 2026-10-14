@@ -1,11 +1,11 @@
 export interface FarmerProduct {
   id: string
   name: string
-  category: 'Nông sản' | 'Hộp mù' | 'Combo'
+  category: 'Nông sản' | 'Hộp mù' | 'Combo' | string
   price: number
   originalPrice: number
   discount?: string | null
-  status: 'Đang bán' | 'Tạm ẩn' | 'Hết hàng'
+  status: 'Đang bán' | 'Tạm ẩn' | 'Hết hàng' | 'Chờ duyệt' | 'Bị từ chối' | 'Tạm dừng' | string
   stock: number
   unit: string
   region: string
@@ -13,6 +13,7 @@ export interface FarmerProduct {
   farmingType?: string
   image: string
   freshnessScore?: number
+  description?: string
 }
 
 export interface FarmerOrder {

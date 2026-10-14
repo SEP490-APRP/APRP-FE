@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   BarChart3,
@@ -23,7 +23,9 @@ import type {
   FarmerVoucher,
   FarmerReview,
 } from './types'
-import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
+import { useShopOrders, useShopProfile } from '@/features/shop'
+import { useAuth } from '@/stores'
+import { useMyProducts } from '@/features/product/hooks/useProductQueries'
 
 // Modular Subpage Components
 import Dashboard from './Dashboard'
@@ -51,11 +53,34 @@ interface FarmerPortalProps {
 }
 
 export default function FarmerPortal({
-  user,
+  user: propUser,
   onLogout,
   onNavigateStore,
   onInfo,
 }: FarmerPortalProps) {
+  const { user: authUser, logout: authLogout } = useAuth()
+  const { data: shopProfile } = useShopProfile()
+
+  const handleLogout = async () => {
+    if (onLogout) {
+      await onLogout()
+    } else {
+      authLogout()
+      onNavigateStore?.()
+    }
+  }
+  const user = propUser || authUser
+  const displayShopName =
+    shopProfile?.shopName ||
+    shopProfile?.fullName ||
+    user?.shopName ||
+    user?.name ||
+    'Gian Hàng Nông Sản'
+
+  const displayShopLogo =
+    shopProfile?.logoUrl ||
+    user?.avatar
+
   const [currentTab, setCurrentTab] = useState<string>('overview')
   const [shopActive, setShopActive] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -71,12 +96,53 @@ export default function FarmerPortal({
     (o) => o.status === 'PENDING' || o.status === 'PAID',
   ).length
 
+  // Real shop products hook from backend API
+  const { data: realMyProductsData } = useMyProducts({ size: 100 })
+  const realProductsList: FarmerProduct[] = (realMyProductsData?.content || []).map((p) => ({
+    id: String(p.id ?? p.productId),
+    name: p.productName || p.name || 'Nông sản',
+    category:
+      (typeof p.category === 'object' && p.category !== null ? (p.category as any).name : p.category) ||
+      'Nông sản',
+    price: Number(p.sellingPrice ?? p.price ?? 0),
+    originalPrice: Number(p.originalPrice ?? p.price ?? 0),
+    discount: p.discountPercent ? `-${p.discountPercent}%` : null,
+    status:
+      p.status === 'ACTIVE' || p.status === 'APPROVED'
+        ? 'Đang bán'
+        : p.status === 'PENDING'
+          ? 'Chờ duyệt'
+          : p.status === 'REJECTED'
+            ? 'Bị từ chối'
+            : 'Tạm dừng',
+    stock: Number(p.stockQuantity ?? p.stock ?? 0),
+    unit: p.unit || 'kg',
+    region: p.region || 'Đà Lạt',
+    image:
+      p.imageUrl ||
+      p.image ||
+      'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=200&q=80',
+  }))
+
   // Modals state
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showBlindBoxTool, setShowBlindBoxTool] = useState(false)
   const [showComboBuilder, setShowComboBuilder] = useState(false)
+  const [comboToEdit, setComboToEdit] = useState<any | null>(null)
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+  const [internalToast, setInternalToast] = useState<string | null>(null)
+
+  const handleInfo = (msg: string) => {
+    setInternalToast(msg)
+    onInfo?.(msg)
+  }
+
+  useEffect(() => {
+    if (!internalToast) return
+    const timer = setTimeout(() => setInternalToast(null), 4000)
+    return () => clearTimeout(timer)
+  }, [internalToast])
 
   // Central Farmer Products State
   const [products, setProducts] = useState<FarmerProduct[]>([
@@ -390,13 +456,17 @@ export default function FarmerPortal({
               className="flex items-center gap-2.5 overflow-hidden flex-1 cursor-pointer group py-0.5"
             >
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-transform group-hover:scale-105 shadow-xs ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-transform group-hover:scale-105 shadow-xs overflow-hidden ${
                   currentTab === 'profile' && !selectedOrderIdForPrep
                     ? 'bg-[#326318] text-white ring-2 ring-[#326318]/40'
                     : 'bg-[#326318] text-white'
                 }`}
               >
-                🌾
+                {displayShopLogo ? (
+                  <img src={displayShopLogo} alt={displayShopName} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{displayShopName.slice(0, 2).toUpperCase()}</span>
+                )}
               </div>
               <div className="overflow-hidden min-w-0 flex-1">
                 <div
@@ -406,9 +476,7 @@ export default function FarmerPortal({
                       : 'text-[#1c2216] group-hover:text-[#326318]'
                   }`}
                 >
-                  <span className="truncate">
-                    {user?.shopName || user?.name || 'HTX Nông Sản Cầu Đất'}
-                  </span>
+                  <span className="truncate">{displayShopName}</span>
                 </div>
                 <button
                   type="button"
@@ -418,14 +486,14 @@ export default function FarmerPortal({
                     onInfo?.(shopActive ? 'Cửa hàng đã tạm nghỉ bán' : 'Cửa hàng đã mở bán')
                   }}
                   title="Bấm để đổi trạng thái bán hàng"
-                  className="flex items-center gap-1 text-[9px] font-bold text-[#326318] cursor-pointer hover:underline mt-0.5"
+                  className="flex items-center gap-1.5 text-[9px] font-bold text-[#326318] cursor-pointer hover:underline mt-0.5"
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      shopActive ? 'bg-[#326318] animate-ping' : 'bg-gray-400'
+                      shopActive ? 'bg-[#326318]' : 'bg-gray-400'
                     }`}
                   />
-                  <span>{shopActive ? '🟢 ĐANG BÁN' : '⚪ TẠM NGHỈ'}</span>
+                  <span>{shopActive ? 'ĐANG BÁN' : 'TẠM NGHỈ'}</span>
                 </button>
               </div>
             </div>
@@ -433,7 +501,7 @@ export default function FarmerPortal({
             <button
               id="tour-sidebar-logout"
               type="button"
-              onClick={onLogout || onNavigateStore}
+              onClick={handleLogout}
               title="Đăng xuất / Về trang mua sắm"
               className="p-1.5 rounded-xl hover:bg-[#fdeeed] text-[#9aa194] hover:text-[#c5221f] transition-colors cursor-pointer shrink-0 ml-1"
             >
@@ -520,11 +588,11 @@ export default function FarmerPortal({
             <OrderPreparation
               orderId={selectedOrderIdForPrep}
               onBack={() => setSelectedOrderIdForPrep(null)}
-              onInfo={onInfo}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'overview' ? (
             <Dashboard
-              products={products}
+              products={realProductsList.length > 0 ? realProductsList : products}
               orders={orders}
               onNavigate={(tab) => setCurrentTab(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
@@ -533,16 +601,16 @@ export default function FarmerPortal({
             <RevenueReport />
           ) : currentTab === 'products' ? (
             <Products
-              products={products}
+              products={realProductsList.length > 0 ? realProductsList : products}
               onOpenAddProduct={() => setShowAddProductModal(true)}
               onOpenBlindBoxTool={() => setShowBlindBoxTool(true)}
-              onOpenComboBuilder={() => setShowComboBuilder(true)}
-              onInfo={onInfo}
+              onOpenComboBuilder={(combo?: any) => { setComboToEdit(combo || null); setShowComboBuilder(true); }}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'orders' ? (
             <Orders
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
-              onInfo={onInfo}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'disputes' ? (
             <FarmerDisputes />
@@ -552,14 +620,14 @@ export default function FarmerPortal({
             <Vouchers
               vouchers={vouchers}
               onOpenCreateVoucher={() => setShowCreateVoucherModal(true)}
-              onInfo={onInfo}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'notifications' ? (
             <Notifications />
           ) : currentTab === 'profile' ? (
-            <Profile user={user} onInfo={onInfo} />
+            <Profile user={user} onInfo={handleInfo} />
           ) : currentTab === 'wallet' ? (
-            <WalletComponent onOpenWithdraw={() => setShowWithdrawModal(true)} onInfo={onInfo} />
+            <WalletComponent onOpenWithdraw={() => setShowWithdrawModal(true)} onInfo={handleInfo} />
           ) : currentTab === 'messages' ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn">
               <div
@@ -610,7 +678,7 @@ export default function FarmerPortal({
         <AddProduct
           onAddProduct={handleAddNewProduct}
           onClose={() => setShowAddProductModal(false)}
-          onInfo={onInfo}
+          onInfo={handleInfo}
         />
       )}
 
@@ -618,16 +686,39 @@ export default function FarmerPortal({
         <BlindBoxTool
           onAddBox={handleAddNewProduct}
           onClose={() => setShowBlindBoxTool(false)}
-          onInfo={onInfo}
+          onInfo={handleInfo}
         />
       )}
 
       {showComboBuilder && (
         <ComboBuilder
+          initialCombo={comboToEdit}
           onAddCombo={handleAddNewProduct}
-          onClose={() => setShowComboBuilder(false)}
-          onInfo={onInfo}
+          onClose={() => {
+            setShowComboBuilder(false)
+            setComboToEdit(null)
+          }}
+          onInfo={handleInfo}
         />
+      )}
+
+      {/* Floating Toast Notification */}
+      {internalToast && (
+        <div className="fixed top-6 right-6 z-[100] max-w-sm w-full bg-[#1c2216] text-white p-4 rounded-2xl shadow-2xl border border-emerald-500/30 flex items-start gap-3 animate-fadeIn">
+          <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">
+            ✓
+          </div>
+          <div className="flex-1 text-xs font-semibold leading-relaxed">
+            {internalToast}
+          </div>
+          <button
+            type="button"
+            onClick={() => setInternalToast(null)}
+            className="text-gray-400 hover:text-white font-bold px-1 cursor-pointer shrink-0"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </div>
   )

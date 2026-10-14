@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   productService,
   uploadService,
+  type AiDescriptionSuggestionRequest,
   type GetMyProductsParams,
   type ProductCreationRequest,
   type ProductImageCreationRequest,
@@ -246,5 +247,27 @@ export function useRejectProduct() {
     mutationFn: ({ productId, reason }: { productId: number; reason: string }) =>
       productService.rejectProduct(productId, reason),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: productKeys.all }),
+  })
+}
+
+
+/** Admin phê duyệt riêng lẻ 1 ảnh phụ */
+export function useApproveProductImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, imageId }: { productId: number; imageId: number }) =>
+      productService.approveImage(productId, imageId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.all })
+    },
+  })
+}
+
+/** Trợ lý AI gợi ý mô tả nông sản */
+export function useAiSuggestDescription() {
+  return useMutation({
+    mutationFn: (request: AiDescriptionSuggestionRequest) =>
+      productService.suggestDescription(request),
   })
 }

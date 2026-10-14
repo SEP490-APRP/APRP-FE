@@ -613,30 +613,9 @@ export default function AuthPage({
                     {isSubmitting ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP NGAY'}
                   </button>
 
-                  {/* Quick Role Demo Login Box */}
+                  {/* Quick Role Demo Login Box (Đã gỡ Demo Nhà Vườn để đăng nhập thật, chỉ giữ Shipper & Admin) */}
                   <div className="p-3 rounded-2xl bg-[#fbf5ee] border border-[#f3e3ce] flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-left">
-                        <Store size={18} className="text-[#8a4e1d] shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-[#5e310d]">
-                            Nhà Vườn / Cửa hàng
-                          </div>
-                          <div className="text-[10px] text-[#8c6b4e]">
-                            Đăng nhập gian hàng & duyệt KYC
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleQuickShopLogin}
-                        className="px-3 py-1.5 rounded-xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
-                      >
-                        Demo Nhà Vườn
-                      </button>
-                    </div>
-
-                    <div className="border-t border-[#f0dfcc] pt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-left">
                         <Truck size={18} className="text-[#195962] shrink-0" />
                         <div>

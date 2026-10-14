@@ -230,10 +230,11 @@ export function AdminRoute() {
 }
 
 export function SellerRoute() {
+  const { user } = useAuth()
   return (
     <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="/dang-nhap?role=shop">
       <Suspense fallback={<PageLoading />}>
-        <FarmerPortal {...usePortalProps()} />
+        <FarmerPortal user={user} {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )

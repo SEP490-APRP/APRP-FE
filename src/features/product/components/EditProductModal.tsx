@@ -1,14 +1,14 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Images, Loader2 } from 'lucide-react'
+import { X, Images, Loader2, Sparkles } from 'lucide-react'
 import {
   productFormSchema,
   type ProductFormInput,
   type ProductFormValues,
 } from '../schemas/productForm.schema'
 import { useCategories } from '../hooks/useCategoryQueries'
-import { useUpdateProduct } from '../hooks/useProductQueries'
+import { useUpdateProduct, useAiSuggestDescription } from '../hooks/useProductQueries'
 import type { ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
 
@@ -56,9 +56,14 @@ export function EditProductModal({
       return d.toISOString().split('T')[0]
     })()
 
+  const aiSuggestMutation = useAiSuggestDescription()
+  const [isAiGenerated, setIsAiGenerated] = useState(false)
+
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -76,6 +81,38 @@ export function EditProductModal({
   })
 
   if (!isOpen) return null
+
+  const handleAiSuggestDescription = async () => {
+    const name = getValues('name')?.trim()
+    if (!name) {
+      alert('Vui lòng nhập tên sản phẩm trước để AI có thể gợi ý mô tả!')
+      return
+    }
+
+    const categoryId = Number(getValues('categoryId')) || undefined
+    const categoryName = categories.find((c) => c.categoryId === categoryId)?.name || 'Nông sản'
+    const region = getValues('region') || undefined
+
+    try {
+      const res = await aiSuggestMutation.mutateAsync({
+        productName: name,
+        categoryId,
+        categoryName,
+        origin: region,
+      })
+
+      if (res.result?.suggestedDescription) {
+        setValue('description', res.result.suggestedDescription, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+        setIsAiGenerated(true)
+        onInfo?.('AI đã gợi ý mô tả! Vui lòng kiểm tra và xác minh lại thông tin trước khi lưu.')
+      }
+    } catch (err: any) {
+      onInfo?.(getErrorMessage(err) || 'Không thể gợi ý mô tả lúc này')
+    }
+  }
 
   const onSubmit = async (values: ProductFormValues) => {
     try {
@@ -253,9 +290,30 @@ export function EditProductModal({
           </div>
 
           <div>
-            <label htmlFor="edit-description" className="block text-xs font-bold text-[#353d2f] mb-1">
-              Mô tả chi tiết
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="edit-description" className="block text-xs font-bold text-[#353d2f]">
+                Mô tả chi tiết
+              </label>
+              <button
+                type="button"
+                onClick={handleAiSuggestDescription}
+                disabled={aiSuggestMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#326318] bg-[#f4f7f1] hover:bg-[#e8eee3] border border-[#e2e8dc] disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
+                title="Sử dụng Trợ lý AI tạo mô tả chuẩn nông sản"
+              >
+                {aiSuggestMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#326318]" />
+                    <span>AI đang viết...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-[#326318]" />
+                    <span>Trợ lý AI gợi ý mô tả</span>
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               id="edit-description"
               rows={3}
@@ -263,6 +321,21 @@ export function EditProductModal({
               placeholder="Giới thiệu về chất lượng, nguồn gốc và cách bảo quản..."
               className={INPUT_CLASS}
             />
+            {isAiGenerated && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-800 text-[11px] flex items-start justify-between gap-2 shadow-sm animate-fadeIn">
+                <div className="flex-1 leading-relaxed">
+                  <span className="font-bold text-amber-900">Lưu ý xác minh:</span> Nội dung mô tả được gợi ý tự động bởi Trợ lý AI. Vui lòng rà soát và điều chỉnh lại thông tin (vùng trồng, quy cách, chất lượng...) cho đúng thực tế nông sản của bạn trước khi lưu thay đổi.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAiGenerated(false)}
+                  className="text-amber-500 hover:text-amber-800 font-bold px-1 cursor-pointer transition-colors shrink-0"
+                  title="Đóng thông báo"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-3">
