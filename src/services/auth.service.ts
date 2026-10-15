@@ -205,6 +205,14 @@ export const authService = {
   },
 
   /**
+   * Cập nhật thông tin tài khoản hiện tại qua PUT /users/me
+   */
+  async updateMyInfo(data: Record<string, unknown>): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.put<ApiResponse<UserResponse>>('/users/me', data)
+    return response.data
+  },
+
+  /**
    * Thu hồi token đăng xuất qua POST /auth/logout
    */
   async logout(token?: string): Promise<ApiResponse<void>> {
