@@ -1,6 +1,6 @@
 import type { BlogCategory } from '@/types'
 
-export type BlogStatus = 'PUBLISHED' | 'DRAFT' | 'ARCHIVED'
+export type BlogStatus = 'PUBLISHED' | 'DRAFT' | 'HIDDEN' | 'ARCHIVED'
 
 export interface BlogResponse {
   blogId: number

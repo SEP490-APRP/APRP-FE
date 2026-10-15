@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import {
   Heart,
   MessageCircle,
@@ -19,6 +19,20 @@ import {
   BookOpen,
   Image as ImageIcon,
   Flame,
+  ChevronDown,
+  Check,
+  Tag,
+  ShieldCheck,
+  UploadCloud,
+  Loader2,
+  Bold,
+  Italic,
+  Heading2,
+  List,
+  ListOrdered,
+  Quote,
+  Smile,
+  Save,
 } from 'lucide-react'
 
 import heroFarmerImg from '../assets/hero-farmer.jpg'
@@ -33,8 +47,9 @@ import {
   useDeleteBlogComment,
   useToggleBlogLike,
   useCreateShopBlog,
+  BlogRichTextToolbar,
 } from '@/features/blog'
-import type { BlogResponse } from '@/services'
+import { uploadService, type BlogResponse, type BlogStatus } from '@/services'
 import { BlogCategory, BlogCategoryLabel } from '@/types'
 import { useAuth } from '@/stores'
 import Pagination from '@/components/ui/Pagination'
@@ -45,14 +60,14 @@ interface FarmerStoriesPageProps {
   onInfo?: (msg: string) => void
 }
 
-const CATEGORY_TABS: { id: string; label: string }[] = [
-  { id: 'all', label: 'Tất cả bài viết' },
-  { id: 'STORY', label: 'Chuyện nhà nông' },
-  { id: 'NEW_PRODUCT', label: 'Mùa vụ & Nông sản mới' },
-  { id: 'GUIDE', label: 'Cẩm nang & Mẹo vặt' },
-  { id: 'PROMOTION', label: 'Khuyến mãi & Ưu đãi' },
-  { id: 'SUC_KHOE', label: 'Sức khỏe dinh dưỡng' },
-  { id: 'NONG_NGHIEP', label: 'Nông nghiệp sạch' },
+const CATEGORY_TABS: { id: string; label: string; icon: React.ElementType }[] = [
+  { id: 'all', label: 'Tất cả bài viết', icon: Sparkles },
+  { id: 'STORY', label: 'Chuyện nhà nông', icon: Sprout },
+  { id: 'NEW_PRODUCT', label: 'Mùa vụ & Nông sản mới', icon: Calendar },
+  { id: 'GUIDE', label: 'Cẩm nang & Mẹo vặt', icon: BookOpen },
+  { id: 'PROMOTION', label: 'Khuyến mãi & Ưu đãi', icon: Tag },
+  { id: 'SUC_KHOE', label: 'Sức khỏe dinh dưỡng', icon: Heart },
+  { id: 'NONG_NGHIEP', label: 'Nông nghiệp sạch', icon: ShieldCheck },
 ]
 
 const SAMPLE_COVERS = [
@@ -87,6 +102,30 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
   const [page, setPage] = useState(0)
   const pageSize = 9
 
+  // Category dropdown inside search bar
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false)
+  const categoryMenuRef = useRef<HTMLDivElement>(null)
+
+  // Modal category dropdown state
+  const [isModalCategoryMenuOpen, setIsModalCategoryMenuOpen] = useState(false)
+  const modalCategoryMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) {
+        setIsCategoryMenuOpen(false)
+      }
+      if (
+        modalCategoryMenuRef.current &&
+        !modalCategoryMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsModalCategoryMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Queries & Mutations
   const { data: pagedData, isLoading, isError } = usePublicBlogs({
     page,
@@ -115,6 +154,10 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
   const [newCategory, setNewCategory] = useState<BlogCategory>(BlogCategory.STORY)
   const [newPictureUrl, setNewPictureUrl] = useState(SAMPLE_COVERS[0].url)
   const [newContent, setNewContent] = useState('')
+  const [newStatus, setNewStatus] = useState<BlogStatus>('PUBLISHED')
+  const [isUploadingModalImage, setIsUploadingModalImage] = useState(false)
+  const modalFileInputRef = useRef<HTMLInputElement>(null)
+  const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Community Note Board State (Góc tri ân nông dân)
   const [notes, setNotes] = useState([
@@ -228,8 +271,45 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     }
   }
 
-  const handleCreateBlogSubmit = (e: FormEvent) => {
+  const handleModalImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      globalShowAlert('Kích thước ảnh tối đa là 5MB. Vui lòng chọn ảnh nhỏ hơn.', 'Ảnh quá lớn', 'error')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      globalShowAlert('Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WebP...).', 'Định dạng sai', 'error')
+      return
+    }
+
+    try {
+      setIsUploadingModalImage(true)
+      const res = await uploadService.uploadImage(file, 'blogs')
+      const uploadedUrl = res.result?.url
+      if (uploadedUrl) {
+        setNewPictureUrl(uploadedUrl)
+      } else {
+        throw new Error('Không nhận được liên kết ảnh sau khi tải lên')
+      }
+    } catch (err: any) {
+      console.error('Failed to upload blog image:', err)
+      const msg = err?.response?.data?.message || err?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.'
+      globalShowAlert(msg, 'Tải ảnh thất bại', 'error')
+    } finally {
+      setIsUploadingModalImage(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const handleCreateBlogSubmitWithStatus = (e: FormEvent, targetStatus: BlogStatus = newStatus) => {
     e.preventDefault()
+    if (isUploadingModalImage) {
+      globalShowAlert('Vui lòng chờ tải ảnh lên hoàn tất trước khi lưu bài viết.', 'Đang tải ảnh', 'warning')
+      return
+    }
     if (!newTitle.trim() || !newContent.trim()) {
       globalShowAlert('Vui lòng nhập đầy đủ tiêu đề và nội dung bài viết.', 'Lỗi', 'error')
       return
@@ -240,14 +320,18 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
         content: newContent.trim(),
         pictureUrl: newPictureUrl,
         category: newCategory,
-        status: 'PUBLISHED',
+        status: targetStatus,
       },
       {
         onSuccess: () => {
           setIsCreateModalOpen(false)
           setNewTitle('')
           setNewContent('')
-          globalShowAlert('Đã đăng câu chuyện nhà vườn thành công!', 'Chúc mừng', 'success')
+          const msg =
+            targetStatus === 'DRAFT'
+              ? 'Đã lưu câu chuyện vào bản nháp thành công!'
+              : 'Đã đăng câu chuyện nhà vườn thành công!'
+          globalShowAlert(msg, 'Chúc mừng', 'success')
         },
         onError: () => {
           globalShowAlert('Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại.', 'Lỗi', 'error')
@@ -274,10 +358,27 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     setTimeout(() => setNoteNotice(''), 4000)
   }
 
-  const formatPublishDate = (dateStr?: string) => {
-    if (!dateStr) return 'Mới đăng gần đây'
+  const formatPublishDate = (dateVal?: any) => {
+    if (!dateVal) return 'Mới đăng gần đây'
     try {
-      const d = new Date(dateStr)
+      let d: Date
+      if (Array.isArray(dateVal) && dateVal.length >= 3) {
+        d = new Date(
+          dateVal[0],
+          dateVal[1] - 1,
+          dateVal[2],
+          dateVal[3] || 0,
+          dateVal[4] || 0,
+          dateVal[5] || 0,
+        )
+      } else {
+        d = new Date(dateVal)
+      }
+
+      if (isNaN(d.getTime())) {
+        return 'Gần đây'
+      }
+
       return d.toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
@@ -333,68 +434,169 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
         {/* ========================================================================= */}
-        {/* 2. MODERN MAGAZINE SUBNAV TOOLBAR (Card gọn gàng, tinh tế)               */}
+        {/* 2. MODERN FULL-WIDTH OMNI-SEARCH BAR (Enterprise Standard)                */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-2xl border border-[#e2dcd0] p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Category Tabs (Trượt ngang mượt mà, không rớt hàng) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0 -mx-1 px-1">
-            {CATEGORY_TABS.map((tab) => {
-              const isActive = selectedCategory === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(tab.id)
-                    setPage(0)
-                  }}
-                  className={`px-3 py-1.5 text-xs sm:text-[13px] whitespace-nowrap transition-all cursor-pointer rounded-xl font-bold flex items-center gap-1.5 ${isActive
-                    ? 'bg-[#2e5d16] text-white shadow-xs'
-                    : 'text-[#586151] hover:text-[#191f14] hover:bg-[#f0ebe0]'
-                    }`}
-                >
-                  <span>{tab.label}</span>
-                </button>
-              )
-            })}
-          </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+            {/* Master Search Bar (Kéo dài toàn chiều rộng, kích thước thoải mái) */}
+            <div className="relative flex-1 w-full">
+              <div className="flex items-center bg-white rounded-2xl border border-[#ded7c8] shadow-xs hover:border-[#2e5d16]/60 focus-within:border-[#2e5d16] focus-within:ring-4 focus-within:ring-[#2e5d16]/10 transition-all p-1.5 sm:p-2">
+                {/* Integrated Category Dropdown Trigger */}
+                <div className="relative shrink-0" ref={categoryMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#f7f5ed] hover:bg-[#ede7d9] text-xs sm:text-sm font-bold text-[#2e5d16] transition-colors cursor-pointer border border-[#e8e2d4]"
+                  >
+                    {(() => {
+                      const cur =
+                        CATEGORY_TABS.find((t) => t.id === selectedCategory) || CATEGORY_TABS[0]
+                      const CurIcon = cur.icon
+                      return (
+                        <>
+                          <CurIcon size={16} className="text-[#2e5d16] shrink-0" />
+                          <span className="max-w-[140px] truncate">{cur.label}</span>
+                        </>
+                      )
+                    })()}
+                    <ChevronDown
+                      size={14}
+                      className={`text-[#7f8878] transition-transform duration-200 ${isCategoryMenuOpen ? 'rotate-180 text-[#2e5d16]' : ''
+                        }`}
+                    />
+                  </button>
 
-          {/* Right Toolbar: Compact Search & Action Button */}
-          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
-            <div className="relative flex-1 md:w-60">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f8878]"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm bài viết, nhà vườn..."
-                className="w-full pl-8.5 pr-8 py-1.5 rounded-full bg-[#fbf9f3] border border-[#d6cfbf] text-xs focus:bg-white focus:border-[#2e5d16] focus:ring-2 focus:ring-[#2e5d16]/15 outline-none transition-all placeholder:text-[#9ea698]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9ea698] hover:text-[#2e5d16]"
-                >
-                  <X size={13} />
-                </button>
-              )}
+                  {/* Popover Menu */}
+                  {isCategoryMenuOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-64 sm:w-72 bg-white rounded-2xl border border-[#e2dcd0] shadow-2xl p-1.5 z-40 animate-fadeIn">
+                      <div className="px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-[#858f7e] border-b border-[#f0ebd9] mb-1">
+                        Lọc theo chuyên mục bài viết
+                      </div>
+                      {CATEGORY_TABS.map((tab) => {
+                        const TabIcon = tab.icon
+                        const isSelected = selectedCategory === tab.id
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(tab.id)
+                              setPage(0)
+                              setIsCategoryMenuOpen(false)
+                            }}
+                            className={`w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${isSelected
+                              ? 'bg-[#eaf3e5] text-[#2e5d16] font-bold'
+                              : 'text-[#444d3d] hover:bg-[#f6f4ee] hover:text-[#1c2216]'
+                              }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <TabIcon
+                                size={15}
+                                className={isSelected ? 'text-[#2e5d16]' : 'text-[#7f8878]'}
+                              />
+                              <span className="truncate">{tab.label}</span>
+                            </div>
+                            {isSelected && <Check size={15} className="text-[#2e5d16] shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="h-7 w-px bg-[#e4ded2] mx-2.5 hidden sm:block shrink-0" />
+
+                {/* Search Text Input */}
+                <div className="flex-1 flex items-center min-w-0 pr-2">
+                  <Search size={17} className="text-[#7f8878] ml-2 shrink-0 hidden sm:block" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm kiếm theo tiêu đề, nhật ký canh tác, tên nông dân hoặc nhà vườn..."
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-transparent outline-none text-[#191f14] placeholder:text-[#9ea698]"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="p-1.5 text-[#9ea698] hover:text-[#191f14] transition-colors shrink-0 cursor-pointer"
+                      title="Xóa tìm kiếm"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Search Action Button */}
+                <div className="shrink-0 hidden sm:block">
+                  <button
+                    type="button"
+                    className="px-5 py-2.5 rounded-xl bg-[#2e5d16] hover:bg-[#254d12] text-white text-xs sm:text-sm font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Search size={14} />
+                    <span>Tìm kiếm</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
+            {/* Create Blog Button for Farmer / Admin */}
             {isShopOrAdmin && (
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                className="px-5 py-3 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
               >
-                <Plus size={14} />
-                <span className="hidden sm:inline">Viết bài mới</span>
+                <Plus size={16} />
+                <span>Viết bài mới</span>
               </button>
             )}
           </div>
+
+          {/* Active Filter Summary Bar (Chỉ hiển thị khi có bộ lọc hoặc từ khóa) */}
+          {(searchQuery || selectedCategory !== 'all') && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[#555d4e] pt-1">
+              <span className="font-medium text-[#717a6c]">Đang lọc:</span>
+              {selectedCategory !== 'all' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eaf3e5] text-[#244e18] font-bold border border-[#cbe1be]">
+                  <span>{CATEGORY_TABS.find((t) => t.id === selectedCategory)?.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('all')}
+                    className="hover:text-red-600 transition-colors cursor-pointer"
+                    title="Xóa danh mục này"
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              )}
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f4eee4] text-[#3e4537] font-bold border border-[#ded7c8]">
+                  <span>Từ khóa: "{searchQuery}"</span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="hover:text-red-600 transition-colors cursor-pointer"
+                    title="Xóa từ khóa"
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all')
+                  setSearchQuery('')
+                }}
+                className="text-[11px] text-[#848c7e] hover:text-[#c82626] underline ml-1 cursor-pointer font-medium"
+              >
+                Đặt lại bộ lọc
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ========================================================================= */}
@@ -402,109 +604,221 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
         {/* ========================================================================= */}
         {featuredBlog && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            {/* Cột Trái: Tiêu điểm mùa vụ (Ảnh tỉ lệ 16:9 khống chế max-h gọn gàng) */}
+            {/* Cột Trái: Tiêu điểm mùa vụ */}
             <div
-              className={`${trendingBlogs.length > 0 ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-12'
-                } bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between gap-4`}
+              className={`${trendingBlogs.length > 0
+                ? 'lg:col-span-7 xl:col-span-8 flex flex-col justify-between gap-4'
+                : 'lg:col-span-12'
+                } bg-white rounded-3xl border border-[#e4ded2] p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow`}
             >
-              <div>
-                {/* Image Container with controlled height */}
-                <div
-                  onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="w-full aspect-[16/9] max-h-60 sm:max-h-72 rounded-2xl overflow-hidden relative shadow-xs group cursor-pointer mb-4"
-                >
-                  <img
-                    src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
-                    alt={featuredBlog.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute top-3 left-3 bg-[#c82626] text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    <span>Tiêu Điểm Mùa Vụ</span>
-                  </div>
-                  <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
-                    <Eye size={12} />
-                    <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
-                  </div>
-                </div>
-
-                {/* Metadata */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
-                  <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
-                    {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
-                    <Calendar size={12} />
-                    {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
-                  </span>
-                  <span>•</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
-                    {getCategoryBadge(featuredBlog.category)}
-                  </span>
-                </div>
-
-                {/* Title */}
-                <h2
-                  onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="text-lg sm:text-xl md:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer mb-2 line-clamp-2"
-                >
-                  {featuredBlog.title}
-                </h2>
-
-                {/* Excerpt */}
-                <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-2 sm:line-clamp-3">
-                  {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
-                </p>
-              </div>
-
-              {/* Action Toolbar */}
-              <div className="pt-3.5 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3.5 text-xs text-[#5c6555]">
-                  <button
-                    type="button"
-                    onClick={(e) => handleLike(e, featuredBlog.blogId || featuredBlog.id || 1)}
-                    className="flex items-center gap-1.5 hover:text-[#c82626] font-bold transition-all cursor-pointer"
+              {trendingBlogs.length === 0 ? (
+                // HORIZONTAL MAGAZINE LAYOUT WHEN ONLY 1 ARTICLE / NO TRENDING ARTICLES
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                  {/* Left Column: Image (gọn gàng, tỉ lệ chuẩn, không bao giờ bị phóng to bè) */}
+                  <div
+                    onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                    className="md:col-span-5 aspect-[16/10] sm:aspect-[4/3] max-h-72 rounded-2xl overflow-hidden relative shadow-xs group cursor-pointer"
                   >
-                    <Heart
-                      size={16}
-                      className={
-                        featuredBlog.isLikedByCurrentUser
-                          ? 'text-[#c82626] fill-[#c82626]'
-                          : 'text-[#848c7e]'
-                      }
+                    <img
+                      src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
+                      alt={featuredBlog.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
-                    <span>{featuredBlog.likeCount || 0}</span>
-                  </button>
+                    <div className="absolute top-3 left-3 bg-[#c82626] text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      <span>Tiêu Điểm Mùa Vụ</span>
+                    </div>
+                    <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
+                      <Eye size={12} />
+                      <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => handleOpenComment(e, featuredBlog)}
-                    className="flex items-center gap-1.5 hover:text-[#2e5d16] font-bold transition-all cursor-pointer"
-                  >
-                    <MessageCircle size={16} className="text-[#848c7e]" />
-                    <span>{featuredBlog.commentCount || 0}</span>
-                  </button>
+                  {/* Right Column: Metadata & Details */}
+                  <div className="md:col-span-7 flex flex-col justify-between h-full py-1">
+                    <div>
+                      {/* Metadata */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
+                        <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
+                          {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
+                          <Calendar size={12} />
+                          {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
+                        </span>
+                        <span>•</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
+                          {getCategoryBadge(featuredBlog.category)}
+                        </span>
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleCopyShareLink(featuredBlog)}
-                    className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
-                    title="Chia sẻ"
-                  >
-                    <Share2 size={15} />
-                  </button>
+                      {/* Title */}
+                      <h2
+                        onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                        className="text-lg sm:text-xl md:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer mb-2.5 line-clamp-2"
+                      >
+                        {featuredBlog.title}
+                      </h2>
+
+                      {/* Excerpt */}
+                      <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-3 mb-4">
+                        {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
+                      </p>
+                    </div>
+
+                    {/* Action Toolbar */}
+                    <div className="pt-3.5 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5 text-xs text-[#5c6555]">
+                        <button
+                          type="button"
+                          onClick={(e) => handleLike(e, featuredBlog.blogId || featuredBlog.id || 1)}
+                          className="flex items-center gap-1.5 hover:text-[#c82626] font-bold transition-all cursor-pointer"
+                        >
+                          <Heart
+                            size={16}
+                            className={
+                              featuredBlog.isLikedByCurrentUser
+                                ? 'text-[#c82626] fill-[#c82626]'
+                                : 'text-[#848c7e]'
+                            }
+                          />
+                          <span>{featuredBlog.likeCount || 0}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenComment(e, featuredBlog)}
+                          className="flex items-center gap-1.5 hover:text-[#2e5d16] font-bold transition-all cursor-pointer"
+                        >
+                          <MessageCircle size={16} className="text-[#848c7e]" />
+                          <span>{featuredBlog.commentCount || 0}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyShareLink(featuredBlog)}
+                          className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
+                          title="Chia sẻ"
+                        >
+                          <Share2 size={15} />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                        className="px-4 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Đọc toàn bộ</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                // Original Stacked Layout when trendingBlogs exist alongside it
+                <>
+                  <div>
+                    {/* Image Container with controlled height */}
+                    <div
+                      onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                      className="w-full aspect-[16/9] max-h-60 sm:max-h-72 rounded-2xl overflow-hidden relative shadow-xs group cursor-pointer mb-4"
+                    >
+                      <img
+                        src={featuredBlog.pictureUrl || featuredBlog.imageUrl || freshFarmerBannerImg}
+                        alt={featuredBlog.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                      <div className="absolute top-3 left-3 bg-[#c82626] text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-md flex items-center gap-1.5 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        <span>Tiêu Điểm Mùa Vụ</span>
+                      </div>
+                      <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-medium text-[11px] flex items-center gap-1">
+                        <Eye size={12} />
+                        <span>{featuredBlog.views || featuredBlog.viewCount || 0} lượt đọc</span>
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
-                  className="px-4 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Đọc toàn bộ</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
+                    {/* Metadata */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
+                      <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
+                        {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
+                        <Calendar size={12} />
+                        {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
+                      </span>
+                      <span>•</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
+                        {getCategoryBadge(featuredBlog.category)}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h2
+                      onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                      className="text-lg sm:text-xl md:text-2xl font-black text-[#191f14] tracking-tight leading-snug hover:text-[#2e5d16] transition-colors cursor-pointer mb-2 line-clamp-2"
+                    >
+                      {featuredBlog.title}
+                    </h2>
+
+                    {/* Excerpt */}
+                    <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-2 sm:line-clamp-3">
+                      {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
+                    </p>
+                  </div>
+
+                  {/* Action Toolbar */}
+                  <div className="pt-3.5 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 text-xs text-[#5c6555]">
+                      <button
+                        type="button"
+                        onClick={(e) => handleLike(e, featuredBlog.blogId || featuredBlog.id || 1)}
+                        className="flex items-center gap-1.5 hover:text-[#c82626] font-bold transition-all cursor-pointer"
+                      >
+                        <Heart
+                          size={16}
+                          className={
+                            featuredBlog.isLikedByCurrentUser
+                              ? 'text-[#c82626] fill-[#c82626]'
+                              : 'text-[#848c7e]'
+                          }
+                        />
+                        <span>{featuredBlog.likeCount || 0}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenComment(e, featuredBlog)}
+                        className="flex items-center gap-1.5 hover:text-[#2e5d16] font-bold transition-all cursor-pointer"
+                      >
+                        <MessageCircle size={16} className="text-[#848c7e]" />
+                        <span>{featuredBlog.commentCount || 0}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyShareLink(featuredBlog)}
+                        className="text-[#848c7e] hover:text-[#2e5d16] transition-colors"
+                        title="Chia sẻ"
+                      >
+                        <Share2 size={15} />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setReadingBlogId(featuredBlog.blogId || featuredBlog.id || 1)}
+                      className="px-4 py-2 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Đọc toàn bộ</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Cột Phải: Đang được quan tâm (Trending Stories) */}
@@ -1156,7 +1470,7 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
               <X size={18} />
             </button>
 
-            <form onSubmit={handleCreateBlogSubmit} className="flex flex-col gap-4">
+            <form onSubmit={(e) => handleCreateBlogSubmitWithStatus(e, newStatus)} className="flex flex-col gap-4">
               <div className="flex items-center gap-2 text-[#2e5d16] text-xs font-bold uppercase tracking-wide">
                 <Sparkles size={16} />
                 <span>Kênh Nhà Vườn CapNong</span>
@@ -1166,11 +1480,16 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                 Chia Sẻ Câu Chuyện Mùa Vụ &amp; Kinh Nghiệm
               </h2>
 
+              {/* 1. Tiêu đề */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-extrabold text-[#3a4234]">Tiêu đề bài viết *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-[#3a4234]">Tiêu đề bài viết *</label>
+                  <span className="text-[11px] text-[#717a6c]">{newTitle.length}/255 ký tự</span>
+                </div>
                 <input
                   type="text"
                   required
+                  maxLength={255}
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Ví dụ: Vụ cam sành Hàm Yên được mùa ngọt mọng nước..."
@@ -1178,91 +1497,273 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                 />
               </div>
 
+              {/* 2. Danh mục & Trạng thái */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
+                <div className="relative flex flex-col gap-1.5" ref={modalCategoryMenuRef}>
                   <label className="text-xs font-extrabold text-[#3a4234]">Danh mục bài viết</label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as BlogCategory)}
-                    className="w-full px-4 py-3 rounded-2xl border border-[#d8d3c5] text-xs sm:text-sm focus:border-[#2e5d16] outline-none bg-white font-medium"
+                  <button
+                    type="button"
+                    onClick={() => setIsModalCategoryMenuOpen(!isModalCategoryMenuOpen)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl border border-[#d8d3c5] hover:border-[#2e5d16] bg-white text-xs sm:text-sm font-semibold text-[#1c2216] transition-all cursor-pointer"
                   >
-                    <option value={BlogCategory.STORY}>📖 Chuyện nhà nông</option>
-                    <option value={BlogCategory.NEW_PRODUCT}>🌱 Nông sản mới &amp; Mùa vụ</option>
-                    <option value={BlogCategory.GUIDE}>💡 Cẩm nang &amp; Mẹo vặt</option>
-                    <option value={BlogCategory.PROMOTION}>🎁 Khuyến mãi &amp; Ưu đãi</option>
-                    <option value={BlogCategory.SUC_KHOE}>🥗 Sức khỏe dinh dưỡng</option>
-                    <option value={BlogCategory.NONG_NGHIEP}>🚜 Nông nghiệp sạch</option>
-                  </select>
+                    <div className="flex items-center gap-2.5 truncate">
+                      {(() => {
+                        const cur =
+                          CATEGORY_TABS.find((t) => t.id === newCategory) || CATEGORY_TABS[1]
+                        const CurIcon = cur.icon
+                        return (
+                          <>
+                            <CurIcon size={16} className="text-[#2e5d16] shrink-0" />
+                            <span className="truncate">{cur.label}</span>
+                          </>
+                        )
+                      })()}
+                    </div>
+                    <ChevronDown
+                      size={16}
+                      className={`text-[#717a6c] transition-transform duration-200 shrink-0 ${isModalCategoryMenuOpen ? 'rotate-180 text-[#2e5d16]' : ''
+                        }`}
+                    />
+                  </button>
+
+                  {isModalCategoryMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-2xl border border-[#e5e9e0] shadow-2xl p-1.5 z-40 animate-fadeIn">
+                      {CATEGORY_TABS.filter((t) => t.id !== 'all').map((tab) => {
+                        const TabIcon = tab.icon
+                        const isSelected = newCategory === tab.id
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setNewCategory(tab.id as BlogCategory)
+                              setIsModalCategoryMenuOpen(false)
+                            }}
+                            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${isSelected
+                              ? 'bg-[#eaf3e5] text-[#2e5d16] font-bold'
+                              : 'text-[#444d3d] hover:bg-[#f6f4ee] hover:text-[#1c2216]'
+                              }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <TabIcon
+                                size={15}
+                                className={isSelected ? 'text-[#2e5d16]' : 'text-[#717a6c]'}
+                              />
+                              <span className="truncate">{tab.label}</span>
+                            </div>
+                            {isSelected && <Check size={16} className="text-[#2e5d16] shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-extrabold text-[#3a4234]">
-                    Link ảnh bìa bài viết
+                  <label className="text-xs font-extrabold text-[#3a4234]">Trạng thái xuất bản</label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#f4efe4] rounded-2xl border border-[#e2dcd0]">
+                    <button
+                      type="button"
+                      onClick={() => setNewStatus('PUBLISHED')}
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${newStatus === 'PUBLISHED'
+                        ? 'bg-white text-[#2e5d16] shadow-xs'
+                        : 'text-[#646e5e] hover:text-[#1c2216]'
+                        }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="truncate">Công khai</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewStatus('DRAFT')}
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${newStatus === 'DRAFT'
+                        ? 'bg-white text-amber-800 shadow-xs'
+                        : 'text-[#646e5e] hover:text-[#1c2216]'
+                        }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="truncate">Bản nháp</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Ảnh bìa bài viết */}
+              <div className="flex flex-col gap-2.5 p-3.5 rounded-2xl bg-[#faf7f0] border border-[#ebe4d6]">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-[#3a4234] flex items-center gap-1.5">
+                    <ImageIcon size={15} className="text-[#2e5d16]" />
+                    Ảnh bìa bài viết
                   </label>
+                  <span className="text-[11px] text-[#717a6c]">Tỉ lệ khuyến nghị 16:9 (tối đa 5MB)</span>
+                </div>
+
+                {/* Upload Action Bar */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => modalFileInputRef.current?.click()}
+                    disabled={isUploadingModalImage}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#2e5d16] text-[#2e5d16] hover:bg-[#2e5d16] hover:text-white transition-all text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    {isUploadingModalImage ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin text-[#2e5d16]" />
+                        <span>Đang tải ảnh lên...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={16} />
+                        <span>Tải ảnh từ máy / điện thoại</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={modalFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleModalImageFileChange}
+                  />
+
                   <input
                     type="url"
                     value={newPictureUrl}
                     onChange={(e) => setNewPictureUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-4 py-3 rounded-2xl border border-[#d8d3c5] text-xs sm:text-sm focus:border-[#2e5d16] outline-none"
+                    placeholder="Hoặc dán liên kết URL ảnh (https://...)"
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#d8d3c5] bg-white text-xs focus:border-[#2e5d16] outline-none"
                   />
                 </div>
-              </div>
 
-              {/* Sample cover choices */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-bold text-[#6a7364]">
-                  Hoặc chọn nhanh ảnh bìa mẫu:
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {SAMPLE_COVERS.map((sc, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setNewPictureUrl(sc.url)}
-                      className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${newPictureUrl === sc.url
-                        ? 'border-[#2e5d16] scale-105 shadow-md'
-                        : 'border-transparent opacity-70 hover:opacity-100'
+                {/* Preview Box */}
+                {newPictureUrl && (
+                  <div className="relative rounded-2xl overflow-hidden border border-[#dcd6c8] bg-stone-100 max-h-44 group">
+                    <img
+                      src={newPictureUrl}
+                      alt="Ảnh bìa xem trước"
+                      className="w-full h-40 object-cover"
+                      onError={(e) => {
+                        ; (e.target as HTMLImageElement).src = SAMPLE_COVERS[0].url
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => modalFileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-xl bg-white text-stone-900 text-xs font-bold hover:bg-stone-100 flex items-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <UploadCloud size={14} /> Thay ảnh khác
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewPictureUrl('')}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 flex items-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <Trash2 size={14} /> Gỡ ảnh
+                      </button>
+                    </div>
+                    <span className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-xs flex items-center gap-1">
+                      <Check size={12} className="text-emerald-400" /> Ảnh bìa đang chọn
+                    </span>
+                  </div>
+                )}
+
+                {/* Sample cover choices */}
+                <div className="flex flex-col gap-1.5 mt-0.5">
+                  <span className="text-[11px] font-bold text-[#6a7364]">
+                    Hoặc chọn nhanh ảnh bìa mẫu:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {SAMPLE_COVERS.map((sc, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setNewPictureUrl(sc.url)}
+                        className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                          newPictureUrl === sc.url
+                            ? 'border-[#2e5d16] scale-[1.02] shadow-md ring-2 ring-[#2e5d16]/25'
+                            : 'border-transparent opacity-70 hover:opacity-100'
                         }`}
-                    >
-                      <img src={sc.url} alt={sc.title} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded">
-                        {sc.title}
-                      </span>
-                    </button>
-                  ))}
+                      >
+                        <img src={sc.url} alt={sc.title} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-medium">
+                          {sc.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
+              {/* 4. Nội dung chi tiết */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-extrabold text-[#3a4234]">
-                  Nội dung chi tiết câu chuyện *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-[#3a4234]">
+                    Nội dung chi tiết câu chuyện *
+                  </label>
+                  <span className="text-[11px] text-[#717a6c]">
+                    {newContent.trim() ? `${newContent.trim().split(/\s+/).length} từ` : '0 từ'}
+                  </span>
+                </div>
+
+                <BlogRichTextToolbar
+                  textareaRef={modalTextareaRef}
+                  content={newContent}
+                  onChange={setNewContent}
+                />
+
                 <textarea
+                  ref={modalTextareaRef}
                   required
                   rows={6}
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   placeholder="Chia sẻ về quá trình gieo trồng, chăm sóc, thu hoạch hoặc những trăn trở, niềm vui của nhà vườn..."
-                  className="w-full p-4 rounded-2xl border border-[#d8d3c5] text-xs sm:text-sm focus:border-[#2e5d16] outline-none leading-relaxed"
+                  className="w-full p-4 rounded-b-2xl border border-[#d8d3c5] text-xs sm:text-sm focus:border-[#2e5d16] outline-none leading-relaxed"
                 />
+                <p className="text-[11px] text-[#788272] italic">
+                  💡 Gợi ý: Dùng các icon ở thanh công cụ trên để làm nổi bật câu chuyện, chèn biểu tượng nông sản 🌱 hoặc định dạng các bước canh tác rõ ràng.
+                </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#ede7dc]">
+              {/* 5. Nút bấm thao tác */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#ede7dc]">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs font-bold cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
-                  Hủy bỏ
+                  <X size={15} />
+                  <span>Hủy bỏ</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={createBlogMutation.isPending}
-                  className="px-6 py-2.5 rounded-full bg-[#2e5d16] hover:bg-[#254d12] text-white text-xs font-black uppercase tracking-wide shadow-md cursor-pointer disabled:opacity-50"
-                >
-                  {createBlogMutation.isPending ? 'Đang xuất bản...' : 'Đăng câu chuyện ngay'}
-                </button>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="submit"
+                    disabled={createBlogMutation.isPending || isUploadingModalImage}
+                    className={`px-6 py-2.5 rounded-full text-white text-xs font-black uppercase tracking-wide shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 ${newStatus === 'DRAFT'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-[#2e5d16] hover:bg-[#254d12]'
+                      }`}
+                  >
+                    {createBlogMutation.isPending ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin text-white" />
+                        <span>Đang xử lý...</span>
+                      </>
+                    ) : newStatus === 'DRAFT' ? (
+                      <>
+                        <Save size={15} className="text-white" />
+                        <span>Lưu vào bản nháp</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={15} className="text-white" />
+                        <span>Đăng câu chuyện công khai</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

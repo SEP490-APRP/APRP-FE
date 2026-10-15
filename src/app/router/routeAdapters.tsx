@@ -47,10 +47,15 @@ export function RootLayout() {
 
   useEffect(() => {
     // Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu # (VD: /#/dang-nhap -> /dang-nhap)
-    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
-      const cleanPath = window.location.hash.slice(1)
-      navigate(cleanPath, { replace: true })
+    const handleHash = () => {
+      if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
+        const cleanPath = window.location.hash.slice(1)
+        navigate(cleanPath, { replace: true })
+      }
     }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
   }, [navigate])
 
   return (
