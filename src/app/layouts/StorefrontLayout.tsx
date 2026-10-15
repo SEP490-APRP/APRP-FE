@@ -12,8 +12,8 @@ export type StorefrontContext = {
   cart: Cart
   query: string
   setQuery: (query: string) => void
-  /** Thêm 1 đơn vị sản phẩm catalog vào giỏ, báo toast. */
-  onAdd: (id: string) => void
+  /** Thêm 1 đơn vị sản phẩm/combo/túi mù vào giỏ, báo toast. */
+  onAdd: (id: string | number, itemType?: string) => void
   onInfo: (title: string) => void
 }
 
@@ -50,19 +50,19 @@ export default function StorefrontLayout() {
 
   const currentCount = user ? dbCartCount : cartCount(cart)
 
-  const onAdd = (id: string) => {
+  const onAdd = (id: string | number, itemType: string = 'PRODUCT') => {
     const idNum = Number(id)
     if (!isNaN(idNum) && idNum > 0) {
       if (!user) {
         navigate('/dang-nhap', { state: { from: { pathname } } })
-        showToast('Vui lòng đăng nhập để thêm nông sản vào giỏ hàng.')
+        showToast('Vui lòng đăng nhập để thêm vào giỏ hàng.')
         return
       }
       addToCartMutation.mutate(
-        { productId: idNum, quantity: 1 },
+        { itemType, itemId: idNum, quantity: 1 },
         {
           onSuccess: () => {
-            showToast('Đã thêm nông sản vào giỏ hàng!')
+            showToast('Đã thêm vào giỏ hàng thành công!')
           },
           onError: (err: any) => {
             const msg = err?.response?.data?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
@@ -78,16 +78,17 @@ export default function StorefrontLayout() {
       return
     }
 
-    const product = allProducts.find((p) => p.id === id)
+    const strId = String(id)
+    const product = allProducts.find((p) => String(p.id) === strId)
     if (!product) {
       showToast('Sản phẩm này chưa mở bán trực tuyến.')
       return
     }
-    if ((cart[id] ?? 0) >= product.stock) {
+    if ((cart[strId] ?? 0) >= product.stock) {
       showToast(`Bạn đã chọn tối đa ${product.stock} ${product.unit} ${product.name}.`)
       return
     }
-    changeQuantity(id, 1)
+    changeQuantity(strId, 1)
     showToast(`Đã thêm ${product.name} vào giỏ`)
   }
 

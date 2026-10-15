@@ -1,5 +1,7 @@
 import type { ApiResponse, PageResponse } from '@/types'
 import type {
+  AiDescriptionSuggestionRequest,
+  AiDescriptionSuggestionResponse,
   GetMyProductsParams,
   ProductCreationRequest,
   ProductImageCreationRequest,
@@ -125,6 +127,8 @@ export const productService = {
     const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products/my-shop', {
       params: {
         status: params.status && params.status !== 'ALL' ? params.status : undefined,
+        categoryId: params.categoryId && params.categoryId > 0 ? params.categoryId : undefined,
+        keyword: params.keyword && params.keyword.trim() !== '' ? params.keyword.trim() : undefined,
         page: params.page ?? 1,
         size: params.size ?? 20,
       },
@@ -253,7 +257,7 @@ export const productService = {
     return res.data
   },
 
-  /** Thêm ảnh vào sản phẩm (kích hoạt AI Rekognition ngầm tại backend) */
+  /** Thêm ảnh vào sản phẩm (kích hoạt AI Google Cloud Vision ngầm tại backend) */
   async addImage(
     productId: number,
     request: ProductImageCreationRequest,
@@ -369,12 +373,64 @@ export const productService = {
       return { code: 1000, result: p as any, message: 'Đã từ chối duyệt sản phẩm' }
     }
     const res = await axiosInstance.patch<ApiResponse<any>>(`/products/${productId}/reject`, {
-      rejectReason: reason,
+      reason,
     })
     return {
       code: 1000,
       result: normalizeProduct(res.data.result),
       message: 'Đã từ chối duyệt sản phẩm',
     }
+  },
+
+  /** Admin phê duyệt riêng lẻ 1 ảnh phụ bị gắn cờ */
+  async approveImage(
+    productId: number,
+    imageId: number,
+  ): Promise<ApiResponse<ProductImageResponse>> {
+    if (ENV.USE_MOCK) {
+      await new Promise((r) => setTimeout(r, 150))
+      return {
+        code: 1000,
+        result: {
+          id: imageId,
+          imageUrl: '',
+          isApproved: true,
+          isFlagged: false,
+        },
+        message: 'Đã phê duyệt ảnh sản phẩm',
+      }
+    }
+
+    const res = await axiosInstance.patch<ApiResponse<ProductImageResponse>>(
+      `/products/${productId}/images/${imageId}/approve`,
+    )
+    return res.data
+  },
+
+  /** Trợ lý AI gợi ý mô tả nông sản (Google Gemini 1.5 Flash) */
+  async suggestDescription(
+    request: AiDescriptionSuggestionRequest,
+  ): Promise<ApiResponse<AiDescriptionSuggestionResponse>> {
+    if (ENV.USE_MOCK) {
+      await new Promise((r) => setTimeout(r, 800))
+      return {
+        code: 1000,
+        result: {
+          suggestedDescription: `Nông sản tươi ngon ${request.productName} được thu hoạch trực tiếp từ vùng trồng ${request.origin || 'Đà Lạt'}. Tuy hình dáng có chút tự nhiên méo mó mộc mạc của nông sản giải cứu nhưng giữ trọn vị ngọt thanh mát, độ tươi giòn và giàu dưỡng chất tự nhiên.`,
+          keyHighlights: [
+            'Thu hoạch tươi ngon trực tiếp tại vườn',
+            'Canh tác an toàn, đảm bảo chất lượng',
+            'Chung tay giải cứu nông sản địa phương',
+          ],
+          generatedSource: 'MOCK_GEMINI',
+        },
+      }
+    }
+
+    const res = await axiosInstance.post<ApiResponse<AiDescriptionSuggestionResponse>>(
+      '/products/ai-suggest-description',
+      request,
+    )
+    return res.data
   },
 }

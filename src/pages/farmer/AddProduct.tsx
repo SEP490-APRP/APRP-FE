@@ -8,7 +8,7 @@ import {
   type ProductFormValues,
 } from '@/features/product'
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
-import { useCreateProduct, useUploadProductImage } from '@/features/product/hooks/useProductQueries'
+import { useCreateProduct, useUploadProductImage, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
 import type { FarmerProduct } from './types'
 import { getErrorMessage } from '@/utils'
 
@@ -35,12 +35,14 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   const { data: categories = [] } = useCategories()
   const createMutation = useCreateProduct()
   const uploadImageMutation = useUploadProductImage()
+  const aiSuggestMutation = useAiSuggestDescription()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isAiGenerated, setIsAiGenerated] = useState(false)
 
   const defaultExpiry = (() => {
     const d = new Date()
@@ -51,6 +53,8 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -67,6 +71,34 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       farmingType: 'Hữu cơ Organic',
     },
   })
+
+  const handleAiSuggestDescription = async () => {
+    const currentName = getValues('name')?.trim()
+    if (!currentName) {
+      setAiError('Vui lòng nhập Tên nông sản trước để AI có thể phân tích và viết mô tả gợi ý!')
+      return
+    }
+    setAiError(null)
+    const catId = getValues('categoryId')
+    const catName = categories.find((c) => c.categoryId === catId)?.name || 'Nông sản'
+    const reg = getValues('region') || 'Đà Lạt & Lâm Đồng'
+
+    try {
+      const res = await aiSuggestMutation.mutateAsync({
+        productName: currentName,
+        categoryId: catId,
+        categoryName: catName,
+        origin: reg,
+      })
+      if (res.result?.suggestedDescription) {
+        setValue('description', res.result.suggestedDescription, { shouldDirty: true })
+        setIsAiGenerated(true)
+        onInfo?.('AI đã gợi ý mô tả! Vui lòng kiểm tra và xác minh lại thông tin trước khi đăng bán.')
+      }
+    } catch (err: any) {
+      setAiError(getErrorMessage(err) || 'Không thể tạo mô tả AI lúc này. Vui lòng thử lại.')
+    }
+  }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAiError(null)
@@ -120,6 +152,10 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             alert(
               '⚠️ Lưu ý: Sản phẩm đã được tạo, nhưng ảnh bị AI từ chối vì không nhận diện được nông sản thực tế. Vui lòng vào mục Quản lý Ảnh để đổi ảnh khác.',
             )
+          } else {
+            alert(
+              `⚠️ Sản phẩm đã được tạo, nhưng ảnh tải lên thất bại (${msg || 'Lỗi mạng hoặc tải ảnh'}). Vui lòng vào mục Quản lý Ảnh để thêm ảnh sau.`,
+            )
           }
         }
       }
@@ -134,7 +170,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           price: values.price,
           originalPrice: values.price,
           discount: null,
-          status: 'Đang bán' as any,
+          status: 'Chờ duyệt' as any,
           stock: values.stock,
           unit: values.unit,
           region: values.region || 'Đà Lạt',
@@ -146,6 +182,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       }
 
       onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
+      alert(`Đăng bán nông sản "${values.name}" thành công! Sản phẩm đã được gửi và đang chờ Admin duyệt.`)
       onClose()
     } catch (err) {
       setAiError(getErrorMessage(err) || 'Không thể tạo sản phẩm. Vui lòng thử lại.')
@@ -217,7 +254,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
                   {selectedFile ? selectedFile.name : 'Nhấp để tải ảnh nông sản từ máy'}
                 </p>
                 <p className="text-[10px] text-[#7e8779] mt-0.5">
-                  Ảnh chụp thực tế, rõ nét. Hệ thống tự động thẩm định AI AWS Rekognition.
+                  Ảnh chụp thực tế, rõ nét. Hệ thống tự động thẩm định AI Google Cloud Vision.
                 </p>
               </div>
             </div>
@@ -341,9 +378,24 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           </div>
 
           <div>
-            <label htmlFor="product-desc" className="block text-xs font-bold text-[#353d2f] mb-1">
-              Mô tả nguồn gốc &amp; chất lượng
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="product-desc" className="text-xs font-bold text-[#353d2f]">
+                Mô tả nguồn gốc &amp; chất lượng
+              </label>
+              <button
+                type="button"
+                onClick={handleAiSuggestDescription}
+                disabled={aiSuggestMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f4f7f1] hover:bg-[#e8eee3] text-[#326318] text-[11px] font-semibold transition-colors border border-[#e2e8dc] cursor-pointer disabled:opacity-50"
+              >
+                {aiSuggestMutation.isPending ? (
+                  <Loader2 size={12} className="animate-spin text-[#326318]" />
+                ) : (
+                  <Sparkles size={12} className="text-amber-500" />
+                )}
+                <span>{aiSuggestMutation.isPending ? 'Đang viết mô tả...' : 'Trợ lý AI gợi ý mô tả'}</span>
+              </button>
+            </div>
             <textarea
               id="product-desc"
               rows={2}
@@ -351,6 +403,21 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               placeholder="VD: Nông sản thu hoạch sáng nay tại vườn hữu cơ, vỏ hơi đốm nhẹ nhưng ruột giòn ngọt..."
               className={INPUT_CLASS}
             />
+            {isAiGenerated && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-800 text-[11px] flex items-start justify-between gap-2 shadow-sm animate-fadeIn">
+                <div className="flex-1 leading-relaxed">
+                  <span className="font-bold text-amber-900">Lưu ý xác minh:</span> Nội dung mô tả được gợi ý tự động bởi Trợ lý AI. Vui lòng rà soát và điều chỉnh lại thông tin (vùng trồng, quy cách, chất lượng...) cho đúng thực tế nông sản của bạn trước khi xác nhận đăng bán.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAiGenerated(false)}
+                  className="text-amber-500 hover:text-amber-800 font-bold px-1 cursor-pointer transition-colors shrink-0"
+                  title="Đóng thông báo"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           <button

@@ -19,6 +19,7 @@ import {
   FileText,
   ShoppingBag,
   Truck,
+  Ticket,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -329,6 +330,15 @@ export default function Header({
                       >
                         <ShoppingBag size={15} className="text-emerald-700" />
                         <span>📦 Đơn Hàng Của Tôi</span>
+                      </a>
+
+                      <a
+                        href="/my-vouchers"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                      >
+                        <Ticket size={15} className="text-emerald-700" />
+                        <span>🎟️ Kho Voucher Của Tôi</span>
                       </a>
 
                       <button

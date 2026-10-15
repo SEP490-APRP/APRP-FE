@@ -5,10 +5,13 @@ import {
   Eye,
   ArrowLeft,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   RefreshCw,
   Package,
   Star,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react'
 import type { ProductResponse } from '@/services'
 import {
@@ -16,6 +19,7 @@ import {
   usePendingProducts,
   useProductImages,
   useRejectProduct,
+  useApproveProductImage,
 } from '@/features/product'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 import { getErrorMessage } from '@/utils'
@@ -33,6 +37,19 @@ const ProductApproval: React.FC = () => {
   const galleryQuery = useProductImages(selectedProduct?.id)
   const approve = useApproveProduct()
   const reject = useRejectProduct()
+  const approveImage = useApproveProductImage()
+
+  const handleApproveSingleImage = async (imageId: number) => {
+    if (!selectedProduct) return
+    if (!(await globalShowConfirm('Phê duyệt bức ảnh phụ này để hiển thị công khai cho khách mua hàng?'))) return
+    try {
+      await approveImage.mutateAsync({ productId: selectedProduct.id, imageId })
+      globalShowAlert('Đã phê duyệt ảnh phụ thành công!', 'Thành công', 'success')
+      void galleryQuery.refetch()
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Có lỗi khi phê duyệt ảnh'), 'Lỗi', 'error')
+    }
+  }
 
   const products = pendingQuery.data ?? []
   // Giống bản cũ: hiện màn tải cả khi bấm "Tải lại" và khi tải lại sau duyệt/từ chối.
@@ -152,6 +169,11 @@ const ProductApproval: React.FC = () => {
                           {img.isPrimary && (
                             <div className="absolute inset-0 flex items-end justify-center pb-0.5">
                               <Star className="size-3 text-primary fill-primary drop-shadow" />
+                            </div>
+                          )}
+                          {(img.isApproved === false || img.isFlagged) && (
+                            <div className="absolute top-0 right-0 p-1 bg-amber-500 rounded-bl-lg text-white">
+                              <AlertTriangle className="size-2.5" />
                             </div>
                           )}
                         </button>
@@ -277,6 +299,60 @@ const ProductApproval: React.FC = () => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Thẩm định AI Google Cloud Vision */}
+            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-5 text-primary" />
+                  <h3 className="text-lg font-black text-gray-900">Thẩm Định AI (Google Cloud Vision)</h3>
+                </div>
+                {selectedProduct.moderationResult?.isFlagged ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 flex items-center gap-1">
+                    <AlertTriangle size={12} /> Cần Admin soi mắt
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                    <ShieldCheck size={12} /> Nông sản đạt chuẩn
+                  </span>
+                )}
+              </div>
+
+              {selectedProduct.moderationResult ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-500">
+                    <span>Độ tin cậy tổng thể:</span>
+                    <span className="text-gray-900 font-black">
+                      {selectedProduct.moderationResult.overallConfidence ?? 100}%
+                    </span>
+                  </div>
+                  {selectedProduct.moderationResult.moderationLabels &&
+                    selectedProduct.moderationResult.moderationLabels.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                          Nhãn AI nhận diện được
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProduct.moderationResult.moderationLabels.map((lbl) => (
+                            <span
+                              key={lbl.id}
+                              className="px-2.5 py-1 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700"
+                            >
+                              {lbl.labelNameVi || lbl.labelName}{' '}
+                              <span className="text-[10px] text-gray-400">({lbl.labelName})</span>:{' '}
+                              {lbl.confidence}%
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Ảnh nông sản đạt chuẩn kiểm duyệt Mức 1 hoặc chưa có bản ghi cờ cảnh báo.
+                </p>
+              )}
             </div>
 
             <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">

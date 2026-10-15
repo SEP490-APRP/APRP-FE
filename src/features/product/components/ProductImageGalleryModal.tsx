@@ -60,6 +60,11 @@ export function ProductImageGalleryModal({
       return
     }
 
+    if (images.length >= 8) {
+      setAiWarning('Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh theo quy định của sàn (Mã lỗi 3024).')
+      return
+    }
+
     try {
       const isFirst = images.length === 0
       await uploadMutation.mutateAsync({
@@ -73,14 +78,21 @@ export function ProductImageGalleryModal({
       setTimeout(() => setUploadSuccessMsg(null), 4000)
     } catch (err: any) {
       const msg = getErrorMessage(err)
-      // Bắt lỗi AI Rekognition không phải nông sản (mã 3022 từ BE)
       if (
+        msg.includes('3024') ||
+        msg.toLowerCase().includes('tối đa 8') ||
+        msg.toLowerCase().includes('maximum of 8')
+      ) {
+        setAiWarning('⚠️ Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh. Vui lòng xóa bớt ảnh cũ trước khi thêm ảnh mới.')
+      } else if (
         msg.includes('3022') ||
         msg.toLowerCase().includes('nông sản') ||
-        msg.toLowerCase().includes('agricultural')
+        msg.toLowerCase().includes('agricultural') ||
+        msg.toLowerCase().includes('cồn') ||
+        msg.toLowerCase().includes('alcohol')
       ) {
         setAiWarning(
-          '⚠️ AI phát hiện hình ảnh không phải là nông sản tươi sống hoặc chứa nội dung không phù hợp (xe cộ, đồ vật vô tri, thức ăn nhanh chế biến sẵn...). Vui lòng chọn ảnh chụp nông sản thật!',
+          '⚠️ AI phát hiện hình ảnh không phù hợp: Ảnh chứa đồ uống có cồn, thức ăn nhanh chế biến sẵn, đồ vật vô tri hoặc không nhận diện được nông sản thực tế. Vui lòng chọn ảnh chụp nông sản tươi thật!',
         )
       } else {
         setAiWarning(msg || 'Lỗi khi tải ảnh lên. Vui lòng thử lại.')
@@ -98,7 +110,12 @@ export function ProductImageGalleryModal({
   }
 
   const handleDelete = async (imageId: number) => {
-    if (window.confirm('Bạn có chắc muốn xóa ảnh này khỏi sản phẩm?')) {
+    const isLastImage = images.length === 1
+    const confirmMsg = isLastImage
+      ? '⚠️ Đây là bức ảnh cuối cùng của sản phẩm. Nếu bạn xóa, sản phẩm sẽ tự động chuyển sang trạng thái Tạm ngưng (INACTIVE) cho đến khi bổ sung ảnh mới. Bạn có chắc muốn xóa?'
+      : 'Bạn có chắc muốn xóa ảnh này khỏi gallery sản phẩm?'
+
+    if (window.confirm(confirmMsg)) {
       try {
         await deleteMutation.mutateAsync({ productId, imageId })
         onInfo?.('Đã xóa ảnh khỏi gallery')
@@ -165,26 +182,39 @@ export function ProductImageGalleryModal({
         {/* Scrollable Gallery Content */}
         <div className="flex-1 overflow-y-auto space-y-6 pr-1">
           {/* Upload Dropzone */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault()
-              setDragActive(true)
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setDragActive(false)
-              if (e.dataTransfer.files?.[0]) {
-                handleFileChange(e.dataTransfer.files[0])
-              }
-            }}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-3xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
-              dragActive
-                ? 'border-[#326318] bg-[#f4f8f0]'
-                : 'border-[#d8ded0] bg-[#fafcf8] hover:border-[#326318] hover:bg-[#f8fbf5]'
-            }`}
-          >
+          {images.length >= 8 ? (
+            <div className="border-2 border-dashed border-amber-200 bg-amber-50/50 rounded-3xl p-5 text-center flex flex-col items-center justify-center gap-1.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                <ImageIcon size={20} />
+              </div>
+              <p className="text-xs font-extrabold text-amber-900">
+                Đã đạt giới hạn tối đa 8/8 hình ảnh
+              </p>
+              <p className="text-[11px] text-amber-700">
+                Mỗi sản phẩm chỉ được tối đa 8 ảnh. Hãy xóa bớt ảnh cũ nếu bạn muốn tải lên ảnh mới.
+              </p>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragActive(true)
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragActive(false)
+                if (e.dataTransfer.files?.[0]) {
+                  handleFileChange(e.dataTransfer.files[0])
+                }
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-3xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+                dragActive
+                  ? 'border-[#326318] bg-[#f4f8f0]'
+                  : 'border-[#d8ded0] bg-[#fafcf8] hover:border-[#326318] hover:bg-[#f8fbf5]'
+              }`}
+            >
             <input
               ref={fileInputRef}
               type="file"
@@ -201,7 +231,7 @@ export function ProductImageGalleryModal({
               <div className="flex flex-col items-center gap-2 text-[#326318]">
                 <Loader2 size={32} className="animate-spin" />
                 <span className="text-xs font-bold">
-                  Đang tải lên &amp; Thẩm định AI AWS Rekognition...
+                  Đang tải lên &amp; Thẩm định AI Google Cloud Vision...
                 </span>
                 <span className="text-[10px] text-[#7e8779]">
                   Hệ thống đang kiểm tra tính xác thực của nông sản
@@ -222,13 +252,14 @@ export function ProductImageGalleryModal({
                 </div>
               </>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Image Grid */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#5b6454]">
-                Hình ảnh hiện có ({images.length})
+                Hình ảnh hiện có ({images.length}/8)
               </h4>
               <span className="text-[11px] text-[#7e8779]">
                 Ảnh có sao vàng là ảnh đại diện chính
@@ -267,11 +298,26 @@ export function ProductImageGalleryModal({
                       className="w-full h-32 object-cover"
                     />
 
-                    {/* Primary Badge */}
-                    {img.isPrimary && (
+                    {/* Status Badges */}
+                    {img.isPrimary ? (
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#326318] text-white text-[10px] font-black flex items-center gap-1 shadow-md">
                         <Star size={10} className="fill-amber-300 text-amber-300" />
                         <span>Ảnh chính</span>
+                      </div>
+                    ) : img.isApproved === false || img.isFlagged ? (
+                      <div
+                        className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-md"
+                        title={img.flagReason || 'Ảnh đang chờ Quản trị viên thẩm định'}
+                      >
+                        <AlertTriangle size={10} />
+                        <span>Tạm ẩn (Chờ duyệt)</span>
+                      </div>
+                    ) : null}
+
+                    {/* Flag Reason Bottom Strip */}
+                    {(img.isApproved === false || img.isFlagged) && img.flagReason && (
+                      <div className="absolute bottom-0 inset-x-0 bg-black/75 backdrop-blur-xs text-amber-300 text-[9px] font-medium px-2 py-1 truncate z-10">
+                        {img.flagReason}
                       </div>
                     )}
 

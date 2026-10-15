@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { CheckCircle2, Clock, ShoppingBag, ArrowRight, Loader2, Store } from 'lucide-react'
+import { CheckCircle2, Clock, ShoppingBag, ArrowRight, Loader2, Store, XCircle, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrderStatusBadge } from './OrderStatusBadge'
 import { useConfirmPayment, useOrderDetails } from '../hooks/useBuyerOrder'
 import type { OrderStatus } from '@/types/order.types'
 import type { PaymentResponse } from '@/types/payment.types'
 
+import { useQueryClient } from '@tanstack/react-query'
+import { paymentService } from '@/services'
+
 export const PaymentResultView: React.FC = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const orderCode = searchParams.get('orderCode')
   const orderIdParam = searchParams.get('orderId')
   const methodParam = searchParams.get('method')
   const statusParam = searchParams.get('status')
+  const cancelParam = searchParams.get('cancel')
+
+  const isCancelled = cancelParam === 'true' || statusParam === 'CANCELLED' || searchParams.get('source') === 'payos-cancel'
 
   const confirmMutation = useConfirmPayment()
   const [paymentResult, setPaymentResult] = useState<PaymentResponse | null>(null)
@@ -23,8 +30,23 @@ export const PaymentResultView: React.FC = () => {
   const parsedOrderId = orderIdParam ? parseInt(orderIdParam, 10) : 0
   const { data: orderDetail } = useOrderDetails(parsedOrderId)
 
+  // Nếu Buyer hủy thanh toán trên cổng PayOS: gửi request cancel về BE để hoàn tồn kho & trả hàng về giỏ
   useEffect(() => {
-    if (orderCode) {
+    if (orderCode && isCancelled) {
+      paymentService
+        .cancelPaymentByOrderCode(orderCode)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['cart'] })
+          window.dispatchEvent(new Event('cart-updated'))
+        })
+        .catch((err) => {
+          console.warn('Không thể gửi lệnh hủy thanh toán:', err)
+        })
+    }
+  }, [orderCode, isCancelled, queryClient])
+
+  useEffect(() => {
+    if (orderCode && !isCancelled) {
       setIsVerifying(true)
       confirmMutation
         .mutateAsync(orderCode)
@@ -38,10 +60,9 @@ export const PaymentResultView: React.FC = () => {
           setIsVerifying(false)
         })
     }
-  }, [orderCode])
+  }, [orderCode, isCancelled])
 
-  const isPaid = paymentResult?.status === 'PAID' || statusParam === 'PAID' || orderDetail?.status === 'PAID'
-  const isPending = !isPaid
+  const isPaid = !isCancelled && (paymentResult?.status === 'PAID' || statusParam === 'PAID' || orderDetail?.status === 'PAID')
 
   if (isVerifying) {
     return (
@@ -51,6 +72,50 @@ export const PaymentResultView: React.FC = () => {
         <p className="text-sm text-ink-muted">
           Hệ thống đang kết nối với cổng thanh toán PayOS để cập nhật trạng thái đơn hàng của bạn.
         </p>
+      </div>
+    )
+  }
+
+  // Trường hợp Buyer bấm "Hủy thanh toán" trên cổng PayOS
+  if (isCancelled) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16">
+        <div className="bg-white rounded-3xl border border-line p-8 shadow-sm text-center">
+          <div className="mb-6 inline-flex p-4 rounded-full bg-rose-50 text-rose-600">
+            <XCircle size={56} className="text-rose-600" />
+          </div>
+
+          <h1 className="text-2xl font-black text-ink mb-2">Thanh toán đã hủy</h1>
+
+          <div className="flex justify-center mb-4">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              Đã dừng quét mã PayOS
+            </span>
+          </div>
+
+          <p className="text-sm text-ink-muted leading-relaxed mb-6">
+            Bạn đã hủy thanh toán qua cổng PayOS. Đơn hàng chưa hoàn tất nên các sản phẩm đã được giữ nguyên trong giỏ hàng để bạn tiếp tục mua sắm hoặc chọn hình thức thanh toán khác.
+          </p>
+
+          <div className="space-y-3">
+            <Button
+              variant="primary"
+              onClick={() => navigate('/cart')}
+              className="w-full justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
+            >
+              <ShoppingCart size={16} />
+              Quay lại giỏ hàng
+            </Button>
+
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/nong-san-tuoi')}
+              className="w-full justify-center gap-2 py-3 rounded-xl"
+            >
+              Tiếp tục mua sắm
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }

@@ -8,6 +8,8 @@
   Star,
   Zap,
 } from 'lucide-react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import comboMysteryImg from '@/assets/combo-mystery.jpg'
 import comboGreenImg from '@/assets/combo-green.jpg'
@@ -17,6 +19,8 @@ import { combos, money, type Product } from '@/mocks/catalog'
 import { discountPercent } from '@/features/product'
 import { LinkButton } from '@/components/ui/Button'
 import { cn } from '@/utils'
+import { mysteryBoxService, comboService } from '@/services'
+import { isMeaningfulComboName, mapComboToCard, mapMysteryBoxToCard } from '@/pages/combos.utils'
 
 /**
  * Thông tin trình bày riêng cho trang chủ. GIÁ và TỒN KHO luôn lấy từ catalog
@@ -42,11 +46,11 @@ type ComboTeaser = {
 const TEASERS: ComboTeaser[] = [
   {
     catalogId: 'mystery',
-    name: 'Túi Mù Nông Sản Thần Bí',
+    name: 'Túi mù',
     image: comboMysteryImg,
     badgeWeight: '5kg ngẫu nhiên',
-    badgeHighlight: 'Tiết kiệm 120k',
-    category: 'Hộp quà bất ngờ',
+    badgeHighlight: 'Túi mù',
+    category: 'Túi mù',
     portion: 'Gia đình 2–3 người',
     feature: 'Gồm 5–6 loại rau lá, củ hầm & quả tươi thu hoạch sáng sớm',
     rating: 4.9,
@@ -54,11 +58,11 @@ const TEASERS: ComboTeaser[] = [
   },
   {
     catalogId: 'green',
-    name: 'Combo Rau Xanh 5 Bữa Tươi',
+    name: 'Combo',
     image: comboGreenImg,
     badgeWeight: '6kg rau củ',
-    badgeHighlight: 'Bán chạy nhất',
-    category: 'Combo tuần gia đình',
+    badgeHighlight: 'Combo',
+    category: 'Combo',
     portion: 'Gia đình 3–4 người',
     feature: 'Cải bó xôi, mồng tơi, cà rốt, bí đỏ & đậu cô ve thanh mát',
     rating: 4.8,
@@ -66,11 +70,11 @@ const TEASERS: ComboTeaser[] = [
   },
   {
     catalogId: 'kitchen',
-    name: 'Thùng Bếp Xanh Củ Quả 10kg',
+    name: 'Combo',
     image: comboKitchenImg,
     badgeWeight: '10kg trọn gói',
-    badgeHighlight: 'Trọn tuần',
-    category: 'Thùng tiết kiệm',
+    badgeHighlight: 'Combo',
+    category: 'Combo',
     portion: 'Gia đình 4–5 người',
     feature: 'Khoai lang mật, củ dền, bắp cải, cà chua bi & bưởi hồng',
     rating: 5.0,
@@ -78,11 +82,11 @@ const TEASERS: ComboTeaser[] = [
   },
   {
     catalogId: null,
-    name: 'Combo Tiệc Lẩu & Nướng Xanh',
+    name: 'Combo',
     image: comboHotpotImg,
     badgeWeight: '4.5kg tuyển chọn',
-    badgeHighlight: 'Tiệc tại gia',
-    category: 'Combo tiệc cuối tuần',
+    badgeHighlight: 'Combo',
+    category: 'Combo',
     portion: 'Nhóm 4–6 người',
     feature: 'Nấm tươi, bắp ngọt, rau tần ô, cải thảo, ớt chuông & cà chua',
     rating: 4.9,
@@ -186,6 +190,44 @@ function ComboCard({
 }
 
 export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }) {
+  const { data: mysteryBoxesData } = useQuery({
+    queryKey: ['home-mystery-boxes'],
+    queryFn: () => mysteryBoxService.getForBuyer(),
+  })
+
+  const { data: combosData } = useQuery({
+    queryKey: ['home-combos'],
+    queryFn: () => comboService.getCombos(),
+  })
+
+  const teasers = useMemo(() => {
+    const dbMystery = (mysteryBoxesData?.content ?? []).slice(0, 2).map((item) =>
+      mapMysteryBoxToCard(item, comboMysteryImg),
+    )
+    const dbCombos = (combosData?.content ?? []).slice(0, 2).map((item) =>
+      mapComboToCard(item, comboGreenImg),
+    )
+
+    const cards = [...dbMystery, ...dbCombos].filter((card) => isMeaningfulComboName(card.name))
+    if (cards.length > 0) {
+      return cards.slice(0, 4).map((card) => ({
+        catalogId: card.itemType === 'MYSTERY_BOX' ? `mystery-${card.realId}` : `combo-${card.realId}`,
+        name: card.name,
+        image: card.image,
+        badgeWeight: card.badgeWeight,
+        badgeHighlight: card.badgeHighlight,
+        category: card.category,
+        portion: card.portion,
+        feature: card.feature,
+        rating: card.rating,
+        reviews: card.reviews,
+        fallbackPrice: { price: card.price, original: card.original, unit: card.unit },
+      }))
+    }
+
+    return []
+  }, [mysteryBoxesData, combosData])
+
   return (
     <section
       id="combo-tui-mu"
@@ -224,7 +266,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
               'order-2 lg:order-1 lg:col-span-8 xl:col-span-9',
             )}
           >
-            {TEASERS.map((teaser) => (
+            {teasers.map((teaser) => (
               <li key={teaser.name} className="w-[85%] shrink-0 snap-start sm:w-auto">
                 <ComboCard
                   teaser={teaser}

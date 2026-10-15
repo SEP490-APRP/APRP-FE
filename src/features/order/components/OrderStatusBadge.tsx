@@ -73,9 +73,20 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
   if (status === 'SHIPPING') {
     return (
       <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-300 ${className}`}
+      >
+        <Clock size={13} className="text-amber-600 animate-pulse" />
+        Tài xế đang đến lấy
+      </span>
+    )
+  }
+
+  if (status === 'PICKED_UP') {
+    return (
+      <span
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 ${className}`}
       >
-        <Clock size={13} className="text-sky-600" />
+        <Clock size={13} className="text-sky-600 animate-pulse" />
         Đang giao hàng
       </span>
     )

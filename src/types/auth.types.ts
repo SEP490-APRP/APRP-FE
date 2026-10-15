@@ -1,4 +1,4 @@
-export type UserRole = 'buyer' | 'shop' | 'shipper' | 'admin' | 'staff'
+export type UserRole = 'buyer' | 'shop' | 'shipper' | 'admin'
 
 export interface AuthUser {
   name: string

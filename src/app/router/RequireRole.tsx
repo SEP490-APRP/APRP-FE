@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { LogIn, Shield, Home } from 'lucide-react'
 import { LinkButton } from '@/components/ui/Button'
@@ -7,9 +7,10 @@ import type { UserRole } from '@/types'
 import { useAuth } from '@/stores'
 
 type RequireRoleProps = {
-  roles: UserRole[]
+  roles?: (UserRole | string)[]
+  allowedRoles?: (UserRole | string)[]
   /** Mô tả ai được vào, hiện trên màn hình từ chối. */
-  audience: string
+  audience?: string
   /** Đường dẫn đăng nhập khi chưa có phiên (mặc định /dang-nhap) */
   loginHref?: string
   children: ReactNode
@@ -23,7 +24,8 @@ type RequireRoleProps = {
  */
 export default function RequireRole({
   roles,
-  audience,
+  allowedRoles,
+  audience = 'người dùng hợp lệ',
   loginHref = '/dang-nhap',
   children,
 }: RequireRoleProps) {
@@ -37,7 +39,8 @@ export default function RequireRole({
   }
 
   // 2. Đã đăng nhập nhưng không đủ quyền (403 Forbidden)
-  if (!roles.includes(user.role)) {
+  const targetRoles = (roles || allowedRoles || []).map((r) => r.toLowerCase())
+  if (targetRoles.length > 0 && (!user.role || !targetRoles.includes(user.role.toLowerCase()))) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#fbf9f4] p-4">
         <EmptyState

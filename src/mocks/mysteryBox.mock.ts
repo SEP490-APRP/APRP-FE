@@ -2,6 +2,7 @@ import type { MysteryBox } from '@/services/mysteryBox.types'
 
 export const mockMysteryBoxes: MysteryBox[] = [
   {
+    mysteryId: 601,
     id: 601,
     boxType: 'Túi Mù Nông Sản Giải Cứu Đà Lạt (3kg)',
     price: 59000,
@@ -13,6 +14,7 @@ export const mockMysteryBoxes: MysteryBox[] = [
     status: 'ACTIVE',
   },
   {
+    mysteryId: 602,
     id: 602,
     boxType: 'Túi Mù Trái Cây Miền Tây Tươi Mát (5kg)',
     price: 89000,
