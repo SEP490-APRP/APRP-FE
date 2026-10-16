@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Heart,
   MessageCircle,
@@ -33,6 +34,8 @@ import {
   Quote,
   Smile,
   Save,
+  Clock,
+  Store,
 } from 'lucide-react'
 
 import heroFarmerImg from '../assets/hero-farmer.jpg'
@@ -96,6 +99,7 @@ const SAMPLE_COVERS = [
 ]
 
 export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPageProps) {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const isShopOrAdmin = useMemo(() => {
     const role = (user?.role || '').toUpperCase()
@@ -167,6 +171,19 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
   const { data: commentsData } = useBlogComments(readingBlogId)
   const [commentText, setCommentText] = useState('')
+  const commentsSectionRef = useRef<HTMLDivElement>(null)
+
+  // Estimated reading time (~180 words per min)
+  const readingMinutes = useMemo(() => {
+    if (!blogDetail?.content) return 2
+    const cleanText = blogDetail.content.replace(/<[^>]*>/g, ' ')
+    const words = cleanText.trim().split(/\s+/).filter(Boolean).length
+    return Math.max(1, Math.ceil(words / 180))
+  }, [blogDetail?.content])
+
+  const scrollToComments = () => {
+    commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   // Create Blog Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -1322,49 +1339,57 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
       </div>
 
       {/* ========================================================================= */}
-      {/* MODAL: FULL ARTICLE READER                                                */}
+      {/* MODAL: FULL ARTICLE READER (EDITORIAL FARM MAGAZINE - PHƯƠNG ÁN A)         */}
       {/* ========================================================================= */}
       {readingBlogId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-[#ede8df] flex flex-col max-h-[92vh] overflow-hidden">
-            {/* STICKY TOP BAR: Dấu 3 chấm và Nút tắt luôn hiển thị ở góc phải khi lướt */}
-            <div className="sticky top-0 z-30 px-6 sm:px-8 py-3.5 bg-white/95 backdrop-blur-md border-b border-[#ede7dc] flex items-center justify-between shrink-0 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#6e7668] truncate pr-4">
-                {blogDetail ? (
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="font-extrabold text-[#2e5d16] truncate">
-                      {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
-                    </span>
-                    <span className="text-[#c4bcad]">•</span>
-                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
-                      {getCategoryBadge(blogDetail.category)}
-                    </span>
-                  </div>
-                ) : (
-                  <span>Chi tiết bài viết</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl sm:rounded-[2.5rem] max-w-4xl w-full shadow-2xl border border-[#ede8df] flex flex-col max-h-[92vh] overflow-hidden">
+            {/* STICKY TOP BAR: Thanh điều hướng tinh tế, chuẩn phong cách tạp chí */}
+            <div className="sticky top-0 z-30 px-5 sm:px-8 py-3.5 bg-white/95 backdrop-blur-md border-b border-[#ede7dc] flex items-center justify-between shrink-0 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2eee3] text-[#2e5d16] font-bold text-xs">
+                  <Sprout size={13} className="text-[#2e5d16]" />
+                  {blogDetail ? getCategoryBadge(blogDetail.category) : 'Bài viết'}
+                </span>
+                {blogDetail && (
+                  <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-[#7e8777]">
+                    <Clock size={12} />
+                    ~{readingMinutes} phút đọc
+                  </span>
                 )}
               </div>
+
               <div className="flex items-center gap-2 shrink-0">
                 {blogDetail && (
-                  <BlogOptionsMenu
-                    blog={blogDetail}
-                    currentUser={user}
-                    onEdit={(b) => {
-                      setReadingBlogId(null)
-                      handleEditBlog(b)
-                    }}
-                    onDelete={handleDeleteBlog}
-                    onToggleStatus={handleToggleBlogStatus}
-                    onShare={handleCopyShareLink}
-                    onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
-                    buttonClassName="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
-                  />
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyShareLink(blogDetail)}
+                      className="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
+                      title="Sao chép liên kết bài viết"
+                    >
+                      <Share2 size={16} />
+                    </button>
+                    <BlogOptionsMenu
+                      blog={blogDetail}
+                      currentUser={user}
+                      onEdit={(b) => {
+                        setReadingBlogId(null)
+                        handleEditBlog(b)
+                      }}
+                      onDelete={handleDeleteBlog}
+                      onToggleStatus={handleToggleBlogStatus}
+                      onShare={handleCopyShareLink}
+                      onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                      buttonClassName="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
+                    />
+                  </>
                 )}
                 <button
                   type="button"
                   onClick={() => setReadingBlogId(null)}
                   className="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label="Đóng"
+                  aria-label="Đóng bài viết"
                   title="Đóng bài viết"
                 >
                   <X size={18} />
@@ -1373,146 +1398,250 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
             </div>
 
             {/* SCROLLABLE ARTICLE BODY */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-10 space-y-6">
+            <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-10 sm:py-8 lg:px-12 lg:py-10 space-y-7 scroll-smooth">
               {isLoadingDetail && (
-                <div className="py-20 flex flex-col items-center justify-center gap-3">
-                  <div className="w-10 h-10 border-4 border-[#2e5d16]/30 border-t-[#2e5d16] rounded-full animate-spin" />
-                  <p className="text-xs text-[#717a6c] font-medium">Đang tải câu chuyện ruộng vườn...</p>
+                <div className="py-24 flex flex-col items-center justify-center gap-3">
+                  <div className="w-11 h-11 border-4 border-[#2e5d16]/20 border-t-[#2e5d16] rounded-full animate-spin" />
+                  <p className="text-sm text-[#717a6c] font-medium">Đang tải câu chuyện ruộng vườn...</p>
                 </div>
               )}
 
               {blogDetail && (
-                <div className="flex flex-col gap-5">
-                  {/* Meta Header */}
-                  <div className="flex items-center gap-3 text-xs text-[#6e7668]">
-                    <span className="font-extrabold text-[#2e5d16]">
-                      {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
-                    </span>
-                    <span>•</span>
-                    <span>{formatPublishDate(blogDetail.createAt || blogDetail.createdAt)}</span>
-                    <span>•</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[11px]">
-                      {getCategoryBadge(blogDetail.category)}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Eye size={12} />
-                      {blogDetail.views || blogDetail.viewCount || 0} lượt đọc
-                    </span>
+                <div className="flex flex-col gap-6">
+                  {/* Article Headline */}
+                  <h1 className="text-2xl sm:text-3xl lg:text-[2.35rem] font-black text-[#141a10] tracking-tight leading-[1.3] font-serif">
+                    {blogDetail.title}
+                  </h1>
+
+                  {/* Author Showcase Card (Chuẩn tạp chí) */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-[#faf7f0] border border-[#ede7dc]">
+                    <div className="flex items-center gap-3.5">
+                      {blogDetail.shopAvatar ? (
+                        <img
+                          src={blogDetail.shopAvatar}
+                          alt={blogDetail.shopName || blogDetail.authorName || 'Nhà vườn'}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#2e5d16]/30 shadow-xs"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2e5d16] to-[#477a28] text-white font-extrabold text-base flex items-center justify-center shadow-xs">
+                          {(blogDetail.shopName || blogDetail.authorName || 'N').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm sm:text-base text-[#191f14]">
+                            {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#e8f2e1] text-[#2e5d16] text-[10px] sm:text-[11px] font-bold">
+                            <ShieldCheck size={12} className="text-[#2e5d16]" />
+                            Nhà Vườn Xanh
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-[#757e6e] mt-0.5">
+                          <span>{formatPublishDate(blogDetail.createAt || blogDetail.createdAt)}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Eye size={12} />
+                            {blogDetail.views || blogDetail.viewCount || 0} lượt đọc
+                          </span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="hidden sm:inline-flex items-center gap-1">
+                            <Clock size={12} />
+                            {readingMinutes} phút đọc
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {blogDetail.shopId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReadingBlogId(null)
+                          navigate(`/cua-hang/${blogDetail.shopId}`)
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#2e5d16] text-[#2e5d16] hover:text-white border border-[#2e5d16]/30 font-bold text-xs shadow-xs transition-all cursor-pointer group"
+                      >
+                        <Store size={14} className="group-hover:scale-110 transition-transform" />
+                        <span>Ghé gian hàng</span>
+                      </button>
+                    )}
                   </div>
 
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#191f14] tracking-tight leading-snug">
-                    {blogDetail.title}
-                  </h2>
-
-                  {/* Cover Image */}
-                  <div className="aspect-[16/9] rounded-2xl overflow-hidden shadow-md my-1">
+                  {/* Cinematic Cover Image */}
+                  <div className="aspect-[16/9] sm:aspect-[21/9] rounded-2xl sm:rounded-3xl overflow-hidden shadow-md border border-[#ede8df] my-1">
                     <img
                       src={blogDetail.pictureUrl || blogDetail.imageUrl || freshFarmerBannerImg}
                       alt={blogDetail.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover hover:scale-[1.01] transition-transform duration-500"
                     />
                   </div>
 
-                  {/* Content Body */}
-                  <div className="space-y-4 text-sm sm:text-base text-[#343d2f] leading-relaxed py-2">
+                  {/* Editorial Content Body */}
+                  <div className="space-y-5 text-[16px] sm:text-[17px] leading-[1.85] text-[#2d3629] font-normal py-2 border-b border-[#ede7dc] pb-8">
                     {blogDetail.content.includes('<p') ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: blogDetail.content }}
-                        className="prose max-w-none text-inherit"
+                        className="prose max-w-none text-inherit prose-headings:font-bold prose-headings:text-[#191f14] prose-a:text-[#2e5d16] prose-img:rounded-2xl"
                       />
                     ) : (
                       blogDetail.content.split('\n\n').map((paragraph, idx) => (
-                        <p key={idx}>{paragraph}</p>
+                        <p key={idx} className="whitespace-pre-line">
+                          {paragraph}
+                        </p>
                       ))
                     )}
                   </div>
 
-                  {/* Reader Appreciation Bar */}
-                  <div className="pt-6 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={(e) => handleLike(e, blogDetail.blogId || blogDetail.id || 1)}
-                      className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
-                        blogDetail.isLikedByCurrentUser
-                          ? 'bg-[#c82626] text-white'
-                          : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
-                      }`}
-                    >
-                      <Heart
-                        size={16}
-                        className={blogDetail.isLikedByCurrentUser ? 'fill-white' : ''}
-                      />
-                      <span>{blogDetail.likeCount || 0} Người đã cảm kích</span>
-                    </button>
+                  {/* Reader Appreciation & Interactive Bar */}
+                  <div className="py-2 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={(e) => handleLike(e, blogDetail.blogId || blogDetail.id || 1)}
+                        className={`px-5 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
+                          blogDetail.isLikedByCurrentUser
+                            ? 'bg-[#c82626] text-white ring-2 ring-[#c82626]/20'
+                            : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
+                        }`}
+                      >
+                        <Heart
+                          size={17}
+                          className={blogDetail.isLikedByCurrentUser ? 'fill-white' : ''}
+                        />
+                        <span>{blogDetail.likeCount || 0} Người đã cảm kích</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={scrollToComments}
+                        className="px-4 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <MessageCircle size={16} className="text-[#2e5d16]" />
+                        <span>{commentsData?.totalElements || blogDetail.commentCount || 0} Bình luận</span>
+                      </button>
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => handleCopyShareLink(blogDetail)}
-                      className="px-4 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-4 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
                     >
-                      <Share2 size={14} />
+                      <Share2 size={15} />
                       <span>Chia sẻ bài viết</span>
                     </button>
                   </div>
 
-                  {/* Inline Comments Section */}
-                  <div className="mt-6 pt-6 border-t border-[#ede7dc] flex flex-col gap-4">
-                    <h3 className="font-black text-lg text-[#191f14] flex items-center gap-2">
-                      <MessageCircle size={18} className="text-[#2e5d16]" />
-                      <span>Bình luận &amp; Thảo luận ({commentsData?.totalElements || 0})</span>
+                  {/* Farm Spotlight Card (Trước phần bình luận) */}
+                  {blogDetail.shopId && (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#f2f8ed] to-[#f8fbf5] border border-[#d6e5cd] flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 text-left">
+                        <div className="w-12 h-12 rounded-2xl bg-[#2e5d16] text-white flex items-center justify-center shrink-0 shadow-sm">
+                          <Store size={24} />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-sm sm:text-base text-[#191f14]">
+                            Yêu thích nông sản của {blogDetail.shopName || 'nhà vườn này'}?
+                          </h4>
+                          <p className="text-xs sm:text-sm text-[#5d6854] mt-0.5">
+                            Khám phá các loại nông sản tươi ngon, an toàn được thu hoạch trực tiếp tại vườn.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReadingBlogId(null)
+                          navigate(`/cua-hang/${blogDetail.shopId}`)
+                        }}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs sm:text-sm shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <span>Xem gian hàng nông sản</span>
+                        <ArrowRight size={15} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Modern Inline Comments Section */}
+                  <div ref={commentsSectionRef} className="pt-2 flex flex-col gap-4">
+                    <h3 className="font-extrabold text-lg sm:text-xl text-[#191f14] flex items-center gap-2">
+                      <MessageCircle size={20} className="text-[#2e5d16]" />
+                      <span>Bình luận &amp; Thảo luận ({commentsData?.totalElements || commentsData?.content?.length || 0})</span>
                     </h3>
 
-                    {/* Comment Form */}
+                    {/* Comment Form with Current User Avatar */}
                     <form
                       onSubmit={(e) => handleSendComment(e, blogDetail.blogId || blogDetail.id || 1)}
-                      className="flex gap-2"
+                      className="flex items-start gap-3 p-3 sm:p-4 rounded-2xl bg-[#faf7f0] border border-[#ede7dc]"
                     >
-                      <input
-                        type="text"
-                        required
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        placeholder={
-                          user
-                            ? 'Viết lời nhắn động viên hoặc chia sẻ góc nhìn của bạn...'
-                            : 'Vui lòng đăng nhập để gửi bình luận...'
-                        }
-                        className="flex-1 px-4 py-3 rounded-2xl bg-[#f5f7f2] border border-[#e4e0d4] text-xs sm:text-sm outline-none focus:border-[#2e5d16]"
-                      />
-                      <button
-                        type="submit"
-                        disabled={addCommentMutation.isPending}
-                        className="px-5 py-3 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-md shrink-0 cursor-pointer disabled:opacity-50"
-                      >
-                        {addCommentMutation.isPending ? 'Đang gửi...' : 'Gửi'}
-                      </button>
+                      {user?.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.fullName || 'User'}
+                          className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-[#2e5d16] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {user ? (user.fullName || user.email || 'U').charAt(0).toUpperCase() : '?'}
+                        </div>
+                      )}
+                      <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder={
+                            user
+                              ? 'Chia sẻ cảm nhận, đặt câu hỏi cho nhà vườn...'
+                              : 'Vui lòng đăng nhập để gửi bình luận...'
+                          }
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-[#e4ded0] text-xs sm:text-sm outline-none focus:border-[#2e5d16] text-[#191f14] placeholder:text-[#979f8f]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={addCommentMutation.isPending || !commentText.trim()}
+                          className="px-5 py-2.5 rounded-xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs sm:text-sm shadow-xs shrink-0 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Send size={14} />
+                          <span>{addCommentMutation.isPending ? 'Đang gửi...' : 'Gửi'}</span>
+                        </button>
+                      </div>
                     </form>
 
                     {/* Comments List */}
-                    <div className="space-y-3 mt-2 pb-14">
+                    <div className="space-y-3.5 mt-2 pb-12">
                       {commentsData?.content && commentsData.content.length > 0 ? (
                         commentsData.content.map((cm) => {
                           const commenterName = cm.userName || 'Người dùng'
+                          const isShopOwnerComment = blogDetail.shopId && cm.userId === blogDetail.shopId
                           return (
                             <div
                               key={cm.commentId}
-                              className="p-3.5 bg-[#fbf9f4] rounded-2xl border border-[#eee7db] flex flex-col gap-1.5"
+                              className="p-4 bg-[#fbf9f4] hover:bg-[#f8f5ee] rounded-2xl border border-[#ede7dc] flex flex-col gap-2 transition-colors"
                             >
                               <div className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2.5">
                                   {cm.userAvatar ? (
                                     <img
                                       src={cm.userAvatar}
                                       alt={commenterName}
-                                      className="w-6 h-6 rounded-full object-cover"
+                                      className="w-8 h-8 rounded-full object-cover ring-1 ring-black/5"
                                     />
                                   ) : (
-                                    <div className="w-6 h-6 rounded-full bg-[#2e5d16] text-white text-[10px] font-bold flex items-center justify-center">
-                                      {commenterName.charAt(0)}
+                                    <div className="w-8 h-8 rounded-full bg-[#2e5d16]/90 text-white text-xs font-bold flex items-center justify-center">
+                                      {commenterName.charAt(0).toUpperCase()}
                                     </div>
                                   )}
-                                  <strong className="text-[#191f14]">{commenterName}</strong>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <strong className="text-sm text-[#191f14]">{commenterName}</strong>
+                                    {isShopOwnerComment && (
+                                      <span className="px-2 py-0.5 rounded-full bg-[#e8f2e1] text-[#2e5d16] text-[10px] font-extrabold flex items-center gap-1">
+                                        <Sprout size={10} />
+                                        Chủ Vườn 🌱
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-[11px] text-[#808879]">
                                   <span>{formatPublishDate(cm.createAt)}</span>
@@ -1531,14 +1660,18 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                                   />
                                 </div>
                               </div>
-                              <p className="text-xs text-[#454d3f] pl-8">{cm.content}</p>
+                              <p className="text-xs sm:text-sm text-[#454d3f] leading-relaxed pl-10 whitespace-pre-line">
+                                {cm.content}
+                              </p>
                             </div>
                           )
                         })
                       ) : (
-                        <p className="text-xs text-[#7f8877] italic text-center py-4">
-                          Chưa có bình luận nào. Hãy là người đầu tiên để lại lời nhắn!
-                        </p>
+                        <div className="text-center py-8 px-4 rounded-2xl bg-[#faf7f0]/60 border border-dashed border-[#e4ded0]">
+                          <p className="text-xs sm:text-sm text-[#7f8877] italic">
+                            Chưa có bình luận nào. Hãy là người đầu tiên để lại lời nhắn động viên cho nhà vườn!
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
