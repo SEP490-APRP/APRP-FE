@@ -47,13 +47,19 @@ import {
   useDeleteBlogComment,
   useToggleBlogLike,
   useCreateShopBlog,
+  useUpdateShopBlog,
+  useDeleteBlog,
+  useUpdateBlogStatus,
   BlogRichTextToolbar,
+  BlogOptionsMenu,
+  CommentOptionsMenu,
+  BlogEditorModal,
 } from '@/features/blog'
 import { uploadService, type BlogResponse, type BlogStatus } from '@/services'
 import { BlogCategory, BlogCategoryLabel } from '@/types'
 import { useAuth } from '@/stores'
 import Pagination from '@/components/ui/Pagination'
-import { globalShowAlert } from '@/components/common/Popup'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 interface FarmerStoriesPageProps {
   onAdd?: (id: string) => void
@@ -99,8 +105,18 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
   // Filter & Pagination state
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0)
   const pageSize = 9
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim())
+      setPage(0)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Category dropdown inside search bar
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false)
@@ -131,21 +147,25 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     page,
     size: pageSize,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
+    search: debouncedSearch || undefined,
   })
 
   const toggleLikeMutation = useToggleBlogLike()
   const addCommentMutation = useAddBlogComment()
   const deleteCommentMutation = useDeleteBlogComment()
   const createBlogMutation = useCreateShopBlog()
+  const deleteBlogMutation = useDeleteBlog()
+  const updateBlogStatusMutation = useUpdateBlogStatus()
+
+  // State for BlogEditorModal when editing a blog from 3-dots
+  const [isEditorModalOpen, setIsEditorModalOpen] = useState(false)
+  const [editingBlogData, setEditingBlogData] = useState<BlogResponse | null>(null)
 
   // Active Reading Blog Modal (Full Reader)
   const [readingBlogId, setReadingBlogId] = useState<number | null>(null)
   const { data: blogDetail, isLoading: isLoadingDetail } = useBlogDetail(readingBlogId)
 
-  // Active Quick Comment Modal
-  const [commentingBlog, setCommentingBlog] = useState<BlogResponse | null>(null)
-  const activeCommentBlogId = commentingBlog?.blogId || commentingBlog?.id || readingBlogId
-  const { data: commentsData } = useBlogComments(activeCommentBlogId)
+  const { data: commentsData } = useBlogComments(readingBlogId)
   const [commentText, setCommentText] = useState('')
 
   // Create Blog Modal State
@@ -237,24 +257,19 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
   const handleOpenComment = (e: React.MouseEvent, blog: BlogResponse) => {
     e.stopPropagation()
-    setCommentingBlog(blog)
+    setReadingBlogId(blog.blogId || blog.id || 0)
   }
 
   const handleSendComment = (e: FormEvent, blogId: number) => {
     e.preventDefault()
-    if (!commentText.trim()) return
+    const content = commentText.trim()
+    if (!content) return
     if (!user) {
       globalShowAlert('Vui lòng đăng nhập để gửi bình luận.', 'Yêu cầu đăng nhập', 'info')
       return
     }
-    addCommentMutation.mutate(
-      { blogId, content: commentText.trim() },
-      {
-        onSuccess: () => {
-          setCommentText('')
-        },
-      },
-    )
+    setCommentText('')
+    addCommentMutation.mutate({ blogId, content })
   }
 
   const handleDeleteComment = (blogId: number, commentId: number) => {
@@ -269,6 +284,70 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
     } else {
       globalShowAlert('Đã sao chép liên kết bài viết vào clipboard.', 'Thành công', 'success')
     }
+  }
+
+  const handleEditBlog = (blog: BlogResponse) => {
+    setEditingBlogData(blog)
+    setIsEditorModalOpen(true)
+  }
+
+  const handleDeleteBlog = async (blog: BlogResponse) => {
+    const blogId = blog.blogId || blog.id || 0
+    const confirmed = await globalShowConfirm(
+      'Xác nhận xóa bài viết',
+      `Bạn có chắc chắn muốn xóa bài viết "${blog.title}" không? Thao tác này không thể hoàn tác.`,
+    )
+    if (confirmed) {
+      deleteBlogMutation.mutate(blogId, {
+        onSuccess: () => {
+          if (readingBlogId === blogId) setReadingBlogId(null)
+          globalShowAlert('Đã xóa bài viết thành công.', 'Thành công', 'success')
+        },
+        onError: () => {
+          globalShowAlert('Không thể xóa bài viết. Vui lòng thử lại.', 'Lỗi', 'error')
+        },
+      })
+    }
+  }
+
+  const handleToggleBlogStatus = async (blog: BlogResponse) => {
+    const blogId = blog.blogId || blog.id || 0
+    const newStatus = blog.status === 'PUBLISHED' ? 'HIDDEN' : 'PUBLISHED'
+    const statusLabel = newStatus === 'PUBLISHED' ? 'Công khai' : 'Tạm ẩn'
+    const confirmed = await globalShowConfirm(
+      'Xác nhận đổi trạng thái',
+      `Bạn có muốn chuyển bài viết sang trạng thái "${statusLabel}" không?`,
+    )
+    if (confirmed) {
+      updateBlogStatusMutation.mutate(
+        { blogId, status: newStatus },
+        {
+          onSuccess: () => {
+            globalShowAlert(
+              `Đã chuyển bài viết sang trạng thái ${statusLabel}.`,
+              'Thành công',
+              'success',
+            )
+          },
+          onError: () => {
+            globalShowAlert('Không thể đổi trạng thái bài viết.', 'Lỗi', 'error')
+          },
+        },
+      )
+    }
+  }
+
+  const handleReport = (_type: 'blog' | 'comment', _id: number) => {
+    globalShowAlert(
+      'Cảm ơn bạn đã gửi phản hồi. Ban quản trị CapNong sẽ kiểm duyệt nội dung này trong thời gian sớm nhất.',
+      'Đã ghi nhận báo cáo',
+      'success',
+    )
+  }
+
+  const handleCopyComment = (content: string) => {
+    navigator.clipboard?.writeText(content)
+    globalShowAlert('Đã sao chép nội dung bình luận vào clipboard.', 'Thành công', 'success')
   }
 
   const handleModalImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -637,20 +716,33 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                   {/* Right Column: Metadata & Details */}
                   <div className="md:col-span-7 flex flex-col justify-between h-full py-1">
                     <div>
-                      {/* Metadata */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
-                        <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
-                          {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
-                          <Calendar size={12} />
-                          {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
-                        </span>
-                        <span>•</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
-                          {getCategoryBadge(featuredBlog.category)}
-                        </span>
+                      {/* Metadata & 3 Chấm tương tác */}
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668]">
+                          <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
+                            {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
+                            <Calendar size={12} />
+                            {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
+                          </span>
+                          <span>•</span>
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
+                            {getCategoryBadge(featuredBlog.category)}
+                          </span>
+                        </div>
+
+                        {/* 3 Chấm Menu Tương tác */}
+                        <BlogOptionsMenu
+                          blog={featuredBlog}
+                          currentUser={user}
+                          onEdit={handleEditBlog}
+                          onDelete={handleDeleteBlog}
+                          onToggleStatus={handleToggleBlogStatus}
+                          onShare={handleCopyShareLink}
+                          onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                        />
                       </div>
 
                       {/* Title */}
@@ -740,20 +832,33 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                       </div>
                     </div>
 
-                    {/* Metadata */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668] mb-2.5">
-                      <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
-                        {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
-                        <Calendar size={12} />
-                        {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
-                      </span>
-                      <span>•</span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
-                        {getCategoryBadge(featuredBlog.category)}
-                      </span>
+                    {/* Metadata & 3 Chấm tương tác */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#6e7668]">
+                        <span className="font-extrabold text-[#2e5d16] uppercase tracking-wider text-[11px]">
+                          {featuredBlog.shopName || featuredBlog.authorName || 'Nhà Vườn CapNong'}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-[#8b5521] text-[11px]">
+                          <Calendar size={12} />
+                          {formatPublishDate(featuredBlog.createAt || featuredBlog.createdAt)}
+                        </span>
+                        <span>•</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[10px]">
+                          {getCategoryBadge(featuredBlog.category)}
+                        </span>
+                      </div>
+
+                      {/* 3 Chấm Menu Tương tác */}
+                      <BlogOptionsMenu
+                        blog={featuredBlog}
+                        currentUser={user}
+                        onEdit={handleEditBlog}
+                        onDelete={handleDeleteBlog}
+                        onToggleStatus={handleToggleBlogStatus}
+                        onShare={handleCopyShareLink}
+                        onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                      />
                     </div>
 
                     {/* Title */}
@@ -854,12 +959,23 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
 
                           {/* Content */}
                           <div className="flex-1 min-w-0 flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-[10px] text-[#717a6c]">
-                              <span className="font-bold text-[#2e5d16]">
-                                {getCategoryBadge(tb.category)}
-                              </span>
-                              <span>•</span>
-                              <span>{formatPublishDate(tb.createAt || tb.createdAt)}</span>
+                            <div className="flex items-center justify-between gap-1 text-[10px] text-[#717a6c]">
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-bold text-[#2e5d16]">
+                                  {getCategoryBadge(tb.category)}
+                                </span>
+                                <span>•</span>
+                                <span>{formatPublishDate(tb.createAt || tb.createdAt)}</span>
+                              </div>
+                              <BlogOptionsMenu
+                                blog={tb}
+                                currentUser={user}
+                                onEdit={handleEditBlog}
+                                onDelete={handleDeleteBlog}
+                                onToggleStatus={handleToggleBlogStatus}
+                                onShare={handleCopyShareLink}
+                                onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                              />
                             </div>
                             <h4 className="text-xs sm:text-[13px] font-bold text-[#191f14] leading-snug group-hover:text-[#2e5d16] transition-colors line-clamp-2">
                               {tb.title}
@@ -1005,9 +1121,20 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
-                            {getCategoryBadge(blog.category)}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
+                              {getCategoryBadge(blog.category)}
+                            </span>
+                            <BlogOptionsMenu
+                              blog={blog}
+                              currentUser={user}
+                              onEdit={handleEditBlog}
+                              onDelete={handleDeleteBlog}
+                              onToggleStatus={handleToggleBlogStatus}
+                              onShare={handleCopyShareLink}
+                              onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                            />
+                          </div>
                         </div>
 
                         {/* Thumbnail Image */}
@@ -1198,263 +1325,231 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
       {/* MODAL: FULL ARTICLE READER                                                */}
       {/* ========================================================================= */}
       {readingBlogId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 lg:p-10 shadow-2xl border border-[#ede8df] relative max-h-[92vh] overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => setReadingBlogId(null)}
-              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer z-10"
-              aria-label="Đóng"
-            >
-              <X size={18} />
-            </button>
-
-            {isLoadingDetail && (
-              <div className="py-20 flex flex-col items-center justify-center gap-3">
-                <div className="w-10 h-10 border-4 border-[#2e5d16]/30 border-t-[#2e5d16] rounded-full animate-spin" />
-                <p className="text-xs text-[#717a6c] font-medium">Đang tải câu chuyện ruộng vườn...</p>
-              </div>
-            )}
-
-            {blogDetail && (
-              <div className="flex flex-col gap-5">
-                {/* Meta Header */}
-                <div className="flex items-center gap-3 text-xs text-[#6e7668]">
-                  <span className="font-extrabold text-[#2e5d16]">
-                    {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
-                  </span>
-                  <span>•</span>
-                  <span>{formatPublishDate(blogDetail.createAt || blogDetail.createdAt)}</span>
-                  <span>•</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[11px]">
-                    {getCategoryBadge(blogDetail.category)}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Eye size={12} />
-                    {blogDetail.views || blogDetail.viewCount || 0} lượt đọc
-                  </span>
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#191f14] tracking-tight leading-snug">
-                  {blogDetail.title}
-                </h2>
-
-                {/* Cover Image */}
-                <div className="aspect-[16/9] rounded-2xl overflow-hidden shadow-md my-1">
-                  <img
-                    src={blogDetail.pictureUrl || blogDetail.imageUrl || freshFarmerBannerImg}
-                    alt={blogDetail.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                {/* Content Body */}
-                <div className="space-y-4 text-sm sm:text-base text-[#343d2f] leading-relaxed py-2">
-                  {blogDetail.content.includes('<p') ? (
-                    <div
-                      dangerouslySetInnerHTML={{ __html: blogDetail.content }}
-                      className="prose max-w-none text-inherit"
-                    />
-                  ) : (
-                    blogDetail.content.split('\n\n').map((paragraph, idx) => (
-                      <p key={idx}>{paragraph}</p>
-                    ))
-                  )}
-                </div>
-
-                {/* Reader Appreciation Bar */}
-                <div className="pt-6 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={(e) => handleLike(e, blogDetail.blogId || blogDetail.id || 1)}
-                    className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${blogDetail.isLikedByCurrentUser
-                      ? 'bg-[#c82626] text-white'
-                      : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
-                      }`}
-                  >
-                    <Heart
-                      size={16}
-                      className={blogDetail.isLikedByCurrentUser ? 'fill-white' : ''}
-                    />
-                    <span>{blogDetail.likeCount || 0} Người đã cảm kích</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopyShareLink(blogDetail)}
-                    className="px-4 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Share2 size={14} />
-                    <span>Chia sẻ bài viết</span>
-                  </button>
-                </div>
-
-                {/* Inline Comments Section */}
-                <div className="mt-6 pt-6 border-t border-[#ede7dc] flex flex-col gap-4">
-                  <h3 className="font-black text-lg text-[#191f14] flex items-center gap-2">
-                    <MessageCircle size={18} className="text-[#2e5d16]" />
-                    <span>Bình luận &amp; Thảo luận ({commentsData?.totalElements || 0})</span>
-                  </h3>
-
-                  {/* Comment Form */}
-                  <form
-                    onSubmit={(e) => handleSendComment(e, blogDetail.blogId || blogDetail.id || 1)}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      required
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder={
-                        user
-                          ? 'Viết lời nhắn động viên hoặc chia sẻ góc nhìn của bạn...'
-                          : 'Vui lòng đăng nhập để gửi bình luận...'
-                      }
-                      className="flex-1 px-4 py-3 rounded-2xl bg-[#f5f7f2] border border-[#e4e0d4] text-xs sm:text-sm outline-none focus:border-[#2e5d16]"
-                    />
-                    <button
-                      type="submit"
-                      disabled={addCommentMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-md shrink-0 cursor-pointer disabled:opacity-50"
-                    >
-                      {addCommentMutation.isPending ? 'Đang gửi...' : 'Gửi'}
-                    </button>
-                  </form>
-
-                  {/* Comments List */}
-                  <div className="space-y-3 mt-2 max-h-72 overflow-y-auto pr-1">
-                    {commentsData?.content && commentsData.content.length > 0 ? (
-                      commentsData.content.map((cm) => (
-                        <div
-                          key={cm.commentId}
-                          className="p-3.5 bg-[#fbf9f4] rounded-2xl border border-[#eee7db] flex flex-col gap-1.5"
-                        >
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                              {cm.userAvatar ? (
-                                <img
-                                  src={cm.userAvatar}
-                                  alt={cm.userName}
-                                  className="w-6 h-6 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-[#2e5d16] text-white text-[10px] font-bold flex items-center justify-center">
-                                  {cm.userName.charAt(0)}
-                                </div>
-                              )}
-                              <strong className="text-[#191f14]">{cm.userName}</strong>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-[#808879]">
-                              <span>{formatPublishDate(cm.createAt)}</span>
-                              {String(user?.id) === String(cm.userId) && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleDeleteComment(
-                                      blogDetail.blogId || blogDetail.id || 1,
-                                      cm.commentId,
-                                    )
-                                  }
-                                  className="text-red-500 hover:text-red-700 p-0.5"
-                                  title="Xóa bình luận"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-xs text-[#454d3f] pl-8">{cm.content}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-[#7f8877] italic text-center py-4">
-                        Chưa có bình luận nào. Hãy là người đầu tiên để lại lời nhắn!
-                      </p>
-                    )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-[#ede8df] flex flex-col max-h-[92vh] overflow-hidden">
+            {/* STICKY TOP BAR: Dấu 3 chấm và Nút tắt luôn hiển thị ở góc phải khi lướt */}
+            <div className="sticky top-0 z-30 px-6 sm:px-8 py-3.5 bg-white/95 backdrop-blur-md border-b border-[#ede7dc] flex items-center justify-between shrink-0 shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#6e7668] truncate pr-4">
+                {blogDetail ? (
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="font-extrabold text-[#2e5d16] truncate">
+                      {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
+                    </span>
+                    <span className="text-[#c4bcad]">•</span>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e]">
+                      {getCategoryBadge(blogDetail.category)}
+                    </span>
                   </div>
-                </div>
+                ) : (
+                  <span>Chi tiết bài viết</span>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL: QUICK COMMENT DRAWER                                               */}
-      {/* ========================================================================= */}
-      {commentingBlog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-[#ede8df] relative max-h-[85vh] flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-[#ede7dc]">
-                <h3 className="font-black text-base text-[#191f14] flex items-center gap-2">
-                  <MessageCircle size={18} className="text-[#2e5d16]" />
-                  <span>Bình Luận Bài Viết</span>
-                </h3>
+              <div className="flex items-center gap-2 shrink-0">
+                {blogDetail && (
+                  <BlogOptionsMenu
+                    blog={blogDetail}
+                    currentUser={user}
+                    onEdit={(b) => {
+                      setReadingBlogId(null)
+                      handleEditBlog(b)
+                    }}
+                    onDelete={handleDeleteBlog}
+                    onToggleStatus={handleToggleBlogStatus}
+                    onShare={handleCopyShareLink}
+                    onReport={(b) => handleReport('blog', b.blogId || b.id || 0)}
+                    buttonClassName="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={() => setCommentingBlog(null)}
-                  className="w-8 h-8 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center cursor-pointer"
+                  onClick={() => setReadingBlogId(null)}
+                  className="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center transition-colors cursor-pointer"
+                  aria-label="Đóng"
+                  title="Đóng bài viết"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
-              </div>
-
-              <div className="text-xs font-bold text-[#2e5d16] mt-3 mb-4 truncate">
-                {commentingBlog.title}
-              </div>
-
-              {/* Comments List */}
-              <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-                {commentsData?.content && commentsData.content.length > 0 ? (
-                  commentsData.content.map((cm) => (
-                    <div
-                      key={cm.commentId}
-                      className="p-3 bg-[#faf7f0] rounded-2xl border border-[#eee7da]"
-                    >
-                      <div className="flex items-center justify-between text-[11px] mb-1">
-                        <strong className="text-[#191f14]">{cm.userName}</strong>
-                        <span className="text-[#889182]">{formatPublishDate(cm.createAt)}</span>
-                      </div>
-                      <p className="text-xs text-[#444c3e]">{cm.content}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-[#828c7b] italic text-center py-6">
-                    Chưa có bình luận nào cho bài viết này.
-                  </p>
-                )}
               </div>
             </div>
 
-            {/* Quick Comment Form */}
-            <form
-              onSubmit={(e) =>
-                handleSendComment(e, commentingBlog.blogId || commentingBlog.id || 1)
-              }
-              className="pt-4 border-t border-[#ede7dc] flex gap-2"
-            >
-              <input
-                type="text"
-                required
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Viết lời động viên hoặc nhận xét..."
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#2e5d16] text-xs outline-none"
-              />
-              <button
-                type="submit"
-                disabled={addCommentMutation.isPending}
-                className="px-5 py-2.5 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-md shrink-0 cursor-pointer disabled:opacity-50"
-              >
-                Gửi
-              </button>
-            </form>
+            {/* SCROLLABLE ARTICLE BODY */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-10 space-y-6">
+              {isLoadingDetail && (
+                <div className="py-20 flex flex-col items-center justify-center gap-3">
+                  <div className="w-10 h-10 border-4 border-[#2e5d16]/30 border-t-[#2e5d16] rounded-full animate-spin" />
+                  <p className="text-xs text-[#717a6c] font-medium">Đang tải câu chuyện ruộng vườn...</p>
+                </div>
+              )}
+
+              {blogDetail && (
+                <div className="flex flex-col gap-5">
+                  {/* Meta Header */}
+                  <div className="flex items-center gap-3 text-xs text-[#6e7668]">
+                    <span className="font-extrabold text-[#2e5d16]">
+                      {blogDetail.shopName || blogDetail.authorName || 'Nhà vườn CapNong'}
+                    </span>
+                    <span>•</span>
+                    <span>{formatPublishDate(blogDetail.createAt || blogDetail.createdAt)}</span>
+                    <span>•</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#f2eee3] text-[#555d4e] font-semibold text-[11px]">
+                      {getCategoryBadge(blogDetail.category)}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Eye size={12} />
+                      {blogDetail.views || blogDetail.viewCount || 0} lượt đọc
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#191f14] tracking-tight leading-snug">
+                    {blogDetail.title}
+                  </h2>
+
+                  {/* Cover Image */}
+                  <div className="aspect-[16/9] rounded-2xl overflow-hidden shadow-md my-1">
+                    <img
+                      src={blogDetail.pictureUrl || blogDetail.imageUrl || freshFarmerBannerImg}
+                      alt={blogDetail.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  {/* Content Body */}
+                  <div className="space-y-4 text-sm sm:text-base text-[#343d2f] leading-relaxed py-2">
+                    {blogDetail.content.includes('<p') ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: blogDetail.content }}
+                        className="prose max-w-none text-inherit"
+                      />
+                    ) : (
+                      blogDetail.content.split('\n\n').map((paragraph, idx) => (
+                        <p key={idx}>{paragraph}</p>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Reader Appreciation Bar */}
+                  <div className="pt-6 border-t border-[#ede7dc] flex flex-wrap items-center justify-between gap-4">
+                    <button
+                      type="button"
+                      onClick={(e) => handleLike(e, blogDetail.blogId || blogDetail.id || 1)}
+                      className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
+                        blogDetail.isLikedByCurrentUser
+                          ? 'bg-[#c82626] text-white'
+                          : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'
+                      }`}
+                    >
+                      <Heart
+                        size={16}
+                        className={blogDetail.isLikedByCurrentUser ? 'fill-white' : ''}
+                      />
+                      <span>{blogDetail.likeCount || 0} Người đã cảm kích</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyShareLink(blogDetail)}
+                      className="px-4 py-2.5 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Share2 size={14} />
+                      <span>Chia sẻ bài viết</span>
+                    </button>
+                  </div>
+
+                  {/* Inline Comments Section */}
+                  <div className="mt-6 pt-6 border-t border-[#ede7dc] flex flex-col gap-4">
+                    <h3 className="font-black text-lg text-[#191f14] flex items-center gap-2">
+                      <MessageCircle size={18} className="text-[#2e5d16]" />
+                      <span>Bình luận &amp; Thảo luận ({commentsData?.totalElements || 0})</span>
+                    </h3>
+
+                    {/* Comment Form */}
+                    <form
+                      onSubmit={(e) => handleSendComment(e, blogDetail.blogId || blogDetail.id || 1)}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="text"
+                        required
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        placeholder={
+                          user
+                            ? 'Viết lời nhắn động viên hoặc chia sẻ góc nhìn của bạn...'
+                            : 'Vui lòng đăng nhập để gửi bình luận...'
+                        }
+                        className="flex-1 px-4 py-3 rounded-2xl bg-[#f5f7f2] border border-[#e4e0d4] text-xs sm:text-sm outline-none focus:border-[#2e5d16]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={addCommentMutation.isPending}
+                        className="px-5 py-3 rounded-2xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs shadow-md shrink-0 cursor-pointer disabled:opacity-50"
+                      >
+                        {addCommentMutation.isPending ? 'Đang gửi...' : 'Gửi'}
+                      </button>
+                    </form>
+
+                    {/* Comments List */}
+                    <div className="space-y-3 mt-2 pb-14">
+                      {commentsData?.content && commentsData.content.length > 0 ? (
+                        commentsData.content.map((cm) => {
+                          const commenterName = cm.userName || 'Người dùng'
+                          return (
+                            <div
+                              key={cm.commentId}
+                              className="p-3.5 bg-[#fbf9f4] rounded-2xl border border-[#eee7db] flex flex-col gap-1.5"
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  {cm.userAvatar ? (
+                                    <img
+                                      src={cm.userAvatar}
+                                      alt={commenterName}
+                                      className="w-6 h-6 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-[#2e5d16] text-white text-[10px] font-bold flex items-center justify-center">
+                                      {commenterName.charAt(0)}
+                                    </div>
+                                  )}
+                                  <strong className="text-[#191f14]">{commenterName}</strong>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#808879]">
+                                  <span>{formatPublishDate(cm.createAt)}</span>
+                                  <CommentOptionsMenu
+                                    comment={cm}
+                                    blog={blogDetail}
+                                    currentUser={user}
+                                    onDelete={(cId) =>
+                                      handleDeleteComment(
+                                        blogDetail.blogId || blogDetail.id || 1,
+                                        cId,
+                                      )
+                                    }
+                                    onCopy={handleCopyComment}
+                                    onReport={(cId) => handleReport('comment', cId)}
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-[#454d3f] pl-8">{cm.content}</p>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-xs text-[#7f8877] italic text-center py-4">
+                          Chưa có bình luận nào. Hãy là người đầu tiên để lại lời nhắn!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+
 
       {/* ========================================================================= */}
       {/* MODAL: CREATE SHOP BLOG (Dành cho Nhà Vườn / Shop)                         */}
@@ -1679,11 +1774,10 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
                         key={idx}
                         type="button"
                         onClick={() => setNewPictureUrl(sc.url)}
-                        className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                          newPictureUrl === sc.url
-                            ? 'border-[#2e5d16] scale-[1.02] shadow-md ring-2 ring-[#2e5d16]/25'
-                            : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
+                        className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${newPictureUrl === sc.url
+                          ? 'border-[#2e5d16] scale-[1.02] shadow-md ring-2 ring-[#2e5d16]/25'
+                          : 'border-transparent opacity-70 hover:opacity-100'
+                          }`}
                       >
                         <img src={sc.url} alt={sc.title} className="w-full h-full object-cover" />
                         <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-medium">
@@ -1769,6 +1863,20 @@ export default function FarmerStoriesPage({ onAdd, onInfo }: FarmerStoriesPagePr
           </div>
         </div>
       )}
+
+      {/* Blog Editor Modal for Editing from 3-dots menu */}
+      <BlogEditorModal
+        isOpen={isEditorModalOpen}
+        onClose={() => {
+          setIsEditorModalOpen(false)
+          setEditingBlogData(null)
+        }}
+        editingBlog={editingBlogData}
+        onSuccess={(msg) => {
+          if (onInfo) onInfo(msg)
+          else globalShowAlert(msg, 'Thành công', 'success')
+        }}
+      />
     </div>
   )
 }

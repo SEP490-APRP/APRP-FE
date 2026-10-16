@@ -13,7 +13,14 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import type { BlogCreationRequest, BlogResponse } from '@/services'
-import { useBlogsPaged, useDeleteBlog, useSaveBlog, useSetBlogStatus } from '@/features/blog'
+import { uploadService } from '@/services'
+import {
+  useAdminBlogs,
+  useBlogsPaged,
+  useDeleteBlog,
+  useSaveBlog,
+  useSetBlogStatus,
+} from '@/features/blog'
 import { BlogCategory, BlogCategoryLabel } from '@/types'
 import MyCKEditor from '@/components/common/MyCKEditor'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
@@ -26,7 +33,17 @@ const NewsManagement: React.FC = () => {
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
 
-  const blogsQuery = useBlogsPaged(page, pageSize)
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState('Tất cả danh mục')
+
+  const blogsQuery = useAdminBlogs({
+    page,
+    size: pageSize,
+    search: searchQuery.trim() || undefined,
+    category:
+      selectedFilterCategory !== 'Tất cả danh mục' ? selectedFilterCategory : undefined,
+  })
   const saveBlog = useSaveBlog()
   const deleteBlog = useDeleteBlog()
   const setBlogStatus = useSetBlogStatus()
@@ -36,10 +53,6 @@ const NewsManagement: React.FC = () => {
   // Màn tải khi mở trang và khi chuyển trang (không nháy khi tải lại nền sau thao tác).
   const loading = blogsQuery.isPending || blogsQuery.isPlaceholderData
   const error = blogsQuery.isError ? 'Không thể tải danh sách bài viết.' : null
-
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState('Tất cả danh mục')
 
   // Form state
   const [title, setTitle] = useState('')
@@ -100,16 +113,32 @@ const NewsManagement: React.FC = () => {
     }
 
     try {
+      let pictureUrl = imagePreview || undefined
+      if (selectedImage) {
+        try {
+          const uploadRes = await uploadService.uploadImage(selectedImage, 'blogs')
+          if (uploadRes.result?.url) {
+            pictureUrl = uploadRes.result.url
+          }
+        } catch (uploadErr) {
+          console.error('Failed to upload image:', uploadErr)
+          globalShowAlert('Tải ảnh bài viết thất bại, vui lòng thử lại.', 'Lỗi', 'error')
+          return
+        }
+      }
+
       const request: BlogCreationRequest = {
         title,
         content,
         status,
         category,
+        pictureUrl,
       }
 
       const editing = isEditing && selectedBlog
+      const targetId = editing ? (selectedBlog.blogId || selectedBlog.id) : undefined
       const response = await saveBlog.mutateAsync({
-        id: editing ? selectedBlog.id : undefined,
+        id: targetId,
         request,
       })
       if (response.result) {
@@ -141,9 +170,14 @@ const NewsManagement: React.FC = () => {
   }
 
   const handleToggleStatus = async (blog: BlogResponse) => {
-    const newStatus = blog.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+    const newStatus = blog.status === 'PUBLISHED' ? 'HIDDEN' : 'PUBLISHED'
     try {
       await setBlogStatus.mutateAsync({ blog, status: newStatus })
+      globalShowAlert(
+        `Đã chuyển trạng thái sang ${newStatus === 'PUBLISHED' ? 'Đã đăng' : 'Đã ẩn'}`,
+        'Thành công',
+        'success',
+      )
     } catch (err) {
       console.error('Failed to update blog status', err)
       globalShowAlert('Đổi trạng thái thất bại.', 'Lỗi', 'error')
@@ -522,7 +556,7 @@ const NewsManagement: React.FC = () => {
                     <td className="px-6 py-6 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <span className="text-xs font-bold text-gray-600 whitespace-nowrap">
-                          {art.adminName}
+                          {art.adminName || art.shopName || 'Admin'}
                         </span>
                       </div>
                     </td>
@@ -534,9 +568,19 @@ const NewsManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-6 text-center">
                       <span
-                        className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${art.status === 'PUBLISHED' ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 bg-gray-50'}`}
+                        className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${
+                          art.status === 'PUBLISHED'
+                            ? 'text-emerald-600 bg-emerald-50'
+                            : art.status === 'HIDDEN'
+                            ? 'text-amber-700 bg-amber-50'
+                            : 'text-gray-500 bg-gray-100'
+                        }`}
                       >
-                        {art.status === 'PUBLISHED' ? 'Đã đăng' : 'Bản nháp'}
+                        {art.status === 'PUBLISHED'
+                          ? 'Đã đăng'
+                          : art.status === 'HIDDEN'
+                          ? 'Đã ẩn'
+                          : 'Bản nháp'}
                       </span>
                     </td>
                     <td className="px-10 py-6 text-right">
