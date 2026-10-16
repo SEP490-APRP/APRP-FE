@@ -15,6 +15,7 @@ import {
   Leaf,
   HelpCircle,
   AlertTriangle,
+  BookOpen,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type {
@@ -42,6 +43,7 @@ import AddProduct from './AddProduct'
 import BlindBoxTool from './BlindBoxTool'
 import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
+import FarmerBlogs from './FarmerBlogs'
 import OnboardingTour from '../onboardingtour/OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
 
@@ -390,6 +392,7 @@ export default function FarmerPortal({
     { name: 'Đơn hàng', icon: ShoppingCart, id: 'orders' },
     { name: 'Khiếu nại & Trợ giúp', icon: AlertTriangle, id: 'disputes' },
     { name: 'Đánh giá', icon: MessageSquare, id: 'reviews' },
+    { name: 'Bài viết & Bảng tin', icon: BookOpen, id: 'blogs' },
     { name: 'Voucher', icon: Gift, id: 'vouchers' },
     { name: 'Thông báo', icon: Bell, id: 'notifications' },
     { name: 'Tin nhắn', icon: Send, id: 'messages' },
@@ -636,6 +639,8 @@ export default function FarmerPortal({
             />
           ) : currentTab === 'disputes' ? (
             <FarmerDisputes />
+          ) : currentTab === 'blogs' ? (
+            <FarmerBlogs onInfo={handleInfo} />
           ) : currentTab === 'reviews' ? (
             <Reviews reviews={reviews} />
           ) : currentTab === 'vouchers' ? (
