@@ -12,6 +12,8 @@ import {
   Award,
   FileText,
   CreditCard,
+  Camera,
+  AlertCircle,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type { UserResponse } from '@/services/user.types'
@@ -27,6 +29,16 @@ export interface EditShopProfileModalProps {
   onSuccess?: (msg: string) => void
 }
 
+/**
+ * Helper kiểm tra định dạng Số điện thoại Việt Nam
+ * Hỗ trợ các đầu số: 03, 05, 07, 08, 09 (gồm đúng 10 chữ số) hoặc tiền tố +84
+ */
+export function isVietnamesePhoneNumber(phone: string): boolean {
+  if (!phone.trim()) return false
+  const cleaned = phone.replace(/[\s.-]/g, '')
+  return /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/.test(cleaned)
+}
+
 export function EditShopProfileModal({
   isOpen,
   onClose,
@@ -35,8 +47,15 @@ export function EditShopProfileModal({
   onSuccess,
 }: EditShopProfileModalProps) {
   const updateProfileMutation = useUpdateShopProfile()
+
+  // Upload States
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isUploadingLicense, setIsUploadingLicense] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const licenseInputRef = useRef<HTMLInputElement>(null)
+
+  // Validation States
+  const [isPhoneTouched, setIsPhoneTouched] = useState(false)
 
   const [formData, setFormData] = useState({
     shopName: '',
@@ -56,6 +75,7 @@ export function EditShopProfileModal({
   // Synchronize initial data when modal opens
   useEffect(() => {
     if (isOpen) {
+      setIsPhoneTouched(false)
       setFormData({
         shopName: shopProfile?.shopName || user?.shopName || '',
         fullName: shopProfile?.fullName || user?.name || '',
@@ -78,6 +98,37 @@ export function EditShopProfileModal({
   }, [isOpen, shopProfile, user])
 
   if (!isOpen) return null
+
+  // Handle avatar image upload to Cloudinary
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      globalShowAlert('Vui lòng chọn tệp định dạng hình ảnh.', 'Tệp không hợp lệ', 'warning')
+      return
+    }
+
+    try {
+      setIsUploadingAvatar(true)
+      const res = await uploadService.uploadImage(file, 'shops')
+      const uploadedUrl = res.result?.url
+      if (uploadedUrl) {
+        setFormData((prev) => ({ ...prev, logoUrl: uploadedUrl }))
+        globalShowAlert(
+          'Đã tải ảnh đại diện lên thành công! Nhấn "Lưu Hồ Sơ" để lưu thay đổi.',
+          'Thông báo',
+          'success',
+        )
+      }
+    } catch (err) {
+      console.error('Failed to upload logo:', err)
+      globalShowAlert('Không thể tải ảnh lên. Vui lòng thử lại.', 'Lỗi', 'error')
+    } finally {
+      setIsUploadingAvatar(false)
+      if (e.target) e.target.value = ''
+    }
+  }
 
   // Handle license image upload to Cloudinary
   const handleLicenseImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,10 +159,33 @@ export function EditShopProfileModal({
   // Handle Profile Update Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // 1. Kiểm tra bắt buộc tên shop và họ tên chủ vườn
     if (!formData.shopName.trim() || !formData.fullName.trim()) {
       globalShowAlert(
         'Vui lòng điền tên gian hàng và họ tên chủ vườn đại diện.',
         'Thiếu thông tin',
+        'warning',
+      )
+      return
+    }
+
+    // 2. Kiểm tra định dạng số điện thoại Việt Nam
+    if (!isVietnamesePhoneNumber(formData.phoneNumber)) {
+      setIsPhoneTouched(true)
+      globalShowAlert(
+        'Số điện thoại không đúng định dạng của Việt Nam (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08, 09).',
+        'Số điện thoại không hợp lệ',
+        'warning',
+      )
+      return
+    }
+
+    // 3. Kiểm tra giới hạn 500 ký tự mô tả câu chuyện
+    if (formData.description.length > 500) {
+      globalShowAlert(
+        'Mô tả câu chuyện nhà vườn không được vượt quá 500 ký tự.',
+        'Văn bản quá dài',
         'warning',
       )
       return
@@ -129,6 +203,8 @@ export function EditShopProfileModal({
       globalShowAlert(msg, 'Cập nhật thất bại', 'error')
     }
   }
+
+  const phoneIsValid = isVietnamesePhoneNumber(formData.phoneNumber)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
@@ -150,7 +226,79 @@ export function EditShopProfileModal({
 
           <h2 className="text-xl font-black text-[#1c2216]">Hồ Sơ Gian Hàng &amp; Pháp Nhân</h2>
 
-          {/* 1. Tên gian hàng & Chủ vườn */}
+          {/* 1. Khu vực xem & Đổi Ảnh Đại Diện / Logo ngay trong modal */}
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#fafcf9] border border-[#e8efe3]">
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#326318] text-white flex items-center justify-center text-xl font-black shadow-sm overflow-hidden border-2 border-white ring-2 ring-[#e2ebd9]">
+                {formData.logoUrl ? (
+                  <img
+                    src={formData.logoUrl}
+                    alt="Logo gian hàng"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback nếu ảnh hỏng
+                      ;(e.target as HTMLElement).style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  <span>
+                    {formData.shopName ? formData.shopName.slice(0, 2).toUpperCase() : 'VN'}
+                  </span>
+                )}
+              </div>
+              {formData.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, logoUrl: '' }))}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs hover:bg-red-700 cursor-pointer shadow-xs"
+                  title="Gỡ ảnh này"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-1.5">
+                <Camera size={14} className="text-[#326318]" />
+                <span className="text-xs font-extrabold text-[#3a4234]">
+                  Ảnh Đại Diện / Logo Gian Hàng
+                </span>
+              </div>
+              <p className="text-[11px] text-[#7c8676]">
+                Hiển thị trên trang cửa hàng của bạn và bài viết câu chuyện nông dân.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="px-3.5 py-1.5 rounded-xl bg-white border border-[#326318] text-[#326318] text-xs font-bold hover:bg-[#326318] hover:text-white transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isUploadingAvatar ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <UploadCloud size={13} />
+                  )}
+                  <span>{isUploadingAvatar ? 'Đang tải ảnh...' : 'Tải ảnh logo mới'}</span>
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                {formData.logoUrl && (
+                  <span className="text-[11px] text-[#326318] font-bold flex items-center gap-1">
+                    ✓ Đã chọn ảnh
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Tên gian hàng & Chủ vườn */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-[#3a4234] flex items-center gap-1">
@@ -181,7 +329,7 @@ export function EditShopProfileModal({
             </div>
           </div>
 
-          {/* 2. Số điện thoại & Địa chỉ */}
+          {/* 3. Số điện thoại & Địa chỉ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-[#3a4234] flex items-center gap-1">
@@ -191,10 +339,29 @@ export function EditShopProfileModal({
                 type="tel"
                 required
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                placeholder="VD: 0933333333"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#d8d3c5] text-xs focus:border-[#326318] outline-none"
+                onBlur={() => setIsPhoneTouched(true)}
+                onChange={(e) => {
+                  setFormData({ ...formData, phoneNumber: e.target.value })
+                  if (!isPhoneTouched) setIsPhoneTouched(true)
+                }}
+                placeholder="VD: 0912345678"
+                className={`w-full px-4 py-2.5 rounded-xl border text-xs outline-none transition-colors ${
+                  isPhoneTouched && !phoneIsValid
+                    ? 'border-red-400 focus:border-red-500 bg-red-50/20'
+                    : 'border-[#d8d3c5] focus:border-[#326318]'
+                }`}
               />
+              {/* Helper text / Cảnh báo định dạng số điện thoại */}
+              {isPhoneTouched && !phoneIsValid ? (
+                <p className="text-[11px] text-red-600 font-semibold flex items-center gap-1">
+                  <AlertCircle size={12} className="shrink-0" />
+                  Số điện thoại phải gồm 10 chữ số hợp lệ tại VN (bắt đầu bằng 03, 05, 07, 08, 09)
+                </p>
+              ) : (
+                <p className="text-[11px] text-[#7c8676]">
+                  Định dạng 10 chữ số (VD: 0912345678) dùng để shipper &amp; khách hàng liên hệ
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -212,21 +379,38 @@ export function EditShopProfileModal({
             </div>
           </div>
 
-          {/* 3. Giới thiệu câu chuyện vườn */}
+          {/* 4. Giới thiệu câu chuyện vườn kèm bộ đếm ký tự 500 */}
           <div className="space-y-1.5">
-            <label className="text-xs font-extrabold text-[#3a4234]">
-              Giới Thiệu Câu Chuyện Nhà Vườn
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-extrabold text-[#3a4234]">
+                Giới Thiệu Câu Chuyện Nhà Vườn
+              </label>
+              <span
+                className={`text-[11px] font-bold ${
+                  formData.description.length >= 500
+                    ? 'text-red-600 font-black'
+                    : formData.description.length >= 450
+                    ? 'text-amber-600'
+                    : 'text-[#7c8676]'
+                }`}
+              >
+                {formData.description.length} / 500 ký tự
+              </span>
+            </div>
             <textarea
               rows={3}
+              maxLength={500}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Chia sẻ về quy trình trồng trọt tự nhiên, triết lý canh tác xanh hoặc nguồn gốc nông sản..."
               className="w-full p-3 rounded-xl border border-[#d8d3c5] text-xs focus:border-[#326318] outline-none leading-relaxed"
             />
+            <p className="text-[11px] text-[#7c8676]">
+              Chia sẻ thông điệp nông sản sạch gửi tới người tiêu dùng (tối đa 500 ký tự).
+            </p>
           </div>
 
-          {/* 4. Chứng nhận nông sản & Mã số GPKD */}
+          {/* 5. Chứng nhận nông sản & Mã số GPKD */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-[#3a4234] flex items-center gap-1">
@@ -255,7 +439,7 @@ export function EditShopProfileModal({
             </div>
           </div>
 
-          {/* 5. Ảnh giấy phép / Chứng chỉ pháp lý */}
+          {/* 6. Ảnh giấy phép / Chứng chỉ pháp lý */}
           <div className="p-3.5 rounded-2xl bg-[#fafcf9] border border-[#e8efe3] space-y-2">
             <label className="text-xs font-extrabold text-[#3a4234] block">
               Ảnh Chụp Giấy Chứng Nhận / Đăng Ký Kinh Doanh
@@ -309,7 +493,7 @@ export function EditShopProfileModal({
             )}
           </div>
 
-          {/* 6. Tài khoản ngân hàng quyết toán */}
+          {/* 7. Tài khoản ngân hàng quyết toán */}
           <div className="p-4 rounded-2xl bg-[#fdfaf3] border border-[#f3e3cd] space-y-3">
             <span className="text-xs font-black text-[#8a4e1d] flex items-center gap-1.5 uppercase">
               <CreditCard size={14} /> Thông Tin Ngân Hàng Nhận Quyết Toán
@@ -366,7 +550,7 @@ export function EditShopProfileModal({
 
             <button
               type="submit"
-              disabled={updateProfileMutation.isPending || isUploadingLicense}
+              disabled={updateProfileMutation.isPending || isUploadingLicense || isUploadingAvatar}
               className="px-6 py-2.5 rounded-full bg-[#326318] hover:bg-[#254b12] text-white text-xs font-black uppercase tracking-wide shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
             >
               {updateProfileMutation.isPending ? (
