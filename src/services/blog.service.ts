@@ -250,7 +250,7 @@ export const blogService = {
     status: 'PUBLISHED' | 'HIDDEN' | 'DRAFT',
   ): Promise<BlogResponse> {
     const res = await axiosInstance.patch<ApiResponse<BlogResponse>>(
-      `/blogs/${blogId}/status`,
+      `/v1/admin/blogs/${blogId}/status`,
       null,
       {
         params: { status },

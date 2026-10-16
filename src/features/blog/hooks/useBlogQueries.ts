@@ -17,9 +17,7 @@ export const blogKeys = {
     [...blogKeys.all, 'admin', params] as const,
   detail: (id: number) => [...blogKeys.all, 'detail', id] as const,
   comments: (id: number, params?: { page?: number; size?: number }) =>
-    params
-      ? ([...blogKeys.all, 'comments', id, params] as const)
-      : ([...blogKeys.all, 'comments', id] as const),
+    [...blogKeys.all, 'comments', id, params] as const,
   myBlogs: (params?: { page?: number; size?: number }) =>
     [...blogKeys.all, 'my-blogs', params] as const,
   paged: (page: number, size: number, params?: { search?: string; category?: string; status?: string }) =>
@@ -106,33 +104,8 @@ export function useAddBlogComment() {
   return useMutation({
     mutationFn: ({ blogId, content }: { blogId: number; content: string }) =>
       blogService.addComment(blogId, content),
-    onSuccess: (newComment, { blogId }) => {
-      // 1. Cập nhật ngay lập tức danh sách bình luận (Realtime UI update)
-      queryClient.setQueriesData<PageResponse<BlogCommentResponse>>(
-        { queryKey: ['blogs', 'comments', blogId] },
-        (old) => {
-          if (!old) {
-            return {
-              content: [newComment],
-              totalElements: 1,
-              totalPages: 1,
-              size: 10,
-              number: 0,
-              first: true,
-              last: true,
-            }
-          }
-          const exists = old.content.some((c) => c.commentId === newComment.commentId)
-          if (exists) return old
-          return {
-            ...old,
-            content: [newComment, ...old.content],
-            totalElements: (old.totalElements ?? old.content.length) + 1,
-          }
-        },
-      )
-
-      // 2. Tăng commentCount trong cache danh sách bài viết
+    onSuccess: (_newComment, { blogId }) => {
+      // Tăng commentCount trong cache
       queryClient.setQueriesData<PageResponse<BlogResponse>>(
         { queryKey: blogKeys.all },
         (old) => {
@@ -152,18 +125,8 @@ export function useAddBlogComment() {
           }
         },
       )
-
-      // 3. Tăng commentCount trong chi tiết bài viết
-      queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          commentCount: (old.commentCount ?? 0) + 1,
-        }
-      })
-
-      // 4. Invalidate để đồng bộ chuẩn với server
-      queryClient.invalidateQueries({ queryKey: ['blogs', 'comments', blogId] })
+      // Invalidate comments
+      queryClient.invalidateQueries({ queryKey: blogKeys.comments(blogId) })
       queryClient.invalidateQueries({ queryKey: blogKeys.detail(blogId) })
     },
   })
@@ -175,52 +138,8 @@ export function useDeleteBlogComment() {
   return useMutation({
     mutationFn: ({ blogId, commentId }: { blogId: number; commentId: number }) =>
       blogService.deleteComment(commentId),
-    onSuccess: (_res, { blogId, commentId }) => {
-      // 1. Xóa ngay lập tức bình luận khỏi cache (Realtime UI update)
-      queryClient.setQueriesData<PageResponse<BlogCommentResponse>>(
-        { queryKey: ['blogs', 'comments', blogId] },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            content: old.content.filter((c) => c.commentId !== commentId),
-            totalElements: Math.max(0, (old.totalElements ?? old.content.length) - 1),
-          }
-        },
-      )
-
-      // 2. Giảm commentCount trong cache bài viết
-      queryClient.setQueriesData<PageResponse<BlogResponse>>(
-        { queryKey: blogKeys.all },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            content: old.content.map((b) => {
-              const currentId = b.blogId || b.id
-              if (currentId === blogId) {
-                return {
-                  ...b,
-                  commentCount: Math.max(0, (b.commentCount ?? 1) - 1),
-                }
-              }
-              return b
-            }),
-          }
-        },
-      )
-
-      // 3. Giảm commentCount trong chi tiết bài viết
-      queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          commentCount: Math.max(0, (old.commentCount ?? 1) - 1),
-        }
-      })
-
-      // 4. Invalidate
-      queryClient.invalidateQueries({ queryKey: ['blogs', 'comments', blogId] })
+    onSuccess: (_res, { blogId }) => {
+      queryClient.invalidateQueries({ queryKey: blogKeys.comments(blogId) })
       queryClient.invalidateQueries({ queryKey: blogKeys.detail(blogId) })
     },
   })

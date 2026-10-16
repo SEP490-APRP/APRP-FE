@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Gift, Loader2, Power, X, Ticket, RefreshCw, AlertCircle, Layers, Target } from 'lucide-react'
+import { Plus, Gift, Loader2, Power, X, Ticket, RefreshCw, AlertCircle, Layers, Target, Trash2 } from 'lucide-react'
 import {
   voucherService,
   type VoucherResponse,
@@ -17,6 +17,7 @@ export default function VoucherManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Form State
@@ -64,6 +65,22 @@ export default function VoucherManagement() {
       alert('Lỗi: ' + (err?.response?.data?.message || err.message))
     } finally {
       setTogglingId(null)
+    }
+  }
+
+  const handleDeleteVoucher = async (voucherId: number, code: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn voucher "${code}" không? Hành động này không thể hoàn tác.`)) {
+      return
+    }
+    setDeletingId(voucherId)
+    try {
+      await voucherService.deleteAdminVoucher(voucherId)
+      await loadVouchers()
+    } catch (err: any) {
+      console.error('Lỗi xóa voucher:', err)
+      alert('Không thể xóa voucher: ' + (err?.response?.data?.message || err.message))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -168,8 +185,8 @@ export default function VoucherManagement() {
             const discountLabel = isPercent
               ? `Giảm ${vc.discountValue}%`
               : vc.voucherType === 'FREE_SHIPPING'
-              ? 'Freeship toàn sàn'
-              : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`
+                ? 'Freeship toàn sàn'
+                : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`
 
             const isExpired = vc.expiryDate && new Date(vc.expiryDate) < new Date()
             const isActive = vc.active !== false && !isExpired
@@ -177,9 +194,8 @@ export default function VoucherManagement() {
             return (
               <div
                 key={vc.voucherId}
-                className={`bg-white rounded-2xl p-5 border transition-all flex flex-col justify-between shadow-xs ${
-                  isActive ? 'border-gray-200 hover:border-purple-300' : 'border-gray-200 bg-gray-50 opacity-70'
-                }`}
+                className={`bg-white rounded-2xl p-5 border transition-all flex flex-col justify-between shadow-xs ${isActive ? 'border-gray-200 hover:border-purple-300' : 'border-gray-200 bg-gray-50 opacity-70'
+                  }`}
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -187,31 +203,28 @@ export default function VoucherManagement() {
                       {vc.voucherCode}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        vc.voucherScope === 'WELCOME'
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vc.voucherScope === 'WELCOME'
                           ? 'bg-pink-100 text-pink-700'
                           : vc.voucherScope === 'SYSTEM'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-purple-100 text-purple-800'
-                      }`}
+                        }`}
                     >
                       {vc.voucherScope === 'WELCOME' ? 'Chào mừng' : vc.voucherScope === 'SYSTEM' ? 'Hệ thống' : 'Toàn sàn'}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
                           ? 'bg-teal-100 text-teal-700'
                           : 'bg-amber-100 text-amber-800'
-                      }`}
+                        }`}
                     >
                       {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING' ? 'Freeship' : 'Đơn hàng'}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${
-                        isActive
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${isActive
                           ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-gray-200 text-gray-600'
-                      }`}
+                        }`}
                     >
                       {isExpired ? 'Hết hạn' : isActive ? 'Đang bật' : 'Đã tắt'}
                     </span>
@@ -245,16 +258,32 @@ export default function VoucherManagement() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                  {!vc.active && (
+                    <button
+                      type="button"
+                      disabled={deletingId === vc.voucherId}
+                      onClick={() => handleDeleteVoucher(vc.voucherId, vc.voucherCode)}
+                      title="Xóa vĩnh viễn voucher đã tạm dừng"
+                      className="text-xs px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-2xs"
+                    >
+                      {deletingId === vc.voucherId ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                      <span>Xóa</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     disabled={togglingId === vc.voucherId}
                     onClick={() => handleToggleStatus(vc.voucherId)}
-                    className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      vc.active
+                    className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${vc.active
                         ? 'bg-red-50 hover:bg-red-100 text-red-600'
                         : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
-                    }`}
+                      }`}
                   >
                     {togglingId === vc.voucherId ? (
                       <Loader2 size={13} className="animate-spin" />
@@ -302,40 +331,26 @@ export default function VoucherManagement() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Loại giảm giá
-                </label>
-                <select
-                  value={voucherType}
-                  onChange={(e) => {
-                    const nextType = e.target.value as VoucherType
-                    setVoucherType(nextType)
-                    if (nextType === 'FREE_SHIPPING') {
-                      setVoucherTarget('SHIPPING')
-                    }
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600"
-                >
-                  <option value="FIXED_AMOUNT">Số tiền cố định (VNĐ)</option>
-                  <option value="PERCENTAGE">Phần trăm (%)</option>
-                  <option value="FREE_SHIPPING">Miễn phí vận chuyển (Freeship toàn sàn)</option>
-                </select>
-              </div>
-
+              {/* Loại giảm giá & Mục tiêu áp dụng */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Phạm vi voucher
+                    Loại giảm giá
                   </label>
                   <select
-                    value={voucherScope}
-                    onChange={(e) => setVoucherScope(e.target.value as VoucherScope)}
+                    value={voucherType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as VoucherType
+                      setVoucherType(nextType)
+                      if (nextType === 'FREE_SHIPPING') {
+                        setVoucherTarget('SHIPPING')
+                      }
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600"
                   >
-                    <option value="PLATFORM">Toàn sàn (Platform)</option>
-                    <option value="WELCOME">Chào mừng khách mới (Welcome)</option>
-                    <option value="SYSTEM">Hệ thống / Đền bù (System)</option>
+                    <option value="FIXED_AMOUNT">Số tiền cố định (VNĐ)</option>
+                    <option value="PERCENTAGE">Phần trăm (%)</option>
+                    <option value="FREE_SHIPPING">Miễn phí vận chuyển (Freeship)</option>
                   </select>
                 </div>
                 <div>
@@ -348,7 +363,7 @@ export default function VoucherManagement() {
                     onChange={(e) => setVoucherTarget(e.target.value as VoucherTarget)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-600 disabled:bg-gray-100 disabled:text-gray-500"
                   >
-                    <option value="ORDER">Toàn bộ giỏ hàng (ORDER)</option>
+                    <option value="ORDER">Toàn bộ đơn hàng (ORDER)</option>
                     <option value="SHIPPING">Phí vận chuyển (SHIPPING)</option>
                   </select>
                 </div>
@@ -431,6 +446,20 @@ export default function VoucherManagement() {
                   onChange={(e) => setExpiryDate(e.target.value)}
                   required
                 />
+              </div>
+
+              {/* Checkbox Công khai / Ẩn */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isPublicPlatform"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="rounded text-purple-600 focus:ring-purple-600"
+                />
+                <label htmlFor="isPublicPlatform" className="text-xs text-gray-700 cursor-pointer">
+                  Hiển thị công khai trên toàn sàn (Người mua có thể tự bấm lưu mã)
+                </label>
               </div>
 
               <div className="pt-4 border-t border-gray-100 flex justify-end gap-2.5">

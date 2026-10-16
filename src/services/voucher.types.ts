@@ -26,7 +26,7 @@ export interface VoucherResponse {
 export interface VoucherCreateRequest {
   voucherCode: string
   voucherType: VoucherType
-  voucherScope: VoucherScope
+  voucherScope?: VoucherScope
   voucherTarget: VoucherTarget
   discountValue: number
   maxDiscount?: number

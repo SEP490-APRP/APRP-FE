@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Ticket,
   Truck,
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useMyVouchers } from '@/features/voucher'
-import { voucherService } from '@/services'
+import { voucherService, type VoucherResponse } from '@/services'
 import { globalShowAlert } from '@/components/common/Popup'
 import { useAuth } from '@/stores'
 import { getErrorMessage } from '@/utils'
@@ -32,11 +32,62 @@ const formatDate = (value?: string) => {
 const MyVouchersPage: React.FC = () => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
-  const { data: vouchers = [], isLoading, refetch } = useMyVouchers(isAuthenticated)
+  const { data: myVouchers = [], isLoading, refetch } = useMyVouchers(isAuthenticated)
+  const [publicVouchers, setPublicVouchers] = useState<VoucherResponse[]>([])
+  const [savingCode, setSavingCode] = useState<string | null>(null)
+
+  const loadPublicVouchers = async () => {
+    try {
+      const list = await voucherService.getPublicVouchers()
+      setPublicVouchers(list || [])
+    } catch (e) {
+      console.error('Lỗi tải voucher công khai:', e)
+    }
+  }
+
+  useEffect(() => {
+    loadPublicVouchers()
+  }, [])
+
+  // Gộp voucher trong ví cá nhân và voucher toàn sàn công khai
+  const vouchers = React.useMemo(() => {
+    const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
+    // 1. Thêm voucher công khai sàn trước (đánh dấu isCollected = false)
+    ;(publicVouchers || []).forEach((v) => {
+      if (v?.voucherCode) {
+        map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: false })
+      }
+    })
+    // 2. Đè bằng voucher trong ví cá nhân (đánh dấu isCollected = true)
+    ;(myVouchers || []).forEach((v) => {
+      if (v?.voucherCode) {
+        map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
+      }
+    })
+    return Array.from(map.values())
+  }, [publicVouchers, myVouchers])
 
   const [activeTab, setActiveTab] = useState<TabType>('ALL')
   const [inputCode, setInputCode] = useState('')
   const [submittingCode, setSubmittingCode] = useState(false)
+
+  const handleCollectQuick = async (code: string) => {
+    if (!isAuthenticated) {
+      globalShowAlert('Vui lòng đăng nhập để lưu mã voucher vào kho.', 'Yêu cầu đăng nhập', 'warning')
+      navigate('/login')
+      return
+    }
+    try {
+      setSavingCode(code)
+      await voucherService.collectByCode(code)
+      globalShowAlert(`Đã lưu thành công mã "${code}" vào Kho voucher!`, 'Thành công', 'success')
+      await Promise.all([refetch(), loadPublicVouchers()])
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Không thể lưu mã voucher này.'), 'Lỗi', 'error')
+    } finally {
+      setSavingCode(null)
+    }
+  }
 
   const handleSaveCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -331,9 +382,19 @@ const MyVouchersPage: React.FC = () => {
                           </span>
                         </div>
 
-                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="size-3 text-emerald-600" /> Đã lưu
-                        </span>
+                        {voucher.isCollected ? (
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <CheckCircle2 className="size-3 text-emerald-600" /> Đã lưu
+                          </span>
+                        ) : !voucher.isCollected && voucher.claimLimit != null && (voucher.claimedCount || 0) >= voucher.claimLimit ? (
+                          <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
+                            Đã hết lượt lưu
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                            {isShop ? 'Ưu đãi Shop' : 'Ưu đãi Sàn'}
+                          </span>
+                        )}
                       </div>
 
                       <h3 className="text-xl font-black text-gray-900 leading-tight">
@@ -347,6 +408,11 @@ const MyVouchersPage: React.FC = () => {
                         {voucher.maxDiscount && Number(voucher.maxDiscount) > 0 && (
                           <span> · Tối đa {formatMoney(Number(voucher.maxDiscount))}</span>
                         )}
+                        {!voucher.isCollected && voucher.claimLimit && (
+                          <span className="block text-[11px] text-amber-800 font-semibold mt-0.5">
+                            Đã thu thập: {voucher.claimedCount || 0} / {voucher.claimLimit} lượt
+                          </span>
+                        )}
                       </p>
                     </div>
 
@@ -356,19 +422,37 @@ const MyVouchersPage: React.FC = () => {
                         <span>HSD: {formatDate(voucher.expiryDate)}</span>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          if (isShop && voucher.shopId) {
-                            navigate(`/cua-hang/${voucher.shopId}`)
-                          } else {
-                            navigate('/nong-san-tuoi')
-                          }
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-sm flex items-center gap-1 transition-all"
-                      >
-                        <span>Dùng ngay</span>
-                        <ArrowRight className="size-3" />
-                      </button>
+                      {voucher.isCollected ? (
+                        <button
+                          onClick={() => {
+                            if (isShop && voucher.shopId) {
+                              navigate(`/cua-hang/${voucher.shopId}`)
+                            } else {
+                              navigate('/nong-san-tuoi')
+                            }
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <span>Dùng ngay</span>
+                          <ArrowRight className="size-3" />
+                        </button>
+                      ) : !voucher.isCollected && voucher.claimLimit != null && (voucher.claimedCount || 0) >= voucher.claimLimit ? (
+                        <button
+                          disabled
+                          className="px-3.5 py-1.5 rounded-xl bg-gray-200 text-gray-400 text-xs font-black cursor-not-allowed"
+                        >
+                          <span>Đã hết lượt</span>
+                        </button>
+                      ) : (
+                        <button
+                          disabled={savingCode === voucher.voucherCode}
+                          onClick={() => handleCollectQuick(voucher.voucherCode)}
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-sm flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {savingCode === voucher.voucherCode && <Loader2 className="size-3 animate-spin" />}
+                          <span>Lưu vào ví</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
