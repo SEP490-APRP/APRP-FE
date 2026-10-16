@@ -32,9 +32,29 @@ export const voucherService = {
   },
 
   // 5. SHOP: Lấy danh sách voucher quản lý của Shop
-  async getShopVouchers(): Promise<VoucherResponse[]> {
-    const res = await axiosInstance.get('/shop/vouchers')
-    return unwrap<VoucherResponse[]>(res)
+  async getShopVouchers(page = 0, size = 50): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/shop/vouchers', {
+      params: { page, size },
+    })
+    const data = unwrap<any>(res)
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.content)) return data.content
+    return []
+  },
+
+  async getShopVouchersPaged(page = 0, size = 10): Promise<{ content: VoucherResponse[]; totalElements: number; totalPages: number }> {
+    const res = await axiosInstance.get('/shop/vouchers', {
+      params: { page, size },
+    })
+    const data = unwrap<any>(res)
+    if (Array.isArray(data)) {
+      return { content: data, totalElements: data.length, totalPages: 1 }
+    }
+    return {
+      content: data?.content || [],
+      totalElements: data?.totalElements || 0,
+      totalPages: data?.totalPages || 1,
+    }
   },
 
   // 6. SHOP: Tạo voucher mới của Shop
@@ -49,10 +69,36 @@ export const voucherService = {
     return unwrap<VoucherResponse>(res)
   },
 
+  // 7.1. SHOP: Xóa voucher của Shop (khi đã tạm dừng)
+  async deleteShopVoucher(voucherId: number): Promise<void> {
+    const res = await axiosInstance.delete(`/shop/vouchers/${voucherId}`)
+    return unwrap<void>(res)
+  },
+
   // 8. ADMIN: Lấy danh sách voucher toàn sàn của Admin
-  async getAdminVouchers(): Promise<VoucherResponse[]> {
-    const res = await axiosInstance.get('/admin/vouchers')
-    return unwrap<VoucherResponse[]>(res)
+  async getAdminVouchers(page = 0, size = 50): Promise<VoucherResponse[]> {
+    const res = await axiosInstance.get('/admin/vouchers', {
+      params: { page, size },
+    })
+    const data = unwrap<any>(res)
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.content)) return data.content
+    return []
+  },
+
+  async getAdminVouchersPaged(page = 0, size = 10): Promise<{ content: VoucherResponse[]; totalElements: number; totalPages: number }> {
+    const res = await axiosInstance.get('/admin/vouchers', {
+      params: { page, size },
+    })
+    const data = unwrap<any>(res)
+    if (Array.isArray(data)) {
+      return { content: data, totalElements: data.length, totalPages: 1 }
+    }
+    return {
+      content: data?.content || [],
+      totalElements: data?.totalElements || 0,
+      totalPages: data?.totalPages || 1,
+    }
   },
 
   // 9. ADMIN: Tạo voucher toàn sàn
@@ -65,6 +111,12 @@ export const voucherService = {
   async toggleAdminVoucher(voucherId: number): Promise<VoucherResponse> {
     const res = await axiosInstance.put(`/admin/vouchers/${voucherId}/toggle-status`)
     return unwrap<VoucherResponse>(res)
+  },
+
+  // 10.1. ADMIN: Xóa voucher toàn sàn (khi đã tạm dừng)
+  async deleteAdminVoucher(voucherId: number): Promise<void> {
+    const res = await axiosInstance.delete(`/admin/vouchers/${voucherId}`)
+    return unwrap<void>(res)
   },
 
   // 11. Compatibility methods for storefront shop voucher queries
