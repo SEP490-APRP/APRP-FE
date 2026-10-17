@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle } from 'lucide-react'
+import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2 } from 'lucide-react'
 import {
   voucherService,
   type VoucherResponse,
@@ -22,6 +22,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Form State
@@ -69,6 +70,23 @@ export default function Vouchers({ onInfo }: VouchersProps) {
       onInfo?.('Lỗi: ' + (err?.response?.data?.message || err.message))
     } finally {
       setTogglingId(null)
+    }
+  }
+
+  const handleDeleteVoucher = async (voucherId: number, code: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn voucher "${code}" không? Hành động này không thể hoàn tác.`)) {
+      return
+    }
+    setDeletingId(voucherId)
+    try {
+      await voucherService.deleteShopVoucher(voucherId)
+      onInfo?.(`Xóa thành công voucher "${code}"`)
+      await loadVouchers()
+    } catch (err: any) {
+      console.error('Lỗi xóa voucher:', err)
+      onInfo?.('Không thể xóa voucher: ' + (err?.response?.data?.message || err.message))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -160,8 +178,8 @@ export default function Vouchers({ onInfo }: VouchersProps) {
             const discountLabel = isPercent
               ? `Giảm ${vc.discountValue}%`
               : vc.voucherType === 'FREE_SHIPPING'
-              ? 'Freeship'
-              : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`
+                ? 'Freeship'
+                : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`
 
             const isExpired = vc.expiryDate && new Date(vc.expiryDate) < new Date()
             const isActive = vc.active !== false && !isExpired
@@ -169,15 +187,13 @@ export default function Vouchers({ onInfo }: VouchersProps) {
             return (
               <div
                 key={vc.voucherId}
-                className={`bg-white rounded-3xl p-5 border transition-all flex items-start justify-between gap-3 shadow-xs ${
-                  isActive ? 'border-[#e8ece3] hover:border-[#326318]/40' : 'border-gray-200 bg-gray-50/50 opacity-70'
-                }`}
+                className={`bg-white rounded-3xl p-5 border transition-all flex items-start justify-between gap-3 shadow-xs ${isActive ? 'border-[#e8ece3] hover:border-[#326318]/40' : 'border-gray-200 bg-gray-50/50 opacity-70'
+                  }`}
               >
                 <div className="flex items-start gap-3.5 flex-1 min-w-0">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
-                      isActive ? 'bg-[#326318]/10 text-[#326318]' : 'bg-gray-100 text-gray-400'
-                    }`}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold shrink-0 ${isActive ? 'bg-[#326318]/10 text-[#326318]' : 'bg-gray-100 text-gray-400'
+                      }`}
                   >
                     <Gift size={24} />
                   </div>
@@ -190,20 +206,18 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                         Voucher Shop
                       </span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-emerald-100 text-emerald-800'
-                        }`}
+                          }`}
                       >
                         {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING' ? 'Freeship Shop' : 'Đơn hàng'}
                       </span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isActive
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive
                             ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-gray-200 text-gray-600'
-                        }`}
+                          }`}
                       >
                         {isExpired ? 'Hết hạn' : isActive ? 'Đang bật' : 'Đã tắt'}
                       </span>
@@ -233,24 +247,42 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   </div>
                 </div>
 
-                {/* Nút bật / tắt */}
-                <button
-                  type="button"
-                  disabled={togglingId === vc.voucherId}
-                  onClick={() => handleToggleStatus(vc.voucherId)}
-                  title={vc.active ? 'Bấm để tắt voucher' : 'Bấm để kích hoạt voucher'}
-                  className={`p-2.5 rounded-2xl transition-all cursor-pointer ${
-                    vc.active
-                      ? 'bg-red-50 hover:bg-red-100 text-red-600'
-                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                  }`}
-                >
-                  {togglingId === vc.voucherId ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Power size={16} />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Nút xóa chỉ hiện khi voucher đã tạm dừng (!vc.active) */}
+                  {!vc.active && (
+                    <button
+                      type="button"
+                      disabled={deletingId === vc.voucherId}
+                      onClick={() => handleDeleteVoucher(vc.voucherId, vc.voucherCode)}
+                      title="Xóa vĩnh viễn voucher đã tạm dừng"
+                      className="p-2.5 rounded-2xl transition-all cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-2xs"
+                    >
+                      {deletingId === vc.voucherId ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </button>
                   )}
-                </button>
+
+                  {/* Nút bật / tắt */}
+                  <button
+                    type="button"
+                    disabled={togglingId === vc.voucherId}
+                    onClick={() => handleToggleStatus(vc.voucherId)}
+                    title={vc.active ? 'Bấm để tắt voucher' : 'Bấm để kích hoạt voucher'}
+                    className={`p-2.5 rounded-2xl transition-all cursor-pointer ${vc.active
+                        ? 'bg-red-50 hover:bg-red-100 text-red-600'
+                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                      }`}
+                  >
+                    {togglingId === vc.voucherId ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Power size={16} />
+                    )}
+                  </button>
+                </div>
               </div>
             )
           })}

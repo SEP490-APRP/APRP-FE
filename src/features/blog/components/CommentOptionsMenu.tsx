@@ -33,7 +33,6 @@ export const CommentOptionsMenu: React.FC<CommentOptionsMenuProps> = ({
   align = 'right',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [openUpwards, setOpenUpwards] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,13 +54,13 @@ export const CommentOptionsMenu: React.FC<CommentOptionsMenuProps> = ({
   )
   const isBlogOwner = Boolean(
     currentUser &&
-      blog &&
-      (String(currentUser.id) === String(blog.shopId) ||
-        Boolean(
-          currentUser.shopName &&
-            blog.shopName &&
-            currentUser.shopName.toLowerCase() === blog.shopName.toLowerCase(),
-        )),
+    blog &&
+    (String(currentUser.id) === String(blog.shopId) ||
+      Boolean(
+        currentUser.shopName &&
+        blog.shopName &&
+        currentUser.shopName.toLowerCase() === blog.shopName.toLowerCase(),
+      )),
   )
 
   const canDelete = isAdmin || isAuthor || isBlogOwner
@@ -73,11 +72,6 @@ export const CommentOptionsMenu: React.FC<CommentOptionsMenuProps> = ({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          if (!isOpen && menuRef.current) {
-            const rect = menuRef.current.getBoundingClientRect()
-            const spaceBelow = window.innerHeight - rect.bottom
-            setOpenUpwards(spaceBelow < 220)
-          }
           setIsOpen((prev) => !prev)
         }}
         className="p-1 rounded-full text-[#8e9889] hover:text-[#191f14] hover:bg-black/5 transition-colors cursor-pointer"
@@ -91,11 +85,8 @@ export const CommentOptionsMenu: React.FC<CommentOptionsMenuProps> = ({
       {isOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute ${
-            align === 'right' ? 'right-0' : 'left-0'
-          } ${
-            openUpwards ? 'bottom-full mb-1.5' : 'top-full mt-1'
-          } w-52 sm:w-56 bg-white rounded-2xl border border-[#e2dcd0] shadow-2xl p-1.5 z-50 animate-fadeIn`}
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'
+            } top-full mt-1 w-52 sm:w-56 bg-white rounded-2xl border border-[#e2dcd0] shadow-2xl p-1.5 z-40 animate-fadeIn`}
         >
           {/* Header */}
           <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#858f7e] border-b border-[#f0ebd9] mb-1 flex items-center justify-between">
@@ -133,8 +124,8 @@ export const CommentOptionsMenu: React.FC<CommentOptionsMenuProps> = ({
                   {isAdmin
                     ? 'Xóa bình luận (Admin)'
                     : isAuthor
-                    ? 'Xóa bình luận của bạn'
-                    : 'Xóa bình luận này'}
+                      ? 'Xóa bình luận của bạn'
+                      : 'Xóa bình luận này'}
                 </span>
               </button>
             )}
