@@ -49,18 +49,18 @@ const MyVouchersPage: React.FC = () => {
     loadPublicVouchers()
   }, [])
 
-  // Gộp voucher trong ví cá nhân và voucher toàn sàn công khai
+  // Gộp voucher trong ví cá nhân và voucher toàn sàn công khai (loại bỏ hoàn toàn các voucher đã dùng hết lượt)
   const vouchers = React.useMemo(() => {
-    const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
-    // 1. Thêm voucher công khai sàn trước (đánh dấu isCollected = false)
+    const map = new Map<string, VoucherResponse>()
+    // 1. Thêm voucher công khai sàn (CHỈ thêm những voucher user CHƯA dùng hết lượt: !v.isUsed)
     ;(publicVouchers || []).forEach((v) => {
-      if (v?.voucherCode) {
-        map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: false })
+      if (v?.voucherCode && !v.isUsed) {
+        map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: Boolean(v.isCollected) })
       }
     })
-    // 2. Đè bằng voucher trong ví cá nhân (đánh dấu isCollected = true)
+    // 2. Đè bằng voucher còn hiệu lực trong ví cá nhân
     ;(myVouchers || []).forEach((v) => {
-      if (v?.voucherCode) {
+      if (v?.voucherCode && !v.isUsed) {
         map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
       }
     })

@@ -21,6 +21,9 @@ export interface VoucherResponse {
   creatorRole?: string
   shopId?: number | null
   isPublic?: boolean
+  isCollected?: boolean
+  isUsed?: boolean
+  userRemainingQuantity?: number
 }
 
 export interface VoucherCreateRequest {
