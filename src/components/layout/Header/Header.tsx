@@ -341,6 +341,15 @@ export default function Header({
                         <span>🎟️ Kho Voucher Của Tôi</span>
                       </a>
 
+                      <a
+                        href="/ke-hoach-an-uong"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-3 rounded-xl bg-amber-50 text-amber-900 font-bold flex items-center gap-2 border border-amber-200"
+                      >
+                        <Sparkles size={15} className="text-amber-600" />
+                        <span>🥗 Kế Hoạch Ăn Uống (AI)</span>
+                      </a>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -513,7 +522,17 @@ export default function Header({
               Công nghệ AI
             </a>
 
-            {/* 5. Câu chuyện nông dân */}
+            {/* 5. Kế hoạch ăn uống */}
+            <a
+              href="/ke-hoach-an-uong"
+              className={`nav-pill ${route.startsWith('/ke-hoach-an-uong') ? 'is-active' : ''}`}
+              aria-current={route.startsWith('/ke-hoach-an-uong') ? 'page' : undefined}
+              onClick={closeDropdown}
+            >
+              Thực đơn AI
+            </a>
+
+            {/* 6. Câu chuyện nông dân */}
             <a
               href="/cau-chuyen-nong-dan"
               className={`nav-pill ${isFarmerActive ? 'is-active' : ''}`}

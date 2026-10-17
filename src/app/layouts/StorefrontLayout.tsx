@@ -25,6 +25,7 @@ function headerRoute(pathname: string): string {
   if (/^\/(nong-san-tuoi|san-pham|cua-hang)/.test(pathname)) return '/nong-san-tuoi'
   if (pathname.startsWith('/combo-tui-mu')) return '/combo-tui-mu'
   if (pathname.startsWith('/cong-nghe-ai')) return '/cong-nghe-ai'
+  if (pathname.startsWith('/ke-hoach-an-uong')) return '/ke-hoach-an-uong'
   if (pathname.startsWith('/cau-chuyen-nong-dan')) return '/cau-chuyen-nong-dan'
   if (/^\/(dang-nhap|dang-ky)/.test(pathname)) return '/dang-nhap'
   return pathname
