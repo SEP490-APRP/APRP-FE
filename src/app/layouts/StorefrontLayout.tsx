@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
+import { authService } from '@/services'
 
 export type StorefrontContext = {
   cart: Cart
@@ -92,7 +93,12 @@ export default function StorefrontLayout() {
     showToast(`Đã thêm ${product.name} vào giỏ`)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Ignore network errors on logout
+    }
     logout()
     showToast('Bạn đã đăng xuất khỏi hệ thống CapNong.')
     navigate('/')
