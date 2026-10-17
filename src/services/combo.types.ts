@@ -1,18 +1,31 @@
-export interface ProductComboItem {
+export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
+
+export interface ProductComboItemRequest {
   productId: number
-  productName: string
-  price: number
-  quantity: number
+  productQuantity: number
 }
+
+export interface ProductComboItem {
+  comboItemId?: number
+  productId: number
+  productName?: string
+  price?: number
+  quantity?: number
+  productQuantity?: number
+  unit?: string
+}
+
+export type ProductComboResponse = ProductComboItem
 
 export interface BuildCombo {
   comboId: number
   id?: number
   comboName: string
+  name?: string
   price: number
   description?: string
   type?: string
-  mealType?: string
+  mealType?: MealType | string
   region?: string
   totalQuantity?: number
   soldQuantity?: number
@@ -26,18 +39,29 @@ export interface BuildCombo {
   items?: ProductComboItem[]
 }
 
+export type BuildComboResponse = BuildCombo
+
 export interface BuildComboCreationRequest {
   comboName: string
   price: number
   description?: string
   type?: string
-  mealType?: string
+  mealType?: MealType | string
   region?: string
   totalQuantity: number
   imageUrl?: string
-  items: { productId: number; quantity: number }[]
+  items: ProductComboItemRequest[] | { productId: number; quantity: number }[]
 }
 
-export interface BuildComboUpdateRequest extends BuildComboCreationRequest {
+export interface BuildComboUpdateRequest {
+  comboName?: string
+  price?: number
+  description?: string
+  type?: string
+  mealType?: MealType | string
+  region?: string
+  totalQuantity?: number
+  imageUrl?: string
   status?: string
+  items?: ProductComboItemRequest[] | { productId: number; quantity: number }[]
 }

@@ -42,6 +42,8 @@ export {
   useSetPrimaryProductImage,
   useDeleteProductImage,
   useRejectProduct,
+  useApproveProductImage,
+  useAiSuggestDescription,
 } from './hooks/useProductQueries'
 export { useCategories, categoryKeys } from './hooks/useCategoryQueries'
 export {
@@ -49,3 +51,4 @@ export {
   type ProductFormInput,
   type ProductFormValues,
 } from './schemas/productForm.schema'
+export { useCombos, useMyCombos, useCreateCombo, useUpdateCombo, useDeleteCombo, comboKeys } from './hooks/useComboQueries'

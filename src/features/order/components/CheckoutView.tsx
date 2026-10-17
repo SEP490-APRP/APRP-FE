@@ -44,6 +44,8 @@ import {
   setDefaultSavedAddress,
 } from '@/services'
 import type { SavedAddress, SavedAddressRequest } from '@/types/address.types'
+import { globalShowAlert } from '@/components/common/Popup'
+import { getErrorMessage } from '@/utils'
 import {
   useCheckoutPreview,
   useCreateOrder,
@@ -215,7 +217,8 @@ export const CheckoutView: React.FC = () => {
   // Voucher state
   const [selectedVoucherCodes, setSelectedVoucherCodes] = useState<string[]>([])
   const [inputVoucherCode, setInputVoucherCode] = useState('')
-  const [myVouchers, setMyVouchers] = useState<VoucherResponse[]>([])
+  const [myVouchers, setMyVouchers] = useState<(VoucherResponse & { isCollected?: boolean })[]>([])
+  const [savingVoucherCode, setSavingVoucherCode] = useState<string | null>(null)
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
   const [voucherError, setVoucherError] = useState<string | null>(null)
 
@@ -601,19 +604,32 @@ export const CheckoutView: React.FC = () => {
     return checkoutItems.reduce((sum, it) => sum + it.quantity, 0)
   }, [checkoutItems])
 
-  // Tải danh sách voucher mà người mua ĐANG SỞ HỮU trong ví (/users/me/vouchers)
+  // Tải danh sách voucher trong ví người mua VÀ voucher công khai của toàn sàn/shop
   useEffect(() => {
     let isMounted = true
-    voucherService
-      .getMyVouchers()
-      .then((mine) => {
-        if (!isMounted) return
-        setMyVouchers(mine || [])
+    Promise.all([
+      voucherService.getMyVouchers().catch(() => []),
+      voucherService.getPublicVouchers().catch(() => []),
+    ]).then(([mine, publics]) => {
+      if (!isMounted) return
+      const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
+      // Thêm voucher công khai toàn sàn/shop trước (loại bỏ hoàn toàn voucher user đã dùng hết lượt: !v.isUsed)
+      ;(publics || []).forEach((v) => {
+        if (v?.voucherCode && !v.isUsed) {
+          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: Boolean(v.isCollected) })
+        }
       })
-      .catch((err) => {
-        console.error('Lỗi tải ví voucher của bạn:', err)
-        if (isMounted) setMyVouchers([])
+      // Đè bằng voucher trong ví của user (chỉ lấy voucher còn hiệu lực: !v.isUsed)
+      ;(mine || []).forEach((v) => {
+        if (v?.voucherCode && !v.isUsed) {
+          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
+        }
       })
+      setMyVouchers(Array.from(map.values()))
+    }).catch((err) => {
+      console.error('Lỗi tải danh sách voucher:', err)
+      if (isMounted) setMyVouchers([])
+    })
     return () => {
       isMounted = false
     }
@@ -630,15 +646,65 @@ export const CheckoutView: React.FC = () => {
     }
   }
 
-  const handleApplyVoucherInput = () => {
+  // Thu thập / Lưu voucher vào ví trực tiếp ngay tại Modal
+  const handleCollectVoucherInModal = async (vc: VoucherResponse & { isCollected?: boolean }) => {
+    if (!user) {
+      globalShowAlert('Vui lòng đăng nhập để lưu mã ưu đãi vào kho.', 'Yêu cầu đăng nhập', 'warning')
+      navigate('/login')
+      return
+    }
+    const code = vc.voucherCode.trim().toUpperCase()
+    setSavingVoucherCode(code)
+    setVoucherError(null)
+    try {
+      await voucherService.collectByCode(code)
+      setMyVouchers((prev) =>
+        prev.map((item) =>
+          item.voucherCode.trim().toUpperCase() === code
+            ? { ...item, isCollected: true, claimedCount: (item.claimedCount || 0) + 1 }
+            : item
+        )
+      )
+      globalShowAlert(`Đã lưu thành công mã "${code}" vào ví của bạn! Bạn có thể chọn để áp dụng ngay.`, 'Lưu mã thành công', 'success')
+    } catch (err: any) {
+      const errMsg = getErrorMessage(err, 'Mã voucher này đã hết lượt lưu hoặc không còn khả dụng.')
+      setVoucherError(errMsg)
+      globalShowAlert(errMsg, 'Không thể lưu mã', 'error')
+    } finally {
+      setSavingVoucherCode(null)
+    }
+  }
+
+  const handleApplyVoucherInput = async () => {
     const code = inputVoucherCode.trim().toUpperCase()
     if (!code) return
 
-    // CHỈ cho phép áp dụng voucher mà người mua ĐANG SỞ HỮU trong ví
-    const matchedVoucher = myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === code)
+    let matchedVoucher = myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === code)
+
+    // Nếu chưa có trong ví, tự động lưu mã vào ví (hỗ trợ cả mã ẩn và mã công khai)
+    if (!matchedVoucher || !matchedVoucher.isCollected) {
+      try {
+        await voucherService.collectByCode(code)
+        const updated = await voucherService.getMyVouchers()
+        const updatedList: (VoucherResponse & { isCollected?: boolean })[] = (updated || []).map((v) => ({
+          ...v,
+          isCollected: true,
+        }))
+        setMyVouchers((prev) => {
+          const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
+          prev.forEach((v) => map.set(v.voucherCode.toUpperCase(), v))
+          updatedList.forEach((v) => map.set(v.voucherCode.toUpperCase(), v))
+          return Array.from(map.values())
+        })
+        matchedVoucher = updatedList.find((vc) => vc.voucherCode?.trim().toUpperCase() === code)
+      } catch (err: any) {
+        setVoucherError(err?.response?.data?.message || 'Mã voucher không tồn tại, đã hết lượt hoặc hết hạn.')
+        return
+      }
+    }
 
     if (!matchedVoucher) {
-      setVoucherError('Bạn chưa sở hữu hoặc chưa thu thập mã voucher này. Vui lòng nhận voucher tại Cửa hàng trước khi áp dụng.')
+      setVoucherError('Không tìm thấy thông tin voucher.')
       return
     }
 
@@ -653,17 +719,23 @@ export const CheckoutView: React.FC = () => {
     }
 
     setVoucherError(null)
-    handleToggleVoucherCode(code)
+    handleToggleVoucherCode(code, matchedVoucher)
     setInputVoucherCode('')
   }
 
-  const handleToggleVoucherCode = (code: string) => {
+  const handleToggleVoucherCode = (code: string, overrideVoucher?: VoucherResponse & { isCollected?: boolean }) => {
     setVoucherError(null)
     const upper = code.trim().toUpperCase()
-    const matchedVoucher = myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === upper)
+    const matchedVoucher = overrideVoucher || myVouchers.find((vc) => vc.voucherCode?.trim().toUpperCase() === upper)
 
     if (!matchedVoucher) {
       setVoucherError('Voucher không tồn tại trong kho.')
+      return
+    }
+
+    // Yêu cầu phải lưu vào ví trước khi chọn áp dụng
+    if (!matchedVoucher.isCollected) {
+      setVoucherError('Vui lòng bấm "Lưu mã" vào ví trước khi chọn áp dụng.')
       return
     }
 
@@ -790,7 +862,7 @@ export const CheckoutView: React.FC = () => {
       // Tự động tải lại sổ địa chỉ mới nhất từ Backend
       getSavedAddresses().then((list) => {
         if (list && list.length > 0) setSavedAddresses(list)
-      }).catch(() => {})
+      }).catch(() => { })
 
       const firstOrder = orders[0]
       const batchId = firstOrder.batchId || undefined
@@ -1231,11 +1303,10 @@ export const CheckoutView: React.FC = () => {
                               key={lbl}
                               type="button"
                               onClick={() => setCheckoutAddressLabel(lbl)}
-                              className={`text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                                checkoutAddressLabel === lbl
+                              className={`text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${checkoutAddressLabel === lbl
                                   ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
                                   : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
-                              }`}
+                                }`}
                             >
                               {lbl}
                             </button>
@@ -1265,11 +1336,10 @@ export const CheckoutView: React.FC = () => {
               <div className="space-y-3">
                 {/* Lựa chọn 1: PAYOS QR */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
-                    selectedPaymentMethod === 'PAYOS'
+                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'PAYOS'
                       ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
                       : 'border-line hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -1292,11 +1362,10 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Lựa chọn 2: COD */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
-                    selectedPaymentMethod === 'COD'
+                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'COD'
                       ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
                       : 'border-line hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -1404,8 +1473,8 @@ export const CheckoutView: React.FC = () => {
                                 {item.itemType === 'MYSTERY_BOX'
                                   ? 'Túi mù nông sản'
                                   : item.itemType === 'BUILD_COMBO'
-                                  ? 'Combo nông sản'
-                                  : 'Nông sản tuyển chọn'}
+                                    ? 'Combo nông sản'
+                                    : 'Nông sản tuyển chọn'}
                               </span>
                             </div>
                           </div>
@@ -1717,8 +1786,8 @@ export const CheckoutView: React.FC = () => {
                   {editingAddress
                     ? 'Chỉnh sửa địa chỉ nhận hàng'
                     : isAddingNewAddress
-                    ? 'Thêm địa chỉ nhận hàng mới'
-                    : 'Địa chỉ nhận hàng của tôi'}
+                      ? 'Thêm địa chỉ nhận hàng mới'
+                      : 'Địa chỉ nhận hàng của tôi'}
                 </h3>
                 <p className="text-xs text-ink-muted mt-0.5">
                   {editingAddress || isAddingNewAddress
@@ -1763,11 +1832,10 @@ export const CheckoutView: React.FC = () => {
                         key={lbl}
                         type="button"
                         onClick={() => setFormLabel(lbl)}
-                        className={`text-xs px-3 py-1 rounded-xl border transition-all cursor-pointer ${
-                          formLabel === lbl
+                        className={`text-xs px-3 py-1 rounded-xl border transition-all cursor-pointer ${formLabel === lbl
                             ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
                             : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
-                        }`}
+                          }`}
                       >
                         {lbl}
                       </button>
@@ -1921,11 +1989,10 @@ export const CheckoutView: React.FC = () => {
                         <div
                           key={addr.id}
                           onClick={() => handleSelectSavedAddress(addr)}
-                          className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${
-                            isSelected
+                          className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${isSelected
                               ? 'border-emerald-600 bg-emerald-50/30 shadow-xs'
                               : 'border-line hover:border-gray-300'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-start gap-3 flex-1">
                             <input
@@ -2160,6 +2227,9 @@ export const CheckoutView: React.FC = () => {
                                   vc.voucherScope === 'SYSTEM' ||
                                   vc.voucherScope === 'WELCOME' ||
                                   vc.creatorRole === 'ADMIN'
+                                const isCollected = Boolean(vc.isCollected)
+                                const isOutOfStock = !isCollected && vc.claimLimit != null && (vc.claimedCount || 0) >= vc.claimLimit
+                                const isSaving = savingVoucherCode === vc.voucherCode.toUpperCase()
 
                                 return (
                                   <div
@@ -2167,9 +2237,9 @@ export const CheckoutView: React.FC = () => {
                                     className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
                                       isSelected
                                         ? 'border-blue-600 bg-blue-50/40 shadow-xs'
-                                        : isExpired || !isEligible
-                                        ? 'border-gray-200 bg-gray-50 opacity-60'
-                                        : 'border-line hover:border-blue-300 bg-white'
+                                        : isExpired || (!isCollected && isOutOfStock) || (isCollected && !isEligible)
+                                          ? 'border-gray-200 bg-gray-50 opacity-60'
+                                          : 'border-line hover:border-blue-300 bg-white'
                                     }`}
                                   >
                                     <div className="flex-1 min-w-0">
@@ -2183,6 +2253,15 @@ export const CheckoutView: React.FC = () => {
                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
                                           {isPlatform ? 'Toàn sàn' : 'Shop'}
                                         </span>
+                                        {isCollected ? (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                                            <Check size={10} /> Đã lưu ví
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                            Chưa lưu ví
+                                          </span>
+                                        )}
                                       </div>
                                       <p className="text-xs font-bold text-ink">
                                         {vc.voucherType === 'PERCENTAGE'
@@ -2192,11 +2271,16 @@ export const CheckoutView: React.FC = () => {
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
                                       </p>
-                                      {!isExpired && !isEligible && (
+                                      {isCollected && !isExpired && !isEligible && (
                                         <p className="text-[10px] text-amber-600 mt-1 font-medium">
                                           {!isPlatform && !checkoutShops.some((s) => Number(s.shopId) === Number(vc.shopId))
                                             ? 'Chỉ áp dụng cho đơn hàng tại Cửa hàng phát hành'
                                             : `Chưa đạt giá trị đơn tối thiểu (${Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ)`}
+                                        </p>
+                                      )}
+                                      {!isCollected && isOutOfStock && (
+                                        <p className="text-[10px] text-rose-600 mt-1 font-medium">
+                                          Mã voucher này đã được thu thập hết lượt
                                         </p>
                                       )}
                                       {vc.expiryDate && (
@@ -2206,20 +2290,42 @@ export const CheckoutView: React.FC = () => {
                                       )}
                                     </div>
 
-                                    <button
-                                      type="button"
-                                      disabled={isExpired || !isEligible}
-                                      onClick={() => handleToggleVoucherCode(vc.voucherCode)}
-                                      className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-                                        isSelected
-                                          ? 'bg-blue-600 text-white shadow-xs cursor-pointer'
-                                          : isExpired || !isEligible
-                                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                          : 'bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer'
-                                      }`}
-                                    >
-                                      {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
-                                    </button>
+                                    {!isCollected ? (
+                                      isOutOfStock ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shrink-0"
+                                        >
+                                          Hết lượt
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={() => handleCollectVoucherInModal(vc)}
+                                          className="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all"
+                                        >
+                                          {isSaving && <Loader2 size={12} className="animate-spin" />}
+                                          <span>Lưu mã</span>
+                                        </button>
+                                      )
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={isExpired || !isEligible}
+                                        onClick={() => handleToggleVoucherCode(vc.voucherCode)}
+                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                                          isSelected
+                                            ? 'bg-blue-600 text-white shadow-xs cursor-pointer'
+                                            : isExpired || !isEligible
+                                              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                              : 'bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer'
+                                        }`}
+                                      >
+                                        {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
+                                      </button>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -2258,6 +2364,9 @@ export const CheckoutView: React.FC = () => {
                                   vc.voucherScope === 'SYSTEM' ||
                                   vc.voucherScope === 'WELCOME' ||
                                   vc.creatorRole === 'ADMIN'
+                                const isCollected = Boolean(vc.isCollected)
+                                const isOutOfStock = !isCollected && vc.claimLimit != null && (vc.claimedCount || 0) >= vc.claimLimit
+                                const isSaving = savingVoucherCode === vc.voucherCode.toUpperCase()
 
                                 return (
                                   <div
@@ -2265,9 +2374,9 @@ export const CheckoutView: React.FC = () => {
                                     className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
                                       isSelected
                                         ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                                        : isExpired || !isEligible
-                                        ? 'border-gray-200 bg-gray-50 opacity-60'
-                                        : 'border-line hover:border-emerald-200 bg-white'
+                                        : isExpired || (!isCollected && isOutOfStock) || (isCollected && !isEligible)
+                                          ? 'border-gray-200 bg-gray-50 opacity-60'
+                                          : 'border-line hover:border-emerald-200 bg-white'
                                     }`}
                                   >
                                     <div className="flex-1 min-w-0">
@@ -2284,6 +2393,15 @@ export const CheckoutView: React.FC = () => {
                                         >
                                           {isPlatform ? 'Toàn sàn' : 'Voucher Shop'}
                                         </span>
+                                        {isCollected ? (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                                            <Check size={10} /> Đã lưu ví
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                            Chưa lưu ví
+                                          </span>
+                                        )}
                                       </div>
                                       <p className="text-xs font-bold text-ink">
                                         {isPercent
@@ -2294,11 +2412,16 @@ export const CheckoutView: React.FC = () => {
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
                                       </p>
-                                      {!isExpired && !isEligible && (
+                                      {isCollected && !isExpired && !isEligible && (
                                         <p className="text-[10px] text-amber-600 mt-1 font-medium">
                                           {!isPlatform && !checkoutShops.some((s) => Number(s.shopId) === Number(vc.shopId))
                                             ? 'Chỉ áp dụng cho đơn hàng tại Cửa hàng phát hành'
                                             : `Chưa đạt giá trị đơn tối thiểu (${Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ)`}
+                                        </p>
+                                      )}
+                                      {!isCollected && isOutOfStock && (
+                                        <p className="text-[10px] text-rose-600 mt-1 font-medium">
+                                          Mã voucher này đã được thu thập hết lượt
                                         </p>
                                       )}
                                       {vc.expiryDate && (
@@ -2308,20 +2431,42 @@ export const CheckoutView: React.FC = () => {
                                       )}
                                     </div>
 
-                                    <button
-                                      type="button"
-                                      disabled={isExpired || !isEligible}
-                                      onClick={() => handleToggleVoucherCode(vc.voucherCode)}
-                                      className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-                                        isSelected
-                                          ? 'bg-emerald-600 text-white shadow-xs cursor-pointer'
-                                          : isExpired || !isEligible
-                                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                          : 'bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 cursor-pointer'
-                                      }`}
-                                    >
-                                      {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
-                                    </button>
+                                    {!isCollected ? (
+                                      isOutOfStock ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shrink-0"
+                                        >
+                                          Hết lượt
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={() => handleCollectVoucherInModal(vc)}
+                                          className="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all"
+                                        >
+                                          {isSaving && <Loader2 size={12} className="animate-spin" />}
+                                          <span>Lưu mã</span>
+                                        </button>
+                                      )
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={isExpired || !isEligible}
+                                        onClick={() => handleToggleVoucherCode(vc.voucherCode)}
+                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                                          isSelected
+                                            ? 'bg-emerald-600 text-white shadow-xs cursor-pointer'
+                                            : isExpired || !isEligible
+                                              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                              : 'bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 cursor-pointer'
+                                        }`}
+                                      >
+                                        {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
+                                      </button>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -2430,13 +2575,12 @@ export const CheckoutView: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap mb-1">
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                item.itemType === 'MYSTERY_BOX'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.itemType === 'MYSTERY_BOX'
                                   ? 'bg-purple-50 text-purple-700 border-purple-200'
                                   : item.itemType === 'BUILD_COMBO'
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              }`}
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                }`}
                             >
                               {item.itemType === 'MYSTERY_BOX' && '🎁 Hộp bí ẩn'}
                               {item.itemType === 'BUILD_COMBO' && '🍱 Gói Combo'}
@@ -2457,11 +2601,10 @@ export const CheckoutView: React.FC = () => {
                             )}
                             {item.availableQuantity !== undefined && (
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                                  isOutOfStock
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${isOutOfStock
                                     ? 'bg-rose-100 text-rose-700 border-rose-300'
                                     : 'bg-amber-100 text-amber-800 border-amber-300'
-                                }`}
+                                  }`}
                               >
                                 {isOutOfStock ? 'Hết hàng (0)' : `Kho chỉ còn: ${item.availableQuantity}`}
                               </span>

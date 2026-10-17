@@ -1,7 +1,11 @@
-import axiosInstance from '@/services/api/axiosInstance'
-import { unwrap } from '@/services/api/apiUtils'
+import { axiosInstance } from './api/axiosInstance'
 import type { ApiResponse, PageResponse } from '@/types'
-import type { MysteryBox, MysteryBoxCreationRequest, MysteryBoxUpdateRequest } from './mysteryBox.types'
+import type {
+  MysteryBox,
+  MysteryBoxCreationRequest,
+  MysteryBoxUpdateRequest,
+} from './mysteryBox.types'
+import { mockMysteryBoxes } from '@/mocks/mysteryBox.mock'
 
 export type * from './mysteryBox.types'
 
@@ -13,55 +17,85 @@ export const mysteryBoxService = {
     isActive?: boolean
     page?: number
     size?: number
-  }): Promise<PageResponse<MysteryBox>> {
-    const res = await axiosInstance.get('/mystery-boxes', {
-      params: {
-        page: params?.page ?? 1,
-        size: params?.size ?? 50,
-        isActive: params?.isActive ?? true,
-        ...params,
-      },
-    })
-    return unwrap<PageResponse<MysteryBox>>(res)
+  }): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
+    try {
+      const res = await axiosInstance.get<ApiResponse<PageResponse<MysteryBox>>>('/mystery-boxes', {
+        params: {
+          page: params?.page ?? 1,
+          size: params?.size ?? 50,
+          isActive: params?.isActive ?? true,
+          ...params,
+        },
+      })
+      const page: PageResponse<MysteryBox> = res.data?.result ?? (res.data as any) ?? { content: [] }
+      return {
+        ...page,
+        result: page,
+      }
+    } catch {
+      // Fallback mock nếu API gặp lỗi
+      const page: PageResponse<MysteryBox> = {
+        content: [...mockMysteryBoxes],
+        page: 1,
+        size: 50,
+        totalElements: mockMysteryBoxes.length,
+        totalPages: 1,
+        first: true,
+        last: true,
+      }
+      return {
+        ...page,
+        result: page,
+      }
+    }
   },
 
   // Chi tiết 1 mystery box
   async getById(id: number): Promise<MysteryBox> {
-    const res = await axiosInstance.get(`/mystery-boxes/${id}`)
-    return unwrap<MysteryBox>(res)
+    const res = await axiosInstance.get<ApiResponse<MysteryBox>>(`/mystery-boxes/${id}`)
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
   // Lấy danh sách mystery box của shop đang đăng nhập
-  async getMyShopBoxes(page = 1, size = 10): Promise<PageResponse<MysteryBox>> {
-    const res = await axiosInstance.get('/mystery-boxes/my-shop', {
+  async getMyShopBoxes(page = 1, size = 10): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<MysteryBox>>>('/mystery-boxes/my-shop', {
       params: { page, size },
     })
-    return unwrap<PageResponse<MysteryBox>>(res)
+    const pageData: PageResponse<MysteryBox> = res.data?.result ?? (res.data as any) ?? { content: [] }
+    return {
+      ...pageData,
+      result: pageData,
+    }
+  },
+
+  async getMyMysteryBoxes(page = 1, size = 10): Promise<PageResponse<MysteryBox> & { result: PageResponse<MysteryBox> }> {
+    return this.getMyShopBoxes(page, size)
   },
 
   // Shop tạo mới mystery box
   async createMysteryBox(data: MysteryBoxCreationRequest): Promise<MysteryBox> {
-    const res = await axiosInstance.post('/mystery-boxes', data)
-    return unwrap<MysteryBox>(res)
+    const res = await axiosInstance.post<ApiResponse<MysteryBox>>('/mystery-boxes', data)
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
   // Shop cập nhật mystery box
   async updateMysteryBox(id: number, data: MysteryBoxUpdateRequest): Promise<MysteryBox> {
-    const res = await axiosInstance.put(`/mystery-boxes/${id}`, data)
-    return unwrap<MysteryBox>(res)
+    const res = await axiosInstance.put<ApiResponse<MysteryBox>>(`/mystery-boxes/${id}`, data)
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
   // Shop bật / tắt trạng thái
   async toggleStatus(id: number, isActive: boolean): Promise<MysteryBox> {
-    const res = await axiosInstance.patch(`/mystery-boxes/${id}/status`, null, {
-      params: { isActive },
-    })
-    return unwrap<MysteryBox>(res)
+    const res = await axiosInstance.patch<ApiResponse<MysteryBox>>(
+      `/mystery-boxes/${id}/status`,
+      null,
+      { params: { isActive } },
+    )
+    return (res.data?.result ?? res.data) as MysteryBox
   },
 
   // Shop xóa mystery box
   async deleteMysteryBox(id: number): Promise<void> {
-    const res = await axiosInstance.delete(`/mystery-boxes/${id}`)
-    return unwrap<void>(res)
+    await axiosInstance.delete(`/mystery-boxes/${id}`)
   },
 }

@@ -234,69 +234,7 @@ export default function AuthPage({
     }
   }
 
-  // Quick Demo Login for Shipper
-  const handleQuickShipperLogin = () => {
-    const shipperUser: AuthUser = {
-      name: 'Trần Văn Giao (Shipper)',
-      email: 'shipper.capnong@gmail.com',
-      phone: '0933 555 789',
-      role: 'shipper',
-      detail: 'Tài xế giao hàng · Xe máy',
-      kycStatus: 'APPROVED',
-    }
-    login(shipperUser, 'mock-token-shipper')
-    setSuccessNotice('Đăng nhập Tài Xế thành công! Đang chuyển tới Cổng Shipper...')
-    if (onLoginSuccess) {
-      setTimeout(() => {
-        onLoginSuccess(shipperUser)
-      }, 500)
-    }
-  }
 
-  // Quick Demo Login for Shop
-  const handleQuickShopLogin = () => {
-    const shopUser: AuthUser = {
-      name: 'Nông Trại Cầu Đất Đà Lạt',
-      email: 'caudat.farm@capnong.vn',
-      phone: '0988 123 456',
-      role: 'shop',
-      shopName: 'HTX Nông Sản Cầu Đất',
-      detail: 'Đà Lạt · VietGAP & Hữu cơ',
-      kycStatus: 'APPROVED',
-    }
-    login(shopUser, 'mock-token-shop')
-    setSuccessNotice('Đăng nhập nhanh với tài khoản Nhà Vườn thành công!')
-    login(shopUser)
-    if (onLoginSuccess) {
-      setTimeout(() => {
-        onLoginSuccess(shopUser)
-      }, 500)
-    } else {
-      setTimeout(() => navigate('/shop'), 500)
-    }
-  }
-
-  // Quick Demo Login for Admin
-  const handleQuickAdminLogin = () => {
-    const adminUser: AuthUser = {
-      name: 'Quản Trị Viên Hệ Thống',
-      email: 'admin@capnong.vn',
-      phone: '0901 234 567',
-      role: 'admin',
-      detail: 'Ban Quản Trị Trung Tâm CapNong',
-      kycStatus: 'APPROVED',
-    }
-    login(adminUser, 'mock-token-admin')
-    setSuccessNotice('Đăng nhập Quản Trị Viên thành công! Đang chuyển tới Admin Portal...')
-    login(adminUser)
-    if (onLoginSuccess) {
-      setTimeout(() => {
-        onLoginSuccess(adminUser)
-      }, 500)
-    } else {
-      setTimeout(() => navigate('/admin'), 500)
-    }
-  }
 
   // Google OAuth2 Login
   const handleGoogleLogin = () => {
@@ -618,71 +556,6 @@ export default function AuthPage({
                     {isSubmitting ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP NGAY'}
                   </button>
 
-                  {/* Quick Role Demo Login Box */}
-                  <div className="p-3 rounded-2xl bg-[#fbf5ee] border border-[#f3e3ce] flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-left">
-                        <Store size={18} className="text-[#8a4e1d] shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-[#5e310d]">
-                            Nhà Vườn / Cửa hàng
-                          </div>
-                          <div className="text-[10px] text-[#8c6b4e]">
-                            Đăng nhập gian hàng & duyệt KYC
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleQuickShopLogin}
-                        className="px-3 py-1.5 rounded-xl bg-[#8a4e1d] hover:bg-[#6c3911] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
-                      >
-                        Demo Nhà Vườn
-                      </button>
-                    </div>
-
-                    <div className="border-t border-[#f0dfcc] pt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-left">
-                        <Truck size={18} className="text-[#195962] shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-[#144850]">
-                            Tài Xế Giao Hàng (Shipper)
-                          </div>
-                          <div className="text-[10px] text-[#4d7980]">
-                            Nhận đơn gần, bật GPS & giao COD
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleQuickShipperLogin}
-                        className="px-3 py-1.5 rounded-xl bg-[#195962] hover:bg-[#13444b] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
-                      >
-                        Demo Shipper
-                      </button>
-                    </div>
-
-                    <div className="border-t border-[#f0dfcc] pt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-left">
-                        <ShieldCheck size={18} className="text-[#326318] shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-[#1e3a10]">
-                            Quản Trị Viên (Admin)
-                          </div>
-                          <div className="text-[10px] text-[#55694a]">
-                            Duyệt hồ sơ, nông sản & đối soát
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleQuickAdminLogin}
-                        className="px-3 py-1.5 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white text-[11px] font-bold shadow-sm transition-all shrink-0 cursor-pointer"
-                      >
-                        Demo Admin
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Divider */}
                   <div className="relative my-4 flex items-center justify-center">

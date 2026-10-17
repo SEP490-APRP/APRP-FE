@@ -4,6 +4,7 @@ import { useStorefront } from '@/app/layouts/StorefrontLayout'
 import RequireRole from './RequireRole'
 import type { AuthUser } from '@/types/auth.types'
 import { useAuth } from '@/stores'
+import { authService } from '@/services'
 
 // ---- Lazy-loaded page chunks (Tải theo nhu cầu, không làm phình file JS chính) ----
 const Home = lazy(() => import('@/pages/Home'))
@@ -48,10 +49,15 @@ export function RootLayout() {
 
   useEffect(() => {
     // Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu # (VD: /#/dang-nhap -> /dang-nhap)
-    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
-      const cleanPath = window.location.hash.slice(1)
-      navigate(cleanPath, { replace: true })
+    const handleHash = () => {
+      if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
+        const cleanPath = window.location.hash.slice(1)
+        navigate(cleanPath, { replace: true })
+      }
     }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
   }, [navigate])
 
   return (
@@ -225,31 +231,33 @@ export function OtpVerificationRoute() {
 
 function usePortalProps() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   return {
+    user,
     onNavigateStore: () => navigate('/'),
     onLogout: async () => {
+      await authService.logout()
+      logout()
       await navigate('/')
     },
   }
 }
 
 export function AdminRoute() {
-  const { user } = useAuth()
   return (
     <RequireRole roles={['admin']} audience="tài khoản Admin" loginHref="/dang-nhap?role=admin">
       <Suspense fallback={<PageLoading />}>
-        <AdminPortal user={user} {...usePortalProps()} />
+        <AdminPortal {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )
 }
 
 export function SellerRoute() {
-  const { user } = useAuth()
   return (
     <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="/dang-nhap?role=shop">
       <Suspense fallback={<PageLoading />}>
-        <FarmerPortal user={user} {...usePortalProps()} />
+        <FarmerPortal {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )

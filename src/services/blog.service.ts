@@ -1,31 +1,282 @@
+import { axiosInstance } from './api/axiosInstance'
 import type { ApiResponse, PageResponse } from '@/types'
-import type { BlogCreationRequest, BlogResponse } from './blog.types'
-import { mockBlogs } from '@/mocks/blog.mock'
-import { freshResponses } from '@/mocks/fresh'
+import type {
+  BlogCommentRequest,
+  BlogCommentResponse,
+  BlogCreateRequest,
+  BlogCreationRequest,
+  BlogResponse,
+  BlogUpdateRequest,
+} from './blog.types'
 
 export type * from './blog.types'
 
-export const blogService = freshResponses({
+export const blogService = {
+  // ==========================================
+  // 1. PUBLIC BLOG APIs (/v1/public/blogs)
+  // ==========================================
+
+  /** Lấy danh sách bài viết công khai (hỗ trợ phân trang, lọc theo category, tìm kiếm) */
+  async getPublicBlogs(params?: {
+    page?: number
+    size?: number
+    category?: string
+    search?: string
+  }): Promise<PageResponse<BlogResponse>> {
+    try {
+      const res = await axiosInstance.get<ApiResponse<PageResponse<BlogResponse>>>(
+        '/v1/public/blogs',
+        {
+          params: {
+            page: params?.page ?? 0,
+            size: params?.size ?? 10,
+            ...(params?.category && params.category !== 'all' ? { category: params.category } : {}),
+            ...(params?.search && params.search.trim() ? { search: params.search.trim() } : {}),
+          },
+        },
+      )
+      if (res.data?.result) {
+        return res.data.result
+      }
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bài viết công khai:', error)
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    }
+  },
+
+  /** Xem chi tiết bài viết (tự động tăng views) */
+  async getBlogDetail(blogId: number): Promise<BlogResponse> {
+    const res = await axiosInstance.get<ApiResponse<BlogResponse>>(`/v1/public/blogs/${blogId}`)
+    if (res.data?.result) return res.data.result
+    throw new Error('Bài viết không tồn tại')
+  },
+
+  /** Toggle Like / Unlike bài viết (yêu cầu đăng nhập) */
+  async toggleLike(blogId: number): Promise<{ message: string; isLiked: boolean }> {
+    const res = await axiosInstance.post<ApiResponse<string>>(`/v1/public/blogs/${blogId}/like`)
+    const msg = res.data?.result || ''
+    const isLiked = msg.toUpperCase() === 'LIKED' || msg.includes('đã thích')
+    return { message: msg, isLiked }
+  },
+
+  /** Lấy danh sách bình luận của bài viết */
+  async getBlogComments(
+    blogId: number,
+    params?: { page?: number; size?: number },
+  ): Promise<PageResponse<BlogCommentResponse>> {
+    try {
+      const res = await axiosInstance.get<ApiResponse<PageResponse<BlogCommentResponse>>>(
+        `/v1/public/blogs/${blogId}/comments`,
+        {
+          params: {
+            page: params?.page ?? 0,
+            size: params?.size ?? 10,
+          },
+        },
+      )
+      if (res.data?.result) return res.data.result
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    } catch (error) {
+      console.error(`Lỗi khi lấy bình luận cho bài viết ${blogId}:`, error)
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    }
+  },
+
+  /** Gửi bình luận cho bài viết (yêu cầu đăng nhập) */
+  async addComment(blogId: number, content: string): Promise<BlogCommentResponse> {
+    const req: BlogCommentRequest = { content }
+    const res = await axiosInstance.post<ApiResponse<BlogCommentResponse>>(
+      `/v1/public/blogs/${blogId}/comments`,
+      req,
+    )
+    if (res.data?.result) return res.data.result
+    throw new Error('Không thể thêm bình luận')
+  },
+
+  /** Xóa bình luận */
+  async deleteComment(commentId: number): Promise<boolean> {
+    await axiosInstance.delete(`/v1/public/blogs/comments/${commentId}`)
+    return true
+  },
+
+  // ==========================================
+  // 2. SHOP BLOG APIs (/v1/shop/blogs)
+  // ==========================================
+
+  /** Lấy danh sách bài viết của shop mình */
+  async getMyBlogs(params?: { page?: number; size?: number }): Promise<PageResponse<BlogResponse>> {
+    try {
+      const res = await axiosInstance.get<ApiResponse<PageResponse<BlogResponse>>>(
+        '/v1/shop/blogs',
+        {
+          params: {
+            page: params?.page ?? 0,
+            size: params?.size ?? 10,
+          },
+        },
+      )
+      if (res.data?.result) return res.data.result
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bài viết của shop:', error)
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    }
+  },
+
+  /** Shop tạo bài viết mới */
+  async createShopBlog(data: BlogCreateRequest): Promise<BlogResponse> {
+    const res = await axiosInstance.post<ApiResponse<BlogResponse>>('/v1/shop/blogs', data)
+    if (res.data?.result) return res.data.result
+    throw new Error('Không thể tạo bài viết')
+  },
+
+  /** Shop cập nhật bài viết */
+  async updateShopBlog(blogId: number, data: BlogUpdateRequest): Promise<BlogResponse> {
+    const res = await axiosInstance.put<ApiResponse<BlogResponse>>(
+      `/v1/shop/blogs/${blogId}`,
+      data,
+    )
+    if (res.data?.result) return res.data.result
+    throw new Error('Không thể cập nhật bài viết')
+  },
+
+  /** Shop xóa bài viết */
+  async deleteShopBlog(blogId: number): Promise<boolean> {
+    await axiosInstance.delete(`/v1/shop/blogs/${blogId}`)
+    return true
+  },
+
+  // ==========================================
+  // 3. ADMIN & BACKWARD COMPATIBLE METHODS
+  // ==========================================
+
+  /** Admin lấy tất cả bài viết toàn sàn (mọi trạng thái, lọc, tìm kiếm) */
+  async getAllBlogsForAdmin(params?: {
+    page?: number
+    size?: number
+    status?: string
+    category?: string
+    search?: string
+  }): Promise<PageResponse<BlogResponse>> {
+    try {
+      const res = await axiosInstance.get<ApiResponse<PageResponse<BlogResponse>>>(
+        '/v1/admin/blogs',
+        {
+          params: {
+            page: params?.page ?? 0,
+            size: params?.size ?? 10,
+            ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+            ...(params?.category && params.category !== 'all' ? { category: params.category } : {}),
+            ...(params?.search && params.search.trim() ? { search: params.search.trim() } : {}),
+          },
+        },
+      )
+      if (res.data?.result) return res.data.result
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bài viết quản trị:', error)
+      return {
+        content: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }
+    }
+  },
+
+  /** Admin đổi trạng thái bài viết (PUBLISHED, HIDDEN, DRAFT) */
+  async updateBlogStatus(
+    blogId: number,
+    status: 'PUBLISHED' | 'HIDDEN' | 'DRAFT',
+  ): Promise<BlogResponse> {
+    const res = await axiosInstance.patch<ApiResponse<BlogResponse>>(
+      `/v1/admin/blogs/${blogId}/status`,
+      null,
+      {
+        params: { status },
+      },
+    )
+    if (res.data?.result) return res.data.result
+    throw new Error('Không thể cập nhật trạng thái bài viết')
+  },
+
   async getAllBlogs(
     page: number = 0,
     size: number = 10,
-    _query?: string,
-    _category?: string,
+    query?: string,
+    category?: string,
+    status?: string,
   ): Promise<ApiResponse<PageResponse<BlogResponse>>> {
-    await new Promise((r) => setTimeout(r, 200))
-    const totalElements = mockBlogs.length
-    const totalPages = Math.ceil(totalElements / size) || 1
+    const paged = await this.getAllBlogsForAdmin({
+      page,
+      size,
+      search: query,
+      category,
+      status,
+    })
     return {
       code: 200,
-      result: {
-        page,
-        size,
-        totalElements,
-        totalPages,
-        first: page === 0,
-        last: page >= totalPages - 1,
-        content: [...mockBlogs],
-      },
+      result: paged,
     }
   },
 
@@ -34,46 +285,30 @@ export const blogService = freshResponses({
     size: number = 10,
     query?: string,
     category?: string,
+    status?: string,
   ): Promise<ApiResponse<PageResponse<BlogResponse>>> {
-    return this.getAllBlogs(page, size, query, category)
+    return this.getAllBlogs(page, size, query, category, status)
   },
 
   async createBlog(data: BlogCreationRequest): Promise<ApiResponse<BlogResponse>> {
-    await new Promise((r) => setTimeout(r, 300))
-    const newBlog: BlogResponse = {
-      id: Date.now(),
+    const shopReq: BlogCreateRequest = {
       title: data.title,
       content: data.content,
+      pictureUrl: data.pictureUrl || '',
+      status: (data.status as 'PUBLISHED' | 'DRAFT') || 'PUBLISHED',
       category: data.category,
-      status: (data.status as 'PUBLISHED' | 'DRAFT') || 'DRAFT',
-      createdAt: new Date().toISOString(),
-      createAt: new Date().toISOString(),
-      authorName: 'Admin CapNong',
-      adminName: 'Admin CapNong',
-      imageUrl:
-        'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
-      pictureUrl:
-        'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
-      viewCount: 0,
-      views: 0,
     }
-    mockBlogs.unshift(newBlog)
-    return { code: 200, result: newBlog }
+    const created = await this.createShopBlog(shopReq)
+    return { code: 200, result: created }
   },
 
   async updateBlog(id: number, data: Partial<BlogResponse>): Promise<ApiResponse<BlogResponse>> {
-    await new Promise((r) => setTimeout(r, 300))
-    const target = mockBlogs.find((b) => b.id === id)
-    if (target) {
-      Object.assign(target, data)
-    }
-    return { code: 200, result: target || mockBlogs[0] }
+    const updated = await this.updateShopBlog(id, data as BlogUpdateRequest)
+    return { code: 200, result: updated }
   },
 
   async deleteBlog(id: number): Promise<ApiResponse<boolean>> {
-    await new Promise((r) => setTimeout(r, 250))
-    const index = mockBlogs.findIndex((b) => b.id === id)
-    if (index !== -1) mockBlogs.splice(index, 1)
+    await this.deleteShopBlog(id)
     return { code: 200, result: true }
   },
-})
+}

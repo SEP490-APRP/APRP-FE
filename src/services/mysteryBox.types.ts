@@ -1,42 +1,56 @@
-export interface ProductMysteryItem {
+export interface ProductMysteryItemRequest {
   productId: number
-  productName: string
-  quantity: number
+  productQuantity?: number
+  quantity?: number
+}
+
+export interface ProductMysteryItem {
+  mysteryItemId?: number
+  productId: number
+  productName?: string
+  productQuantity?: number
+  quantity?: number
+  unit?: string
+  price?: number
   sellingPrice?: number
 }
 
-export interface MysteryBox {
-  mysteryId: number
-  id?: number
-  shopId: number
-  shopOwnerId?: number
-  shopName?: string
+export type ProductMysteryResponse = ProductMysteryItem
+
+export interface MysteryBoxCreationRequest {
   boxType: string
   imageUrl?: string
   price: number
   description?: string
   note?: string
-  isActive?: boolean
-  status?: string
-  totalQuantity?: number
-  soldQuantity?: number
-  items?: ProductMysteryItem[]
-}
-
-export interface MysteryBoxCreationRequest {
-  boxType: string
-  price: number
-  description?: string
-  note?: string
   totalQuantity: number
-  items: { productId: number; quantity: number }[]
+  items: ProductMysteryItemRequest[] | { productId: number; quantity: number }[]
 }
 
 export interface MysteryBoxUpdateRequest {
   boxType?: string
+  imageUrl?: string
   price?: number
   description?: string
   note?: string
   totalQuantity?: number
-  items?: { productId: number; quantity: number }[]
+  items?: ProductMysteryItemRequest[] | { productId: number; quantity: number }[]
+}
+
+export interface MysteryBox {
+  id?: number
+  mysteryId?: number
+  boxType: string
+  price: number
+  description?: string
+  imageUrl?: string
+  note?: string
+  isActive?: boolean
+  totalQuantity?: number
+  soldQuantity?: number
+  shopId?: number
+  shopOwnerId?: number
+  shopName?: string
+  status?: string
+  items?: ProductMysteryItem[]
 }

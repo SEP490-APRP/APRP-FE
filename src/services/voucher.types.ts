@@ -21,12 +21,15 @@ export interface VoucherResponse {
   creatorRole?: string
   shopId?: number | null
   isPublic?: boolean
+  isCollected?: boolean
+  isUsed?: boolean
+  userRemainingQuantity?: number
 }
 
 export interface VoucherCreateRequest {
   voucherCode: string
   voucherType: VoucherType
-  voucherScope: VoucherScope
+  voucherScope?: VoucherScope
   voucherTarget: VoucherTarget
   discountValue: number
   maxDiscount?: number
