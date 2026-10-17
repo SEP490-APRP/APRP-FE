@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import RootLayout from '@/app/layouts/RootLayout'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
-  RootLayout,
   HomeRoute,
   FreshRoute,
   CombosRoute,
@@ -16,6 +16,7 @@ import {
   OtpVerificationRoute,
   AdminRoute,
   SellerRoute,
+  ShopOrdersRoute,
   ShipperRoute,
   CartRoute,
   CheckoutRoute,
@@ -26,8 +27,6 @@ import {
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
-
-import { ShopOrdersPage } from '@/pages/ShopOrdersPage'
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
@@ -49,7 +48,7 @@ export const router = createBrowserRouter([
       // 2. Phân hệ Nhà vườn (Farmer / Seller Portal)
       {
         path: 'shop/orders',
-        element: <ShopOrdersPage />,
+        element: <ShopOrdersRoute />,
         handle: title('Quản lý đơn hàng · Kênh Nhà Vườn'),
       },
       {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Info } from 'lucide-react'
 import Header from '@/components/layout/Header'
@@ -8,6 +8,7 @@ import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
 import { authService } from '@/services'
+import { PageLoading } from './RootLayout'
 
 export type StorefrontContext = {
   cart: Cart
@@ -153,7 +154,9 @@ export default function StorefrontLayout() {
       />
 
       <main id="main-content" tabIndex={-1}>
-        <Outlet context={context} />
+        <Suspense fallback={<PageLoading />}>
+          <Outlet context={context} />
+        </Suspense>
       </main>
 
       <Footer onInfo={showInfo} />
