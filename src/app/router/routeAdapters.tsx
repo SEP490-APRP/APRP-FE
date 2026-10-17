@@ -16,9 +16,11 @@ const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'))
 const ProductDetail = lazy(() => import('@/pages/product/ProductDetail'))
 const ShopPage = lazy(() => import('@/pages/product/ShopPage'))
 const ShopVouchers = lazy(() => import('@/pages/product/ShopVouchers'))
-const AuthPage = lazy(() => import('@/pages/AuthPage'))
-const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage/ForgotPasswordPage'))
-const OtpVerificationPage = lazy(() => import('@/pages/OtpVerificationPage/OtpVerificationPage'))
+const AuthPage = lazy(() => import('@/pages/AuthPage/AuthPage'))
+const ForgotPasswordPage = lazy(() => import('@/pages/AuthPage/ForgotPasswordPage'))
+const ChangePasswordPage = lazy(() => import('@/pages/AuthPage/ChangePasswordPage'))
+const OtpVerificationPage = lazy(() => import('@/pages/AuthPage/OtpVerificationPage'))
+const OAuthSuccessPage = lazy(() => import('@/pages/AuthPage/OAuthSuccessPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const AdminPortal = lazy(() => import('@/pages/admin/AdminPortal'))
 const FarmerPortal = lazy(() => import('@/pages/farmer/FarmerPortal'))
@@ -218,10 +220,28 @@ export function ForgotPasswordRoute() {
   )
 }
 
+export function ChangePasswordRoute() {
+  return (
+    <RequireRole roles={['buyer', 'shop', 'shipper', 'admin']} audience="người dùng đã đăng nhập">
+      <Suspense fallback={<PageLoading />}>
+        <ChangePasswordPage />
+      </Suspense>
+    </RequireRole>
+  )
+}
+
 export function OtpVerificationRoute() {
   return (
     <Suspense fallback={<PageLoading />}>
       <OtpVerificationPage />
+    </Suspense>
+  )
+}
+
+export function OAuthSuccessRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <OAuthSuccessPage />
     </Suspense>
   )
 }

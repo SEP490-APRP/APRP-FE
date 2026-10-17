@@ -21,6 +21,9 @@ export interface BuyerRegisterRequest {
   phoneNumber: string
   address: string
   dietPreference?: string
+  bankAccount?: string
+  bankAccountHolder?: string
+  bankName?: string
 }
 
 /** Đăng ký chủ gian hàng (Shop Owner) qua POST /users/shops */
@@ -30,6 +33,7 @@ export interface ShopRegisterRequest {
   fullName: string
   phoneNumber: string
   address: string
+  cccd: string
   shopName: string
   bankAccount?: string
   bankAccountHolder?: string
@@ -44,7 +48,11 @@ export interface ShipperRegisterRequest {
   fullName: string
   phoneNumber: string
   address: string
+  cccd: string
   vehicleNumber: string
+  bankAccount?: string
+  bankAccountHolder?: string
+  bankName?: string
   license?: string
 }
 
@@ -76,6 +84,26 @@ export interface LogoutRequest {
 /** Refresh token qua POST /auth/refresh */
 export interface RefreshTokenRequest {
   token: string
+}
+
+/** Đổi mật khẩu qua POST /users/change-password */
+export interface ChangePasswordRequest {
+  oldPassword: string
+  newPassword: string
+  confirmPassword?: string
+}
+
+/** Yêu cầu quên mật khẩu (gửi OTP) qua POST /auth/forgot-password */
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+/** Đặt lại mật khẩu mới với OTP qua POST /auth/reset-password */
+export interface ResetPasswordRequest {
+  email: string
+  otp: number
+  newPassword: string
+  confirmPassword?: string
 }
 
 /** Payload giải mã từ JWT token do Backend Nimbus JOSE phát hành */
