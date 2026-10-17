@@ -78,9 +78,14 @@ export const BlogCreateModal: React.FC<BlogCreateModalProps> = ({
 
     try {
       setIsUploadingModalImage(true)
-      const uploadedUrl = await uploadService.uploadImage(file)
-      setNewPictureUrl(uploadedUrl)
-      globalShowAlert('Tải ảnh bìa lên thành công!', 'Thành công', 'success')
+      const res = await uploadService.uploadImage(file, 'blogs')
+      const uploadedUrl = res.result?.url
+      if (uploadedUrl) {
+        setNewPictureUrl(uploadedUrl)
+        globalShowAlert('Tải ảnh bìa lên thành công!', 'Thành công', 'success')
+      } else {
+        throw new Error('Không nhận được liên kết ảnh sau khi tải lên')
+      }
     } catch {
       globalShowAlert('Không thể tải ảnh lên. Vui lòng thử lại!', 'Thất bại', 'error')
     } finally {

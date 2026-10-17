@@ -243,22 +243,20 @@ function usePortalProps() {
 }
 
 export function AdminRoute() {
-  const { user } = useAuth()
   return (
     <RequireRole roles={['admin']} audience="tài khoản Admin" loginHref="/dang-nhap?role=admin">
       <Suspense fallback={<PageLoading />}>
-        <AdminPortal user={user} {...usePortalProps()} />
+        <AdminPortal {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )
 }
 
 export function SellerRoute() {
-  const { user } = useAuth()
   return (
     <RequireRole roles={['shop']} audience="tài khoản Nhà vườn" loginHref="/dang-nhap?role=shop">
       <Suspense fallback={<PageLoading />}>
-        <FarmerPortal user={user} {...usePortalProps()} />
+        <FarmerPortal {...usePortalProps()} />
       </Suspense>
     </RequireRole>
   )
