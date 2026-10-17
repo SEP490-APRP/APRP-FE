@@ -7,8 +7,9 @@ import {
   Tag,
   Heart,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
-import { BlogCategory } from '@/types'
+import { BlogCategory, BlogCategoryLabel } from '@/types'
 
 export interface BlogCategoryOption {
   value: string
@@ -25,6 +26,21 @@ export const BLOG_CATEGORY_OPTIONS: BlogCategoryOption[] = [
   { value: BlogCategory.SUC_KHOE, label: 'Sức khỏe dinh dưỡng', icon: Heart },
   { value: BlogCategory.NONG_NGHIEP, label: 'Nông nghiệp sạch', icon: ShieldCheck },
 ]
+
+export const FARMER_STORIES_CATEGORIES: { id: string; label: string; icon: React.ElementType }[] = [
+  { id: 'all', label: 'Tất cả bài viết', icon: Sparkles },
+  { id: 'STORY', label: 'Chuyện nhà nông', icon: Sprout },
+  { id: 'NEW_PRODUCT', label: 'Mùa vụ & Nông sản mới', icon: Calendar },
+  { id: 'GUIDE', label: 'Cẩm nang & Mẹo vặt', icon: BookOpen },
+  { id: 'PROMOTION', label: 'Khuyến mãi & Ưu đãi', icon: Tag },
+  { id: 'SUC_KHOE', label: 'Sức khỏe dinh dưỡng', icon: Heart },
+  { id: 'NONG_NGHIEP', label: 'Nông nghiệp sạch', icon: ShieldCheck },
+]
+
+export function getCategoryBadge(categoryKey?: string): string {
+  if (!categoryKey) return 'Chuyện nhà nông'
+  return BlogCategoryLabel[categoryKey] || categoryKey
+}
 
 export const MODAL_BLOG_CATEGORY_OPTIONS: BlogCategoryOption[] =
   BLOG_CATEGORY_OPTIONS.filter((o) => o.value !== 'all')
