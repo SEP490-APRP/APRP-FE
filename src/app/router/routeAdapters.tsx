@@ -27,6 +27,7 @@ const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
 const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 
 const DEFAULT_PRODUCT_ID = '701'
@@ -291,6 +292,20 @@ export function BuyerOrdersRoute() {
     <Suspense fallback={<PageLoading />}>
       <BuyerOrdersPage />
     </Suspense>
+  )
+}
+
+export function ProfileRoute() {
+  return (
+    <RequireRole
+      roles={['buyer', 'shop', 'shipper', 'admin']}
+      audience="người dùng"
+      loginHref="/dang-nhap"
+    >
+      <Suspense fallback={<PageLoading />}>
+        <ProfilePage />
+      </Suspense>
+    </RequireRole>
   )
 }
 

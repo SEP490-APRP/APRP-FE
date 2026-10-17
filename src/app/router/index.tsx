@@ -22,6 +22,7 @@ import {
   PaymentResultRoute,
   BuyerOrdersRoute,
   MyVouchersRoute,
+  ProfileRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
@@ -99,6 +100,9 @@ export const router = createBrowserRouter([
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
           // Xác thực & Tài khoản
+          { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
+          { path: 'profile/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'dang-ky/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },
           { path: 'login/*', element: <Navigate replace to="/dang-nhap" /> },

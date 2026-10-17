@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Info } from 'lucide-react'
 import Header from '@/components/layout/Header'
@@ -34,7 +34,25 @@ function headerRoute(pathname: string): string {
 export default function StorefrontLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, setUser } = useAuth()
+
+  // Đồng bộ ảnh đại diện từ backend nếu session chưa có avatar
+  useEffect(() => {
+    if (user && !user.avatar) {
+      authService
+        .getMyInfo()
+        .then((res) => {
+          const avatar = res.result?.logoUrl || res.result?.avatar
+          if (avatar && avatar !== user.avatar) {
+            setUser({
+              ...user,
+              avatar,
+            })
+          }
+        })
+        .catch(() => {})
+    }
+  }, [user?.id])
   const cart = useCartStore((s) => s.items)
   const changeQuantity = useCartStore((s) => s.changeQuantity)
   const { toast, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()

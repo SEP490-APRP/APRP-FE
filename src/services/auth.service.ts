@@ -213,6 +213,20 @@ export const authService = {
   },
 
   /**
+   * Cập nhật ảnh đại diện người dùng qua PATCH /users/me/images (Multipart/form-data)
+   */
+  async updateAvatar(file: File): Promise<ApiResponse<UserResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await axiosInstance.patch<ApiResponse<UserResponse>>('/users/me/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  /**
    * Thu hồi token đăng xuất qua POST /auth/logout
    */
   async logout(token?: string): Promise<ApiResponse<void>> {
