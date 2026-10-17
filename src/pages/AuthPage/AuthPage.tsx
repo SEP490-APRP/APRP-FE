@@ -25,11 +25,13 @@ import {
   Check,
 } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
-import authBannerImg from '../assets/auth-shelf-banner.jpg'
+import { useNavigate, useLocation } from 'react-router-dom'
+import authBannerImg from '@/assets/auth-shelf-banner.jpg'
 import {
   loginSchema,
   memberRegisterSchema,
+  buyerRegisterSchema,
+  shipperRegisterSchema,
   REGISTER_DEFAULTS,
   shopAccountSchema,
   shopKycSchema,
@@ -55,6 +57,7 @@ export default function AuthPage({
   onInfo,
 }: AuthPageProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [mode, setMode] = useState<'login' | 'register' | 'kyc_pending'>(initialMode)
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'shop' | 'shipper'>(initialRole)
@@ -105,7 +108,13 @@ export default function AuthPage({
     } else if (hash.includes('role=buyer')) {
       setSelectedRole('buyer')
     }
-  }, [])
+
+    const stateEmail = (location.state as { email?: string })?.email
+    if (stateEmail) {
+      loginForm.setValue('identifier', stateEmail)
+      registerForm.setValue('email', stateEmail)
+    }
+  }, [location.state, loginForm, registerForm])
 
   // Standard Login Submit tích hợp API Backend Spring Boot
   const handleLoginSubmit = async (e: FormEvent) => {
@@ -133,71 +142,7 @@ export default function AuthPage({
         throw new Error('Không nhận được token xác thực từ máy chủ.')
       }
 
-      // Lưu token vào storage để axiosInstance tự động đính kèm Bearer token
-      localStorage.setItem(STORAGE_KEYS.TOKEN, token)
-      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
-
-      // 1. Giải mã token JWT lấy roles, sub (userId), email
-      const payload = authService.parseJwt(token)
-
-      // 2. Gọi API /users/me để lấy profile đầy đủ
-      let profileUser: UserResponse | null = null
-      try {
-        const meRes = await authService.getMyInfo()
-        if (meRes.result) {
-          profileUser = meRes.result
-        }
-      } catch (meErr) {
-        console.warn('Không thể tải profile /users/me:', meErr)
-      }
-
-      const mappedRole = authService.mapBackendRoleToFrontend([
-        payload?.roles,
-        profileUser?.role?.name,
-        profileUser?.roleName,
-      ])
-
-      // 3. Xây dựng SessionUser chuẩn dựa trên Role trích xuất từ JWT
-      const sessionUser = profileUser
-        ? authService.buildSessionUser(profileUser, mappedRole)
-        : {
-            id: String(payload?.sub || crypto.randomUUID()),
-            name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
-            email: payload?.email || loginEmail,
-            role: mappedRole,
-            detail:
-              mappedRole === 'shop'
-                ? 'Chủ gian hàng nông sản'
-                : mappedRole === 'admin'
-                  ? 'Quản trị viên hệ thống'
-                  : mappedRole === 'shipper'
-                    ? 'Đối tác giao vận'
-                    : 'Thành viên CapNong',
-          }
-
-      // 4. Lưu vào Zustand Auth Store
-      login(sessionUser, token)
-
-      setSuccessNotice(
-        mappedRole === 'shop'
-          ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
-          : mappedRole === 'admin'
-            ? 'Đăng nhập Quản Trị Viên thành công! Đang chuyển đến Admin Portal...'
-            : mappedRole === 'shipper'
-              ? 'Đăng nhập Tài Xế thành công! Đang chuyển đến Cổng Giao Hàng...'
-              : 'Đăng nhập thành công! Đang chuyển hướng...',
-      )
-
-      setTimeout(() => {
-        if (onLoginSuccess) {
-          onLoginSuccess(sessionUser)
-        } else {
-          if (mappedRole === 'admin') navigate('/admin')
-          else if (mappedRole === 'shop') navigate('/shop')
-          else if (mappedRole === 'shipper') navigate('/shipper')
-          else navigate('/')
-        }
-      }, 500)
+      await processAuthToken(token, loginEmail)
     } catch (err: any) {
       console.error('Đăng nhập thất bại:', err)
       const errorCode = err?.data?.code || err?.response?.data?.code
@@ -236,9 +181,148 @@ export default function AuthPage({
 
 
 
+  // Xử lý sau khi nhận được token JWT từ Backend (cả login thường và login Google)
+  const processAuthToken = async (token: string, fallbackEmail?: string) => {
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+
+    // 1. Giải mã token JWT lấy roles, sub (userId), email
+    const payload = authService.parseJwt(token)
+
+    // 2. Gọi API /users/me để lấy profile đầy đủ
+    let profileUser: UserResponse | null = null
+    try {
+      const meRes = await authService.getMyInfo()
+      if (meRes.result) {
+        profileUser = meRes.result
+      }
+    } catch (meErr) {
+      console.warn('Không thể tải profile /users/me:', meErr)
+    }
+
+    const mappedRole = authService.mapBackendRoleToFrontend([
+      payload?.roles,
+      profileUser?.role?.name,
+      profileUser?.roleName,
+    ])
+
+    // 3. Xây dựng SessionUser chuẩn dựa trên Role trích xuất từ JWT
+    const sessionUser = profileUser
+      ? authService.buildSessionUser(profileUser, mappedRole)
+      : {
+          id: String(payload?.sub || crypto.randomUUID()),
+          name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
+          email: payload?.email || fallbackEmail || '',
+          role: mappedRole,
+          detail:
+            mappedRole === 'shop'
+              ? 'Chủ gian hàng nông sản'
+              : mappedRole === 'admin'
+                ? 'Quản trị viên hệ thống'
+                : mappedRole === 'shipper'
+                  ? 'Đối tác giao vận'
+                  : 'Thành viên CapNong',
+        }
+
+    // 4. Lưu vào Zustand Auth Store
+    login(sessionUser, token)
+
+    setSuccessNotice(
+      mappedRole === 'shop'
+        ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
+        : mappedRole === 'admin'
+          ? 'Đăng nhập Quản Trị Viên thành công! Đang chuyển đến Admin Portal...'
+          : mappedRole === 'shipper'
+            ? 'Đăng nhập Tài Xế thành công! Đang chuyển đến Cổng Giao Hàng...'
+            : 'Đăng nhập thành công! Đang chuyển hướng...',
+    )
+
+    setTimeout(() => {
+      if (onLoginSuccess) {
+        onLoginSuccess(sessionUser)
+      } else {
+        if (mappedRole === 'admin') navigate('/admin')
+        else if (mappedRole === 'shop') navigate('/shop')
+        else if (mappedRole === 'shipper') navigate('/shipper')
+        else navigate('/')
+      }
+    }, 500)
+  }
+
   // Google OAuth2 Login
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
+    setError('')
+    const googleClientId =
+      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+      '524069144709-1mlol0v6iaoeh1o02m5k92eg50lo08uo.apps.googleusercontent.com'
+
+    const google = (window as any).google
+    if (google && google.accounts && google.accounts.oauth2) {
+      setIsSubmitting(true)
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: googleClientId,
+        scope: 'email profile openid',
+        callback: async (tokenResponse: any) => {
+          if (tokenResponse && tokenResponse.access_token) {
+            try {
+              const res = await authService.loginGoogle(tokenResponse.access_token)
+              if (res.result?.token) {
+                await processAuthToken(res.result.token)
+              } else {
+                setError('Không nhận được token xác thực từ máy chủ.')
+              }
+            } catch (err: any) {
+              console.error('Đăng nhập Google thất bại:', err)
+              const errorCode = err?.data?.code || err?.response?.data?.code
+              const msg = err?.data?.message || err?.response?.data?.message || err?.message
+
+              if (
+                errorCode === 1022 ||
+                msg?.toLowerCase().includes('otp') ||
+                msg?.toLowerCase().includes('not active') ||
+                msg?.toLowerCase().includes('verify')
+              ) {
+                setError('Tài khoản chưa được kích hoạt OTP. Đang chuyển đến trang xác thực OTP...')
+                setTimeout(() => {
+                  navigate('/xac-thuc-otp')
+                }, 1200)
+                return
+              }
+
+              if (errorCode === 1025) {
+                setError('Tài khoản của bạn đang chờ Ban Quản Trị phê duyệt trước khi có thể đăng nhập.')
+                return
+              }
+
+              if (errorCode === 1026) {
+                setError('Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.')
+                return
+              }
+
+              setError(msg || 'Đăng nhập Google thất bại. Vui lòng thử lại.')
+            } finally {
+              setIsSubmitting(false)
+            }
+          } else {
+            setIsSubmitting(false)
+            if (tokenResponse?.error) {
+              console.warn('Google OAuth error:', tokenResponse.error)
+            }
+          }
+        },
+        error_callback: (err: any) => {
+          setIsSubmitting(false)
+          console.error('Google login error:', err)
+        },
+      })
+      client.requestAccessToken()
+      return
+    }
+
+    // Fallback nếu Google script chưa sẵn sàng
+    const baseUrl = API_BASE_URL.replace(/\/+$/, '')
+    const targetUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`
+    window.location.href = `${targetUrl}/oauth2/authorization/google`
   }
 
   // Step 1 to Step 2 validation for Shop
@@ -259,6 +343,21 @@ export default function AuthPage({
     }
 
     setShopRegisterStep(2)
+  }
+
+  const formatRegisterError = (err: any, defaultMsg: string): string => {
+    const errorCode = err?.data?.code || err?.response?.data?.code
+    const msg = err?.data?.message || err?.response?.data?.message || err?.message
+    if (errorCode === 1001) {
+      return 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng tính năng Đăng nhập với Google.'
+    }
+    if (errorCode === 1017) {
+      return 'Số điện thoại này đã được đăng ký trong hệ thống.'
+    }
+    if (errorCode === 1032) {
+      return 'Số Căn cước công dân (CCCD) này đã được đăng ký trong hệ thống.'
+    }
+    return msg || defaultMsg
   }
 
   // Final Register Submit
@@ -289,13 +388,11 @@ export default function AuthPage({
           fullName: values.fullName.trim(),
           phoneNumber: values.phone.trim(),
           address: values.shopAddress?.trim() || 'Lâm Đồng, Việt Nam',
+          cccd: values.cccd.trim(),
           shopName: values.shopName.trim(),
-          bankAccount: values.shopBankAccount?.trim(),
-          bankAccountHolder: values.shopBankHolder?.trim() || values.fullName.trim(),
-          bankName: values.shopBankName?.trim() || 'Vietcombank',
-          description: values.shopRegion
-            ? `Khu vực: ${values.shopRegion}. Canh tác: ${values.shopFarmingType}`
-            : undefined,
+          description:
+            values.shopDescription?.trim() ||
+            `Khu vực: ${values.shopRegion}. Canh tác: ${values.shopFarmingType}`,
         })
 
         setSuccessNotice('Đăng ký gian hàng thành công! Mã OTP đã được gửi đến email của bạn.')
@@ -304,59 +401,68 @@ export default function AuthPage({
         }, 1000)
       } catch (err: any) {
         console.error('Đăng ký shop thất bại:', err)
-        const msg = err?.data?.message || err?.response?.data?.message || err?.message
-        setError(msg || 'Đăng ký gian hàng thất bại. Vui lòng kiểm tra lại thông tin.')
+        setError(formatRegisterError(err, 'Đăng ký gian hàng thất bại. Vui lòng kiểm tra lại thông tin.'))
       } finally {
         setIsSubmitting(false)
       }
       return
     }
 
-    // Buyer & Shipper
-    const result = validate(memberRegisterSchema, values)
-    if (!result.ok) {
-      setError(result.error)
-      return
-    }
+    if (selectedRole === 'shipper') {
+      const result = validate(shipperRegisterSchema, values)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
 
-    if (!values.email || !values.email.includes('@')) {
-      setError('Vui lòng nhập địa chỉ email hợp lệ để nhận mã xác thực OTP')
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      if (selectedRole === 'shipper') {
+      setIsSubmitting(true)
+      try {
         await authService.registerShipper({
           email: values.email.trim(),
           password: values.password,
           fullName: values.fullName.trim(),
           phoneNumber: values.phone.trim(),
-          address: values.shipperArea?.trim() || 'TP. Hồ Chí Minh',
-          vehicleNumber: values.shipperVehicle?.trim() || '59-A1 12345',
+          address: values.shipperArea.trim(),
+          cccd: values.cccd.trim(),
+          vehicleNumber: values.vehicleNumber.trim(),
         })
         setSuccessNotice('Đăng ký tài xế thành công! Mã OTP đã được gửi đến email của bạn.')
         setTimeout(() => {
           navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isShipper: true } })
         }, 1000)
-      } else {
-        // Buyer
-        await authService.registerBuyer({
-          email: values.email.trim(),
-          password: values.password,
-          fullName: values.fullName.trim(),
-          phoneNumber: values.phone.trim(),
-          address: values.buyerAddress?.trim() || 'TP. Hồ Chí Minh',
-        })
-        setSuccessNotice('Đăng ký tài khoản thành công! Mã OTP đã được gửi đến email của bạn.')
-        setTimeout(() => {
-          navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isBuyer: true } })
-        }, 1000)
+      } catch (err: any) {
+        console.error('Đăng ký tài xế thất bại:', err)
+        setError(formatRegisterError(err, 'Đăng ký tài xế thất bại. Vui lòng kiểm tra lại thông tin.'))
+      } finally {
+        setIsSubmitting(false)
       }
+      return
+    }
+
+    // Buyer
+    const result = validate(buyerRegisterSchema, values)
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await authService.registerBuyer({
+        email: values.email.trim(),
+        password: values.password,
+        fullName: values.fullName.trim(),
+        phoneNumber: values.phone.trim(),
+        address: values.buyerAddress.trim(),
+        dietPreference: values.dietPreference || 'NON_VEGETARIAN',
+      })
+      setSuccessNotice('Đăng ký tài khoản thành công! Mã OTP đã được gửi đến email của bạn.')
+      setTimeout(() => {
+        navigate('/xac-thuc-otp', { state: { email: values.email.trim(), isBuyer: true } })
+      }, 1000)
     } catch (err: any) {
       console.error('Đăng ký thất bại:', err)
-      const msg = err?.data?.message || err?.response?.data?.message || err?.message
-      setError(msg || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
+      setError(formatRegisterError(err, 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -365,11 +471,11 @@ export default function AuthPage({
   function getRoleLabel(role: 'buyer' | 'shop' | 'shipper'): string {
     switch (role) {
       case 'buyer':
-        return 'Người mua (Buyer)'
+        return 'Khách Mua'
       case 'shop':
-        return 'Nhà vườn / Cửa hàng (Shop)'
+        return 'Nhà Vườn'
       case 'shipper':
-        return 'Tài xế giao hàng (Shipper)'
+        return 'Tài Xế'
     }
   }
 
@@ -540,7 +646,7 @@ export default function AuthPage({
 
                     <button
                       type="button"
-                      onClick={() => onInfo?.('Khôi phục mật khẩu qua Email/SMS')}
+                      onClick={() => navigate('/quen-mat-khau')}
                       className="font-bold text-[#326318] hover:underline"
                     >
                       Quên mật khẩu?
@@ -639,30 +745,28 @@ export default function AuthPage({
                         setSelectedRole('buyer')
                         setShopRegisterStep(1)
                       }}
-                      className={`p-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                         selectedRole === 'buyer'
                           ? 'border-[#326318] bg-[#f1faea] shadow-sm'
                           : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
                       }`}
                     >
-                      <span className="text-base">🛒</span>
-                      <div className="font-extrabold text-[11px] text-[#21291d]">1. Khách Mua</div>
-                      <span className="text-[9px] text-[#697263]">(Buyer)</span>
+                      <span className="text-lg">🛒</span>
+                      <div className="font-extrabold text-xs text-[#21291d]">1. Khách Mua</div>
                     </button>
 
                     {/* 2. Shop */}
                     <button
                       type="button"
                       onClick={() => setSelectedRole('shop')}
-                      className={`p-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                         selectedRole === 'shop'
                           ? 'border-[#8a4e1d] bg-[#fdf5eb] shadow-sm'
                           : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
                       }`}
                     >
-                      <span className="text-base">🌾</span>
-                      <div className="font-extrabold text-[11px] text-[#21291d]">2. Nhà Vườn</div>
-                      <span className="text-[9px] text-[#697263]">(Shop)</span>
+                      <span className="text-lg">🌾</span>
+                      <div className="font-extrabold text-xs text-[#21291d]">2. Nhà Vườn</div>
                     </button>
 
                     {/* 3. Shipper */}
@@ -672,15 +776,14 @@ export default function AuthPage({
                         setSelectedRole('shipper')
                         setShopRegisterStep(1)
                       }}
-                      className={`p-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                         selectedRole === 'shipper'
                           ? 'border-[#2d6f78] bg-[#eef7f8] shadow-sm'
                           : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
                       }`}
                     >
-                      <span className="text-base">🚚</span>
-                      <div className="font-extrabold text-[11px] text-[#21291d]">3. Tài Xế</div>
-                      <span className="text-[9px] text-[#697263]">(Shipper)</span>
+                      <span className="text-lg">🚚</span>
+                      <div className="font-extrabold text-xs text-[#21291d]">3. Tài Xế</div>
                     </button>
                   </div>
                 </div>
@@ -730,11 +833,28 @@ export default function AuthPage({
                         />
                         <input
                           type="email"
+                          required
                           {...registerForm.register('email')}
-                          placeholder="Email nhận đơn"
+                          placeholder="Email nhận mã OTP *"
                           className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
                         />
                       </div>
+                    </div>
+
+                    {/* CCCD Chủ hộ / Người đại diện */}
+                    <div className="relative">
+                      <CreditCard
+                        size={16}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
+                      />
+                      <input
+                        type="text"
+                        required
+                        maxLength={12}
+                        {...registerForm.register('cccd')}
+                        placeholder="Số Căn cước công dân (CCCD 12 số) *"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -857,27 +977,14 @@ export default function AuthPage({
                       </select>
                     </div>
 
-                    {/* Bank Account */}
-                    <div className="p-2.5 bg-[#fbf5ee] rounded-2xl border border-[#eeddc7] space-y-2">
-                      <div className="text-[11px] font-bold text-[#8a4e1d] flex items-center gap-1.5">
-                        <CreditCard size={14} />
-                        <span>Tài khoản ngân hàng nhận quyết toán:</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          required
-                          {...registerForm.register('shopBankAccount')}
-                          placeholder="Số tài khoản ngân hàng *"
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#d8c3aa] text-xs text-[#1e2319] outline-none"
-                        />
-                        <input
-                          type="text"
-                          {...registerForm.register('shopBankHolder')}
-                          placeholder="Chủ tài khoản"
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#d8c3aa] text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+                    {/* Shop Description */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        {...registerForm.register('shopDescription')}
+                        placeholder="Mô tả nông sản chính / câu chuyện nhà vườn (Tùy chọn)"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
+                      />
                     </div>
 
                     {/* Image Upload Previews */}
@@ -929,7 +1036,7 @@ export default function AuthPage({
                 {/* BUYER / SHIPPER REGISTRATION FORM                   */}
                 {/* ---------------------------------------------------- */}
                 {selectedRole !== 'shop' && (
-                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3">
                     <div className="relative">
                       <User
                         size={18}
@@ -939,8 +1046,14 @@ export default function AuthPage({
                         type="text"
                         required
                         {...registerForm.register('fullName')}
-                        placeholder="Họ và tên của bạn *"
-                        className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs sm:text-sm text-[#1e2319] outline-none"
+                        placeholder={
+                          selectedRole === 'shipper'
+                            ? 'Họ và tên tài xế *'
+                            : 'Họ và tên của bạn *'
+                        }
+                        className={`w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl bg-[#f4f6f1] border border-transparent ${
+                          selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
+                        } focus:bg-white text-xs sm:text-sm text-[#1e2319] outline-none`}
                       />
                     </div>
 
@@ -955,7 +1068,9 @@ export default function AuthPage({
                           required
                           {...registerForm.register('phone')}
                           placeholder="Số điện thoại *"
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
+                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
+                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
                         />
                       </div>
                       <div className="relative">
@@ -968,48 +1083,99 @@ export default function AuthPage({
                           required
                           {...registerForm.register('email')}
                           placeholder="Email nhận mã OTP *"
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
+                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
+                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
                         />
                       </div>
                     </div>
 
                     {selectedRole === 'buyer' && (
-                      <div className="relative">
-                        <MapPin
-                          size={17}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="text"
-                          {...registerForm.register('buyerAddress')}
-                          placeholder="Địa chỉ nhận hàng (Quận/Huyện, Tỉnh/TP...)"
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+                      <>
+                        <div className="relative">
+                          <MapPin
+                            size={17}
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
+                          />
+                          <input
+                            type="text"
+                            required
+                            {...registerForm.register('buyerAddress')}
+                            placeholder="Địa chỉ nhận hàng (Số nhà, Phường/Xã, Tỉnh/TP) *"
+                            className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          />
+                        </div>
+
+                        <div className="p-2.5 bg-[#f4f6f1] rounded-2xl border border-[#e4e7e0]">
+                          <label className="block text-[11px] font-bold text-[#44503e] mb-1">
+                            🥗 Nhu cầu / Phong cách dinh dưỡng:
+                          </label>
+                          <select
+                            {...registerForm.register('dietPreference')}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#dce0d8] text-xs font-semibold text-[#1e2319] outline-none cursor-pointer"
+                          >
+                            <option value="NON_VEGETARIAN">Đa dạng (Ăn uống thông thường)</option>
+                            <option value="VEGETARIAN">Ăn chay (Không thịt cá)</option>
+                            <option value="VEGAN">Thuần chay hoàn toàn (Plant-based)</option>
+                          </select>
+                        </div>
+                      </>
                     )}
 
                     {selectedRole === 'shipper' && (
-                      <div className="p-3 bg-[#eef7f8] rounded-2xl border border-[#c4e0f0] space-y-2">
-                        <div className="text-[11px] font-bold text-[#2d6f78]">
-                          Phương Tiện &amp; Khu Vực Giao Hàng:
+                      <>
+                        {/* CCCD Tài xế */}
+                        <div className="relative">
+                          <CreditCard
+                            size={17}
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
+                          />
+                          <input
+                            type="text"
+                            required
+                            maxLength={12}
+                            {...registerForm.register('cccd')}
+                            placeholder="Số Căn cước công dân tài xế (CCCD 12 số) *"
+                            className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#2d6f78] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          />
                         </div>
-                        <select
-                          {...registerForm.register('shipperVehicle')}
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none"
-                        >
-                          <option value="Xe máy kèm thùng bảo ôn">
-                            Xe máy (Có thùng bảo ôn giữ tươi)
-                          </option>
-                          <option value="Xe ba gác nông sản">Xe ba gác chở hàng nông trại</option>
-                          <option value="Xe tải 500kg - 1.5 tấn">Xe tải nhỏ 500kg - 1.5 tấn</option>
-                        </select>
-                        <input
-                          type="text"
-                          {...registerForm.register('shipperArea')}
-                          placeholder="Khu vực hoạt động ưu tiên (VD: Quận 7, TP.HCM)"
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+
+                        <div className="p-3 bg-[#eef7f8] rounded-2xl border border-[#c4e0f0] space-y-2.5">
+                          <div className="text-[11px] font-bold text-[#2d6f78] flex items-center gap-1.5">
+                            <Truck size={15} />
+                            <span>Thông tin phương tiện &amp; Khu vực hoạt động:</span>
+                          </div>
+
+                          <div className="relative">
+                            <input
+                              type="text"
+                              required
+                              {...registerForm.register('vehicleNumber')}
+                              placeholder="Biển số xe vận chuyển (VD: 59-A1 123.45) *"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] font-medium outline-none focus:border-[#2d6f78]"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select
+                              {...registerForm.register('shipperVehicle')}
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none cursor-pointer"
+                            >
+                              <option value="Xe máy kèm thùng bảo ôn">Xe máy (Có thùng bảo ôn)</option>
+                              <option value="Xe ba gác nông sản">Xe ba gác chở nông sản</option>
+                              <option value="Xe tải 500kg - 1.5 tấn">Xe tải nhỏ 500kg - 1.5 tấn</option>
+                            </select>
+
+                            <input
+                              type="text"
+                              required
+                              {...registerForm.register('shipperArea')}
+                              placeholder="Khu vực hoạt động (VD: Quận 7, TP.HCM) *"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none focus:border-[#2d6f78]"
+                            />
+                          </div>
+                        </div>
+                      </>
                     )}
 
                     <div className="grid grid-cols-2 gap-2.5">
@@ -1022,8 +1188,10 @@ export default function AuthPage({
                           type={showPassword ? 'text' : 'password'}
                           required
                           {...registerForm.register('password')}
-                          placeholder="Mật khẩu *"
-                          className="w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          placeholder="Mật khẩu (tối thiểu 8 ký tự) *"
+                          className={`w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
+                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
+                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
                         />
                         <button
                           type="button"
@@ -1045,7 +1213,9 @@ export default function AuthPage({
                           required
                           {...registerForm.register('confirmPassword')}
                           placeholder="Nhập lại mật khẩu *"
-                          className="w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                          className={`w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
+                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
+                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
                         />
                         <button
                           type="button"
@@ -1061,13 +1231,13 @@ export default function AuthPage({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      className={`w-full py-3.5 sm:py-4 rounded-2xl ${
+                        selectedRole === 'shipper'
+                          ? 'bg-[#2d6f78] hover:bg-[#205158]'
+                          : 'bg-[#326318] hover:bg-[#254b12]'
+                      } text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
                     >
-                      <span>
-                        {isSubmitting
-                          ? 'ĐANG TẠO TÀI KHOẢN...'
-                          : `HOÀN TẤT ĐĂNG KÝ (${getRoleLabel(selectedRole).split(' ')[0]})`}
-                      </span>
+                      <span>{isSubmitting ? 'ĐANG TẠO TÀI KHOẢN...' : 'HOÀN TẤT ĐĂNG KÝ'}</span>
                     </button>
                   </form>
                 )}

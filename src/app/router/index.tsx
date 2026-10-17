@@ -13,7 +13,9 @@ import {
   ShopVouchersRoute,
   AuthRoute,
   ForgotPasswordRoute,
+  ChangePasswordRoute,
   OtpVerificationRoute,
+  OAuthSuccessRoute,
   AdminRoute,
   SellerRoute,
   ShipperRoute,
@@ -98,16 +100,19 @@ export const router = createBrowserRouter([
           { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
-          // Xác thực & Tài khoản
+          // Xác thực & Tài khoản (Hỗ trợ cả URL tiếng Anh và tiếng Việt)
+          { path: 'login/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
+          { path: 'register/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },
           { path: 'dang-ky/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },
-          { path: 'login/*', element: <Navigate replace to="/dang-nhap" /> },
-          { path: 'register/*', element: <Navigate replace to="/dang-ky" /> },
+          { path: 'forgot-password/*', element: <ForgotPasswordRoute />, handle: title('Quên mật khẩu') },
           { path: 'quen-mat-khau/*', element: <ForgotPasswordRoute />, handle: title('Quên mật khẩu') },
-          { path: 'forgot-password/*', element: <Navigate replace to="/quen-mat-khau" /> },
+          { path: 'change-password/*', element: <ChangePasswordRoute />, handle: title('Đổi mật khẩu') },
+          { path: 'doi-mat-khau/*', element: <ChangePasswordRoute />, handle: title('Đổi mật khẩu') },
+          { path: 'otp-verification/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
+          { path: 'verify-otp/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
           { path: 'xac-thuc-otp/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
-          { path: 'verify-otp/*', element: <Navigate replace to="/xac-thuc-otp" /> },
-          { path: 'otp-verification/*', element: <Navigate replace to="/xac-thuc-otp" /> },
+          { path: 'oauth-success/*', element: <OAuthSuccessRoute />, handle: title('Đăng nhập Google') },
 
           // Điều hướng phụ trợ (Aliases)
           { path: 'farmer/*', element: <Navigate replace to="/shop" /> },

@@ -3,6 +3,8 @@ export type { AuthUser, SessionUser, UserRole } from '@/types'
 export {
   loginSchema,
   memberRegisterSchema,
+  buyerRegisterSchema,
+  shipperRegisterSchema,
   REGISTER_DEFAULTS,
   shopAccountSchema,
   shopKycSchema,

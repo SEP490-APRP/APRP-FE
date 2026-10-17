@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Ticket,
+  Lock,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -360,6 +361,15 @@ export default function Header({
                       >
                         <Zap size={15} className="text-[#ff9800]" />
                         <span>Chuyển đổi / Mở thêm vai trò</span>
+                      </a>
+
+                      <a
+                        href="/change-password"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                      >
+                        <Lock size={15} className="text-[#326318]" />
+                        <span>Đổi mật khẩu</span>
                       </a>
 
                       <hr className="my-1 border-[#ede8df]" />
