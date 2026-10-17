@@ -11,25 +11,29 @@ import type { PageResponse } from '@/types'
 
 export const blogKeys = {
   all: ['blogs'] as const,
-  publicList: (params?: { page?: number; size?: number; category?: string }) =>
+  publicList: (params?: { page?: number; size?: number; category?: string; search?: string }) =>
     [...blogKeys.all, 'public', params] as const,
+  adminList: (params?: { page?: number; size?: number; status?: string; category?: string; search?: string }) =>
+    [...blogKeys.all, 'admin', params] as const,
   detail: (id: number) => [...blogKeys.all, 'detail', id] as const,
   comments: (id: number, params?: { page?: number; size?: number }) =>
     [...blogKeys.all, 'comments', id, params] as const,
   myBlogs: (params?: { page?: number; size?: number }) =>
     [...blogKeys.all, 'my-blogs', params] as const,
-  paged: (page: number, size: number) => [...blogKeys.all, 'paged', { page, size }] as const,
+  paged: (page: number, size: number, params?: { search?: string; category?: string; status?: string }) =>
+    [...blogKeys.all, 'paged', { page, size, ...params }] as const,
 }
 
 // ==========================================
 // PUBLIC BLOG HOOKS
 // ==========================================
 
-/** Danh sách bài viết công khai (hỗ trợ phân trang, lọc theo danh mục) */
+/** Danh sách bài viết công khai (hỗ trợ phân trang, lọc theo danh mục, tìm kiếm) */
 export function usePublicBlogs(params?: {
   page?: number
   size?: number
   category?: string
+  search?: string
 }) {
   return useQuery({
     queryKey: blogKeys.publicList(params),
@@ -192,10 +196,32 @@ export function useDeleteShopBlog() {
 // ADMIN & LEGACY COMPATIBLE HOOKS
 // ==========================================
 
-export function useBlogsPaged(page: number, size: number) {
+/** Danh sách tất cả bài viết cho Admin (toàn sàn, mọi trạng thái) */
+export function useAdminBlogs(params?: {
+  page?: number
+  size?: number
+  status?: string
+  category?: string
+  search?: string
+}) {
   return useQuery({
-    queryKey: blogKeys.paged(page, size),
-    queryFn: async () => (await blogService.getAllBlogsPaged(page, size)).result ?? null,
+    queryKey: blogKeys.adminList(params),
+    queryFn: () => blogService.getAllBlogsForAdmin(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useBlogsPaged(
+  page: number,
+  size: number,
+  query?: string,
+  category?: string,
+  status?: string,
+) {
+  return useQuery({
+    queryKey: blogKeys.paged(page, size, { search: query, category, status }),
+    queryFn: async () =>
+      (await blogService.getAllBlogsPaged(page, size, query, category, status)).result ?? null,
     placeholderData: keepPreviousData,
   })
 }
@@ -206,9 +232,9 @@ export function useSaveBlog() {
     mutationFn: ({ id, request }: { id?: number; request: BlogCreationRequest }) =>
       id != null
         ? blogService.updateBlog(id, {
-            ...request,
-            status: request.status as BlogResponse['status'],
-          })
+          ...request,
+          status: request.status as BlogResponse['status'],
+        })
         : blogService.createBlog(request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: blogKeys.all }),
   })
@@ -224,17 +250,38 @@ export function useDeleteBlog() {
   })
 }
 
+/** Admin cập nhật trạng thái bài viết (PUBLISHED, HIDDEN, DRAFT) */
+export function useUpdateBlogStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      blogId,
+      status,
+    }: {
+      blogId: number
+      status: 'PUBLISHED' | 'HIDDEN' | 'DRAFT'
+    }) => blogService.updateBlogStatus(blogId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: blogKeys.all })
+    },
+  })
+}
+
 export function useSetBlogStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ blog, status }: { blog: BlogResponse; status: BlogResponse['status'] }) => {
+    mutationFn: ({
+      blog,
+      status,
+    }: {
+      blog: BlogResponse
+      status: BlogResponse['status']
+    }) => {
       const targetId = blog.blogId || blog.id || 0
-      return blogService.updateBlog(targetId, {
-        title: blog.title,
-        content: blog.content,
-        status,
-        category: blog.category,
-      })
+      return blogService.updateBlogStatus(
+        targetId,
+        (status as 'PUBLISHED' | 'HIDDEN' | 'DRAFT') || 'PUBLISHED',
+      )
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: blogKeys.all })

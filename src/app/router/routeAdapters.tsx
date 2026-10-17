@@ -4,6 +4,7 @@ import { useStorefront } from '@/app/layouts/StorefrontLayout'
 import RequireRole from './RequireRole'
 import type { AuthUser } from '@/types/auth.types'
 import { useAuth } from '@/stores'
+import { authService } from '@/services'
 
 // ---- Lazy-loaded page chunks (Tải theo nhu cầu, không làm phình file JS chính) ----
 const Home = lazy(() => import('@/pages/Home'))
@@ -229,9 +230,13 @@ export function OtpVerificationRoute() {
 
 function usePortalProps() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   return {
+    user,
     onNavigateStore: () => navigate('/'),
     onLogout: async () => {
+      await authService.logout()
+      logout()
       await navigate('/')
     },
   }
