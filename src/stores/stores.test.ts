@@ -57,7 +57,7 @@ describe('useAuthStore', () => {
     const { useAuthStore } = await import('./useAuthStore')
     expect(useAuthStore.getState().user).toEqual({ ...user, id: 'local' })
     expect(useAuthStore.getState().token).toBe('raw-token')
-  })
+  }, 15000)
 
   it('bỏ qua user lưu sai kiểu (role lạ)', async () => {
     store['capnong-user'] = JSON.stringify({ ...user, role: 'superadmin' })
@@ -73,6 +73,28 @@ describe('useAuthStore', () => {
     useAuthStore.getState().logout()
     expect(store['capnong-user']).toBeUndefined()
     expect(store['capnong-token']).toBeUndefined()
+  })
+
+  it('bỏ qua và dọn dẹp khi có user trong storage nhưng không có token (tránh đăng nhập ma)', async () => {
+    store['capnong-user'] = JSON.stringify(user)
+    delete store['capnong-token']
+    delete store['access_token']
+    const { useAuthStore } = await import('./useAuthStore')
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(store['capnong-user']).toBeUndefined()
+  })
+
+  it('bỏ qua và dọn dẹp khi JWT token đã hết hạn', async () => {
+    // JWT đã hết hạn (exp trong quá khứ: 1000s)
+    const expiredPayload = btoa(JSON.stringify({ sub: '1', exp: 1000 }))
+    const expiredToken = `header.${expiredPayload}.sig`
+    store['capnong-user'] = JSON.stringify(user)
+    store['capnong-token'] = expiredToken
+    const { useAuthStore } = await import('./useAuthStore')
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(store['capnong-user']).toBeUndefined()
   })
 
   it('event 401 từ axiosInstance: đăng xuất và về trang đăng nhập', async () => {

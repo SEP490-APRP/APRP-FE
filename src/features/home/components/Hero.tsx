@@ -24,13 +24,6 @@ export default function Hero() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-12 sm:py-16 lg:py-20">
         <div className="max-w-2xl flex flex-col gap-4 sm:gap-6 text-surface-bright">
-          {/* Live AI Badge */}
-          <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-surface-bright/20 backdrop-blur-md w-fit border border-white/20 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse shrink-0" />
-            <span className="text-caption text-tertiary-fixed font-bold tracking-wide uppercase">
-              AI Dinh Dưỡng Kiểm Định 100%
-            </span>
-          </div>
 
           {/* Headline */}
           <h1

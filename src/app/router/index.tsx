@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import RootLayout from '@/app/layouts/RootLayout'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
-  RootLayout,
   HomeRoute,
   FreshRoute,
   CombosRoute,
@@ -18,17 +18,17 @@ import {
   OAuthSuccessRoute,
   AdminRoute,
   SellerRoute,
+  ShopOrdersRoute,
   ShipperRoute,
   CartRoute,
   CheckoutRoute,
   PaymentResultRoute,
   BuyerOrdersRoute,
   MyVouchersRoute,
+  ProfileRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
-
-import { ShopOrdersPage } from '@/pages/ShopOrdersPage'
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
@@ -50,7 +50,7 @@ export const router = createBrowserRouter([
       // 2. Phân hệ Nhà vườn (Farmer / Seller Portal)
       {
         path: 'shop/orders',
-        element: <ShopOrdersPage />,
+        element: <ShopOrdersRoute />,
         handle: title('Quản lý đơn hàng · Kênh Nhà Vườn'),
       },
       {
@@ -100,7 +100,10 @@ export const router = createBrowserRouter([
           { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
-          // Xác thực & Tài khoản (Hỗ trợ cả URL tiếng Anh và tiếng Việt)
+          // Xác thực & Tài khoản
+          { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
+          { path: 'profile/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },
           { path: 'login/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'register/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },

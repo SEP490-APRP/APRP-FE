@@ -219,6 +219,28 @@ export const authService = {
   },
 
   /**
+   * Cập nhật thông tin tài khoản hiện tại qua PUT /users/me
+   */
+  async updateMyInfo(data: Record<string, unknown>): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.put<ApiResponse<UserResponse>>('/users/me', data)
+    return response.data
+  },
+
+  /**
+   * Cập nhật ảnh đại diện người dùng qua PATCH /users/me/images (Multipart/form-data)
+   */
+  async updateAvatar(file: File): Promise<ApiResponse<UserResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await axiosInstance.patch<ApiResponse<UserResponse>>('/users/me/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  /**
    * Đổi mật khẩu cho người dùng hiện tại qua POST /users/change-password
    */
   async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<void>> {
