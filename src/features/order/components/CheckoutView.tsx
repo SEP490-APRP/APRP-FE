@@ -614,15 +614,15 @@ export const CheckoutView: React.FC = () => {
     ]).then(([mine, publics]) => {
       if (!isMounted) return
       const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
-      // Thêm voucher công khai toàn sàn/shop trước (mặc định isCollected = false)
+      // Thêm voucher công khai toàn sàn/shop trước (loại bỏ hoàn toàn voucher user đã dùng hết lượt: !v.isUsed)
       ;(publics || []).forEach((v) => {
-        if (v?.voucherCode) {
-          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: false })
+        if (v?.voucherCode && !v.isUsed) {
+          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: Boolean(v.isCollected) })
         }
       })
-      // Đè bằng voucher trong ví của user (đã lưu vào ví: isCollected = true)
+      // Đè bằng voucher trong ví của user (chỉ lấy voucher còn hiệu lực: !v.isUsed)
       ;(mine || []).forEach((v) => {
-        if (v?.voucherCode) {
+        if (v?.voucherCode && !v.isUsed) {
           map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
         }
       })

@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Ticket,
+  Lock,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -377,6 +378,16 @@ export default function Header({
                         <span>Hồ Sơ Cá Nhân</span>
                       </a>
 
+                      <a
+                        href="/change-password"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <Lock size={16} />
+                        </span>
+                        <span>Đổi mật khẩu</span>
+                      </a>
 
                       <hr className="my-1.5 border-[#ede8df]" />
 

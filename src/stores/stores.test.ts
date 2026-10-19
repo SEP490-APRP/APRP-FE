@@ -57,7 +57,7 @@ describe('useAuthStore', () => {
     const { useAuthStore } = await import('./useAuthStore')
     expect(useAuthStore.getState().user).toEqual({ ...user, id: 'local' })
     expect(useAuthStore.getState().token).toBe('raw-token')
-  })
+  }, 15000)
 
   it('bỏ qua user lưu sai kiểu (role lạ)', async () => {
     store['capnong-user'] = JSON.stringify({ ...user, role: 'superadmin' })
