@@ -6,8 +6,9 @@ import type { AuthUser } from '@/types/auth.types'
 import { useAuth } from '@/stores'
 import { authService } from '@/services'
 
-// Re-export PageLoading từ RootLayout để đảm bảo tính tập trung
-export { PageLoading } from '@/app/layouts/RootLayout'
+// Import và re-export PageLoading từ RootLayout để sử dụng trong nội bộ và cho bên ngoài
+import { PageLoading } from '@/app/layouts/RootLayout'
+export { PageLoading }
 
 // ---- Lazy-loaded page chunks (Tải theo nhu cầu, code-splitting tự động) ----
 const Home = lazy(() => import('@/pages/Home'))
