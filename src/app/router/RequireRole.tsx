@@ -32,9 +32,10 @@ export default function RequireRole({
   const { user } = useAuth()
   const location = useLocation()
 
+  const cleanLoginPath = loginHref.startsWith('#') ? loginHref.slice(1) : loginHref
+
   // 1. Chưa đăng nhập -> Tự động điều hướng đến trang Login
   if (!user) {
-    const cleanLoginPath = loginHref.startsWith('#') ? loginHref.slice(1) : loginHref
     return <Navigate to={cleanLoginPath} replace state={{ from: location }} />
   }
 
@@ -54,7 +55,7 @@ export default function RequireRole({
                 Về trang chủ
               </LinkButton>
               <LinkButton
-                href={loginHref.startsWith('#') ? loginHref : `#${loginHref}`}
+                href={cleanLoginPath}
                 variant="secondary"
                 leftIcon={<LogIn size={15} />}
               >

@@ -177,11 +177,22 @@ export default function ProfilePage() {
       return
     }
 
+    const cleanPhone = phoneNumber.trim().replace(/\s+/g, '')
+    const phoneRegex = /^(0|\+84)[35789][0-9]{8}$/
+    if (cleanPhone && !phoneRegex.test(cleanPhone)) {
+      globalShowAlert(
+        'Số điện thoại không đúng định dạng. Vui lòng nhập số điện thoại Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678).',
+        'Số điện thoại không hợp lệ',
+        'warning'
+      )
+      return
+    }
+
     try {
       setIsUpdatingProfile(true)
       const updateData = {
         fullName: fullName.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: cleanPhone,
         address: address.trim(),
         dietPreference,
       }
@@ -198,7 +209,15 @@ export default function ProfilePage() {
         showToast('Cập nhật thông tin tài khoản thành công!')
       }
     } catch (err: any) {
-      const msg = err?.data?.message || err?.message || 'Không thể lưu thay đổi.'
+      const rawMsg = err?.data?.message || err?.response?.data?.message || err?.message || ''
+      let msg = 'Không thể lưu thay đổi.'
+      if (rawMsg.includes('already registered') || rawMsg === 'PHONE_EXISTED' || rawMsg.includes('đã được sử dụng')) {
+        msg = 'Số điện thoại này đã được sử dụng bởi một tài khoản khác. Vui lòng kiểm tra lại.'
+      } else if (rawMsg.includes('format is invalid') || rawMsg === 'PHONE_NUMBER_INVALID') {
+        msg = 'Số điện thoại không đúng định dạng hợp lệ.'
+      } else if (rawMsg) {
+        msg = rawMsg
+      }
       globalShowAlert(msg, 'Thất bại', 'error')
     } finally {
       setIsUpdatingProfile(false)
@@ -234,12 +253,23 @@ export default function ProfilePage() {
       return
     }
 
+    const cleanAddrPhone = addrPhone.trim().replace(/\s+/g, '')
+    const phoneRegex = /^(0|\+84)[35789][0-9]{8}$/
+    if (!phoneRegex.test(cleanAddrPhone)) {
+      globalShowAlert(
+        'Số điện thoại người nhận không hợp lệ (phải gồm 10 chữ số).',
+        'Số điện thoại không hợp lệ',
+        'warning'
+      )
+      return
+    }
+
     try {
       setIsSavingAddress(true)
       const payload: SavedAddressRequest = {
         label: addrLabel,
         recipientName: addrRecipient.trim(),
-        phone: addrPhone.trim(),
+        phone: cleanAddrPhone,
         address: addrDetail.trim(),
         isDefault: addrIsDefault,
       }
@@ -255,7 +285,7 @@ export default function ProfilePage() {
       setIsAddressModalOpen(false)
       await fetchAddresses()
     } catch (err: any) {
-      const msg = err?.data?.message || err?.message || 'Không thể lưu địa chỉ.'
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message || 'Không thể lưu địa chỉ.'
       globalShowAlert(msg, 'Lỗi', 'error')
     } finally {
       setIsSavingAddress(false)

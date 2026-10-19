@@ -199,7 +199,15 @@ export function EditShopProfileModal({
       onClose()
     } catch (err: any) {
       console.error('Lỗi khi cập nhật hồ sơ:', err)
-      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi lưu thông tin.'
+      const rawMsg = err?.data?.message || err?.response?.data?.message || err?.message || ''
+      let msg = 'Có lỗi xảy ra khi lưu thông tin.'
+      if (rawMsg.includes('already registered') || rawMsg === 'PHONE_EXISTED' || rawMsg.includes('đã được sử dụng')) {
+        msg = 'Số điện thoại này đã được đăng ký bởi tài khoản khác. Vui lòng kiểm tra lại.'
+      } else if (rawMsg.includes('format is invalid') || rawMsg === 'PHONE_NUMBER_INVALID') {
+        msg = 'Số điện thoại không đúng định dạng hợp lệ.'
+      } else if (rawMsg) {
+        msg = rawMsg
+      }
       globalShowAlert(msg, 'Cập nhật thất bại', 'error')
     }
   }

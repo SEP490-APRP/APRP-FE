@@ -197,7 +197,15 @@ export function CartRoute() {
 }
 
 export function CheckoutRoute() {
-  return <CheckoutPage />
+  return (
+    <RequireRole
+      roles={['buyer', 'shop', 'shipper', 'admin']}
+      audience="khách mua hàng"
+      loginHref="/dang-nhap"
+    >
+      <CheckoutPage />
+    </RequireRole>
+  )
 }
 
 export function PaymentResultRoute() {
@@ -205,7 +213,15 @@ export function PaymentResultRoute() {
 }
 
 export function BuyerOrdersRoute() {
-  return <BuyerOrdersPage />
+  return (
+    <RequireRole
+      roles={['buyer', 'shop', 'shipper', 'admin']}
+      audience="khách mua hàng"
+      loginHref="/dang-nhap"
+    >
+      <BuyerOrdersPage />
+    </RequireRole>
+  )
 }
 
 export function ProfileRoute() {

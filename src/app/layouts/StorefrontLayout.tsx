@@ -85,7 +85,7 @@ export default function StorefrontLayout() {
             showToast('Đã thêm vào giỏ hàng thành công!')
           },
           onError: (err: any) => {
-            const msg = err?.response?.data?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
+            const msg = err?.data?.message || err?.response?.data?.message || err?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
             showToast(msg)
           },
         },

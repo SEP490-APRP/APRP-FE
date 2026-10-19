@@ -28,12 +28,24 @@ export default function RootLayout() {
   const navigate = useNavigate()
   const matches = useMatches()
 
-  // 1. Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu #
+  // 1. Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu # hoặc hash thay đổi
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
-      const cleanPath = window.location.hash.slice(1)
-      navigate(cleanPath, { replace: true })
+    const handleHash = () => {
+      if (typeof window !== 'undefined' && window.location.hash) {
+        const hash = window.location.hash
+        const cleanPath = hash.startsWith('#/')
+          ? hash.slice(1)
+          : hash.startsWith('#')
+            ? hash.slice(1)
+            : hash
+        if (cleanPath.startsWith('/')) {
+          navigate(cleanPath, { replace: true })
+        }
+      }
     }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
   }, [navigate])
 
   // 2. Tìm kiếm title từ route match handle gần nhất

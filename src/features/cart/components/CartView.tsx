@@ -34,14 +34,18 @@ export const CartView: React.FC = () => {
     handleQuantityChange,
     handleDirectQuantityChange,
     handleCommitQuantity,
+    commitAllPendingQuantities,
     handleRemove,
     deletingItem,
     setDeletingItem,
     confirmDeleteItem,
     isRemoving,
+    isUpdating,
   } = useCartOperations()
 
   const handleProceedToCheckout = () => {
+    commitAllPendingQuantities()
+    if (isUpdating || isRemoving) return
     if (selectedItemIds.size === 0) return
     navigate('/checkout', {
       state: { selectedCartItemIds: Array.from(selectedItemIds) },
@@ -234,7 +238,7 @@ export const CartView: React.FC = () => {
 
             <Button
               variant="primary"
-              disabled={selectedItemIds.size === 0}
+              disabled={selectedItemIds.size === 0 || isUpdating || isRemoving}
               onClick={handleProceedToCheckout}
               className="w-full justify-center gap-2 py-3 bg-[#326318] hover:bg-[#254b12] text-white font-bold rounded-xl shadow-xs cursor-pointer disabled:opacity-40"
             >

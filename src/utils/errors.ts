@@ -12,9 +12,21 @@ export function getErrorMessage(
   error: unknown,
   fallback = 'Đã có lỗi xảy ra. Vui lòng thử lại.',
 ): string {
-  if (isRecord(error) && isRecord(error.data)) {
-    const { message } = error.data
-    if (typeof message === 'string' && message.trim()) return message
+  if (isRecord(error)) {
+    if (isRecord(error.data) && typeof error.data.message === 'string' && error.data.message.trim()) {
+      return error.data.message
+    }
+    if (
+      isRecord(error.response) &&
+      isRecord(error.response.data) &&
+      typeof error.response.data.message === 'string' &&
+      error.response.data.message.trim()
+    ) {
+      return error.response.data.message
+    }
+    if (typeof error.message === 'string' && error.message.trim()) {
+      return error.message
+    }
   }
   return fallback
 }

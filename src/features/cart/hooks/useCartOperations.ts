@@ -217,6 +217,28 @@ export function useCartOperations() {
     }
   }, [cart, selectedItemIds])
 
+  const commitAllPendingQuantities = () => {
+    if (!cart?.shopCarts) return
+    const allItems = cart.shopCarts.flatMap((s) => s.items)
+    Object.entries(editingQuantities).forEach(([idStr, rawVal]) => {
+      const cartItemId = Number(idStr)
+      const item = allItems.find((i) => i.cartItemId === cartItemId)
+      if (item && rawVal !== undefined) {
+        const num = parseInt(rawVal, 10)
+        if (isNaN(num) || num <= 0) {
+          setDeletingItem(item)
+        } else {
+          const maxStock = item.stockQuantity ?? 999
+          const finalQty = Math.min(num, maxStock)
+          if (finalQty !== item.quantity) {
+            updateMutation.mutate({ cartItemId, quantity: finalQty })
+          }
+        }
+      }
+    })
+    setEditingQuantities({})
+  }
+
   return {
     cart,
     isLoading,
@@ -236,6 +258,7 @@ export function useCartOperations() {
     handleQuantityChange,
     handleDirectQuantityChange,
     handleCommitQuantity,
+    commitAllPendingQuantities,
     handleRemove,
     deletingItem,
     setDeletingItem,

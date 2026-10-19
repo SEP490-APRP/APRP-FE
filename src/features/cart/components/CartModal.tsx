@@ -78,11 +78,13 @@ export function CartModal() {
     handleQuantityChange,
     handleDirectQuantityChange,
     handleCommitQuantity,
+    commitAllPendingQuantities,
     handleRemove,
     deletingItem,
     setDeletingItem,
     confirmDeleteItem,
     isRemoving,
+    isUpdating,
   } = useCartOperations()
 
   // Danh sách các nông sản gợi ý mua thêm chưa có trong giỏ hàng
@@ -114,7 +116,7 @@ export function CartModal() {
         useUiStore.getState().showToast(`Đã thêm ${p.name} vào giỏ hàng!`)
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Không thể thêm sản phẩm.'
+      const msg = err?.data?.message || err?.response?.data?.message || err?.message || 'Không thể thêm sản phẩm.'
       useUiStore.getState().showToast(msg)
     } finally {
       setAddingSuggestId(null)
@@ -122,12 +124,14 @@ export function CartModal() {
   }
 
   const handleProceedToCheckout = () => {
+    commitAllPendingQuantities()
     if (!user) {
       closeCart()
       navigate('/dang-nhap', { state: { from: { pathname: '/checkout' } } })
       return
     }
 
+    if (isUpdating || isRemoving) return
     if (selectedItemIds.size === 0) return
 
     closeCart()
@@ -547,7 +551,7 @@ export function CartModal() {
             ) : (
               <button
                 type="button"
-                disabled={selectedItemIds.size === 0}
+                disabled={selectedItemIds.size === 0 || isUpdating || isRemoving}
                 onClick={handleProceedToCheckout}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
