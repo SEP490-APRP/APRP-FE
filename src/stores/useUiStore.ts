@@ -8,6 +8,7 @@ type UiState = {
   /** Tiêu đề modal "tính năng chưa kết nối"; rỗng là đóng. */
   info: string
   cartOpen: boolean
+  cartMinimized: boolean
   showToast: (message: string) => void
   hideToast: () => void
   /** Mở modal thông tin và đóng giỏ (giống showInfo cũ trong App). */
@@ -15,6 +16,7 @@ type UiState = {
   hideInfo: () => void
   openCart: () => void
   closeCart: () => void
+  setCartMinimized: (minimized: boolean) => void
 }
 
 /** State giao diện dùng chung giữa storefront và portal (portal gọi được, storefront hiển thị). */
@@ -22,6 +24,7 @@ export const useUiStore = create<UiState>()((set) => ({
   toast: '',
   info: '',
   cartOpen: false,
+  cartMinimized: false,
   showToast: (message) => {
     clearTimeout(toastTimer)
     set({ toast: message })
@@ -31,8 +34,9 @@ export const useUiStore = create<UiState>()((set) => ({
     clearTimeout(toastTimer)
     set({ toast: '' })
   },
-  showInfo: (title) => set({ info: title, cartOpen: false }),
+  showInfo: (title) => set({ info: title, cartOpen: false, cartMinimized: false }),
   hideInfo: () => set({ info: '' }),
-  openCart: () => set({ cartOpen: true }),
-  closeCart: () => set({ cartOpen: false }),
+  openCart: () => set({ cartOpen: true, cartMinimized: false }),
+  closeCart: () => set({ cartOpen: false, cartMinimized: false }),
+  setCartMinimized: (minimized) => set({ cartMinimized: minimized }),
 }))

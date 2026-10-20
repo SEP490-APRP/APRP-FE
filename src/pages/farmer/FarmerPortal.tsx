@@ -44,6 +44,7 @@ import BlindBoxTool from './BlindBoxTool'
 import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
 import FarmerBlogs from './FarmerBlogs'
+import FarmerMessages from './FarmerMessages'
 import OnboardingTour from './OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
 
@@ -652,33 +653,7 @@ export default function FarmerPortal({
           ) : currentTab === 'wallet' ? (
             <WalletComponent onOpenWithdraw={() => setShowWithdrawModal(true)} onInfo={handleInfo} />
           ) : currentTab === 'messages' ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn">
-              <div
-                id="tour-messages-search"
-                className="bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-4"
-              >
-                <h4 className="text-sm font-black text-[#1c2216]">Hội thoại khách hàng</h4>
-                <div className="p-3 rounded-2xl bg-[#fafcf9] border border-[#edf1e8] flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs text-[#1c2216]">Chị Mai Lan</strong>
-                    <p className="text-[10px] text-[#7e8779]">Shop còn khoai mật không?</p>
-                  </div>
-                  <span className="w-2 h-2 rounded-full bg-[#326318]" />
-                </div>
-              </div>
-              <div
-                id="tour-messages-first-conv"
-                className="md:col-span-2 bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-4"
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
-                  <strong className="text-sm text-[#1c2216]">Chị Mai Lan (Quận 7)</strong>
-                  <span className="text-[11px] text-[#326318] font-bold">🟢 Đang online</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-[#f4f7f1] text-xs text-[#3d4538]">
-                  Chào nông trại, mình muốn hỏi về đơn hàng khoai mật Đà Lạt khi nào giao được ạ?
-                </div>
-              </div>
-            </div>
+            <FarmerMessages />
           ) : (
             <FarmerDisputes />
           )}

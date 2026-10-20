@@ -12,6 +12,7 @@ import {
   X,
   Sparkles,
   ChevronLeft,
+  ChevronRight,
   Minimize2,
 } from 'lucide-react'
 import { allProducts, money, type Product } from '@/mocks/catalog'
@@ -50,7 +51,8 @@ export function CartModal() {
   }, [closeCart])
 
   // Trạng thái thu nhỏ giỏ hàng thành Pill nổi ở góc màn hình khi lướt web
-  const [isMinimized, setIsMinimized] = useState(false)
+  const isMinimized = useUiStore((s) => s.cartMinimized)
+  const setIsMinimized = useUiStore((s) => s.setCartMinimized)
   const addToCartMutation = useAddToCart()
   const [addingSuggestId, setAddingSuggestId] = useState<string | null>(null)
 
@@ -140,10 +142,10 @@ export function CartModal() {
     })
   }
 
-  // Khi đang ở chế độ thu nhỏ: hiển thị Floating Pill ở góc dưới bên phải màn hình
+  // Khi đang ở chế độ thu nhỏ: hiển thị Floating Pill ở góc dưới bên phải màn hình (nằm trên nút chat)
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 pointer-events-auto">
+      <div className="fixed bottom-24 right-6 z-50 pointer-events-auto">
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
@@ -389,20 +391,28 @@ export function CartModal() {
                   >
                     {/* Header Nhà Vườn */}
                     <div className="bg-[#f7f5ed] px-3.5 py-2.5 flex items-center justify-between border-b border-[#e9e3d5]">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
+                          id={`shop-select-${shop.shopId}`}
                           className="w-4 h-4 rounded text-[#326318] border-stone-300 focus:ring-[#326318] cursor-pointer"
                           checked={isShopAllSelected}
                           onChange={() => toggleSelectShop(shop.items)}
+                          aria-label={`Chọn tất cả sản phẩm của ${shop.shopName}`}
                         />
-                        <div className="flex items-center gap-1.5">
-                          <Store size={14} className="text-[#326318]" />
-                          <span className="font-bold text-xs text-[#1c2e17]">
+                        <Link
+                          to={`/cua-hang/${shop.shopId}`}
+                          onClick={closeCart}
+                          className="flex items-center gap-1.5 group cursor-pointer hover:underline"
+                          title={`Xem gian hàng ${shop.shopName}`}
+                        >
+                          <Store size={14} className="text-[#326318] group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-xs text-[#1c2e17] group-hover:text-[#326318] transition-colors">
                             {shop.shopName}
                           </span>
-                        </div>
-                      </label>
+                          <ChevronRight size={13} className="text-stone-400 group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all" />
+                        </Link>
+                      </div>
                       <span className="text-[11px] text-[#717869] font-medium">
                         {shop.items.length} món
                       </span>

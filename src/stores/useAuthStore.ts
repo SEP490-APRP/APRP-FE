@@ -5,6 +5,7 @@ import { AUTH_UNAUTHORIZED_EVENT } from '@/services/api'
 import { STORAGE_KEYS } from '@/utils'
 import { isTokenValid } from '@/utils/jwt'
 import { readJson, readRaw, writeRaw } from './storage'
+import { useChatStore } from './useChatStore'
 
 const ROLES: readonly UserRole[] = ['buyer', 'shop', 'shipper', 'admin']
 
@@ -111,6 +112,11 @@ export const useAuthStore = create<AuthState>()(
           set({ user, token }, false, 'auth/login')
         },
         logout: () => {
+          try {
+            useChatStore.getState().reset()
+          } catch {
+            // bỏ qua nếu store chưa sẵn sàng
+          }
           clearAuthStorage()
           set({ user: null, token: null }, false, 'auth/logout')
         },

@@ -1,15 +1,22 @@
 export interface ChatMessage {
-  id: string
+  id: string | number
+  conversationId?: number
   senderId: number
-  receiverId: number
+  senderName?: string
+  senderAvatar?: string
+  receiverId?: number
   content: string
+  type?: 'TEXT' | 'IMAGE' | 'PRODUCT' | 'ORDER' | string
+  attachmentUrl?: string
+  referenceId?: number
   createdAt?: string
   sentAt?: string
   isRead?: boolean
 }
 
 export interface Conversation {
-  id: string
+  id: string | number
+  roomKey?: string
   otherUserId: number
   otherUserName: string
   otherUserRole?: string
@@ -17,5 +24,22 @@ export interface Conversation {
   lastMessage?: string
   lastMessageTime?: string
   lastMessageAt?: string
+  unreadCount?: number
+}
+
+export interface ChatMessageRequest {
+  receiverId: number
+  content?: string
+  type?: string
+  attachmentUrl?: string
+  referenceId?: number
+}
+
+export interface ChatNotification {
+  type: 'NEW_MESSAGE' | 'READ_RECEIPT'
+  conversationId: number
+  senderId?: number
+  senderName?: string
+  content?: string
   unreadCount?: number
 }
