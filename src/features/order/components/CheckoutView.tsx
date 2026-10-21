@@ -75,7 +75,7 @@ export interface StockShortageItem {
 
 function parseStockShortages(err: any): StockShortageItem[] {
   // 1. Ưu tiên đọc từ trường result cấu trúc do Backend trả về
-  const resultData = err?.response?.data?.result
+  const resultData = err?.data?.result ?? err?.response?.data?.result
   if (Array.isArray(resultData) && resultData.length > 0) {
     return resultData.map((item: any) => ({
       itemType: (item.itemType as any) || 'GENERAL',
@@ -89,6 +89,7 @@ function parseStockShortages(err: any): StockShortageItem[] {
 
   // 2. Parse từ chuỗi message của Backend
   const message: string =
+    err?.data?.message ||
     err?.response?.data?.message ||
     err?.message ||
     ''
@@ -140,9 +141,9 @@ function parseStockShortages(err: any): StockShortageItem[] {
 }
 
 function isStockShortageError(err: any): boolean {
-  const code = err?.response?.data?.code
+  const code = err?.data?.code ?? err?.response?.data?.code
   if (code === 5015 || code === 8002) return true
-  const msg = (err?.response?.data?.message || err?.message || '').toLowerCase()
+  const msg = (err?.data?.message || err?.response?.data?.message || err?.message || '').toLowerCase()
   return (
     msg.includes('kho') ||
     msg.includes('stock') ||
@@ -824,6 +825,7 @@ export const CheckoutView: React.FC = () => {
     if (previewMutation.isError && isStockShortageError(previewMutation.error)) {
       const parsed = resolveStockShortages(previewMutation.error)
       const errorMsg =
+        (previewMutation.error as any)?.data?.message ||
         (previewMutation.error as any)?.response?.data?.message ||
         (previewMutation.error as any)?.message ||
         'Một số mặt hàng trong kho không đủ số lượng.'
@@ -906,6 +908,7 @@ export const CheckoutView: React.FC = () => {
     } catch (err: any) {
       console.error('Lỗi khi đặt hàng:', err)
       const errorMsg =
+        err?.data?.message ||
         err?.response?.data?.message ||
         err?.message ||
         'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng kiểm tra lại!'

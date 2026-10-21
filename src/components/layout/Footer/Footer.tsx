@@ -35,7 +35,7 @@ export default function Footer({ onInfo }: { onInfo: (s: string) => void }) {
           <h3>Liên hệ CapNong</h3>
           <p className="flex gap-2">
             <MapPin size={17} />
-            Hà Nội &amp; TP. Hồ Chí Minh
+            TP. Hồ Chí Minh
           </p>
           <p className="flex gap-2">
             <Phone size={17} />

@@ -44,6 +44,9 @@ export interface UserResponse {
   reportCount?: number
   description?: string
   achievement?: string
+  dietPreference?: 'VEGETARIAN' | 'NON_VEGETARIAN' | 'VEGAN'
+  loyaltyPoints?: number
+  totalRescuedWeight?: number
 }
 
 export type AdminUserReportType = 'week' | 'month' | 'year' | 'all'

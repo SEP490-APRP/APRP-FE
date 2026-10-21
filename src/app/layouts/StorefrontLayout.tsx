@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Info } from 'lucide-react'
 import Header from '@/components/layout/Header'
@@ -7,6 +7,8 @@ import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
+import { authService } from '@/services'
+import { PageLoading } from './RootLayout'
 
 export type StorefrontContext = {
   cart: Cart
@@ -34,7 +36,25 @@ function headerRoute(pathname: string): string {
 export default function StorefrontLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, setUser } = useAuth()
+
+  // Đồng bộ ảnh đại diện từ backend nếu session chưa có avatar
+  useEffect(() => {
+    if (user && !user.avatar) {
+      authService
+        .getMyInfo()
+        .then((res) => {
+          const avatar = res.result?.logoUrl || res.result?.avatar
+          if (avatar && avatar !== user.avatar) {
+            setUser({
+              ...user,
+              avatar,
+            })
+          }
+        })
+        .catch(() => {})
+    }
+  }, [user?.id])
   const cart = useCartStore((s) => s.items)
   const changeQuantity = useCartStore((s) => s.changeQuantity)
   const { toast, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
@@ -66,7 +86,7 @@ export default function StorefrontLayout() {
             showToast('Đã thêm vào giỏ hàng thành công!')
           },
           onError: (err: any) => {
-            const msg = err?.response?.data?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
+            const msg = err?.data?.message || err?.response?.data?.message || err?.message || 'Không thể thêm vào giỏ. Vui lòng thử lại.'
             showToast(msg)
           },
         },
@@ -93,7 +113,12 @@ export default function StorefrontLayout() {
     showToast(`Đã thêm ${product.name} vào giỏ`)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Ignore network errors on logout
+    }
     logout()
     showToast('Bạn đã đăng xuất khỏi hệ thống CapNong.')
     navigate('/')
@@ -130,7 +155,9 @@ export default function StorefrontLayout() {
       />
 
       <main id="main-content" tabIndex={-1}>
-        <Outlet context={context} />
+        <Suspense fallback={<PageLoading />}>
+          <Outlet context={context} />
+        </Suspense>
       </main>
 
       <Footer onInfo={showInfo} />

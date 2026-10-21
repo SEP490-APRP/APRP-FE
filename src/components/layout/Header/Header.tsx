@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Ticket,
+  Lock,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -134,7 +135,7 @@ export default function Header({
   return (
     <header className="site-header relative z-50">
       {/* Main Header Row */}
-      <div className="page-container header-main">
+      <div className="page-container header-main relative z-50">
         <a href="/" className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
           <span className="brand-leaf">
             <Leaf size={29} />
@@ -190,16 +191,23 @@ export default function Header({
           </button>
 
           {/* Auth Action Buttons: Đăng nhập & Đăng ký (hoặc Hồ sơ nếu đã đăng nhập) */}
-          <div className="relative flex items-center gap-1.5" ref={accountRef}>
+          <div className="relative flex items-center gap-1.5 z-50" ref={accountRef}>
             {user ? (
               <button
                 type="button"
-                onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setAccountMenuOpen(!accountMenuOpen)
+                }}
                 className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors"
                 aria-label="Tài khoản cá nhân"
               >
-                <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs">
-                  {user.name.charAt(0).toUpperCase()}
+                <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
                   <span className="text-xs font-bold text-[#1f241a] leading-tight max-w-[110px] truncate">
@@ -247,13 +255,17 @@ export default function Header({
 
             {/* Account Popover Menu */}
             {accountMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-[#ede8df] p-3 z-50 animate-fadeIn">
+              <div className="absolute right-0 sm:-right-12 md:-right-16 lg:-right-24 xl:-right-28 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-[#ede8df] p-3 z-50 animate-fadeIn">
                 {user ? (
                   <div>
                     <div className="p-3 rounded-xl bg-[#faf7ef] border border-[#eee8da] mb-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-[#326318] text-white flex items-center justify-center font-extrabold text-sm shrink-0">
-                          {user.name.charAt(0).toUpperCase()}
+                        <div className="w-9 h-9 rounded-full bg-[#326318] text-white flex items-center justify-center font-extrabold text-sm shrink-0 overflow-hidden">
+                          {user.avatar ? (
+                            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                          ) : (
+                            user.name.charAt(0).toUpperCase()
+                          )}
                         </div>
                         <div className="overflow-hidden">
                           <h4 className="font-extrabold text-xs text-[#20271c] truncate">
@@ -275,10 +287,12 @@ export default function Header({
                         <a
                           href="/admin"
                           onClick={closeDropdown}
-                          className="w-full text-left py-2 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold flex items-center gap-2 border border-purple-200"
+                          className="w-full text-left py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold flex items-center gap-2.5 border border-purple-200 transition-colors"
                         >
-                          <ShieldCheck size={15} className="text-purple-700" />
-                          <span>🛡️ Trung Tâm Quản Trị Admin</span>
+                          <span className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 text-purple-700">
+                            <ShieldCheck size={16} />
+                          </span>
+                          <span>Trung Tâm Quản Trị Admin</span>
                         </a>
                       )}
 
@@ -286,10 +300,12 @@ export default function Header({
                         <a
                           href="/shipper"
                           onClick={closeDropdown}
-                          className="w-full text-left py-2 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold flex items-center gap-2 border border-[#b1dfe4]"
+                          className="w-full text-left py-2 px-2.5 rounded-xl bg-[#e9f6f7] hover:bg-[#d8f0f2] text-[#195962] font-bold flex items-center gap-2.5 border border-[#b1dfe4] transition-colors"
                         >
-                          <Truck size={15} className="text-[#195962]" />
-                          <span>🛵 Cổng Giao Hàng Shipper</span>
+                          <span className="w-7 h-7 rounded-lg bg-[#d5eff1] flex items-center justify-center shrink-0 text-[#195962]">
+                            <Truck size={16} />
+                          </span>
+                          <span>Cổng Giao Hàng Shipper</span>
                         </a>
                       )}
 
@@ -298,80 +314,92 @@ export default function Header({
                           <a
                             href="/shop"
                             onClick={closeDropdown}
-                            className="w-full text-left py-2 px-3 rounded-xl bg-[#fdf5eb] text-[#8a4e1d] font-bold flex items-center gap-2 border border-[#f5ddbd]"
+                            className="w-full text-left py-2 px-2.5 rounded-xl bg-[#fdf5eb] hover:bg-[#faeedd] text-[#8a4e1d] font-bold flex items-center gap-2.5 border border-[#f5ddbd] transition-colors"
                           >
-                            <Store size={15} className="text-[#8a4e1d]" />
-                            <span>🌾 Bảng Điều Khiển Nông Dân</span>
+                            <span className="w-7 h-7 rounded-lg bg-[#f8e5cf] flex items-center justify-center shrink-0 text-[#8a4e1d]">
+                              <Store size={16} />
+                            </span>
+                            <span>Kênh Nhà Vườn CapNong</span>
                           </a>
                           <a
                             href="/shop/orders"
                             onClick={closeDropdown}
-                            className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                           >
-                            <FileText size={15} className="text-[#8a4e1d]" />
-                            <span>📦 Quản Lý Đơn Hàng</span>
+                            <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
+                              <FileText size={16} />
+                            </span>
+                            <span>Quản Lý Đơn Hàng Bán</span>
                           </a>
                         </>
                       ) : (
                         <a
                           href="/shop"
                           onClick={closeDropdown}
-                          className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                         >
-                          <Store size={15} className="text-[#8a4e1d]" />
-                          <span>🌾 Kênh Bán Hàng Nhà Vườn</span>
+                          <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
+                            <Store size={16} />
+                          </span>
+                          <span>Kênh Bán Hàng Nhà Vườn</span>
                         </a>
                       )}
 
                       <a
                         href="/orders"
                         onClick={closeDropdown}
-                        className="w-full text-left py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 font-bold flex items-center gap-2 border border-emerald-200"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
-                        <ShoppingBag size={15} className="text-emerald-700" />
-                        <span>📦 Đơn Hàng Của Tôi</span>
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <ShoppingBag size={16} />
+                        </span>
+                        <span>Đơn Hàng Của Tôi</span>
                       </a>
 
                       <a
                         href="/my-vouchers"
                         onClick={closeDropdown}
-                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
-                        <Ticket size={15} className="text-emerald-700" />
-                        <span>🎟️ Kho Voucher Của Tôi</span>
+                        <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
+                          <Ticket size={16} />
+                        </span>
+                        <span>Kho Voucher Của Tôi</span>
                       </a>
 
                       <a
                         href="/ke-hoach-an-uong"
                         onClick={closeDropdown}
-                        className="w-full text-left py-2 px-3 rounded-xl bg-amber-50 text-amber-900 font-bold flex items-center gap-2 border border-amber-200"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
-                        <Sparkles size={15} className="text-amber-600" />
-                        <span>🥗 Kế Hoạch Ăn Uống (AI)</span>
+                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                          <Sparkles size={16} />
+                        </span>
+                        <span>Kế Hoạch Ăn Uống (AI)</span>
                       </a>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          closeDropdown()
-                          onInfo(`Hồ sơ ${user.name} (${getRoleBadge(user.role).label})`)
-                        }}
-                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                      <a
+                        href="/tai-khoan"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
-                        <User size={15} className="text-primary" />
-                        <span>Xem hồ sơ cá nhân</span>
-                      </button>
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <User size={16} />
+                        </span>
+                        <span>Hồ Sơ Cá Nhân</span>
+                      </a>
 
                       <a
-                        href="/dang-ky"
+                        href="/change-password"
                         onClick={closeDropdown}
-                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
-                        <Zap size={15} className="text-[#ff9800]" />
-                        <span>Chuyển đổi / Mở thêm vai trò</span>
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <Lock size={16} />
+                        </span>
+                        <span>Đổi mật khẩu</span>
                       </a>
 
-                      <hr className="my-1 border-[#ede8df]" />
+                      <hr className="my-1.5 border-[#ede8df]" />
 
                       <button
                         type="button"
@@ -379,10 +407,12 @@ export default function Header({
                           closeDropdown()
                           onLogout?.()
                         }}
-                        className="w-full text-left py-2 px-3 rounded-xl hover:bg-red-50 text-red-600 font-bold flex items-center gap-2"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-red-50 text-red-600 font-bold flex items-center gap-2.5 transition-colors group cursor-pointer"
                       >
-                        <LogOut size={15} />
-                        <span>Đăng xuất</span>
+                        <span className="w-7 h-7 rounded-lg bg-red-100 group-hover:bg-red-200 flex items-center justify-center shrink-0 text-red-600">
+                          <LogOut size={16} />
+                        </span>
+                        <span>Đăng Xuất</span>
                       </button>
                     </div>
                   </div>
@@ -1091,10 +1121,19 @@ export default function Header({
             {user ? (
               <div className="flex flex-col gap-2 p-3 bg-[#f0ebd9] rounded-2xl">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
-                    <div className="text-[11px] text-[#555d4e]">
-                      Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        user.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
+                      <div className="text-[11px] text-[#555d4e]">
+                        Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
+                      </div>
                     </div>
                   </div>
                   <button
@@ -1109,12 +1148,32 @@ export default function Header({
                   </button>
                 </div>
 
+                <div className="grid grid-cols-2 gap-2 my-1">
+                  <a
+                    href="/tai-khoan"
+                    onClick={closeDropdown}
+                    className="py-2 px-2.5 rounded-xl bg-white border border-[#326318] text-[#326318] font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <User size={13} />
+                    <span>Hồ Sơ Của Tôi</span>
+                  </a>
+                  <a
+                    href="/my-vouchers"
+                    onClick={closeDropdown}
+                    className="py-2 px-2.5 rounded-xl bg-white border border-amber-600 text-amber-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <Ticket size={13} />
+                    <span>Kho Voucher</span>
+                  </a>
+                </div>
+
                 <a
                   href="/orders"
                   onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 block my-1"
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
                 >
-                  📦 Đơn Hàng Của Tôi
+                  <ShoppingBag size={14} className="text-emerald-700" />
+                  <span>Đơn Hàng Của Tôi</span>
                 </a>
 
                 {user.role === 'admin' && (
@@ -1124,7 +1183,7 @@ export default function Header({
                     className="py-2.5 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold text-xs flex items-center gap-2 border border-purple-200"
                   >
                     <ShieldCheck size={16} className="text-purple-700" />
-                    <span>🛡️ Quản Trị Hệ Thống Admin</span>
+                    <span>Quản Trị Hệ Thống Admin</span>
                   </a>
                 )}
 
@@ -1135,7 +1194,7 @@ export default function Header({
                     className="py-2.5 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold text-xs flex items-center gap-2 border border-[#b1dfe4]"
                   >
                     <Truck size={16} className="text-[#195962]" />
-                    <span>🛵 Cổng Giao Hàng Shipper</span>
+                    <span>Cổng Giao Hàng Shipper</span>
                   </a>
                 )}
 
@@ -1144,16 +1203,18 @@ export default function Header({
                     <a
                       href="/shop"
                       onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm"
+                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm flex items-center justify-center gap-1"
                     >
-                      🌾 Kênh Nhà Vườn
+                      <Store size={13} />
+                      <span>Kênh Nhà Vườn</span>
                     </a>
                     <a
                       href="/shop/orders"
                       onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center"
+                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center flex items-center justify-center gap-1"
                     >
-                      📦 Quản Lý Đơn
+                      <FileText size={13} />
+                      <span>Quản Lý Đơn</span>
                     </a>
                   </div>
                 )}

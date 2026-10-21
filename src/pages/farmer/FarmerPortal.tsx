@@ -44,7 +44,7 @@ import BlindBoxTool from './BlindBoxTool'
 import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
 import FarmerBlogs from './FarmerBlogs'
-import OnboardingTour from '../onboardingtour/OnboardingTour'
+import OnboardingTour from './OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
 
 interface FarmerPortalProps {

@@ -3,6 +3,7 @@ import { devtools, persist, type PersistStorage } from 'zustand/middleware'
 import type { AuthUser, SessionUser, UserRole } from '@/types'
 import { AUTH_UNAUTHORIZED_EVENT } from '@/services/api'
 import { STORAGE_KEYS } from '@/utils'
+import { isTokenValid } from '@/utils/jwt'
 import { readJson, readRaw, writeRaw } from './storage'
 
 const ROLES: readonly UserRole[] = ['buyer', 'shop', 'shipper', 'admin']
@@ -32,33 +33,69 @@ function isLoginUser(value: unknown): value is LoginUser {
   )
 }
 
-/** Đọc user đã lưu; kiểm tra kiểu thay vì tin JSON.parse. Bản cũ lưu user không có id. */
-export function readStoredUser(): SessionUser | null {
-  const saved = readJson(STORAGE_KEYS.USER)
-  return isLoginUser(saved) ? { ...saved, id: String(saved.id ?? 'local') } : null
+/** Xóa sạch toàn bộ storage auth khi hết phiên hoặc đăng xuất */
+export function clearAuthStorage(): void {
+  writeRaw(STORAGE_KEYS.USER, null)
+  writeRaw(STORAGE_KEYS.TOKEN, null)
+  writeRaw(STORAGE_KEYS.ACCESS_TOKEN, null)
+  writeRaw(STORAGE_KEYS.REFRESH_TOKEN, null)
 }
 
 /**
- * Giữ nguyên 2 key cũ (capnong-user là JSON, capnong-token là chuỗi thô)
- * để người đang đăng nhập không bị đăng xuất khi chuyển sang Zustand.
+ * Đọc user đã lưu; chỉ trả về khi CẢ token hợp lệ (chưa hết hạn) lẫn user tồn tại.
+ * Tránh lỗi hiển thị thông tin người dùng khi chưa đăng nhập hoặc phiên đã kết thúc.
+ */
+export function readStoredUser(): SessionUser | null {
+  const token = readRaw(STORAGE_KEYS.TOKEN) || readRaw(STORAGE_KEYS.ACCESS_TOKEN)
+  if (!isTokenValid(token)) {
+    clearAuthStorage()
+    return null
+  }
+  const saved = readJson(STORAGE_KEYS.USER)
+  if (!isLoginUser(saved)) {
+    clearAuthStorage()
+    return null
+  }
+  return { ...saved, id: String(saved.id ?? 'local') }
+}
+
+/**
+ * Đồng bộ lưu trữ phiên: chỉ lưu khi cả user và token đều hợp lệ.
  */
 const legacyAuthStorage: PersistStorage<PersistedAuth> = {
-  getItem: () => ({
-    state: {
-      user: readStoredUser(),
-      token: readRaw(STORAGE_KEYS.TOKEN) || readRaw(STORAGE_KEYS.ACCESS_TOKEN),
-    },
-    version: 0,
-  }),
+  getItem: () => {
+    const token = readRaw(STORAGE_KEYS.TOKEN) || readRaw(STORAGE_KEYS.ACCESS_TOKEN)
+    if (!isTokenValid(token)) {
+      clearAuthStorage()
+      return {
+        state: { user: null, token: null },
+        version: 0,
+      }
+    }
+    const user = readStoredUser()
+    if (!user) {
+      clearAuthStorage()
+      return {
+        state: { user: null, token: null },
+        version: 0,
+      }
+    }
+    return {
+      state: { user, token },
+      version: 0,
+    }
+  },
   setItem: (_name, { state }) => {
-    writeRaw(STORAGE_KEYS.USER, state.user ? JSON.stringify(state.user) : null)
-    writeRaw(STORAGE_KEYS.TOKEN, state.token)
-    writeRaw(STORAGE_KEYS.ACCESS_TOKEN, state.token)
+    if (!state.user || !state.token || !isTokenValid(state.token)) {
+      clearAuthStorage()
+    } else {
+      writeRaw(STORAGE_KEYS.USER, JSON.stringify(state.user))
+      writeRaw(STORAGE_KEYS.TOKEN, state.token)
+      writeRaw(STORAGE_KEYS.ACCESS_TOKEN, state.token)
+    }
   },
   removeItem: () => {
-    writeRaw(STORAGE_KEYS.USER, null)
-    writeRaw(STORAGE_KEYS.TOKEN, null)
-    writeRaw(STORAGE_KEYS.ACCESS_TOKEN, null)
+    clearAuthStorage()
   },
 }
 
@@ -68,16 +105,15 @@ export const useAuthStore = create<AuthState>()(
       (set) => ({
         user: null,
         token: null,
-        login: (next, nextToken) =>
-          set(
-            {
-              user: { ...next, id: next.id != null ? String(next.id) : crypto.randomUUID() },
-              token: nextToken ?? null,
-            },
-            false,
-            'auth/login',
-          ),
-        logout: () => set({ user: null, token: null }, false, 'auth/logout'),
+        login: (next, nextToken) => {
+          const token = nextToken ?? null
+          const user = { ...next, id: next.id != null ? String(next.id) : crypto.randomUUID() }
+          set({ user, token }, false, 'auth/login')
+        },
+        logout: () => {
+          clearAuthStorage()
+          set({ user: null, token: null }, false, 'auth/logout')
+        },
         setUser: (user) => set({ user }, false, 'auth/setUser'),
       }),
       {
@@ -108,8 +144,8 @@ export function useAuth() {
   return {
     user,
     token,
-    isAuthenticated: user !== null,
-    hasRole: (...roles: UserRole[]) => user !== null && roles.includes(user.role),
+    isAuthenticated: user !== null && isTokenValid(token),
+    hasRole: (...roles: UserRole[]) => user !== null && isTokenValid(token) && roles.includes(user.role),
     login,
     logout,
     setUser,
