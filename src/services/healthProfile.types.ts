@@ -35,7 +35,9 @@ export interface ProfileExtraction {
   removeConditions?: string[]
   dietPreference?: string
   planRequest?: ExtractedPlanRequest
+  advice?: string
   notes?: string
+  suggestedOptions?: string[]
   needsClarification?: boolean
 }
 

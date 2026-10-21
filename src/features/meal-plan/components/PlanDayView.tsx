@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { Calendar, CheckCircle2 } from 'lucide-react'
-import type { BuildPlanResponse } from '@/services'
+import type { BuildPlanResponse, MealType } from '@/services'
 import PlanMealSlot from './PlanMealSlot'
 import NutritionalSummaryBar from './NutritionalSummaryBar'
 
 interface PlanDayViewProps {
   plan: BuildPlanResponse
-  onOpenSwap?: (mealId: number, itemId: number) => void
-  onOpenAdd?: (mealId: number) => void
+  isReadOnly?: boolean
+  onOpenSwap?: (mealId: number, itemId: number, mealType?: MealType) => void
+  onOpenAdd?: (mealId: number, mealType?: MealType) => void
 }
 
 export default function PlanDayView({ plan, onOpenSwap, onOpenAdd }: PlanDayViewProps) {
@@ -29,10 +30,14 @@ export default function PlanDayView({ plan, onOpenSwap, onOpenAdd }: PlanDayView
         if (meal.planMealItems) {
           for (const item of meal.planMealItems) {
             const qty = item.quantity || 1
-            cal += (item.calories || 0) * qty
-            pro += (item.protein || 0) * qty
-            carb += (item.carbs || 0) * qty
-            fat += (item.fat || 0) * qty
+            const itemCal = item.calories ?? (item as any).combo?.calories ?? 0
+            const itemPro = item.protein ?? (item as any).combo?.protein ?? 0
+            const itemCarb = item.carbs ?? (item as any).combo?.carbs ?? 0
+            const itemFat = item.fat ?? (item as any).combo?.fat ?? 0
+            cal += itemCal * qty
+            pro += itemPro * qty
+            carb += itemCarb * qty
+            fat += itemFat * qty
           }
         }
       }
@@ -95,6 +100,7 @@ export default function PlanDayView({ plan, onOpenSwap, onOpenAdd }: PlanDayView
               meal={meal}
               planId={plan.planId}
               isReadOnly={isReadOnly}
+              planStatus={plan.status}
               onOpenSwap={onOpenSwap}
               onOpenAdd={onOpenAdd}
             />

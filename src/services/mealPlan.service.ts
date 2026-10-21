@@ -10,15 +10,26 @@ import type {
   PlanHeaderUpdateRequest,
   AddMealItemRequest,
   ReplaceMealItemRequest,
+  PlanPreCheckRequest,
+  PlanPreCheckResponse,
+  PlanCopilotChatRequest,
+  PlanCopilotChatResponse,
+  PlanCopilotApplyRequest,
   PlanStatus,
 } from './mealPlan.types'
 
 export type * from './mealPlan.types'
 
 export const mealPlanService = {
+  // Tiền kiểm tra tính khả thi ngân sách & khẩu phần AI (Pre-check)
+  async preCheckPlan(request: PlanPreCheckRequest): Promise<PlanPreCheckResponse> {
+    const res = await axiosInstance.post('/build-plans/pre-check', request)
+    return unwrap<PlanPreCheckResponse>(res)
+  },
+
   // Flow B: Sinh kế hoạch thực đơn AI từ kho combo
   async generateAiPlan(request: PlanGenerateRequest): Promise<BuildPlanResponse> {
-    const res = await axiosInstance.post('/build-plans/generate', request)
+    const res = await axiosInstance.post('/build-plans/generate', request, { timeout: 60_000 })
     return unwrap<BuildPlanResponse>(res)
   },
 
@@ -132,5 +143,17 @@ export const mealPlanService = {
   async addPlanToCart(planId: number): Promise<ShoppingListResponse> {
     const res = await axiosInstance.post(`/build-plans/${planId}/add-to-cart`)
     return unwrap<ShoppingListResponse>(res)
+  },
+
+  // Trò chuyện tương tác với AI Co-pilot
+  async copilotChat(planId: number, request: PlanCopilotChatRequest): Promise<PlanCopilotChatResponse> {
+    const res = await axiosInstance.post(`/build-plans/${planId}/copilot-chat`, request)
+    return unwrap<PlanCopilotChatResponse>(res)
+  },
+
+  // Áp dụng đề xuất từ AI Co-pilot vào thực đơn
+  async copilotApply(planId: number, request: PlanCopilotApplyRequest): Promise<BuildPlanResponse> {
+    const res = await axiosInstance.post(`/build-plans/${planId}/copilot-apply`, request)
+    return unwrap<BuildPlanResponse>(res)
   },
 }

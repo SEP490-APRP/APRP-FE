@@ -4,8 +4,11 @@ import {
   healthProfileService,
   type PlanStatus,
   type PlanGenerateRequest,
+  type PlanPreCheckRequest,
   type AddMealItemRequest,
   type ReplaceMealItemRequest,
+  type PlanCopilotChatRequest,
+  type PlanCopilotApplyRequest,
   type HealthProfileExtractRequest,
   type ConfirmHealthProfileRequest,
   type ManualHealthProfileUpdateRequest,
@@ -49,6 +52,13 @@ export function useShoppingList(planId: number | null) {
     queryKey: MEAL_PLAN_KEYS.shoppingList(planId ?? 0),
     queryFn: () => mealPlanService.getShoppingList(planId!),
     enabled: !!planId && planId > 0,
+  })
+}
+
+/** Hook tiền kiểm tra tính khả thi ngân sách & khẩu phần AI (Pre-check) */
+export function usePreCheckPlan() {
+  return useMutation({
+    mutationFn: (req: PlanPreCheckRequest) => mealPlanService.preCheckPlan(req),
   })
 }
 
@@ -143,6 +153,24 @@ export function useReplaceMealItem(planId: number) {
   })
 }
 
+/** Hook thêm combo vào bữa ăn */
+export function useAddMealItem(planId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      mealId,
+      request,
+    }: {
+      mealId: number
+      request: AddMealItemRequest
+    }) => mealPlanService.addMealItem(planId, mealId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEAL_PLAN_KEYS.detail(planId) })
+      queryClient.invalidateQueries({ queryKey: MEAL_PLAN_KEYS.shoppingList(planId) })
+    },
+  })
+}
+
 /** Hook cập nhật số lượng combo */
 export function useUpdateMealItemQuantity(planId: number) {
   const queryClient = useQueryClient()
@@ -221,6 +249,25 @@ export function useUpdateHealthProfile() {
     mutationFn: (data: ManualHealthProfileUpdateRequest) => healthProfileService.updateMyProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: HEALTH_PROFILE_KEYS.profile })
+    },
+  })
+}
+
+/** Hook tương tác với AI Co-pilot Chat */
+export function useCopilotChat(planId: number) {
+  return useMutation({
+    mutationFn: (req: PlanCopilotChatRequest) => mealPlanService.copilotChat(planId, req),
+  })
+}
+
+/** Hook áp dụng thay đổi từ AI Co-pilot vào thực đơn */
+export function useCopilotApply(planId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (req: PlanCopilotApplyRequest) => mealPlanService.copilotApply(planId, req),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEAL_PLAN_KEYS.detail(planId) })
+      queryClient.invalidateQueries({ queryKey: MEAL_PLAN_KEYS.shoppingList(planId) })
     },
   })
 }

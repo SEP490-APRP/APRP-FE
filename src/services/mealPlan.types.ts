@@ -1,12 +1,27 @@
+import type { MealType } from './combo.types'
+export type { MealType }
 export type PlanStatus = 'DRAFT' | 'AI_DRAFT' | 'CONFIRMED' | 'ARCHIVED'
 export type PlanSource = 'MANUAL' | 'AI'
-export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 
 export interface PlanMealItemResponse {
   id: number
   comboId: number
   comboName: string
   imageUrl?: string
+  combo?: {
+    comboId?: number
+    comboName?: string
+    price?: number
+    type?: string
+    region?: string
+    regionDisplayName?: string
+    cookingSuggestion?: string
+    imageUrl?: string
+    description?: string
+    shopId?: number
+    shopName?: string
+    remainingStock?: number
+  }
   quantity: number
   unitPriceSnapshot: number
   isAiSuggested?: boolean
@@ -16,6 +31,14 @@ export interface PlanMealItemResponse {
   protein?: number
   carbs?: number
   fat?: number
+  aiReasonTag?: string
+  aiDescription?: string
+  region?: string
+  regionDisplayName?: string
+  comboType?: string
+  cookingSuggestion?: string
+  remainingStock?: number
+  inStock?: boolean
 }
 
 export interface PlanMealResponse {
@@ -59,6 +82,10 @@ export interface ShoppingListItemResponse {
   imageUrl?: string
   shopId?: number
   shopName?: string
+  region?: string
+  regionDisplayName?: string
+  comboType?: string
+  cookingSuggestion?: string
   totalQuantity: number
   unitPrice: number
   subtotal: number
@@ -104,5 +131,84 @@ export interface AddMealItemRequest {
 
 export interface ReplaceMealItemRequest {
   newComboId: number
+  quantity?: number
+}
+
+export interface PlanScenarioOption {
+  scenarioKey?: string
+  scenarioId?: string
+  title: string
+  description: string
+  estimatedCost?: number
+  suggestedDays?: number
+  adjustedDays?: number
+  suggestedPeople?: number
+  adjustedPeople?: number
+  suggestedMealTypes?: (MealType | string)[]
+  adjustedMealTypes?: (MealType | string)[]
+  suggestedBudget?: number
+  adjustedBudget?: number
+}
+
+export interface PlanPreCheckRequest {
+  numberOfDays?: number
+  numberOfPeople?: number
+  targetBudget?: number
+  preferredMealTypes?: MealType[]
+  goal?: string
+}
+
+export interface PlanPreCheckResponse {
+  isFeasible: boolean
+  totalMeals: number
+  combosPerMeal: number
+  totalCombosNeeded: number
+  estimatedMinCost: number
+  estimatedStandardCost: number
+  hasPortionWarning: boolean
+  portionAdvice?: string
+  hasBudgetWarning: boolean
+  budgetAdvice?: string
+  scenarios?: PlanScenarioOption[]
+  suggestedScenarios?: PlanScenarioOption[]
+}
+
+export interface CopilotChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface PlanCopilotChatRequest {
+  message: string
+  history?: CopilotChatMessage[]
+}
+
+export interface PlanCopilotActionDto {
+  actionType: 'REPLACE_COMBO' | 'UPDATE_QUANTITY' | string
+  dayIndex?: number
+  mealType?: string
+  targetMealId?: number
+  targetItemId?: number
+  newComboId?: number
+  newComboName?: string
+  newComboImageUrl?: string
+  newPrice?: number
+  quantity?: number
+  reason?: string
+}
+
+export interface PlanCopilotChatResponse {
+  replyMessage: string
+  suggestedAction?: PlanCopilotActionDto | null
+  canExecute?: boolean
+  planStatus?: string
+  quickSuggestions?: string[]
+}
+
+export interface PlanCopilotApplyRequest {
+  actionType: string
+  targetMealId: number
+  targetItemId: number
+  newComboId?: number
   quantity?: number
 }

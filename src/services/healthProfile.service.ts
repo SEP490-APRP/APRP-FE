@@ -39,7 +39,7 @@ export const healthProfileService = {
 
   // Flow A: Trích xuất dị ứng & bệnh lý bằng AI từ đoạn mô tả tự do
   async extractProfile(data: HealthProfileExtractRequest): Promise<HealthProfileExtractResponse> {
-    const res = await axiosInstance.post('/health-profile/extract', data)
+    const res = await axiosInstance.post('/health-profile/extract', data, { timeout: 60_000 })
     return unwrap<HealthProfileExtractResponse>(res)
   },
 
