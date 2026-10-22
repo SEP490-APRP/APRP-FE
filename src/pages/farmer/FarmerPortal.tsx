@@ -47,6 +47,7 @@ import FarmerBlogs from './FarmerBlogs'
 import FarmerMessages from './FarmerMessages'
 import OnboardingTour from './OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
+import logoIcon from '@/assets/logo-icon.png'
 
 interface FarmerPortalProps {
   user?: AuthUser | null
@@ -414,9 +415,11 @@ export default function FarmerPortal({
             }}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-[#326318] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-              <Leaf size={22} className="fill-white" />
-            </div>
+            <img
+              src={logoIcon}
+              alt="CapNong"
+              className="w-10 h-10 object-contain group-hover:scale-105 transition-transform"
+            />
             <div>
               <h1 className="text-base font-black leading-none text-[#1c2216] tracking-tight uppercase">
                 CapNong

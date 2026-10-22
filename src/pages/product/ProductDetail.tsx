@@ -108,9 +108,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
   // OG tags & SEO document title
   useEffect(() => {
-    const DEFAULT_TITLE = 'XẤU MÃ - Nông Sản Mộc Mạc, Giá Trị Thật'
+    const DEFAULT_TITLE = 'CapNong - Nông sản xấu mã – Ngon thật'
     const DEFAULT_DESC = 'Nền tảng nông sản sạch, tươi ngon, giao hàng tận nhà.'
-    const DEFAULT_IMG = 'https://nongsanxauma.vn/logo.png'
+    const DEFAULT_IMG = '/logo.png'
 
     const setMeta = (property: string, content: string) => {
       let el = document.querySelector(`meta[property="${property}"]`)

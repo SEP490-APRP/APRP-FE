@@ -33,6 +33,7 @@ import {
 import type { AuthUser } from '@/features/auth'
 import { useAuth } from '@/stores'
 import { Button, LinkButton } from '@/components/ui/Button'
+import logoIcon from '@/assets/logo-icon.png'
 import { Drawer } from '@/components/ui/Drawer'
 import { Skeleton, TableSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/StateViews'
@@ -229,12 +230,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
       {/* Sidebar cố định chỉ từ lg; dưới lg là Drawer để nội dung có đủ bề ngang */}
       <aside className="hidden w-72 shrink-0 flex-col border-r border-line bg-white lg:flex">
         <div className="flex items-center gap-3 border-b border-line p-5">
-          <span
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-leaf-700 text-white"
-            aria-hidden
-          >
-            <Shield size={20} />
-          </span>
+          <img src={logoIcon} alt="CapNong" className="h-10 w-10 object-contain" />
           <div>
             <p className="text-base font-black uppercase leading-none">CapNong</p>
             <p className="mt-1 text-caption font-bold uppercase tracking-wider text-leaf-700">

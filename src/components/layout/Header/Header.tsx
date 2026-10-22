@@ -26,6 +26,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
+import logoIcon from '@/assets/logo-icon.png'
 
 interface HeaderProps {
   route: string
@@ -137,12 +138,14 @@ export default function Header({
       {/* Main Header Row */}
       <div className="page-container header-main relative z-50">
         <a href="/" className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
-          <span className="brand-leaf">
-            <Leaf size={29} />
-          </span>
+          <img
+            src={logoIcon}
+            alt="CapNong"
+            className="h-10 w-auto object-contain shrink-0"
+          />
           <span>
             <strong>CapNong</strong>
-            <small>Nông sản xấu mã – Ngon thật</small>
+            <small>Nông sản xấu mã – ngon thật</small>
           </span>
         </a>
 
