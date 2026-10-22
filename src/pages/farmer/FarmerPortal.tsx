@@ -602,14 +602,6 @@ export default function FarmerPortal({
               <HelpCircle size={15} />
               <span>Hướng dẫn</span>
             </button>
-
-            <button
-              type="button"
-              onClick={onNavigateStore}
-              className="px-3.5 py-2 rounded-full border border-[#d6dcce] hover:bg-[#f4f7f1] text-xs font-bold text-[#454c3e] transition-colors cursor-pointer"
-            >
-              Xem Cửa Hàng
-            </button>
           </div>
         </header>
 
@@ -633,7 +625,11 @@ export default function FarmerPortal({
               products={realProductsList.length > 0 ? realProductsList : products}
               onOpenAddProduct={() => setShowAddProductModal(true)}
               onOpenBlindBoxTool={() => setShowBlindBoxTool(true)}
-              onOpenComboBuilder={(combo?: any) => { setComboToEdit(combo || null); setShowComboBuilder(true); }}
+              onOpenComboBuilder={(combo?: any) => {
+                const isEvent = combo && typeof combo === 'object' && ('nativeEvent' in combo || 'target' in combo || 'bubbles' in combo)
+                setComboToEdit(isEvent ? null : (combo || null))
+                setShowComboBuilder(true)
+              }}
               onInfo={handleInfo}
             />
           ) : currentTab === 'orders' ? (

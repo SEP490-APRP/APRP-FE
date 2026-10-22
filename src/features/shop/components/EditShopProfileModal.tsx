@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   X,
   Save,
@@ -214,25 +215,32 @@ export function EditShopProfileModal({
 
   const phoneIsValid = isVietnamesePhoneNumber(formData.phoneNumber)
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-[#ede8df] relative max-h-[92vh] overflow-y-auto">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center cursor-pointer transition-colors"
-          title="Đóng cửa sổ"
-        >
-          <X size={18} />
-        </button>
+  if (typeof document === 'undefined') return null
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="flex items-center gap-2 text-[#326318] text-xs font-bold uppercase tracking-wide">
-            <Sparkles size={16} />
-            <span>Cập Nhật Thông Tin Nhà Vườn</span>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-[#ede8df] relative overflow-hidden my-auto">
+        {/* Fixed Header: Luôn cố định, không bị che khuất hay cuộn mất */}
+        <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-[#f1f4ed] flex items-center justify-between shrink-0 bg-[#fafcf9]">
+          <div>
+            <div className="flex items-center gap-1.5 text-[#326318] text-xs font-bold uppercase tracking-wide mb-0.5">
+              <Sparkles size={14} />
+              <span>Cập Nhật Thông Tin Nhà Vườn</span>
+            </div>
+            <h2 className="text-xl font-black text-[#1c2216]">Hồ Sơ Gian Hàng &amp; Pháp Nhân</h2>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-[#f4efe4] hover:bg-[#eae3d5] text-[#333a2e] flex items-center justify-center cursor-pointer transition-colors shrink-0 ml-4"
+            title="Đóng cửa sổ"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          <h2 className="text-xl font-black text-[#1c2216]">Hồ Sơ Gian Hàng &amp; Pháp Nhân</h2>
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 overflow-y-auto space-y-5 flex-1">
 
           {/* 1. Khu vực xem & Đổi Ảnh Đại Diện / Logo ngay trong modal */}
           <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#fafcf9] border border-[#e8efe3]">
@@ -245,7 +253,7 @@ export function EditShopProfileModal({
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       // Fallback nếu ảnh hỏng
-                      ;(e.target as HTMLElement).style.display = 'none'
+                      ; (e.target as HTMLElement).style.display = 'none'
                     }}
                   />
                 ) : (
@@ -353,11 +361,10 @@ export function EditShopProfileModal({
                   if (!isPhoneTouched) setIsPhoneTouched(true)
                 }}
                 placeholder="VD: 0912345678"
-                className={`w-full px-4 py-2.5 rounded-xl border text-xs outline-none transition-colors ${
-                  isPhoneTouched && !phoneIsValid
+                className={`w-full px-4 py-2.5 rounded-xl border text-xs outline-none transition-colors ${isPhoneTouched && !phoneIsValid
                     ? 'border-red-400 focus:border-red-500 bg-red-50/20'
                     : 'border-[#d8d3c5] focus:border-[#326318]'
-                }`}
+                  }`}
               />
               {/* Helper text / Cảnh báo định dạng số điện thoại */}
               {isPhoneTouched && !phoneIsValid ? (
@@ -394,13 +401,12 @@ export function EditShopProfileModal({
                 Giới Thiệu Câu Chuyện Nhà Vườn
               </label>
               <span
-                className={`text-[11px] font-bold ${
-                  formData.description.length >= 500
+                className={`text-[11px] font-bold ${formData.description.length >= 500
                     ? 'text-red-600 font-black'
                     : formData.description.length >= 450
-                    ? 'text-amber-600'
-                    : 'text-[#7c8676]'
-                }`}
+                      ? 'text-amber-600'
+                      : 'text-[#7c8676]'
+                  }`}
               >
                 {formData.description.length} / 500 ký tự
               </span>
@@ -576,6 +582,7 @@ export function EditShopProfileModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

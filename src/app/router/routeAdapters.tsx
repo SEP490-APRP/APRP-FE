@@ -118,6 +118,24 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
       onLoginSuccess={(user: AuthUser) => {
         const fromLocation = (state as { from?: { pathname: string } })?.from?.pathname
         if (fromLocation && fromLocation !== '/dang-nhap' && fromLocation !== '/dang-ky') {
+          const isTargetingAdmin = fromLocation.startsWith('/admin')
+          const isTargetingShop = fromLocation.startsWith('/shop')
+          const isTargetingShipper = fromLocation.startsWith('/shipper')
+
+          // Nếu route trước đó không phù hợp với quyền của tài khoản vừa đăng nhập, chuyển về trang chủ của role đó
+          if (isTargetingAdmin && user.role !== 'admin') {
+            navigate(user.role === 'shop' ? '/shop' : user.role === 'shipper' ? '/shipper' : '/')
+            return
+          }
+          if (isTargetingShop && user.role !== 'shop') {
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shipper' ? '/shipper' : '/')
+            return
+          }
+          if (isTargetingShipper && user.role !== 'shipper') {
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+            return
+          }
+
           navigate(fromLocation)
         } else {
           navigate(

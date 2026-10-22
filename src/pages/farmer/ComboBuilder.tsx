@@ -27,7 +27,18 @@ const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'SNACK', label: 'Ăn nhẹ & tráng miệng' },
 ]
 
-export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo }: ComboBuilderProps) {
+export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo, onClose, onInfo }: ComboBuilderProps) {
+  // Loại trừ React SyntheticEvent nếu bị truyền nhầm qua onClick
+  const isEvent =
+    rawInitialCombo &&
+    typeof rawInitialCombo === 'object' &&
+    ('nativeEvent' in rawInitialCombo || 'bubbles' in rawInitialCombo || 'target' in rawInitialCombo)
+  const initialCombo = isEvent ? null : rawInitialCombo
+  const isEditMode = Boolean(
+    initialCombo &&
+      (initialCombo.id || initialCombo.comboId || initialCombo.productId || initialCombo.productName || initialCombo.comboName)
+  )
+
   // Form states mapping BE BuildComboCreationRequest / BuildComboUpdateRequest
   const [comboName, setComboName] = useState(
     initialCombo?.productName || initialCombo?.comboName || initialCombo?.name || '',
@@ -253,7 +264,7 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
     for (const item of selectedItems) {
       const needed = item.quantity * numTotalQty
       let allocatedInOldCombo = 0
-      if (initialCombo) {
+      if (isEditMode && initialCombo) {
         const oldTotal = Number(
           initialCombo.stockQuantity || initialCombo.totalQuantity || initialCombo.stock || 0,
         )
@@ -334,10 +345,10 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
         <div className="px-6 py-4 border-b border-[#f1f4ed] flex items-center justify-between shrink-0 bg-[#fafcf9]">
           <div>
             <h3 className="text-base font-black text-[#1c2216]">
-              {initialCombo ? 'Chỉnh Sửa Combo Nông Sản' : 'Tạo Combo Nông Sản'}
+              {isEditMode ? 'Chỉnh Sửa Combo Nông Sản' : 'Tạo Combo Nông Sản'}
             </h3>
             <p className="text-[11px] text-[#7e8779]">
-              {initialCombo
+              {isEditMode
                 ? 'Cập nhật thông tin, ảnh và nguyên liệu của combo'
                 : 'Ghép nhiều loại rau củ thành set món ăn tiện lợi'}
             </p>
@@ -652,15 +663,15 @@ export default function ComboBuilder({ initialCombo, onAddCombo, onClose, onInfo
             <button
               type="submit"
               disabled={createComboMutation.isPending || updateComboMutation.isPending || isUploadingImage}
-              className="w-full py-3 rounded-xl bg-[#326318] hover:bg-[#254b12] disabled:opacity-60 text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-[#326318] hover:bg-[#254b12] disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
             >
               {createComboMutation.isPending || updateComboMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{initialCombo ? 'Đang lưu combo...' : 'Đang tạo combo...'}</span>
+                  <span>{isEditMode ? 'Đang lưu combo...' : 'Đang tạo combo...'}</span>
                 </>
               ) : (
-                <span>{initialCombo ? 'Lưu Thay Đổi' : 'Đăng Bán Combo'}</span>
+                <span>{isEditMode ? 'Lưu Thay Đổi' : 'Đăng Bán Combo'}</span>
               )}
             </button>
           </div>
