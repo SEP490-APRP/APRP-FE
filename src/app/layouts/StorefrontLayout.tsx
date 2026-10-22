@@ -127,7 +127,7 @@ export default function StorefrontLayout() {
   const context: StorefrontContext = { cart, query, setQuery, onAdd, onInfo: showInfo }
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-paper-warm">
       <a
         href="#main-content"
         className="skip-link"
@@ -153,13 +153,12 @@ export default function StorefrontLayout() {
         onInfo={showInfo}
       />
 
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
         <Suspense fallback={<PageLoading />}>
           <Outlet context={context} />
+          <Footer onInfo={showInfo} />
         </Suspense>
       </main>
-
-      <Footer onInfo={showInfo} />
 
       {toast && (
         <div className="toast" role="status">
@@ -196,6 +195,6 @@ export default function StorefrontLayout() {
           </div>
         </Modal>
       )}
-    </>
+    </div>
   )
 }

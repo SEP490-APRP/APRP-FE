@@ -22,6 +22,7 @@ import { authService } from '../../services/auth.service';
 import type { UserResponse } from '../../services/auth.service';
 import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../services/codSettlement.service';
 import { globalShowAlert } from '@/components/common/Popup';
+import logoIcon from '@/assets/logo-icon.png';
 
 interface ShipperDashboardProps {
   onLogout?: () => void;
@@ -902,12 +903,10 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
           className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity cursor-pointer group"
           title="Về Trang chủ CapNong"
         >
-          <div className="size-10 bg-white rounded-xl flex items-center justify-center text-[#1a4d2e] group-hover:scale-105 transition-transform">
-            <Bike className="size-6 fill-current" />
-          </div>
+          <img src={logoIcon} alt="CapNong" className="size-10 object-contain group-hover:scale-105 transition-transform" />
           <div>
-            <h2 className="text-xl font-black tracking-tighter uppercase leading-none">XẤU MÃ SHIPPER</h2>
-            <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-1">Hệ thống vận chuyển thông minh</p>
+            <h2 className="text-xl font-black tracking-tighter uppercase leading-none">CapNong Shipper</h2>
+            <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-1">Hệ thống giao vận nông sản</p>
           </div>
         </button>
         <div className="flex items-center gap-4">

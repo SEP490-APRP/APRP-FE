@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ROUTES } from '@/utils/constants'
 import { authService } from '@/services'
+import logoIcon from '@/assets/logo-icon.png'
 
 /* ===== Validation Schemas ===== */
 const emailSchema = z.object({
@@ -120,9 +121,10 @@ export const ForgotPasswordPage = () => {
     <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Header / Logo */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-primary">Giải Cứu Nông Sản</h1>
-          <p className="mt-2 text-sm text-primary-dark">
+        <div className="mb-8 text-center flex flex-col items-center">
+          <img src={logoIcon} alt="CapNong" className="h-16 w-auto object-contain mb-2 drop-shadow-sm" />
+          <h1 className="text-3xl font-extrabold text-[#326318]">CapNong · Giải Cứu Nông Sản</h1>
+          <p className="mt-1 text-xs text-[#55634e]">
             Cùng chung tay vì nông sản Việt
           </p>
         </div>
