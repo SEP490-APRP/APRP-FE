@@ -192,7 +192,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     }
   }
 
-  const handleStartChat = async () => {
+  const handleStartChat = () => {
     if (!isAuthenticated) {
       navigate('/login')
       return
@@ -206,13 +206,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
           },
         }),
       )
-      try {
-        const chatStore = (await import('@/stores')).useChatStore.getState()
-        chatStore.setOpen(true)
-        await chatStore.startChatWithUser(resolvedShopId)
-      } catch (err) {
-        console.warn('[ProductDetail] Error starting chat:', err)
-      }
     }
   }
 
@@ -307,59 +300,57 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
   return (
     <div
-      className="flex-1 pb-20 font-sans text-ink"
+      className="flex-1 pb-10 font-sans text-ink"
       style={{
         background: 'linear-gradient(160deg, #f0f7eb 0%, #fcf9f1 40%, #fcf9f1 100%)',
       }}
     >
-      {/* Top sticky navigation bar */}
-      <div className="bg-white/80 border-b border-line backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <nav className="flex items-center gap-2 text-xs sm:text-sm text-ink-muted min-w-0">
-            <button
-              type="button"
-              onClick={handleBack}
-              aria-label="Quay lại"
-              className="shrink-0 size-8 sm:size-9 flex items-center justify-center rounded-xl bg-paper-warm hover:bg-paper text-ink transition-colors border border-line cursor-pointer"
-            >
-              <ChevronLeft className="size-4 sm:size-5" />
-            </button>
-            <span
-              className="cursor-pointer hover:text-leaf-700 truncate hidden sm:inline"
-              onClick={handleBack}
-            >
-              Trang chủ
-            </span>
-            <ChevronRight className="size-3.5 shrink-0 hidden sm:block text-line-strong" />
-            <span
-              className="cursor-pointer hover:text-leaf-700 truncate hidden sm:inline"
-              onClick={() => navigate('/nong-san-tuoi')}
-            >
-              Nông sản tươi
-            </span>
-            <ChevronRight className="size-3.5 shrink-0 hidden sm:block text-line-strong" />
-            <span className="text-ink font-bold truncate">{product.productName}</span>
-          </nav>
+      {/* Top breadcrumbs */}
+      <div className="max-w-6xl mx-auto px-4 pt-2.5 pb-1 flex items-center justify-between gap-3">
+        <nav className="flex items-center gap-1.5 text-xs text-ink-muted min-w-0">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="Quay lại"
+            className="shrink-0 size-7 flex items-center justify-center rounded-md bg-paper-warm hover:bg-paper text-ink transition-colors border border-line cursor-pointer"
+          >
+            <ChevronLeft className="size-3.5" />
+          </button>
+          <span
+            className="cursor-pointer hover:text-leaf-700 truncate hidden sm:inline"
+            onClick={handleBack}
+          >
+            Trang chủ
+          </span>
+          <ChevronRight className="size-3 shrink-0 hidden sm:block text-line-strong" />
+          <span
+            className="cursor-pointer hover:text-leaf-700 truncate hidden sm:inline"
+            onClick={() => navigate('/nong-san-tuoi')}
+          >
+            Nông sản tươi
+          </span>
+          <ChevronRight className="size-3 shrink-0 hidden sm:block text-line-strong" />
+          <span className="text-ink font-semibold truncate">{product.productName}</span>
+        </nav>
 
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowShareMenu((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-paper-warm hover:bg-paper text-ink rounded-xl text-xs font-bold transition-all border border-line cursor-pointer"
-            >
-              <Share2 className="size-3.5" />
-              <span className="hidden sm:inline">Chia sẻ</span>
-            </button>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowShareMenu((v) => !v)}
+            className="flex items-center gap-1 px-2.5 py-1 bg-paper-warm hover:bg-paper text-ink rounded-md text-xs font-medium transition-all border border-line cursor-pointer"
+          >
+            <Share2 className="size-3" />
+            <span className="hidden sm:inline">Chia sẻ</span>
+          </button>
 
-            <ProductSharePopover
-              isOpen={showShareMenu}
-              onClose={() => setShowShareMenu(false)}
-              productUrl={productUrl}
-              shopUrl={shopUrl}
-              type="product"
-              align="right"
-            />
-          </div>
+          <ProductSharePopover
+            isOpen={showShareMenu}
+            onClose={() => setShowShareMenu(false)}
+            productUrl={productUrl}
+            shopUrl={shopUrl}
+            type="product"
+            align="right"
+          />
         </div>
       </div>
 
@@ -382,6 +373,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
         onAddToCart={handleAddToCart}
         onScrollToDetail={scrollToProductDetail}
         onNavigateToShop={handleNavigateToShop}
+        onStartChat={handleStartChat}
         highlights={highlights}
       />
 

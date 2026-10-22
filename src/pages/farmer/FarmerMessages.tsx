@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   MessageSquare,
   Search,
@@ -90,10 +90,17 @@ export const FarmerMessages: React.FC = () => {
     }, 2000)
   }
 
-  // Lọc hội thoại theo từ khóa
-  const filteredConversations = conversations.filter((c) =>
-    (c.otherUserName || '').toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  // Lọc hội thoại theo từ khóa và loại bỏ triệt để trùng lặp otherUserId
+  const filteredConversations = useMemo(() => {
+    const seenOtherUserIds = new Set<number>()
+    return conversations.filter((c) => {
+      const otherId = Number(c.otherUserId)
+      if (seenOtherUserIds.has(otherId)) return false
+      seenOtherUserIds.add(otherId)
+
+      return (c.otherUserName || '').toLowerCase().includes(searchQuery.toLowerCase())
+    })
+  }, [conversations, searchQuery])
 
   const activeMessages = activeConversation ? messages[Number(activeConversation.id)] || [] : []
   const isOtherUserTyping = activeConversation && typingUsers[activeConversation.otherUserId]
@@ -121,7 +128,7 @@ export const FarmerMessages: React.FC = () => {
       {/* CỘT TRÁI: DANH SÁCH HỘI THOẠI KHÁCH HÀNG */}
       <div
         id="tour-messages-search"
-        className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-xs flex flex-col min-h-0 overflow-hidden"
+        className="bg-white rounded-xl p-5 border border-[#e8ece3] shadow-xs flex flex-col min-h-0 overflow-hidden"
       >
         <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2">
@@ -140,7 +147,7 @@ export const FarmerMessages: React.FC = () => {
             placeholder="Tìm tên khách hàng..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl bg-[#fafcf9] border border-[#edf1e8] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
+            className="w-full pl-9 pr-3.5 py-2 text-xs rounded-lg bg-[#fafcf9] border border-[#edf1e8] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
           />
         </div>
 
@@ -168,7 +175,7 @@ export const FarmerMessages: React.FC = () => {
                   id={idx === 0 ? 'tour-messages-first-conv-item' : undefined}
                   type="button"
                   onClick={() => selectConversation(conv)}
-                  className={`w-full p-3 rounded-2xl border transition-all text-left flex items-start gap-3 cursor-pointer ${
+                  className={`w-full p-3 rounded-lg border transition-all text-left flex items-start gap-3 cursor-pointer ${
                     isSelected
                       ? 'bg-[#f0f5ec] border-[#326318]/40 shadow-2xs'
                       : 'bg-[#fafcf9] border-[#edf1e8] hover:bg-white hover:border-[#d9e2d3]'
@@ -218,7 +225,7 @@ export const FarmerMessages: React.FC = () => {
       {/* CỘT PHẢI: KHUNG NỘI DUNG TRÒ CHUYỆN */}
       <div
         id="tour-messages-first-conv"
-        className="md:col-span-2 bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-xs flex flex-col min-h-0 overflow-hidden"
+        className="md:col-span-2 bg-white rounded-xl p-5 border border-[#e8ece3] shadow-xs flex flex-col min-h-0 overflow-hidden"
       >
         {activeConversation ? (
           <>
@@ -255,7 +262,7 @@ export const FarmerMessages: React.FC = () => {
             </div>
 
             {/* DANH SÁCH TIN NHẮN */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafcf9] my-3 rounded-2xl border border-[#edf1e8]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafcf9] my-3 rounded-lg border border-[#edf1e8]">
               {isLoadingMessages ? (
                 <div className="flex items-center justify-center h-32">
                   <Loader2 size={24} className="animate-spin text-[#326318]" />
@@ -277,7 +284,7 @@ export const FarmerMessages: React.FC = () => {
                       className={`flex flex-col ${isShopSender ? 'items-end' : 'items-start'}`}
                     >
                       <div
-                        className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-2xs break-words ${
+                        className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed shadow-2xs break-words ${
                           isShopSender
                             ? 'bg-[#326318] text-white rounded-br-xs'
                             : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
@@ -332,12 +339,12 @@ export const FarmerMessages: React.FC = () => {
                 placeholder="Nhập câu trả lời tư vấn cho khách hàng..."
                 value={inputText}
                 onChange={handleInputChange}
-                className="flex-1 px-4 py-2.5 text-xs rounded-2xl bg-[#fafcf9] border border-[#dce3d5] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
+                className="flex-1 px-4 py-2.5 text-xs rounded-lg bg-[#fafcf9] border border-[#dce3d5] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim() || isSending}
-                className="px-5 py-2.5 rounded-2xl bg-[#326318] hover:bg-[#254d12] text-white text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
+                className="px-5 py-2.5 rounded-lg bg-[#326318] hover:bg-[#254d12] text-white text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
               >
                 {isSending ? (
                   <Loader2 size={15} className="animate-spin" />

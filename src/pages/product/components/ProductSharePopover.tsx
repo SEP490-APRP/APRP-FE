@@ -76,7 +76,7 @@ export const ProductSharePopover: React.FC<ProductSharePopoverProps> = ({
 
   return (
     <div
-      className={`absolute ${alignClass} top-12 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64 animate-in fade-in slide-in-from-top-2`}
+      className={`absolute ${alignClass} top-full mt-1.5 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64 animate-in fade-in slide-in-from-top-2`}
     >
       <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
         <p className="text-xs font-black text-gray-700 uppercase tracking-widest">

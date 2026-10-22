@@ -74,9 +74,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const updatedMsgs = exists ? currentMsgs : [...currentMsgs, msg]
 
         // Cập nhật lastMessage và unreadCount trong danh sách hội thoại
+        let found = false
+        const isCurrentlyActive = state.activeConversation?.id === convId
         const updatedConversations = state.conversations.map((c) => {
           if (Number(c.id) === convId) {
-            const isCurrentlyActive = state.activeConversation?.id === c.id
+            found = true
             return {
               ...c,
               lastMessage: msg.content,
@@ -87,14 +89,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return c
         })
 
+        const calculatedUnread = updatedConversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
+        const newUnreadTotal = !found && !isCurrentlyActive ? state.unreadTotal + 1 : calculatedUnread
+
         return {
           messages: {
             ...state.messages,
             [convId]: updatedMsgs,
           },
           conversations: updatedConversations,
+          unreadTotal: newUnreadTotal,
         }
       })
+
+      // Nếu hội thoại chưa có trong state danh sách, gọi load lại hội thoại
+      if (!get().conversations.some((c) => Number(c.id) === convId)) {
+        get().loadConversations()
+      }
 
       // Nếu đang mở đúng hội thoại này, tự động đánh dấu đã đọc
       const currentActive = get().activeConversation
@@ -191,8 +202,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       set({ isLoadingConversations: true })
       const list = await chatApi.getConversations()
-      const totalUnread = list.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
-      set({ conversations: list, unreadTotal: totalUnread })
+
+      // Deduplicate theo otherUserId để loại bỏ triệt để các hội thoại trùng lặp
+      const uniqueMap = new Map<number, Conversation>()
+      list.forEach((c) => {
+        const otherId = Number(c.otherUserId)
+        if (!uniqueMap.has(otherId)) {
+          uniqueMap.set(otherId, c)
+        } else {
+          const existing = uniqueMap.get(otherId)!
+          const existingTime = new Date(existing.lastMessageTime || existing.lastMessageAt || 0).getTime()
+          const currTime = new Date(c.lastMessageTime || c.lastMessageAt || 0).getTime()
+          if (currTime > existingTime) {
+            uniqueMap.set(otherId, c)
+          }
+        }
+      })
+      const uniqueList = Array.from(uniqueMap.values())
+      const totalUnread = uniqueList.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
+      set({ conversations: uniqueList, unreadTotal: totalUnread })
     } catch (err) {
       console.warn('[useChatStore] Failed to load conversations:', err)
     } finally {
@@ -234,11 +262,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   startChatWithUser: async (receiverId: number) => {
     try {
       const conv = await chatApi.initConversation(receiverId)
-      // Thêm hoặc cập nhật trong state.conversations
+      // Thêm hoặc cập nhật trong state.conversations, bảo đảm không bị trùng otherUserId lẫn id
       set((state) => {
-        const exists = state.conversations.some((c) => Number(c.id) === Number(conv.id))
+        const remaining = state.conversations.filter(
+          (c) =>
+            Number(c.id) !== Number(conv.id) &&
+            Number(c.otherUserId) !== Number(conv.otherUserId),
+        )
         return {
-          conversations: exists ? state.conversations : [conv, ...state.conversations],
+          conversations: [conv, ...remaining],
           isOpen: true,
         }
       })

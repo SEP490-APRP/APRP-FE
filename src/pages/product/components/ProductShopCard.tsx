@@ -53,28 +53,28 @@ export const ProductShopCard: React.FC<ProductShopCardProps> = ({
   })()
 
   return (
-    <div className="max-w-7xl mx-auto px-4 mb-10">
+    <div className="max-w-6xl mx-auto px-4 mt-3 mb-6">
       <div
-        className="relative overflow-hidden rounded-3xl border border-leaf-200/60"
+        className="relative overflow-hidden rounded-2xl border border-leaf-200/60"
         style={{
           background: 'linear-gradient(135deg, #f0f7eb 0%, #e8f5e0 50%, #f5faf2 100%)',
-          boxShadow: '0 2px 24px 0 rgba(74,124,47,0.10)',
+          boxShadow: '0 2px 16px 0 rgba(74,124,47,0.06)',
         }}
       >
         <div
-          className="absolute -top-16 -right-16 size-64 rounded-full opacity-10"
+          className="absolute -top-16 -right-16 size-48 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #4a7c2f, transparent)' }}
         />
         <div
-          className="absolute -bottom-12 -left-12 size-48 rounded-full opacity-8"
+          className="absolute -bottom-12 -left-12 size-36 rounded-full opacity-8"
           style={{ background: 'radial-gradient(circle, #326318, transparent)' }}
         />
-        <div className="relative z-10 p-6 lg:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        <div className="relative z-10 p-4 sm:p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-center">
             {/* Shop info & Actions */}
-            <div className="flex items-start gap-5">
+            <div className="flex items-start gap-3.5">
               <div className="relative shrink-0">
-                <div className="size-20 sm:size-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-white">
+                <div className="size-14 sm:size-16 rounded-xl overflow-hidden border-2 border-white shadow-sm bg-white">
                   <img
                     src={
                       shopOwner?.logoUrl ||
@@ -86,34 +86,34 @@ export const ProductShopCard: React.FC<ProductShopCardProps> = ({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className="absolute -bottom-1.5 -right-1.5 size-6 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-                  <Check className="size-3 text-white" />
+                <span className="absolute -bottom-1 -right-1 size-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-2xs">
+                  <Check className="size-2.5 text-white" />
                 </span>
               </div>
 
-              <div className="flex-1 pt-1">
+              <div className="flex-1 pt-0.5">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h4 className="font-black text-ink text-lg">{farmName}</h4>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-leaf-50 text-leaf-700 border border-leaf-200">
+                  <h4 className="font-bold text-ink text-base">{farmName}</h4>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-leaf-50 text-leaf-700 border border-leaf-200">
                     <ShieldCheck className="size-3" />
                     Đã xác minh
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 mt-4">
+                <div className="flex flex-wrap items-center gap-2 mt-2.5">
                   <button
                     type="button"
                     onClick={onNavigateToShop}
-                    className="inline-flex items-center justify-center gap-1.5 h-10 px-4 bg-white text-leaf-700 hover:bg-leaf-50 font-bold text-xs rounded-xl border border-leaf-300 hover:border-leaf-600 transition-all shadow-xs whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1 h-8 px-3 bg-white text-leaf-700 hover:bg-leaf-50 font-semibold text-xs rounded-lg border border-leaf-300 hover:border-leaf-600 transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                   >
                     <Store className="size-3.5 shrink-0" />
-                    <span>Xem gian hàng</span>
+                    <span>Xem shop</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={onStartChat}
-                    className="inline-flex items-center justify-center gap-1.5 h-10 px-4 bg-leaf-700 hover:bg-leaf-800 text-white font-bold text-xs rounded-xl shadow-md shadow-leaf-700/20 transition-all whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1 h-8 px-3 bg-leaf-700 hover:bg-leaf-800 text-white font-semibold text-xs rounded-lg shadow-2xs transition-all whitespace-nowrap cursor-pointer"
                   >
                     <MessageSquare className="size-3.5 shrink-0" />
                     <span>Nhắn tin</span>
@@ -124,9 +124,9 @@ export const ProductShopCard: React.FC<ProductShopCardProps> = ({
                       type="button"
                       onClick={() => setShowShopShareMenu((v) => !v)}
                       aria-label="Chia sẻ gian hàng"
-                      className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 bg-paper hover:bg-paper-warm text-ink font-bold text-xs rounded-xl border border-line transition-all shadow-xs whitespace-nowrap cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1 h-8 px-2.5 bg-paper hover:bg-paper-warm text-ink font-semibold text-xs rounded-lg border border-line transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                     >
-                      <Share2 className="size-3.5 shrink-0" />
+                      <Share2 className="size-3 shrink-0" />
                       <span>Chia sẻ</span>
                     </button>
 
@@ -147,22 +147,22 @@ export const ProductShopCard: React.FC<ProductShopCardProps> = ({
 
             {/* Shop Statistics */}
             <div className="lg:col-span-2 flex items-center">
-              <div className="grid grid-cols-3 gap-6 w-full bg-paper-warm p-5 rounded-2xl border border-line shadow-xs">
+              <div className="grid grid-cols-3 gap-4 w-full bg-paper-warm/80 p-3 sm:p-3.5 rounded-xl border border-line shadow-2xs">
                 <div className="text-center">
-                  <p className="text-2xl font-black text-leaf-700 mb-0.5">{shopAvgRating}</p>
-                  <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  <p className="text-lg sm:text-xl font-extrabold text-leaf-700 mb-0.5">{shopAvgRating}</p>
+                  <p className="text-[9px] text-ink-muted font-bold uppercase tracking-wider">
                     Đánh Giá ({shopReviews.length})
                   </p>
                 </div>
-                <div className="text-center border-l border-r border-line px-3">
-                  <p className="text-2xl font-black text-ink mb-0.5">{replyRate}</p>
-                  <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                <div className="text-center border-l border-r border-line px-2">
+                  <p className="text-lg sm:text-xl font-extrabold text-ink mb-0.5">{replyRate}</p>
+                  <p className="text-[9px] text-ink-muted font-bold uppercase tracking-wider">
                     Phản Hồi
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-black text-ink mb-0.5">{joinDurationText}</p>
-                  <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  <p className="text-lg sm:text-xl font-extrabold text-ink mb-0.5">{joinDurationText}</p>
+                  <p className="text-[9px] text-ink-muted font-bold uppercase tracking-wider">
                     Tham Gia
                   </p>
                 </div>

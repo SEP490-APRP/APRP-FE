@@ -75,9 +75,9 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
       <div
         ref={ref}
         id="product-detail-section"
-        className="max-w-7xl mx-auto px-4 mb-12 scroll-mt-24"
+        className="max-w-6xl mx-auto px-4 mb-6 scroll-mt-24"
       >
-        <div className="bg-white rounded-3xl border border-line shadow-card overflow-hidden">
+        <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
           {/* Tabs bar */}
           <div className="flex border-b border-line overflow-x-auto">
             {['Mô tả chi tiết', 'Chứng nhận', 'Đánh giá'].map((tab) => (
@@ -85,7 +85,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                 key={tab}
                 type="button"
                 onClick={() => handleSelectTab(tab)}
-                className={`flex-1 min-w-[120px] px-4 py-4 text-sm font-bold transition-all border-b-2 -mb-px cursor-pointer ${
+                className={`flex-1 min-w-[120px] px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px cursor-pointer ${
                   activeTab === tab
                     ? 'border-leaf-700 text-leaf-700 bg-leaf-50/50'
                     : 'border-transparent text-ink-muted hover:text-ink hover:bg-paper-warm'
@@ -102,44 +102,44 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
           </div>
 
           {/* Tab contents */}
-          <div className="p-6 lg:p-8">
+          <div className="p-4 sm:p-6">
             {activeTab === 'Mô tả chi tiết' && (
               <div className="max-w-3xl">
-                <h3 className="text-lg font-bold text-ink mb-4">Thông tin sản phẩm</h3>
-                <div className="text-ink-muted text-sm leading-loose whitespace-pre-wrap bg-paper-warm p-6 rounded-2xl border border-line">
+                <h3 className="text-base font-bold text-ink mb-3">Thông tin sản phẩm</h3>
+                <div className="text-ink-muted text-xs sm:text-sm leading-relaxed whitespace-pre-wrap bg-paper-warm/70 p-4 sm:p-5 rounded-xl border border-line">
                   {product.description ||
                     'Nông sản sạch tận vườn, được thu hoạch và đóng gói cẩn thận trước khi giao đến bạn.'}
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4 mt-6">
-                  <div className="rounded-xl border border-line p-4 bg-paper">
-                    <p className="text-xs text-ink-muted font-bold uppercase tracking-wider mb-1">
+                <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                  <div className="rounded-xl border border-line p-3 sm:p-3.5 bg-paper">
+                    <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider mb-0.5">
                       Đơn vị
                     </p>
-                    <p className="font-bold text-ink">{product.unit || 'kg'}</p>
+                    <p className="font-bold text-ink text-sm">{product.unit || 'kg'}</p>
                   </div>
-                  <div className="rounded-xl border border-line p-4 bg-paper">
-                    <p className="text-xs text-ink-muted font-bold uppercase tracking-wider mb-1">
+                  <div className="rounded-xl border border-line p-3 sm:p-3.5 bg-paper">
+                    <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider mb-0.5">
                       Cửa hàng
                     </p>
-                    <p className="font-bold text-ink">{farmName}</p>
+                    <p className="font-bold text-ink text-sm">{farmName}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'Chứng nhận' && (
-              <div className="grid sm:grid-cols-2 gap-4 max-w-3xl">
+              <div className="grid sm:grid-cols-2 gap-3 max-w-3xl">
                 {certItems.map(({ icon: Icon, title, desc }) => (
                   <div
                     key={title}
-                    className="flex gap-4 p-5 rounded-2xl border border-line bg-paper-warm"
+                    className="flex gap-3 p-3.5 sm:p-4 rounded-xl border border-line bg-paper-warm/70"
                   >
-                    <div className="size-11 rounded-xl bg-leaf-50 text-leaf-700 border border-leaf-200 flex items-center justify-center shrink-0">
-                      <Icon className="size-5" />
+                    <div className="size-9 rounded-lg bg-leaf-50 text-leaf-700 border border-leaf-200 flex items-center justify-center shrink-0">
+                      <Icon className="size-4" />
                     </div>
                     <div>
-                      <p className="font-bold text-ink text-sm">{title}</p>
-                      <p className="text-xs text-ink-muted mt-1 leading-relaxed">{desc}</p>
+                      <p className="font-semibold text-ink text-xs sm:text-sm">{title}</p>
+                      <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">{desc}</p>
                     </div>
                   </div>
                 ))}
@@ -161,7 +161,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                     return (
                       <div
                         key={review.id}
-                        className="bg-paper-warm p-6 sm:p-7 rounded-3xl border border-line animate-in fade-in slide-in-from-bottom-2"
+                        className="bg-paper-warm p-4 sm:p-5 rounded-xl border border-line animate-in fade-in slide-in-from-bottom-2"
                       >
                         <div className="flex justify-between items-start mb-4 gap-4">
                           <div className="flex items-center gap-3">
@@ -239,12 +239,12 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                         )}
 
                         {review.replyFromShop && (
-                          <div className="bg-white p-5 rounded-2xl border border-line relative mb-2">
+                          <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-line relative mt-3">
                             <div className="inline-flex items-center gap-1.5 text-leaf-700 font-bold text-xs uppercase tracking-wider mb-1">
                               <MessageSquare className="size-3.5" />
                               <span>Phản hồi từ Nhà vườn</span>
                             </div>
-                            <p className="text-ink-muted text-sm italic">{review.replyFromShop}</p>
+                            <p className="text-ink-muted text-xs sm:text-sm italic">{review.replyFromShop}</p>
                           </div>
                         )}
                       </div>

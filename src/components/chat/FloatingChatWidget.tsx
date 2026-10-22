@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   MessageSquare,
   X,
@@ -120,10 +120,17 @@ export const FloatingChatWidget: React.FC = () => {
     }, 2000)
   }
 
-  // Lọc hội thoại theo từ khóa tìm kiếm
-  const filteredConversations = conversations.filter((c) =>
-    (c.otherUserName || '').toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  // Lọc hội thoại theo từ khóa tìm kiếm và loại bỏ triệt để trùng lặp otherUserId
+  const filteredConversations = useMemo(() => {
+    const seenOtherUserIds = new Set<number>()
+    return conversations.filter((c) => {
+      const otherId = Number(c.otherUserId)
+      if (seenOtherUserIds.has(otherId)) return false
+      seenOtherUserIds.add(otherId)
+
+      return (c.otherUserName || '').toLowerCase().includes(searchQuery.toLowerCase())
+    })
+  }, [conversations, searchQuery])
 
   const activeMessages = activeConversation ? messages[Number(activeConversation.id)] || [] : []
   const isOtherUserTyping = activeConversation && typingUsers[activeConversation.otherUserId]

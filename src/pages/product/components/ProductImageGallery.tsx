@@ -46,20 +46,20 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
   return (
     <>
       {/* Main image */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         <div
-          className="relative aspect-square rounded-2xl overflow-hidden border border-gray-100 group cursor-zoom-in bg-gray-50"
-          style={{ boxShadow: '0 4px 24px 0 rgba(74,124,47,0.08)' }}
+          className="relative w-full aspect-[4/3] sm:aspect-square max-h-[320px] rounded-xl overflow-hidden border border-gray-100 group cursor-zoom-in bg-gray-50 flex items-center justify-center"
+          style={{ boxShadow: '0 2px 12px 0 rgba(74,124,47,0.06)' }}
           onClick={() => setLightbox(true)}
         >
           <img
             src={clImg(sorted[activeIdx]?.imageUrl, 'main')}
-            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.03]"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
             alt={`${productName} - ảnh ${activeIdx + 1}`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-              <ZoomIn className="size-5 text-leaf-700" />
+            <div className="bg-white/90 backdrop-blur-sm rounded-full p-2.5 shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+              <ZoomIn className="size-4 text-leaf-700" />
             </div>
           </div>
           {sorted.length > 1 && (
@@ -71,9 +71,9 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                   prev()
                 }}
                 aria-label="Ảnh trước"
-                className="absolute left-3 top-1/2 -translate-y-1/2 size-9 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-7.5 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
               >
-                <ChevronLeft className="size-5 text-gray-700" />
+                <ChevronLeft className="size-4 text-gray-700" />
               </button>
               <button
                 type="button"
@@ -82,11 +82,11 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                   next()
                 }}
                 aria-label="Ảnh kế tiếp"
-                className="absolute right-3 top-1/2 -translate-y-1/2 size-9 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 size-7.5 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-all duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
               >
-                <ChevronRight className="size-5 text-gray-700" />
+                <ChevronRight className="size-4 text-gray-700" />
               </button>
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1">
                 {sorted.map((_, i) => (
                   <button
                     key={i}
@@ -98,8 +98,8 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     }}
                     className={`rounded-full transition-all duration-300 cursor-pointer ${
                       i === activeIdx
-                        ? 'w-5 h-1.5 bg-white'
-                        : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'
+                        ? 'w-4 h-1 bg-white'
+                        : 'w-1 h-1 bg-white/50 hover:bg-white/80'
                     }`}
                   />
                 ))}
@@ -110,16 +110,16 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
         {/* Thumbnail row */}
         {sorted.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-0.5">
             {sorted.map((img, idx) => (
               <button
                 key={img.id}
                 type="button"
                 onClick={() => setActiveIdx(idx)}
-                className={`flex-shrink-0 size-16 rounded-xl overflow-hidden border-2 transition-all duration-200 cursor-pointer ${
+                className={`flex-shrink-0 size-12 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${
                   idx === activeIdx
-                    ? 'border-leaf-600 shadow-md shadow-leaf-700/20 scale-105'
-                    : 'border-gray-200 hover:border-leaf-300'
+                    ? 'border-leaf-600 shadow-2xs scale-105'
+                    : 'border-gray-200 hover:border-leaf-300 opacity-70 hover:opacity-100'
                 }`}
               >
                 <img

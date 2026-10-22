@@ -75,31 +75,19 @@ export function PrivacyRoute() {
 export function ProductRoute() {
   const { productId = DEFAULT_PRODUCT_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ProductDetail productId={productId} onBack={() => navigate('/')} />
-    </div>
-  )
+  return <ProductDetail productId={productId} onBack={() => navigate('/')} />
 }
 
 export function ShopRoute() {
   const { shopId = DEFAULT_SHOP_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ShopPage shopId={shopId} onBack={() => navigate('/')} />
-    </div>
-  )
+  return <ShopPage shopId={shopId} onBack={() => navigate('/')} />
 }
 
 export function ShopVouchersRoute() {
   const { shopId = DEFAULT_SHOP_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
-    </div>
-  )
+  return <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
 }
 
 export function MyVouchersRoute() {
