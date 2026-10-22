@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ChatMessage, Conversation, ChatNotification } from '@/types/chat'
 import { chatApi } from '@/services/api/chat.api'
 import { chatSocketService } from '@/services/websocket/chatSocket.service'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 interface ChatState {
   conversations: Conversation[]
@@ -19,7 +20,7 @@ interface ChatState {
   disconnectRealtime: () => void
   loadConversations: () => Promise<void>
   loadUnreadCount: () => Promise<void>
-  selectConversation: (conversation: Conversation) => Promise<void>
+  selectConversation: (conversation: Conversation | null) => Promise<void>
   startChatWithUser: (receiverId: number) => Promise<Conversation>
   sendMessage: (
     content: string,
@@ -219,6 +220,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       })
       const uniqueList = Array.from(uniqueMap.values())
+
+      // Luôn đảm bảo tài khoản Shop và Người mua (Buyer) có sẵn liên hệ Ban Quản Trị (Admin)
+      const hasAdmin = uniqueList.some(
+        (c) => c.otherUserRole?.toUpperCase() === 'ADMIN' || Number(c.otherUserId) === 1,
+      )
+      const currentUser = useAuthStore.getState().user
+      const isCurrentAdmin = currentUser?.role?.toLowerCase() === 'admin'
+
+      if (!hasAdmin && !isCurrentAdmin && currentUser) {
+        const adminFallback: Conversation = {
+          id: -1,
+          otherUserId: 1,
+          otherUserName: 'Ban Quản Trị CapNong',
+          otherUserAvatar:
+            'https://res.cloudinary.com/dfp44sbsj/image/upload/v1774252968/brands/vxm3b2gvixlqzf7xocoy.jpg',
+          otherUserRole: 'ADMIN',
+          lastMessage: 'Kênh hỗ trợ chính thức sàn CapNong 24/7',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        }
+        uniqueList.unshift(adminFallback)
+      }
+
       const totalUnread = uniqueList.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
       set({ conversations: uniqueList, unreadTotal: totalUnread })
     } catch (err) {
@@ -237,25 +261,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  selectConversation: async (conversation: Conversation) => {
-    const convId = Number(conversation.id)
-    set({ activeConversation: conversation })
+  selectConversation: async (conversation: Conversation | null) => {
+    if (!conversation) {
+      set({ activeConversation: null, isLoadingMessages: false })
+      return
+    }
 
-    try {
-      set({ isLoadingMessages: true })
-      const res = await chatApi.getMessages(convId, 0, 50)
-      const sorted = (res.content || []).slice().reverse()
+    let conv = conversation
+
+    // Nếu là liên hệ Admin khởi tạo phía client chưa có ID thực trên server
+    if (Number(conv.id) <= 0 && conv.otherUserId) {
+      try {
+        const realConv = await chatApi.initConversation(conv.otherUserId)
+        if (realConv && realConv.id) {
+          conv = realConv
+          set((state) => ({
+            conversations: state.conversations.map((c) =>
+              c.otherUserId === conv.otherUserId ? realConv : c,
+            ),
+          }))
+        }
+      } catch (e) {
+        console.warn('[useChatStore] Init real conversation for admin error:', e)
+      }
+    }
+
+    const convId = Number(conv.id)
+    set({ activeConversation: conv })
+
+    if (convId > 0) {
+      try {
+        set({ isLoadingMessages: true })
+        const res = await chatApi.getMessages(convId, 0, 50)
+        const sorted = (res.content || []).slice().reverse()
+        set((state) => ({
+          messages: {
+            ...state.messages,
+            [convId]: sorted,
+          },
+        }))
+        await get().markAsRead(convId)
+      } catch (err) {
+        console.error('[useChatStore] Failed to load conversation messages:', err)
+      } finally {
+        set({ isLoadingMessages: false })
+      }
+    } else {
       set((state) => ({
         messages: {
           ...state.messages,
-          [convId]: sorted,
+          [convId]: [],
         },
+        isLoadingMessages: false,
       }))
-      await get().markAsRead(convId)
-    } catch (err) {
-      console.error('[useChatStore] Failed to load conversation messages:', err)
-    } finally {
-      set({ isLoadingMessages: false })
     }
   },
 
@@ -289,13 +347,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     referenceId?: number,
   ) => {
     const active = get().activeConversation
-    if (!active || !content.trim()) return
+    const trimmed = content.trim()
+    if (!active || (!trimmed && !attachmentUrl)) return
 
     const receiverId = active.otherUserId
+    const msgType = attachmentUrl ? (type === 'TEXT' ? 'IMAGE' : type) : type
     const payload = {
       receiverId,
-      content: content.trim(),
-      type,
+      content: trimmed || (attachmentUrl ? '[Hình ảnh]' : ''),
+      type: msgType,
       attachmentUrl,
       referenceId,
     }

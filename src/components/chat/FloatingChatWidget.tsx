@@ -11,8 +11,10 @@ import {
   ShieldAlert,
   Loader2,
   Sparkles,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useAuth, useChatStore, useUiStore } from '@/stores'
+import { uploadService } from '@/services/upload.service'
 import type { Conversation } from '@/types/chat'
 
 export const FloatingChatWidget: React.FC = () => {
@@ -42,6 +44,9 @@ export const FloatingChatWidget: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -85,13 +90,33 @@ export const FloatingChatWidget: React.FC = () => {
     }
   }, [messages, activeConversation, isOpen])
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingImage(true)
+      const res = await uploadService.uploadImage(file, 'chat')
+      if (res.result?.url) {
+        setPendingImageUrl(res.result.url)
+      }
+    } catch (err) {
+      console.error('[FloatingChatWidget] Upload image error:', err)
+    } finally {
+      setUploadingImage(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   // Xử lý gửi tin nhắn
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if (!inputText.trim() || isSending || !activeConversation) return
+    if ((!inputText.trim() && !pendingImageUrl) || isSending || !activeConversation) return
 
     const content = inputText.trim()
+    const attachmentUrl = pendingImageUrl || undefined
     setInputText('')
+    setPendingImageUrl(null)
     setIsSending(true)
 
     // Tắt typing indicator
@@ -99,7 +124,7 @@ export const FloatingChatWidget: React.FC = () => {
     sendTyping(false)
 
     try {
-      await sendMessage(content)
+      await sendMessage(content, attachmentUrl ? 'IMAGE' : 'TEXT', attachmentUrl)
     } catch (err) {
       console.error('[FloatingChatWidget] Send message error:', err)
     } finally {
@@ -170,8 +195,8 @@ export const FloatingChatWidget: React.FC = () => {
                 <>
                   <button
                     type="button"
-                    onClick={() => selectConversation(null as unknown as Conversation)}
-                    className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
+                    onClick={() => selectConversation(null)}
+                    className="p-1.5 rounded-full hover:bg-white/20 transition-all text-white cursor-pointer active:scale-95"
                     title="Quay lại danh sách hội thoại"
                   >
                     <ArrowLeft size={18} />
@@ -321,13 +346,28 @@ export const FloatingChatWidget: React.FC = () => {
                             <Store size={9} />
                           </span>
                         )}
+                        {(conv.otherUserRole === 'ADMIN' || Number(conv.otherUserId) === 1) && (
+                          <span
+                            className="absolute -bottom-1 -right-1 size-4 rounded-full bg-purple-700 text-white flex items-center justify-center text-[9px]"
+                            title="Ban Quản Trị CapNong"
+                          >
+                            <ShieldAlert size={9} />
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <h3 className="text-xs font-bold text-[#1c2216] truncate group-hover:text-[#326318] transition-colors">
-                            {conv.otherUserName}
-                          </h3>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <h3 className="text-xs font-bold text-[#1c2216] truncate group-hover:text-[#326318] transition-colors">
+                              {conv.otherUserName}
+                            </h3>
+                            {(conv.otherUserRole === 'ADMIN' || Number(conv.otherUserId) === 1) && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 font-extrabold text-[9px] shrink-0 border border-purple-200">
+                                Admin
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-[#8e9888] shrink-0 font-medium">
                             {formatTime(conv.lastMessageTime || conv.lastMessageAt)}
                           </span>
@@ -357,11 +397,16 @@ export const FloatingChatWidget: React.FC = () => {
                     <Loader2 size={20} className="animate-spin text-[#326318]" />
                   </div>
                 ) : activeMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-44 text-center text-[#85907f] px-4">
-                    <Sparkles size={24} className="text-amber-500 mb-1.5" />
-                    <p className="text-xs font-bold text-[#1c2216]">Gửi lời chào đầu tiên!</p>
-                    <p className="text-[11px] text-[#717c6b] mt-0.5">
-                      Hỏi về độ tươi ngon, nguồn gốc hoặc thời gian giao hàng.
+                  <div className="flex flex-col items-center justify-center h-44 text-center text-[#717c6b] px-4">
+                    <p className="text-xs font-semibold text-[#2c3327]">
+                      {activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                        ? 'Hỗ trợ trực tuyến CapNong'
+                        : 'Bắt đầu cuộc trò chuyện'}
+                    </p>
+                    <p className="text-[11px] text-[#717c6b] mt-1 max-w-[240px] leading-relaxed">
+                      {activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                        ? 'Nhập nội dung cần hỗ trợ để trao đổi với ban quản trị.'
+                        : 'Gửi tin nhắn để trao đổi trực tiếp với nhà vườn.'}
                     </p>
                   </div>
                 ) : (
@@ -385,7 +430,8 @@ export const FloatingChatWidget: React.FC = () => {
                               <img
                                 src={msg.attachmentUrl}
                                 alt="Tệp đính kèm"
-                                className="max-h-40 w-auto object-cover"
+                                className="max-h-40 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(msg.attachmentUrl, '_blank')}
                               />
                             </div>
                           )}
@@ -421,22 +467,68 @@ export const FloatingChatWidget: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Xem trước ảnh đính kèm trước khi gửi */}
+              {pendingImageUrl && (
+                <div className="px-3 py-1.5 bg-[#f0f5ec] border-t border-[#edf1e8] flex items-center gap-2.5 shrink-0">
+                  <div className="relative size-10 rounded-md overflow-hidden border border-[#cfe6c4]">
+                    <img
+                      src={pendingImageUrl}
+                      alt="Ảnh đính kèm"
+                      className="size-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPendingImageUrl(null)}
+                      className="absolute top-0.5 right-0.5 size-3.5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black"
+                    >
+                      <X size={9} />
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-[#5f6b57]">Ảnh đã tải lên sẵn sàng gửi</span>
+                </div>
+              )}
+
               {/* Ô NHẬP TIN NHẮN */}
               <form
                 onSubmit={handleSend}
                 className="p-2.5 bg-white border-t border-[#edf1e8] flex items-center gap-2 shrink-0"
               >
                 <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="size-8 rounded-xl border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                  title="Đính kèm hình ảnh"
+                >
+                  {uploadingImage ? (
+                    <Loader2 size={14} className="animate-spin text-[#326318]" />
+                  ) : (
+                    <ImageIcon size={14} />
+                  )}
+                </button>
+
+                <input
                   type="text"
                   aria-label="Nhập tin nhắn"
-                  placeholder="Nhập tin nhắn..."
+                  placeholder={
+                    activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                      ? 'Nhập nội dung cần hỗ trợ gửi Ban Quản Trị...'
+                      : 'Nhập tin nhắn...'
+                  }
                   value={inputText}
                   onChange={handleInputChange}
-                  className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
+                  className="flex-1 px-3 py-2 text-xs rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
                 />
                 <button
                   type="submit"
-                  disabled={!inputText.trim() || isSending}
+                  disabled={(!inputText.trim() && !pendingImageUrl) || isSending}
                   className="size-8 rounded-xl bg-[#326318] hover:bg-[#254d12] text-white flex items-center justify-center transition-all disabled:opacity-40 cursor-pointer shrink-0 shadow-xs"
                   title="Gửi tin nhắn"
                 >

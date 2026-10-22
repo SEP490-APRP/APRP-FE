@@ -9,8 +9,12 @@ import {
   User,
   ShoppingBag,
   Sparkles,
+  ShieldCheck,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react'
 import { useAuth, useChatStore } from '@/stores'
+import { uploadService } from '@/services/upload.service'
 import type { Conversation } from '@/types/chat'
 
 export const FarmerMessages: React.FC = () => {
@@ -32,6 +36,9 @@ export const FarmerMessages: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -56,20 +63,40 @@ export const FarmerMessages: React.FC = () => {
     }
   }, [messages, activeConversation])
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingImage(true)
+      const res = await uploadService.uploadImage(file, 'chat')
+      if (res.result?.url) {
+        setPendingImageUrl(res.result.url)
+      }
+    } catch (err) {
+      console.error('[FarmerMessages] Upload image error:', err)
+    } finally {
+      setUploadingImage(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   // Xử lý gửi tin nhắn
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if (!inputText.trim() || isSending || !activeConversation) return
+    if ((!inputText.trim() && !pendingImageUrl) || isSending || !activeConversation) return
 
     const content = inputText.trim()
+    const attachmentUrl = pendingImageUrl || undefined
     setInputText('')
+    setPendingImageUrl(null)
     setIsSending(true)
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     sendTyping(false)
 
     try {
-      await sendMessage(content)
+      await sendMessage(content, attachmentUrl ? 'IMAGE' : 'TEXT', attachmentUrl)
     } catch (err) {
       console.error('[FarmerMessages] Send message error:', err)
     } finally {
@@ -132,7 +159,7 @@ export const FarmerMessages: React.FC = () => {
       >
         <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-black text-[#1c2216]">Hội thoại khách hàng</h4>
+            <h4 className="text-sm font-black text-[#1c2216]">Hội thoại</h4>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#f0f4ec] text-[#326318] font-bold">
               {conversations.length}
             </span>
@@ -144,7 +171,7 @@ export const FarmerMessages: React.FC = () => {
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7f8a79]" />
           <input
             type="text"
-            placeholder="Tìm tên khách hàng..."
+            placeholder="Tìm kiếm hội thoại..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3.5 py-2 text-xs rounded-lg bg-[#fafcf9] border border-[#edf1e8] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
@@ -169,6 +196,7 @@ export const FarmerMessages: React.FC = () => {
           ) : (
             filteredConversations.map((conv, idx) => {
               const isSelected = activeConversation && Number(activeConversation.id) === Number(conv.id)
+              const isAdmin = conv.otherUserRole?.toUpperCase() === 'ADMIN' || Number(conv.otherUserId) === 1
               return (
                 <button
                   key={conv.id}
@@ -189,18 +217,25 @@ export const FarmerMessages: React.FC = () => {
                         className="size-10 rounded-full object-cover border border-[#e5e9e0]"
                       />
                     ) : (
-                      <div className="size-10 rounded-full bg-[#edf2e8] text-[#326318] flex items-center justify-center font-bold text-xs">
+                      <div className="size-10 rounded-full flex items-center justify-center font-bold text-xs bg-[#edf2e8] text-[#326318]">
                         {conv.otherUserName.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                    <span className="absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <strong className="text-xs text-[#1c2216] truncate font-bold">
-                        {conv.otherUserName}
-                      </strong>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <strong className="text-xs text-[#1c2216] truncate font-bold">
+                          {conv.otherUserName}
+                        </strong>
+                        {isAdmin && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-normal shrink-0 border border-gray-200 bg-gray-50 text-gray-600">
+                            Ban Quản Trị
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-[#8e9888] shrink-0 font-medium">
                         {formatTime(conv.lastMessageTime || conv.lastMessageAt)}
                       </span>
@@ -230,36 +265,52 @@ export const FarmerMessages: React.FC = () => {
         {activeConversation ? (
           <>
             {/* HEADER CUỘC TRÒ CHUYỆN */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-[#f1f4ed] shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  {activeConversation.otherUserAvatar ? (
-                    <img
-                      src={activeConversation.otherUserAvatar}
-                      alt={activeConversation.otherUserName}
-                      className="size-10 rounded-full object-cover border border-[#e8ece3]"
-                    />
-                  ) : (
-                    <div className="size-10 rounded-full bg-[#326318]/10 text-[#326318] flex items-center justify-center font-bold text-sm">
-                      {activeConversation.otherUserName.charAt(0).toUpperCase()}
+            {(() => {
+              const isActiveAdmin =
+                activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' ||
+                Number(activeConversation.otherUserId) === 1
+              return (
+                <div className="flex items-center justify-between pb-3.5 border-b border-[#f1f4ed] shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      {activeConversation.otherUserAvatar ? (
+                        <img
+                          src={activeConversation.otherUserAvatar}
+                          alt={activeConversation.otherUserName}
+                          className="size-10 rounded-full object-cover border border-[#e8ece3]"
+                        />
+                      ) : (
+                        <div className="size-10 rounded-full flex items-center justify-center font-bold text-xs bg-[#edf2e8] text-[#326318]">
+                          {activeConversation.otherUserName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-white bg-emerald-500" />
                     </div>
-                  )}
-                  <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-[#1c2216] leading-tight">
+                          {activeConversation.otherUserName}
+                        </h3>
+                        {isActiveAdmin && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-normal border border-gray-200 bg-gray-50 text-gray-600">
+                            Ban Quản Trị CapNong
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500 font-normal mt-0.5">
+                        {isOtherUserTyping ? (
+                          <span className="text-emerald-600 animate-pulse">
+                            Đang soạn tin nhắn...
+                          </span>
+                        ) : (
+                          <span>Trực tuyến</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-[#1c2216] leading-tight">
-                    {activeConversation.otherUserName}
-                  </h3>
-                  <p className="text-[11px] text-[#326318] font-bold mt-0.5">
-                    {isOtherUserTyping ? (
-                      <span className="text-emerald-600 animate-pulse">Khách đang soạn tin nhắn...</span>
-                    ) : (
-                      '🟢 Đang trực tuyến'
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
+              )
+            })()}
 
             {/* DANH SÁCH TIN NHẮN */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafcf9] my-3 rounded-lg border border-[#edf1e8]">
@@ -268,11 +319,16 @@ export const FarmerMessages: React.FC = () => {
                   <Loader2 size={24} className="animate-spin text-[#326318]" />
                 </div>
               ) : activeMessages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-center text-[#85907f]">
-                  <Sparkles size={24} className="text-amber-500 mb-1" />
-                  <p className="text-xs font-bold text-[#1c2216]">Chưa có tin nhắn trong hội thoại</p>
-                  <p className="text-[11px] text-[#717c6b] mt-0.5">
-                    Gửi tin nhắn chào mừng và tư vấn cho khách hàng ngay.
+                <div className="flex flex-col items-center justify-center h-48 text-center text-[#717c6b]">
+                  <p className="text-xs font-semibold text-[#1c2216]">
+                    {activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                      ? 'Hỗ trợ trực tuyến Ban Quản Trị'
+                      : 'Chưa có tin nhắn trong hội thoại'}
+                  </p>
+                  <p className="text-[11px] text-[#717c6b] mt-1 max-w-sm leading-relaxed">
+                    {activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                      ? 'Nhập nội dung cần hỗ trợ về đơn hàng, thanh toán hoặc gian hàng.'
+                      : 'Gửi tin nhắn tư vấn và chào mừng khách hàng.'}
                   </p>
                 </div>
               ) : (
@@ -284,11 +340,10 @@ export const FarmerMessages: React.FC = () => {
                       className={`flex flex-col ${isShopSender ? 'items-end' : 'items-start'}`}
                     >
                       <div
-                        className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed shadow-2xs break-words ${
-                          isShopSender
-                            ? 'bg-[#326318] text-white rounded-br-xs'
-                            : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
-                        }`}
+                        className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed shadow-2xs break-words ${isShopSender
+                          ? 'bg-[#326318] text-white rounded-br-xs'
+                          : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
+                          }`}
                       >
                         {msg.content}
                         {msg.attachmentUrl && (
@@ -296,7 +351,8 @@ export const FarmerMessages: React.FC = () => {
                             <img
                               src={msg.attachmentUrl}
                               alt="Tệp đính kèm"
-                              className="max-h-48 w-auto object-cover"
+                              className="max-h-48 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(msg.attachmentUrl, '_blank')}
                             />
                           </div>
                         )}
@@ -322,7 +378,11 @@ export const FarmerMessages: React.FC = () => {
               {/* TYPING INDICATOR */}
               {isOtherUserTyping && (
                 <div className="flex items-center gap-1.5 bg-white border border-[#e8ece3] px-3.5 py-1.5 rounded-full w-fit shadow-2xs animate-fadeIn">
-                  <span className="text-[11px] text-[#616b5a] font-semibold">Khách đang soạn tin</span>
+                  <span className="text-[11px] text-[#616b5a] font-semibold">
+                    {activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                      ? 'Ban Quản Trị đang soạn tin'
+                      : 'Khách đang soạn tin'}
+                  </span>
                   <span className="size-1 rounded-full bg-[#326318] animate-bounce" />
                   <span className="size-1 rounded-full bg-[#326318] animate-bounce [animation-delay:0.2s]" />
                   <span className="size-1 rounded-full bg-[#326318] animate-bounce [animation-delay:0.4s]" />
@@ -332,18 +392,64 @@ export const FarmerMessages: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Xem trước ảnh đính kèm trước khi gửi */}
+            {pendingImageUrl && (
+              <div className="px-3 py-1.5 mb-2 bg-[#f0f5ec] rounded-lg border border-[#dce3d5] flex items-center gap-3 shrink-0">
+                <div className="relative size-12 rounded-md overflow-hidden border border-[#cfe6c4]">
+                  <img
+                    src={pendingImageUrl}
+                    alt="Ảnh đính kèm"
+                    className="size-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPendingImageUrl(null)}
+                    className="absolute top-0.5 right-0.5 size-4 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+                <span className="text-xs text-[#5f6b57]">Ảnh đã tải lên sẵn sàng gửi</span>
+              </div>
+            )}
+
             {/* Ô SOẠN THẢO VÀ GỬI TIN NHẮN */}
-            <form onSubmit={handleSend} className="flex items-center gap-2.5 pt-1 shrink-0">
+            <form onSubmit={handleSend} className="flex items-center gap-2 pt-1 shrink-0">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="p-2.5 rounded-lg border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                title="Đính kèm hình ảnh"
+              >
+                {uploadingImage ? (
+                  <Loader2 size={16} className="animate-spin text-[#326318]" />
+                ) : (
+                  <ImageIcon size={16} />
+                )}
+              </button>
+
               <input
                 type="text"
-                placeholder="Nhập câu trả lời tư vấn cho khách hàng..."
+                placeholder={
+                  activeConversation.otherUserRole?.toUpperCase() === 'ADMIN' || Number(activeConversation.otherUserId) === 1
+                    ? 'Nhập nội dung cần hỗ trợ gửi Ban Quản Trị...'
+                    : 'Nhập câu trả lời tư vấn cho khách hàng...'
+                }
                 value={inputText}
                 onChange={handleInputChange}
                 className="flex-1 px-4 py-2.5 text-xs rounded-lg bg-[#fafcf9] border border-[#dce3d5] focus:border-[#326318] focus:bg-white outline-none transition-all placeholder:text-[#8e9888]"
               />
               <button
                 type="submit"
-                disabled={!inputText.trim() || isSending}
+                disabled={(!inputText.trim() && !pendingImageUrl) || isSending}
                 className="px-5 py-2.5 rounded-lg bg-[#326318] hover:bg-[#254d12] text-white text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
               >
                 {isSending ? (
