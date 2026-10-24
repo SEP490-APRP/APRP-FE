@@ -36,6 +36,7 @@ const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
+const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -266,6 +267,14 @@ export function ShipperRoute() {
     >
       <ShipperDashboard {...usePortalProps()} />
     </RequireRole>
+  )
+}
+
+export function MealPlanRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <MealPlanPage />
+    </Suspense>
   )
 }
 
