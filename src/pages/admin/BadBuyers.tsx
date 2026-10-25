@@ -15,6 +15,8 @@ import {
   Eye,
   Mail,
   Calendar,
+  User,
+  Megaphone,
 } from 'lucide-react'
 import type { UserResponse } from '@/services'
 import { useFetchUser, useSetUserActive, useUsersByRole } from '@/features/user'
@@ -199,7 +201,7 @@ const BadBuyers: React.FC = () => {
                             {isBlocked ? (
                               <Lock className="size-5 text-red-500" />
                             ) : (
-                              <span className="material-symbols-outlined">person</span>
+                              <User className="size-5 text-gray-400" />
                             )}
                           </div>
                           <div>
@@ -304,7 +306,7 @@ const BadBuyers: React.FC = () => {
 
           <div className="bg-gray-900 rounded-[40px] p-10 flex flex-col gap-8 text-white">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-orange-400">campaign</span>
+              <Megaphone className="size-5 text-orange-400" />
               <h4 className="font-black uppercase tracking-tight">Thao tác quản trị viên</h4>
             </div>
             <div className="space-y-4">
@@ -377,7 +379,7 @@ const BadBuyers: React.FC = () => {
                         {selectedBuyer.lockedAt != null || selectedBuyer.status === 'INACTIVE' ? (
                           <Lock className="size-9 text-red-500" />
                         ) : (
-                          <span className="material-symbols-outlined text-[40px]">person</span>
+                          <User className="size-10 text-blue-600" />
                         )}
                       </div>
                       <div>

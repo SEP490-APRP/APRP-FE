@@ -66,7 +66,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   const loading =
     productsQuery.isPending || shopQuery.isPending || reviewsQuery.isPending || boxesQuery.isPending
 
-  const vouchersQuery = useShopVouchers(shopId, 0, 3, isAuthenticated)
+  const vouchersQuery = useShopVouchers(shopId, 0, 6, isAuthenticated)
   const shopVouchers = vouchersQuery.data?.vouchers ?? []
   const canReceiveMap = vouchersQuery.data?.canReceive ?? {}
   const voucherLoading = vouchersQuery.isFetching
@@ -444,7 +444,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
                 <Gift className="size-5 text-primary" />
-                <h3 className="text-sm font-black text-gray-900">Voucher cá»§a shop</h3>
+                <h3 className="text-sm font-black text-gray-900">Voucher của shop</h3>
               </div>
               <button
                 onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
