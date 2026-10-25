@@ -27,6 +27,8 @@ export interface BuildCombo {
   type?: string
   mealType?: MealType | string
   region?: string
+  regionDisplayName?: string
+  cookingSuggestion?: string
   totalQuantity?: number
   soldQuantity?: number
   status?: string
@@ -48,6 +50,7 @@ export interface BuildComboCreationRequest {
   type?: string
   mealType?: MealType | string
   region?: string
+  cookingSuggestion?: string
   totalQuantity: number
   imageUrl?: string
   items: ProductComboItemRequest[] | { productId: number; quantity: number }[]
@@ -60,6 +63,7 @@ export interface BuildComboUpdateRequest {
   type?: string
   mealType?: MealType | string
   region?: string
+  cookingSuggestion?: string
   totalQuantity?: number
   imageUrl?: string
   status?: string
