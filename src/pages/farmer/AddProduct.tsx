@@ -428,7 +428,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             {(submitting || createMutation.isPending) && (
               <Loader2 size={16} className="animate-spin" />
             )}
-            <span>Xác Nhận Đăng Bán</span>
+            <span>Đăng Bán Nông Sản</span>
           </button>
         </form>
       </div>

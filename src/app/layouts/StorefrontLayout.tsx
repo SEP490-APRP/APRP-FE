@@ -9,6 +9,7 @@ import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
+import { FloatingChatWidget } from '@/components/chat/FloatingChatWidget'
 
 export type StorefrontContext = {
   cart: Cart
@@ -131,7 +132,7 @@ export default function StorefrontLayout() {
     <div className="min-h-screen flex flex-col bg-paper-warm">
       <a
         href="#main-content"
-        className="skip-link"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-leaf-700 focus:text-white focus:rounded-xl focus:shadow-xl focus:font-bold focus:outline-none"
         onClick={(e) => {
           e.preventDefault()
           document.getElementById('main-content')?.focus()
@@ -177,6 +178,7 @@ export default function StorefrontLayout() {
       )}
 
       {cartOpen && <CartModal />}
+      <FloatingChatWidget />
 
       {info && (
         <Modal title={info} onClose={hideInfo}>
