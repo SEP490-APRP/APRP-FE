@@ -9,6 +9,7 @@ import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
+import { FloatingChatWidget } from '@/components/chat/FloatingChatWidget'
 
 export type StorefrontContext = {
   cart: Cart
@@ -128,10 +129,10 @@ export default function StorefrontLayout() {
   const context: StorefrontContext = { cart, query, setQuery, onAdd, onInfo: showInfo }
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-paper-warm">
       <a
         href="#main-content"
-        className="skip-link"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-leaf-700 focus:text-white focus:rounded-xl focus:shadow-xl focus:font-bold focus:outline-none"
         onClick={(e) => {
           e.preventDefault()
           document.getElementById('main-content')?.focus()
@@ -154,13 +155,12 @@ export default function StorefrontLayout() {
         onInfo={showInfo}
       />
 
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
         <Suspense fallback={<PageLoading />}>
           <Outlet context={context} />
+          <Footer onInfo={showInfo} />
         </Suspense>
       </main>
-
-      <Footer onInfo={showInfo} />
 
       {toast && (
         <div className={`toast ${toastType === 'error' ? 'toast-error' : toastType === 'warning' ? 'toast-warning' : ''}`} role="status">
@@ -194,6 +194,7 @@ export default function StorefrontLayout() {
       )}
 
       {cartOpen && <CartModal />}
+      <FloatingChatWidget />
 
       {info && (
         <Modal title={info} onClose={hideInfo}>
@@ -213,6 +214,6 @@ export default function StorefrontLayout() {
           </div>
         </Modal>
       )}
-    </>
+    </div>
   )
 }

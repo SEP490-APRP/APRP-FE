@@ -250,7 +250,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
               }`}
             >
-              Hộp Mù ({blindBoxes.length})
+              Túi Mù ({blindBoxes.length})
             </button>
           </div>
 
@@ -394,7 +394,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             )
           ) : blindBoxes.length === 0 ? (
             <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
-              Chưa có túi mù nào. Hãy bấm tạo Túi Mù Blind Box để giải cứu nhanh cuối ngày!
+              Chưa có túi mù nào. Hãy bấm tạo Túi Mù để giải cứu nhanh cuối ngày!
             </div>
           ) : (
             <div className="space-y-2.5">

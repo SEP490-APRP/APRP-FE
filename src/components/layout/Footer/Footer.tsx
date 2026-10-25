@@ -1,13 +1,18 @@
-﻿import { Leaf, Phone, MapPin } from 'lucide-react'
+import { Phone, MapPin } from 'lucide-react'
+import logoIcon from '@/assets/logo-icon.png'
 
 export default function Footer({ onInfo }: { onInfo: (s: string) => void }) {
   return (
     <footer className="site-footer">
       <div className="page-container footer-grid">
         <div>
-          <a href="/" className="flex gap-2 items-center text-xl font-bold text-white">
-            <Leaf />
-            CapNong
+          <a href="/" className="flex gap-2.5 items-center text-xl font-bold text-white mb-2">
+            <img
+              src={logoIcon}
+              alt="CapNong"
+              className="h-9 w-auto object-contain"
+            />
+            <span>CapNong</span>
           </a>
           <p>
             Nền tảng kết nối người tiêu dùng với nông dân Việt Nam, trân trọng từng mùa vụ và giảm

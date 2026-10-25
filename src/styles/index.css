@@ -525,23 +525,29 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
 }
-.brand-leaf {
-  color: #4a7c2f;
+.brand img {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .brand strong {
   display: block;
-  font-size: 22px;
+  font-size: 23px;
+  font-weight: 900;
   line-height: 1.1;
-  color: #326318;
-  letter-spacing: -0.6px;
+  color: #2b591b;
+  letter-spacing: -0.5px;
 }
 .brand small {
-  font-size: 10px;
-  color: #7a573a;
+  font-size: 11px;
+  font-weight: 500;
+  color: #55624d;
   display: block;
+  letter-spacing: -0.1px;
 }
 .header-search {
   display: flex;
@@ -1512,4 +1518,53 @@
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
 }
+
+/* ===== CapNong Orbital Loading Animations (Inspired by AeMedia Style) ===== */
+@keyframes capnong-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes capnong-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes capnong-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.05);
+  }
+}
+
+@keyframes capnong-pulse-glow {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes capnong-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 

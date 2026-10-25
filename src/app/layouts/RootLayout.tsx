@@ -5,14 +5,11 @@ import { DEFAULT_TITLE, type RouteHandle } from '../router/routeMeta'
 /** Route có section con cuộn tới bằng segment thứ 2, VD /nong-san-tuoi/san-pham. */
 const SECTIONED = ['/nong-san-tuoi', '/combo-tui-mu']
 
+import { CapNongLoading } from '@/components/ui/Loading'
+
 /** Loading indicator khi chuyển trang / tải lazy chunk */
 export function PageLoading() {
-  return (
-    <div className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 p-8">
-      <div className="h-9 w-9 animate-spin rounded-full border-3 border-[#e5e2da] border-t-[#326318]" />
-      <span className="text-xs font-semibold text-[#5f6b57]">Đang tải dữ liệu...</span>
-    </div>
-  )
+  return <CapNongLoading message="Đang tải nông sản tươi ngon..." />
 }
 
 /**

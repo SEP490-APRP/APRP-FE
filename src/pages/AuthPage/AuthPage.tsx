@@ -27,6 +27,7 @@ import {
 import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate, useLocation } from 'react-router-dom'
 import authBannerImg from '@/assets/auth-shelf-banner.jpg'
+import logoIcon from '@/assets/logo-icon.png'
 import {
   loginSchema,
   memberRegisterSchema,
@@ -42,6 +43,7 @@ import {
 import { authService, type UserResponse } from '@/services'
 import { useAuth } from '@/stores'
 import { validate, STORAGE_KEYS, API_BASE_URL } from '@/utils'
+import { AuthInput } from '@/components/ui/Input'
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register' | 'kyc_pending'
@@ -210,19 +212,19 @@ export default function AuthPage({
     const sessionUser = profileUser
       ? authService.buildSessionUser(profileUser, mappedRole)
       : {
-          id: String(payload?.sub || crypto.randomUUID()),
-          name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
-          email: payload?.email || fallbackEmail || '',
-          role: mappedRole,
-          detail:
-            mappedRole === 'shop'
-              ? 'Chủ gian hàng nông sản'
-              : mappedRole === 'admin'
-                ? 'Quản trị viên hệ thống'
-                : mappedRole === 'shipper'
-                  ? 'Đối tác giao vận'
-                  : 'Thành viên CapNong',
-        }
+        id: String(payload?.sub || crypto.randomUUID()),
+        name: payload?.email?.split('@')[0] || 'Thành viên CapNong',
+        email: payload?.email || fallbackEmail || '',
+        role: mappedRole,
+        detail:
+          mappedRole === 'shop'
+            ? 'Chủ gian hàng nông sản'
+            : mappedRole === 'admin'
+              ? 'Quản trị viên hệ thống'
+              : mappedRole === 'shipper'
+                ? 'Đối tác giao vận'
+                : 'Thành viên CapNong',
+      }
 
     // 4. Lưu vào Zustand Auth Store
     login(sessionUser, token)
@@ -508,51 +510,41 @@ export default function AuthPage({
       </div>
 
       {/* Main Container */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 sm:gap-12 min-h-[580px]">
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8 sm:gap-12 py-2 sm:py-6">
         {/* ========================================================================= */}
-        {/* LEFT SIDE: BRAND LOGO & INSPIRATIONAL CALLOUT                             */}
+        {/* LEFT SIDE: INSPIRATIONAL CALLOUT & BRAND MESSAGE                         */}
         {/* ========================================================================= */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-between self-stretch py-4 text-white">
-          <div>
-            <a
-              href="/"
-              className="inline-flex items-center gap-2 bg-[#326318] hover:bg-[#254b12] text-white px-4 py-2 rounded-full font-bold text-sm sm:text-base shadow-lg transition-all hover:scale-105 border border-white/20"
-            >
-              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                <Leaf size={14} className="text-white fill-white" />
-              </div>
-              <span className="tracking-wide">CapNong</span>
-            </a>
-          </div>
-
-          <div className="mt-10 lg:mt-24 max-w-lg">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[#ffea79] text-xs font-bold uppercase tracking-wider mb-4">
-              <Sparkles size={13} />
+        <div className="w-full lg:w-1/2 flex flex-col justify-center text-white lg:pt-3">
+          <div className="max-w-xl">
+            {/* Tagline Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[#ffea79] text-xs font-bold uppercase tracking-wider mb-5 shadow-sm">
+              <Sparkles size={14} className="text-[#ffea79]" />
               <span>Nền tảng kết nối Nông sản &amp; Người dùng</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-[1.15] tracking-tight">
-              Ngon lành,
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-[1.12] tracking-tight drop-shadow-md">
+              Ngon lành
               <br />
-              <span className="font-serif italic font-normal text-[#ffea79]">tử tế &amp;</span>
-              <br />
-              tiết kiệm.
+              <span className="font-serif italic font-normal text-[#ffea79] text-[1.15em] mr-2">
+                &amp;
+              </span>
+              Tiết kiệm
             </h1>
 
-            <p className="mt-4 text-white/90 text-sm sm:text-base font-normal leading-relaxed max-w-md drop-shadow-sm">
+            <p className="mt-5 text-white/95 text-sm sm:text-base font-normal leading-relaxed max-w-lg drop-shadow">
               Giải cứu nông sản "kém sắc" nhưng vẹn nguyên dinh dưỡng, đồng hành cùng hàng nghìn nhà
-              vườn và nông dân Việt.
+              vườn và nông dân Việt kết nối trực tiếp với người tiêu dùng.
             </p>
 
             {/* Quick Benefits Pills */}
-            <div className="mt-6 flex flex-wrap gap-2 text-xs">
-              <span className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white/90">
+            <div className="mt-8 flex flex-wrap gap-2.5 text-xs sm:text-[13px]">
+              <span className="px-3.5 py-2 rounded-2xl bg-black/45 backdrop-blur-md border border-white/25 text-white font-medium shadow-sm hover:bg-black/60 transition-colors">
                 🌿 Tiết kiệm tới 60%
               </span>
-              <span className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white/90">
+              <span className="px-3.5 py-2 rounded-2xl bg-black/45 backdrop-blur-md border border-white/25 text-white font-medium shadow-sm hover:bg-black/60 transition-colors">
                 🏡 Quyết toán 24h cho nhà vườn
               </span>
-              <span className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white/90">
+              <span className="px-3.5 py-2 rounded-2xl bg-black/45 backdrop-blur-md border border-white/25 text-white font-medium shadow-sm hover:bg-black/60 transition-colors">
                 ⚡ Camera AI kiểm định 0.5s
               </span>
             </div>
@@ -595,42 +587,35 @@ export default function AuthPage({
 
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   {/* Email / Username Input */}
-                  <div className="relative">
-                    <Mail
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                    />
-                    <input
-                      type="text"
-                      required
-                      {...loginForm.register('identifier')}
-                      placeholder="Email hoặc Số điện thoại (VD: lienhe@capnong.vn)"
-                      className="w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white focus:ring-1 focus:ring-[#326318] text-xs sm:text-sm text-[#1e2319] placeholder-[#949c8e] outline-none transition-all"
-                    />
-                  </div>
+                  <AuthInput
+                    type="text"
+                    required
+                    icon={<Mail size={18} />}
+                    {...loginForm.register('identifier')}
+                    placeholder="Email hoặc Số điện thoại (VD: lienhe@capnong.vn)"
+                    accentColor="green"
+                  />
 
                   {/* Password Input */}
-                  <div className="relative">
-                    <Lock
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                    />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      {...loginForm.register('password')}
-                      placeholder="Mật khẩu"
-                      className="w-full pl-11 pr-11 py-3 sm:py-3.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white focus:ring-1 focus:ring-[#326318] text-xs sm:text-sm text-[#1e2319] placeholder-[#949c8e] outline-none transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9aa194] hover:text-[#2c3325]"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
+                  <AuthInput
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    icon={<Lock size={18} />}
+                    {...loginForm.register('password')}
+                    placeholder="Mật khẩu"
+                    accentColor="green"
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="hover:text-[#2c3325] p-1 cursor-pointer transition-colors"
+                        tabIndex={-1}
+                        title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
+                  />
 
                   {/* Remember Me & Forgot Password */}
                   <div className="flex items-center justify-between text-xs pt-1">
@@ -700,8 +685,8 @@ export default function AuthPage({
                 </form>
 
                 {/* Switch to Register */}
-                <div className="mt-6 text-center text-xs text-[#6e7769]">
-                  Mới biết đến CapNong?{' '}
+                <div className="mt-6 pt-4 border-t border-[#f0f3ec] flex items-center justify-between text-xs text-[#6e7769]">
+                  <span>Mới biết đến CapNong?</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -745,11 +730,10 @@ export default function AuthPage({
                         setSelectedRole('buyer')
                         setShopRegisterStep(1)
                       }}
-                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        selectedRole === 'buyer'
-                          ? 'border-[#326318] bg-[#f1faea] shadow-sm'
-                          : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
-                      }`}
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${selectedRole === 'buyer'
+                        ? 'border-[#326318] bg-[#f1faea] shadow-sm'
+                        : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
+                        }`}
                     >
                       <span className="text-lg">🛒</span>
                       <div className="font-extrabold text-xs text-[#21291d]">1. Khách Mua</div>
@@ -759,11 +743,10 @@ export default function AuthPage({
                     <button
                       type="button"
                       onClick={() => setSelectedRole('shop')}
-                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        selectedRole === 'shop'
-                          ? 'border-[#8a4e1d] bg-[#fdf5eb] shadow-sm'
-                          : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
-                      }`}
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${selectedRole === 'shop'
+                        ? 'border-[#8a4e1d] bg-[#fdf5eb] shadow-sm'
+                        : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
+                        }`}
                     >
                       <span className="text-lg">🌾</span>
                       <div className="font-extrabold text-xs text-[#21291d]">2. Nhà Vườn</div>
@@ -776,11 +759,10 @@ export default function AuthPage({
                         setSelectedRole('shipper')
                         setShopRegisterStep(1)
                       }}
-                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        selectedRole === 'shipper'
-                          ? 'border-[#2d6f78] bg-[#eef7f8] shadow-sm'
-                          : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
-                      }`}
+                      className={`py-3 px-2 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${selectedRole === 'shipper'
+                        ? 'border-[#2d6f78] bg-[#eef7f8] shadow-sm'
+                        : 'border-[#e4e7e0] bg-[#f8faf6] hover:border-[#ccd4c6]'
+                        }`}
                     >
                       <span className="text-lg">🚚</span>
                       <div className="font-extrabold text-xs text-[#21291d]">3. Tài Xế</div>
@@ -798,92 +780,82 @@ export default function AuthPage({
                       <span>Bước 1: Thông tin chủ nông trại / người đại diện pháp lý</span>
                     </div>
 
-                    <div className="relative">
-                      <User
-                        size={18}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                      />
-                      <input
-                        type="text"
-                        required
-                        {...registerForm.register('fullName')}
-                        placeholder="Họ và tên chủ vườn / người đại diện *"
-                        className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs sm:text-sm text-[#1e2319] outline-none"
-                      />
-                    </div>
+                    <AuthInput
+                      type="text"
+                      required
+                      icon={<User size={18} />}
+                      {...registerForm.register('fullName')}
+                      placeholder="Họ và tên chủ vườn / người đại diện *"
+                      accentColor="brown"
+                    />
 
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <Phone
-                          size={16}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="tel"
-                          required
-                          {...registerForm.register('phone')}
-                          placeholder="Số điện thoại *"
-                          className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Mail
-                          size={16}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="email"
-                          required
-                          {...registerForm.register('email')}
-                          placeholder="Email nhận mã OTP *"
-                          className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+                      <AuthInput
+                        type="tel"
+                        required
+                        icon={<Phone size={16} />}
+                        {...registerForm.register('phone')}
+                        placeholder="Số điện thoại *"
+                        accentColor="brown"
+                      />
+                      <AuthInput
+                        type="email"
+                        required
+                        icon={<Mail size={16} />}
+                        {...registerForm.register('email')}
+                        placeholder="Email nhận mã OTP *"
+                        accentColor="brown"
+                      />
                     </div>
 
                     {/* CCCD Chủ hộ / Người đại diện */}
-                    <div className="relative">
-                      <CreditCard
-                        size={16}
-                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                      />
-                      <input
-                        type="text"
-                        required
-                        maxLength={12}
-                        {...registerForm.register('cccd')}
-                        placeholder="Số Căn cước công dân (CCCD 12 số) *"
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                      />
-                    </div>
+                    <AuthInput
+                      type="text"
+                      required
+                      maxLength={12}
+                      icon={<CreditCard size={16} />}
+                      {...registerForm.register('cccd')}
+                      placeholder="Số Căn cước công dân (CCCD 12 số) *"
+                      accentColor="brown"
+                    />
 
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <Lock
-                          size={16}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          {...registerForm.register('password')}
-                          placeholder="Mật khẩu *"
-                          className="w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Lock
-                          size={16}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          required
-                          {...registerForm.register('confirmPassword')}
-                          placeholder="Xác nhận MK *"
-                          className="w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+                      <AuthInput
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        icon={<Lock size={16} />}
+                        {...registerForm.register('password')}
+                        placeholder="Mật khẩu *"
+                        accentColor="brown"
+                        rightElement={
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="hover:text-[#2c3325] p-1 cursor-pointer transition-colors"
+                            tabIndex={-1}
+                          >
+                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        }
+                      />
+                      <AuthInput
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        icon={<Lock size={16} />}
+                        {...registerForm.register('confirmPassword')}
+                        placeholder="Xác nhận MK *"
+                        accentColor="brown"
+                        rightElement={
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="hover:text-[#2c3325] p-1 cursor-pointer transition-colors"
+                            tabIndex={-1}
+                          >
+                            {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        }
+                      />
                     </div>
 
                     <button
@@ -917,38 +889,28 @@ export default function AuthPage({
                     </div>
 
                     {/* Shop Name */}
-                    <div className="relative">
-                      <Store
-                        size={18}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                      />
-                      <input
-                        type="text"
-                        required
-                        {...registerForm.register('shopName')}
-                        placeholder="Tên Nông Trại / Hợp Tác Xã / Cửa Hàng *"
-                        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs sm:text-sm text-[#1e2319] outline-none"
-                      />
-                    </div>
+                    <AuthInput
+                      type="text"
+                      required
+                      icon={<Store size={18} />}
+                      {...registerForm.register('shopName')}
+                      placeholder="Tên Nông Trại / Hợp Tác Xã / Cửa Hàng *"
+                      accentColor="brown"
+                    />
 
                     {/* Address & Region */}
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <MapPin
-                          size={16}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="text"
-                          required
-                          {...registerForm.register('shopAddress')}
-                          placeholder="Địa chỉ vườn / Kho *"
-                          className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                        />
-                      </div>
+                      <AuthInput
+                        type="text"
+                        required
+                        icon={<MapPin size={16} />}
+                        {...registerForm.register('shopAddress')}
+                        placeholder="Địa chỉ vườn / Kho *"
+                        accentColor="brown"
+                      />
                       <select
                         {...registerForm.register('shopRegion')}
-                        className="w-full px-3 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs font-semibold text-[#1e2319] outline-none"
+                        className="w-full px-3 py-2.5 rounded-2xl bg-[#f8faf6] border border-[#cfd6c7] hover:border-[#b2bca9] focus:border-[#8a4e1d] focus:ring-2 focus:ring-[#8a4e1d]/15 focus:bg-white text-xs font-semibold text-[#1e2319] outline-none transition-all"
                       >
                         <option value="Đà Lạt & Lâm Đồng">Đà Lạt &amp; Lâm Đồng</option>
                         <option value="Miền Tây Nam Bộ">Miền Tây Nam Bộ</option>
@@ -958,13 +920,13 @@ export default function AuthPage({
                     </div>
 
                     {/* Farming Type */}
-                    <div className="p-2 bg-[#f4f6f1] rounded-2xl">
+                    <div className="p-2.5 bg-[#f8faf6] rounded-2xl border border-[#cfd6c7]">
                       <label className="block text-[10px] font-bold text-[#697263] mb-1">
                         Phương thức canh tác chính:
                       </label>
                       <select
                         {...registerForm.register('shopFarmingType')}
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#dce0d8] text-xs font-bold text-[#1e2319] outline-none"
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#cfd6c7] text-xs font-bold text-[#1e2319] outline-none"
                       >
                         <option value="Hữu cơ Organic">
                           Hữu cơ Organic (Không phân thuốc hóa học)
@@ -978,25 +940,22 @@ export default function AuthPage({
                     </div>
 
                     {/* Shop Description */}
-                    <div className="relative">
-                      <input
-                        type="text"
-                        {...registerForm.register('shopDescription')}
-                        placeholder="Mô tả nông sản chính / câu chuyện nhà vườn (Tùy chọn)"
-                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#8a4e1d] focus:bg-white text-xs text-[#1e2319] outline-none"
-                      />
-                    </div>
+                    <AuthInput
+                      type="text"
+                      {...registerForm.register('shopDescription')}
+                      placeholder="Mô tả nông sản chính / câu chuyện nhà vườn (Tùy chọn)"
+                      accentColor="brown"
+                    />
 
                     {/* Image Upload Previews */}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => handleFakeUpload('logo')}
-                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                          shopLogoPreview
-                            ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
-                            : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
-                        }`}
+                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${shopLogoPreview
+                          ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
+                          : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
+                          }`}
                       >
                         <Upload size={16} />
                         <span className="text-[11px] font-bold">
@@ -1007,11 +966,10 @@ export default function AuthPage({
                       <button
                         type="button"
                         onClick={() => handleFakeUpload('cert')}
-                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                          shopCertPreview
-                            ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
-                            : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
-                        }`}
+                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${shopCertPreview
+                          ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
+                          : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
+                          }`}
                       >
                         <FileText size={16} />
                         <span className="text-[11px] font-bold">
@@ -1037,82 +995,56 @@ export default function AuthPage({
                 {/* ---------------------------------------------------- */}
                 {selectedRole !== 'shop' && (
                   <form onSubmit={handleRegisterSubmit} className="space-y-3">
-                    <div className="relative">
-                      <User
-                        size={18}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                      />
-                      <input
-                        type="text"
-                        required
-                        {...registerForm.register('fullName')}
-                        placeholder={
-                          selectedRole === 'shipper'
-                            ? 'Họ và tên tài xế *'
-                            : 'Họ và tên của bạn *'
-                        }
-                        className={`w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl bg-[#f4f6f1] border border-transparent ${
-                          selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
-                        } focus:bg-white text-xs sm:text-sm text-[#1e2319] outline-none`}
-                      />
-                    </div>
+                    <AuthInput
+                      type="text"
+                      required
+                      icon={<User size={18} />}
+                      {...registerForm.register('fullName')}
+                      placeholder={
+                        selectedRole === 'shipper'
+                          ? 'Họ và tên tài xế *'
+                          : 'Họ và tên của bạn *'
+                      }
+                      accentColor={selectedRole === 'shipper' ? 'teal' : 'green'}
+                    />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="relative">
-                        <Phone
-                          size={17}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="tel"
-                          required
-                          {...registerForm.register('phone')}
-                          placeholder="Số điện thoại *"
-                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
-                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
-                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
-                        />
-                      </div>
-                      <div className="relative">
-                        <Mail
-                          size={17}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type="email"
-                          required
-                          {...registerForm.register('email')}
-                          placeholder="Email nhận mã OTP *"
-                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
-                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
-                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
-                        />
-                      </div>
+                      <AuthInput
+                        type="tel"
+                        required
+                        icon={<Phone size={17} />}
+                        {...registerForm.register('phone')}
+                        placeholder="Số điện thoại *"
+                        accentColor={selectedRole === 'shipper' ? 'teal' : 'green'}
+                      />
+                      <AuthInput
+                        type="email"
+                        required
+                        icon={<Mail size={17} />}
+                        {...registerForm.register('email')}
+                        placeholder="Email nhận mã OTP *"
+                        accentColor={selectedRole === 'shipper' ? 'teal' : 'green'}
+                      />
                     </div>
 
                     {selectedRole === 'buyer' && (
                       <>
-                        <div className="relative">
-                          <MapPin
-                            size={17}
-                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                          />
-                          <input
-                            type="text"
-                            required
-                            {...registerForm.register('buyerAddress')}
-                            placeholder="Địa chỉ nhận hàng (Số nhà, Phường/Xã, Tỉnh/TP) *"
-                            className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
-                          />
-                        </div>
+                        <AuthInput
+                          type="text"
+                          required
+                          icon={<MapPin size={17} />}
+                          {...registerForm.register('buyerAddress')}
+                          placeholder="Địa chỉ nhận hàng (Số nhà, Phường/Xã, Tỉnh/TP) *"
+                          accentColor="green"
+                        />
 
-                        <div className="p-2.5 bg-[#f4f6f1] rounded-2xl border border-[#e4e7e0]">
+                        <div className="p-2.5 bg-[#f4f6f1] rounded-2xl border border-[#cfd6c7]">
                           <label className="block text-[11px] font-bold text-[#44503e] mb-1">
                             🥗 Nhu cầu / Phong cách dinh dưỡng:
                           </label>
                           <select
                             {...registerForm.register('dietPreference')}
-                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#dce0d8] text-xs font-semibold text-[#1e2319] outline-none cursor-pointer"
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#cfd6c7] focus:border-[#326318] text-xs font-semibold text-[#1e2319] outline-none cursor-pointer"
                           >
                             <option value="NON_VEGETARIAN">Đa dạng (Ăn uống thông thường)</option>
                             <option value="VEGETARIAN">Ăn chay (Không thịt cá)</option>
@@ -1125,53 +1057,46 @@ export default function AuthPage({
                     {selectedRole === 'shipper' && (
                       <>
                         {/* CCCD Tài xế */}
-                        <div className="relative">
-                          <CreditCard
-                            size={17}
-                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                          />
-                          <input
-                            type="text"
-                            required
-                            maxLength={12}
-                            {...registerForm.register('cccd')}
-                            placeholder="Số Căn cước công dân tài xế (CCCD 12 số) *"
-                            className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent focus:border-[#2d6f78] focus:bg-white text-xs text-[#1e2319] outline-none"
-                          />
-                        </div>
+                        <AuthInput
+                          type="text"
+                          required
+                          maxLength={12}
+                          icon={<CreditCard size={17} />}
+                          {...registerForm.register('cccd')}
+                          placeholder="Số Căn cước công dân tài xế (CCCD 12 số) *"
+                          accentColor="teal"
+                        />
 
-                        <div className="p-3 bg-[#eef7f8] rounded-2xl border border-[#c4e0f0] space-y-2.5">
+                        <div className="p-3 bg-[#eef7f8] rounded-2xl border border-[#b2d5e0] space-y-2.5">
                           <div className="text-[11px] font-bold text-[#2d6f78] flex items-center gap-1.5">
                             <Truck size={15} />
                             <span>Thông tin phương tiện &amp; Khu vực hoạt động:</span>
                           </div>
 
-                          <div className="relative">
-                            <input
-                              type="text"
-                              required
-                              {...registerForm.register('vehicleNumber')}
-                              placeholder="Biển số xe vận chuyển (VD: 59-A1 123.45) *"
-                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] font-medium outline-none focus:border-[#2d6f78]"
-                            />
-                          </div>
+                          <AuthInput
+                            type="text"
+                            required
+                            {...registerForm.register('vehicleNumber')}
+                            placeholder="Biển số xe vận chuyển (VD: 59-A1 123.45) *"
+                            accentColor="teal"
+                          />
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <select
                               {...registerForm.register('shipperVehicle')}
-                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none cursor-pointer"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#b2d5e0] focus:border-[#2d6f78] text-xs text-[#1e2319] outline-none cursor-pointer"
                             >
                               <option value="Xe máy kèm thùng bảo ôn">Xe máy (Có thùng bảo ôn)</option>
                               <option value="Xe ba gác nông sản">Xe ba gác chở nông sản</option>
                               <option value="Xe tải 500kg - 1.5 tấn">Xe tải nhỏ 500kg - 1.5 tấn</option>
                             </select>
 
-                            <input
+                            <AuthInput
                               type="text"
                               required
                               {...registerForm.register('shipperArea')}
                               placeholder="Khu vực hoạt động (VD: Quận 7, TP.HCM) *"
-                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#bad4e5] text-xs text-[#1e2319] outline-none focus:border-[#2d6f78]"
+                              accentColor="teal"
                             />
                           </div>
                         </div>
@@ -1179,63 +1104,52 @@ export default function AuthPage({
                     )}
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      <div className="relative">
-                        <Lock
-                          size={17}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          {...registerForm.register('password')}
-                          placeholder="Mật khẩu (tối thiểu 8 ký tự) *"
-                          className={`w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
-                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
-                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                          tabIndex={-1}
-                        >
-                          {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </div>
+                      <AuthInput
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        icon={<Lock size={17} />}
+                        {...registerForm.register('password')}
+                        placeholder="Mật khẩu (tối thiểu 8 ký tự) *"
+                        accentColor={selectedRole === 'shipper' ? 'teal' : 'green'}
+                        rightElement={
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="p-1 text-[#8f9689] hover:text-[#2d3b28] transition-colors"
+                            tabIndex={-1}
+                          >
+                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        }
+                      />
 
-                      <div className="relative">
-                        <Lock
-                          size={17}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                        />
-                        <input
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          required
-                          {...registerForm.register('confirmPassword')}
-                          placeholder="Nhập lại mật khẩu *"
-                          className={`w-full pl-10 pr-8 py-2.5 rounded-2xl bg-[#f4f6f1] border border-transparent ${
-                            selectedRole === 'shipper' ? 'focus:border-[#2d6f78]' : 'focus:border-[#326318]'
-                          } focus:bg-white text-xs text-[#1e2319] outline-none`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa194]"
-                          tabIndex={-1}
-                        >
-                          {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </div>
+                      <AuthInput
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        icon={<Lock size={17} />}
+                        {...registerForm.register('confirmPassword')}
+                        placeholder="Nhập lại mật khẩu *"
+                        accentColor={selectedRole === 'shipper' ? 'teal' : 'green'}
+                        rightElement={
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="p-1 text-[#8f9689] hover:text-[#2d3b28] transition-colors"
+                            tabIndex={-1}
+                          >
+                            {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        }
+                      />
                     </div>
 
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className={`w-full py-3.5 sm:py-4 rounded-2xl ${
-                        selectedRole === 'shipper'
-                          ? 'bg-[#2d6f78] hover:bg-[#205158]'
-                          : 'bg-[#326318] hover:bg-[#254b12]'
-                      } text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
+                      className={`w-full py-3.5 sm:py-4 rounded-2xl ${selectedRole === 'shipper'
+                        ? 'bg-[#2d6f78] hover:bg-[#205158]'
+                        : 'bg-[#326318] hover:bg-[#254b12]'
+                        } text-white font-extrabold text-sm uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
                     >
                       <span>{isSubmitting ? 'ĐANG TẠO TÀI KHOẢN...' : 'HOÀN TẤT ĐĂNG KÝ'}</span>
                     </button>
@@ -1243,8 +1157,8 @@ export default function AuthPage({
                 )}
 
                 {/* Switch back to Login */}
-                <div className="mt-4 text-center text-xs text-[#6e7769]">
-                  Đã có tài khoản?{' '}
+                <div className="mt-5 pt-3.5 border-t border-[#f0f3ec] flex items-center justify-between text-xs text-[#6e7769]">
+                  <span>Đã có tài khoản?</span>
                   <button
                     type="button"
                     onClick={() => {

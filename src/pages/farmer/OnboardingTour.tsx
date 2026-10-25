@@ -35,13 +35,13 @@ const TOUR_STEPS: SidebarStep[] = [
       {
         label: '📈 Thẻ thống kê',
         description:
-          'Các ô số liệu ở đầu trang cho bạn thấy tổng đơn hàng, sản phẩm đang bán, hộp mù và điểm chất lượng shop. Nhìn vào đây mỗi sáng để nắm tình hình nhanh nhất!',
+          'Các ô số liệu ở đầu trang cho bạn thấy tổng đơn hàng, sản phẩm đang bán, túi mù và điểm chất lượng shop. Nhìn vào đây mỗi sáng để nắm tình hình nhanh nhất!',
         targetId: 'tour-overview-stats',
       },
       {
         label: '📦 Bảng sản phẩm',
         description:
-          'Phần giữa trang liệt kê nhanh các sản phẩm và hộp mù của bạn. Bấm vào tab "Nông Sản" hoặc "Hộp Mù" để chuyển loại xem.',
+          'Phần giữa trang liệt kê nhanh các sản phẩm và túi mù của bạn. Bấm vào tab "Nông Sản", "Combo" hoặc "Túi Mù" để chuyển loại xem.',
         targetId: 'tour-overview-products',
       },
       {
@@ -93,32 +93,32 @@ const TOUR_STEPS: SidebarStep[] = [
   {
     sidebarItemId: 'sidebar-item-products',
     routePath: 'products',
-    title: '🌿 Sản phẩm',
+    title: ' Sản phẩm',
     description:
       'Quản lý toàn bộ nông sản thu hoạch, đăng bán sản phẩm mới và tạo các túi mù giải cứu.',
     details: [
       {
-        label: '🎁 Tạo Túi Mù Blind Box',
+        label: 'Tạo Túi Mù',
         description:
           'Bấm nút này để đóng gói các loại nông sản giải cứu thành các túi mù với giá ưu đãi. Đây là tính năng đặc biệt giúp tiêu thụ nhanh nông sản thu hoạch!',
         targetId: 'tour-products-blindbox-btn',
         extraPad: 4,
       },
       {
-        label: '➕ Đăng bán nông sản mới',
+        label: 'Đăng bán nông sản mới',
         description:
           'Bấm nút xanh này để đăng bán từng loại nông sản riêng lẻ. Điền thông tin giá, sản lượng và chứng nhận để quản trị viên duyệt nhanh nhất.',
         targetId: 'tour-products-add-btn',
         extraPad: 4,
       },
       {
-        label: '🗂️ Tab Nông Sản / Hộp Mù',
+        label: 'Tab Nông Sản / Túi Mù',
         description:
-          'Bấm vào 2 tab ở đầu trang để chuyển giữa danh sách nông sản và hộp mù. Mỗi tab có bộ lọc riêng phù hợp.',
+          'Bấm vào các tab ở đầu trang để chuyển giữa danh sách nông sản, combo và túi mù. Mỗi tab có bộ lọc riêng phù hợp.',
         targetId: 'tour-products-tabs',
       },
       {
-        label: '🔍 Tìm kiếm & Lọc',
+        label: ' Tìm kiếm & Lọc',
         description:
           'Dùng ô tìm kiếm để tìm theo tên hoặc ID. Dùng bộ lọc danh mục và trạng thái để thu hẹp kết quả. Có thể lọc "Chờ duyệt" để xem sản phẩm đang chờ Admin phê duyệt.',
         targetId: 'tour-products-filter-bar',
