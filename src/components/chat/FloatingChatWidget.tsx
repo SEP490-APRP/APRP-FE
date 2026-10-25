@@ -12,10 +12,19 @@ import {
   Loader2,
   Sparkles,
   Image as ImageIcon,
+  Film,
+  Trash2,
 } from 'lucide-react'
 import { useAuth, useChatStore, useUiStore } from '@/stores'
 import { uploadService } from '@/services/upload.service'
+import { globalShowConfirm } from '@/components/common/Popup'
 import type { Conversation } from '@/types/chat'
+
+const isVideoMedia = (url?: string, type?: string) => {
+  if (type?.toUpperCase() === 'VIDEO') return true
+  if (!url) return false
+  return /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(url)
+}
 
 export const FloatingChatWidget: React.FC = () => {
   const { user, token } = useAuth()
@@ -39,16 +48,28 @@ export const FloatingChatWidget: React.FC = () => {
     sendMessage,
     sendTyping,
     markAsRead,
+    deleteMessage,
   } = useChatStore()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
-  const [uploadingImage, setUploadingImage] = useState(false)
+  const [pendingMedia, setPendingMedia] = useState<{ url: string; type: 'IMAGE' | 'VIDEO'; name?: string } | null>(null)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleDeleteMessage = async (messageId: number) => {
+    const confirmed = await globalShowConfirm('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa tin nhắn này không?')
+    if (confirmed) {
+      try {
+        await deleteMessage(messageId)
+      } catch (error) {
+        console.error('Lỗi khi xóa tin nhắn:', error)
+      }
+    }
+  }
 
   // Khởi tạo kết nối WebSocket khi đã đăng nhập
   useEffect(() => {
@@ -90,20 +111,37 @@ export const FloatingChatWidget: React.FC = () => {
     }
   }, [messages, activeConversation, isOpen])
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const isVideo = file.type.startsWith('video/')
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert(
+        isVideo
+          ? 'Video đính kèm không được vượt quá 50MB'
+          : 'Hình ảnh đính kèm không được vượt quá 10MB',
+      )
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
     try {
-      setUploadingImage(true)
-      const res = await uploadService.uploadImage(file, 'chat')
+      setUploadingMedia(true)
+      const res = await uploadService.uploadMedia(file, 'chat')
       if (res.result?.url) {
-        setPendingImageUrl(res.result.url)
+        setPendingMedia({
+          url: res.result.url,
+          type: isVideo ? 'VIDEO' : 'IMAGE',
+          name: file.name,
+        })
       }
     } catch (err) {
-      console.error('[FloatingChatWidget] Upload image error:', err)
+      console.error('[FloatingChatWidget] Upload media error:', err)
+      alert('Tải tệp tin thất bại. Vui lòng thử lại.')
     } finally {
-      setUploadingImage(false)
+      setUploadingMedia(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -111,12 +149,13 @@ export const FloatingChatWidget: React.FC = () => {
   // Xử lý gửi tin nhắn
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if ((!inputText.trim() && !pendingImageUrl) || isSending || !activeConversation) return
+    if ((!inputText.trim() && !pendingMedia) || isSending || !activeConversation) return
 
     const content = inputText.trim()
-    const attachmentUrl = pendingImageUrl || undefined
+    const attachmentUrl = pendingMedia?.url || undefined
+    const type = pendingMedia ? pendingMedia.type : 'TEXT'
     setInputText('')
-    setPendingImageUrl(null)
+    setPendingMedia(null)
     setIsSending(true)
 
     // Tắt typing indicator
@@ -124,7 +163,7 @@ export const FloatingChatWidget: React.FC = () => {
     sendTyping(false)
 
     try {
-      await sendMessage(content, attachmentUrl ? 'IMAGE' : 'TEXT', attachmentUrl)
+      await sendMessage(content, type, attachmentUrl)
     } catch (err) {
       console.error('[FloatingChatWidget] Send message error:', err)
     } finally {
@@ -415,25 +454,49 @@ export const FloatingChatWidget: React.FC = () => {
                     return (
                       <div
                         key={msg.id || idx}
-                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                        className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
                       >
-                        <div
-                          className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
-                            isMe
-                              ? 'bg-[#326318] text-white rounded-br-xs'
-                              : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
-                          }`}
-                        >
-                          {msg.content}
-                          {msg.attachmentUrl && (
-                            <div className="mt-1.5 rounded-lg overflow-hidden border border-black/10">
-                              <img
-                                src={msg.attachmentUrl}
-                                alt="Tệp đính kèm"
-                                className="max-h-40 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(msg.attachmentUrl, '_blank')}
-                              />
-                            </div>
+                        <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div
+                            className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
+                              isMe
+                                ? 'bg-[#326318] text-white rounded-br-xs'
+                                : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
+                            }`}
+                          >
+                            {msg.content}
+                            {msg.attachmentUrl && (
+                              <div className="mt-1.5 rounded-lg overflow-hidden border border-black/10">
+                                {isVideoMedia(msg.attachmentUrl, msg.type) ? (
+                                  <video
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    src={msg.attachmentUrl}
+                                    className="max-h-56 w-full rounded-lg bg-black"
+                                  />
+                                ) : (
+                                  <img
+                                    src={msg.attachmentUrl}
+                                    alt="Tệp đính kèm"
+                                    className="max-h-40 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Nút xóa tin nhắn CHỈ DÀNH CHO NGƯỜI GỬI (isMe) khi hover hoặc trên mobile */}
+                          {isMe && msg.id && msg.id < 10000000000 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-full hover:bg-rose-50 text-gray-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
+                              title="Xóa tin nhắn này"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
                         </div>
 
@@ -467,24 +530,36 @@ export const FloatingChatWidget: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Xem trước ảnh đính kèm trước khi gửi */}
-              {pendingImageUrl && (
+              {/* Xem trước tệp đính kèm (Ảnh hoặc Video) trước khi gửi */}
+              {pendingMedia && (
                 <div className="px-3 py-1.5 bg-[#f0f5ec] border-t border-[#edf1e8] flex items-center gap-2.5 shrink-0">
-                  <div className="relative size-10 rounded-md overflow-hidden border border-[#cfe6c4]">
-                    <img
-                      src={pendingImageUrl}
-                      alt="Ảnh đính kèm"
-                      className="size-full object-cover"
-                    />
+                  <div className="relative size-10 rounded-md overflow-hidden border border-[#cfe6c4] bg-black/5 flex items-center justify-center shrink-0">
+                    {pendingMedia.type === 'VIDEO' ? (
+                      <video src={pendingMedia.url} className="size-full object-cover" muted playsInline />
+                    ) : (
+                      <img
+                        src={pendingMedia.url}
+                        alt="Đính kèm"
+                        className="size-full object-cover"
+                      />
+                    )}
+                    {pendingMedia.type === 'VIDEO' && (
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                        <Film size={14} className="text-white drop-shadow" />
+                      </div>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setPendingImageUrl(null)}
-                      className="absolute top-0.5 right-0.5 size-3.5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black"
+                      onClick={() => setPendingMedia(null)}
+                      className="absolute top-0.5 right-0.5 size-3.5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black cursor-pointer"
+                      title="Gỡ bỏ"
                     >
                       <X size={9} />
                     </button>
                   </div>
-                  <span className="text-[11px] text-[#5f6b57]">Ảnh đã tải lên sẵn sàng gửi</span>
+                  <span className="text-[11px] text-[#5f6b57] truncate max-w-[200px]">
+                    {pendingMedia.type === 'VIDEO' ? 'Video đã sẵn sàng gửi' : 'Ảnh đã sẵn sàng gửi'}
+                  </span>
                 </div>
               )}
 
@@ -496,18 +571,18 @@ export const FloatingChatWidget: React.FC = () => {
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleImageUpload}
+                  accept="image/*,video/*"
+                  onChange={handleMediaUpload}
                   className="hidden"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingImage}
+                  disabled={uploadingMedia}
                   className="size-8 rounded-xl border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                  title="Đính kèm hình ảnh"
+                  title="Đính kèm hình ảnh hoặc video (tối đa 50MB)"
                 >
-                  {uploadingImage ? (
+                  {uploadingMedia ? (
                     <Loader2 size={14} className="animate-spin text-[#326318]" />
                   ) : (
                     <ImageIcon size={14} />

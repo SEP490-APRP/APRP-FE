@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/stores'
-import { chatService } from '@/services/chat.service'
+import { useChatStore } from '@/stores/useChatStore'
 import { uploadService } from '@/services/upload.service'
-import { Conversation, ChatMessage } from '@/types/chat'
+import { TOKEN_KEY } from '@/services/api.config'
+import { Conversation } from '@/types/chat'
+import { globalShowConfirm } from '@/components/common/Popup'
 import {
   Send,
   Search,
   MessageSquare,
   Loader2,
   Image as ImageIcon,
-  Sparkles,
+  Film,
+  Paperclip,
+  Trash2,
   X,
-  Store,
-  User as UserIcon,
 } from 'lucide-react'
 
 // --- TIME FORMATTING HELPERS ---
@@ -60,163 +62,173 @@ const formatMessageFullTime = (timeVal: any): string => {
   return `${timeStr} · ${dateStr}`
 }
 
+const isVideoUrl = (url?: string, type?: string): boolean => {
+  if (type?.toUpperCase() === 'VIDEO') return true
+  if (!url) return false
+  return /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(url)
+}
+
+interface PendingMedia {
+  url: string
+  type: 'IMAGE' | 'VIDEO'
+  name?: string
+}
+
 const AdminMessages: React.FC = () => {
   const { user } = useAuth()
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const {
+    conversations,
+    activeConversation,
+    messages: allMessages,
+    isLoadingConversations,
+    isLoadingMessages,
+    typingUsers,
+    loadConversations,
+    selectConversation,
+    sendMessage,
+    sendTyping,
+    deleteMessage,
+    initRealtime,
+  } = useChatStore()
+
   const [messageInput, setMessageInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load conversations
+  // Khởi tạo kết nối STOMP toàn cục và tải danh sách hội thoại
   useEffect(() => {
+    const token =
+      localStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('access_token')
+
+    if (token) {
+      initRealtime(token)
+    }
     loadConversations()
-  }, [])
+  }, [initRealtime, loadConversations])
 
-  // Connect WebSocket
+  // Tự động khôi phục hoặc chọn cuộc hội thoại đầu tiên khi reload trang (F5)
   useEffect(() => {
-    if (!user) return
+    if (conversations.length === 0) return
 
-    chatService.connect(
-      () => console.log('[Admin Messages] WebSocket connected'),
-      (err) => console.error('[Admin Messages] WebSocket error:', err),
-    )
-
-    return () => {
-      chatService.disconnect()
+    const savedConvId = sessionStorage.getItem('admin_selected_chat_id')
+    if (!activeConversation) {
+      if (savedConvId) {
+        const found = conversations.find(
+          (c) => String(c.id) === savedConvId || String(c.otherUserId) === savedConvId,
+        )
+        if (found) {
+          selectConversation(found)
+          return
+        }
+      }
+      // Mặc định chọn cuộc trò chuyện mới nhất đầu tiên nếu chưa chọn
+      selectConversation(conversations[0])
     }
-  }, [user])
+  }, [conversations, activeConversation, selectConversation])
 
-  // Subscribe to selected conversation
-  useEffect(() => {
-    if (!user || !selectedConversation) return
+  // Lấy danh sách tin nhắn của cuộc hội thoại đang hoạt động
+  const activeConvId = activeConversation ? Number(activeConversation.id) : null
+  const messages = activeConvId ? allMessages[activeConvId] || [] : []
 
-    const userId = parseInt(user.id)
-    const unsub = chatService.subscribeToConversation(userId, selectedConversation.otherUserId, (newMessage) => {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMessage.id)) return prev
-        return [...prev, newMessage]
-      })
-      // Mark as read
-      chatService.markAsRead(selectedConversation.otherUserId)
-      // Cập nhật tin nhắn mới nhất trong danh sách bên trái
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.otherUserId === selectedConversation.otherUserId
-            ? {
-                ...c,
-                lastMessage: newMessage.content || (newMessage.attachmentUrl ? '[Hình ảnh]' : ''),
-                lastMessageTime: newMessage.sentAt || newMessage.createdAt,
-              }
-            : c,
-        ),
-      )
-    })
-
-    return () => {
-      if (typeof unsub === 'function') unsub()
-      chatService.unsubscribeFromConversation(userId, selectedConversation.otherUserId)
-    }
-  }, [user, selectedConversation])
-
-  // Auto scroll to bottom
+  // Tự động cuộn xuống cuối khi có tin nhắn mới hoặc chuyển phòng
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, isLoadingMessages])
 
-  const loadConversations = async () => {
-    try {
-      setLoading(true)
-      const data = await chatService.getConversations()
-      setConversations(data)
-    } catch (error) {
-      console.error('Failed to load conversations:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleSelectConversation = (conv: Conversation) => {
+    sessionStorage.setItem('admin_selected_chat_id', String(conv.id))
+    selectConversation(conv)
   }
 
-  const loadChatHistory = async (conversation: Conversation) => {
-    try {
-      setSelectedConversation(conversation)
-      const history = await chatService.getChatHistory(conversation.otherUserId)
-      setMessages(history)
-      // Mark as read
-      await chatService.markAsRead(conversation.otherUserId)
-      // Update unread count in list
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversation.id ? { ...c, unreadCount: 0 } : c)),
-      )
-    } catch (error) {
-      console.error('Failed to load chat history:', error)
-    }
-  }
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const isVideo = file.type.startsWith('video/')
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+
+    if (file.size > maxSize) {
+      alert(
+        isVideo
+          ? 'Video đính kèm không được vượt quá 50MB'
+          : 'Hình ảnh đính kèm không được vượt quá 10MB',
+      )
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
     try {
-      setUploadingImage(true)
-      const res = await uploadService.uploadImage(file, 'chat')
+      setUploadingMedia(true)
+      const res = await uploadService.uploadMedia(file, 'chat')
       if (res.result?.url) {
-        setPendingImageUrl(res.result.url)
+        setPendingMedia({
+          url: res.result.url,
+          type: isVideo ? 'VIDEO' : 'IMAGE',
+          name: file.name,
+        })
       }
     } catch (err) {
-      console.error('[AdminMessages] Upload image error:', err)
+      console.error('[AdminMessages] Upload media error:', err)
+      alert('Tải tệp tin thất bại. Vui lòng thử lại.')
     } finally {
-      setUploadingImage(false)
+      setUploadingMedia(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(e.target.value)
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    sendTyping(true)
+    typingTimeoutRef.current = setTimeout(() => {
+      sendTyping(false)
+    }, 1500)
+  }
+
   const handleSendMessage = async () => {
-    if ((!messageInput.trim() && !pendingImageUrl) || !selectedConversation || !user) return
+    if ((!messageInput.trim() && !pendingMedia) || !activeConversation || sending) return
 
     const content = messageInput.trim()
-    const attachmentUrl = pendingImageUrl || undefined
-    const type = attachmentUrl ? (content ? 'TEXT' : 'IMAGE') : 'TEXT'
+    const attachmentUrl = pendingMedia?.url || undefined
+    const type = pendingMedia ? pendingMedia.type : 'TEXT'
 
     setMessageInput('')
-    setPendingImageUrl(null)
+    setPendingMedia(null)
     setSending(true)
 
+    // Dừng typing indicator ngay lập tức
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    sendTyping(false)
+
     try {
-      const sentMsg = await chatService.sendMessage({
-        receiverId: selectedConversation.otherUserId,
-        content,
-        attachmentUrl,
-        type,
-      })
-
-      if (sentMsg) {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === sentMsg.id)) return prev
-          return [...prev, sentMsg]
-        })
-      }
-
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.otherUserId === selectedConversation.otherUserId
-            ? {
-                ...c,
-                lastMessage: content || '[Hình ảnh]',
-                lastMessageTime: new Date().toISOString(),
-              }
-            : c,
-        ),
-      )
+      await sendMessage(content, type, attachmentUrl)
     } catch (err) {
       console.error('[AdminMessages] Send message error:', err)
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleDeleteMessage = async (messageId: number) => {
+    const confirmed = await globalShowConfirm('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa tin nhắn này không?')
+    if (!confirmed) return
+    try {
+      await deleteMessage(messageId)
+    } catch (err) {
+      console.error('[AdminMessages] Delete message error:', err)
     }
   }
 
@@ -225,6 +237,7 @@ const AdminMessages: React.FC = () => {
   )
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+  const isOtherTyping = activeConversation ? !!typingUsers[activeConversation.otherUserId] : false
 
   return (
     <div className="flex-1 min-h-0 flex flex-col p-3 sm:p-5 lg:p-6 overflow-hidden">
@@ -268,7 +281,7 @@ const AdminMessages: React.FC = () => {
 
           {/* Conversations */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#f5f8f2] min-h-0">
-            {loading ? (
+            {isLoadingConversations && conversations.length === 0 ? (
               <div className="flex items-center justify-center h-48">
                 <Loader2 className="size-6 animate-spin text-[#326318]" />
               </div>
@@ -282,13 +295,16 @@ const AdminMessages: React.FC = () => {
               </div>
             ) : (
               filteredConversations.map((conv, idx) => {
-                const isSelected = selectedConversation?.id === conv.id
+                const isSelected =
+                  activeConversation &&
+                  (Number(activeConversation.id) === Number(conv.id) ||
+                    Number(activeConversation.otherUserId) === Number(conv.otherUserId))
                 const isShop = conv.otherUserRole === 'SHOP'
                 return (
                   <button
-                    key={conv.id}
+                    key={conv.id || conv.otherUserId || idx}
                     id={idx === 0 ? 'tour-messages-first-conv' : undefined}
-                    onClick={() => loadChatHistory(conv)}
+                    onClick={() => handleSelectConversation(conv)}
                     className={`w-full p-3 hover:bg-[#f6f9f3] transition-colors text-left flex items-start gap-3 cursor-pointer ${
                       isSelected ? 'bg-[#f0f5ec] border-l-4 border-l-[#326318]' : ''
                     }`}
@@ -311,7 +327,7 @@ const AdminMessages: React.FC = () => {
                               : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           }`}
                         >
-                          {conv.otherUserName.charAt(0).toUpperCase()}
+                          {(conv.otherUserName || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
                       <span
@@ -327,114 +343,154 @@ const AdminMessages: React.FC = () => {
                           <h3 className="font-bold text-xs text-[#1c2216] truncate">
                             {conv.otherUserName}
                           </h3>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] font-normal shrink-0 border border-gray-200 bg-gray-50 text-gray-600">
-                          {isShop ? 'Nhà Vườn' : 'Khách Mua'}
-                        </span>
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-normal shrink-0 border border-gray-200 bg-gray-50 text-gray-600">
+                            {isShop ? 'Nhà Vườn' : 'Khách Mua'}
+                          </span>
+                        </div>
+                        {(conv.unreadCount ?? 0) > 0 && (
+                          <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black animate-pulse">
+                            {conv.unreadCount}
+                          </span>
+                        )}
                       </div>
-                      {(conv.unreadCount ?? 0) > 0 && (
-                        <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">
-                          {conv.unreadCount}
-                        </span>
-                      )}
+                      <p className="text-xs text-[#616b5a] truncate leading-tight">
+                        {conv.lastMessage || 'Bắt đầu cuộc trò chuyện...'}
+                      </p>
+                      <p className="text-[10px] text-[#8e9888] font-medium mt-0.5">
+                        {formatTimeShort(conv.lastMessageTime || conv.lastMessageAt)}
+                      </p>
                     </div>
-                    <p className="text-xs text-[#616b5a] truncate leading-tight">
-                      {conv.lastMessage || 'Bắt đầu cuộc trò chuyện...'}
-                    </p>
-                    <p className="text-[10px] text-[#8e9888] font-medium mt-0.5">
-                      {formatTimeShort(conv.lastMessageTime || conv.lastMessageAt)}
-                    </p>
-                  </div>
-                </button>
-              )
-            })
-          )}
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white min-h-0">
-        {selectedConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="px-5 py-3 border-b border-[#e8ece3] bg-[#fafcf9] shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="relative shrink-0">
-                    {selectedConversation.otherUserAvatar ? (
-                      <img
-                        src={selectedConversation.otherUserAvatar}
-                        alt={selectedConversation.otherUserName}
-                        className="size-9 rounded-full object-cover border border-[#e5e9e0]"
-                        onError={(e) => {
-                          ;(e.target as HTMLElement).style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      <div
-                        className={`size-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                          selectedConversation.otherUserRole === 'SHOP'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        }`}
-                      >
-                        {selectedConversation.otherUserName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-white" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-extrabold text-xs text-[#1c2216]">
-                        {selectedConversation.otherUserName}
-                      </h2>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-normal border border-gray-200 bg-gray-50 text-gray-600">
-                        {selectedConversation.otherUserRole === 'SHOP' ? 'Nhà Vườn' : 'Khách Mua Hàng'}
-                      </span>
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col bg-white min-h-0">
+          {activeConversation ? (
+            <>
+              {/* Chat Header */}
+              <div className="px-5 py-3 border-b border-[#e8ece3] bg-[#fafcf9] shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      {activeConversation.otherUserAvatar ? (
+                        <img
+                          src={activeConversation.otherUserAvatar}
+                          alt={activeConversation.otherUserName}
+                          className="size-9 rounded-full object-cover border border-[#e5e9e0]"
+                          onError={(e) => {
+                            ;(e.target as HTMLElement).style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className={`size-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                            activeConversation.otherUserRole === 'SHOP'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}
+                        >
+                          {(activeConversation.otherUserName || 'U').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-white" />
                     </div>
-                    <p className="text-[11px] text-gray-500 font-normal mt-0.5">
-                      Trực tuyến
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-extrabold text-xs text-[#1c2216]">
+                          {activeConversation.otherUserName}
+                        </h2>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-normal border border-gray-200 bg-gray-50 text-gray-600">
+                          {activeConversation.otherUserRole === 'SHOP'
+                            ? 'Nhà Vườn'
+                            : 'Khách Mua Hàng'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 font-normal mt-0.5 flex items-center gap-1.5">
+                        {isOtherTyping ? (
+                          <span className="text-emerald-600 font-semibold italic flex items-center gap-1">
+                            <span className="inline-block size-1.5 rounded-full bg-emerald-500 animate-bounce" />
+                            Đang soạn tin nhắn...
+                          </span>
+                        ) : (
+                          'Trực tuyến'
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Messages List */}
-            <div className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-3 bg-[#fafcf9] min-h-0">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center">
-                  <p className="text-xs font-semibold text-gray-700">Chưa có tin nhắn trong hội thoại</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Gửi tin nhắn phản hồi để hỗ trợ người dùng.
-                  </p>
-                </div>
-              ) : (
+              {/* Messages List */}
+              <div className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-3 bg-[#fafcf9] min-h-0">
+                {isLoadingMessages && messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-48">
+                    <Loader2 className="size-6 animate-spin text-[#326318]" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center">
+                    <p className="text-xs font-semibold text-gray-700">Chưa có tin nhắn trong hội thoại</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Gửi tin nhắn phản hồi để hỗ trợ người dùng.
+                    </p>
+                  </div>
+                ) : (
                   messages.map((msg, idx) => {
-                    const isMe = msg.senderId === parseInt(user?.id || '0')
+                    const isMe = Number(msg.senderId) === Number(user?.id || '0')
+                    const isVideo = isVideoUrl(msg.attachmentUrl, msg.type)
+
                     return (
                       <div
                         key={msg.id || idx}
-                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                        className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
                       >
-                        <div
-                          className={`max-w-md px-4 py-2.5 rounded-2xl shadow-2xs break-words text-xs leading-relaxed ${
-                            isMe
-                              ? 'bg-[#326318] text-white rounded-br-xs'
-                              : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
-                          }`}
-                        >
-                          {msg.content && <p>{msg.content}</p>}
-                          {msg.attachmentUrl && (
-                            <div className="mt-2 rounded-xl overflow-hidden border border-black/10 max-w-xs">
-                              <img
-                                src={msg.attachmentUrl}
-                                alt="Ảnh đính kèm"
-                                className="max-h-60 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(msg.attachmentUrl, '_blank')}
-                              />
-                            </div>
+                        <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div
+                            className={`max-w-md px-4 py-2.5 rounded-2xl shadow-2xs break-words text-xs leading-relaxed ${
+                              isMe
+                                ? 'bg-[#326318] text-white rounded-br-xs'
+                                : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
+                            }`}
+                          >
+                            {msg.content && <p>{msg.content}</p>}
+                            {msg.attachmentUrl && (
+                              <div className="mt-2 rounded-xl overflow-hidden border border-black/10 max-w-sm">
+                                {isVideo ? (
+                                  <video
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    src={msg.attachmentUrl}
+                                    className="max-h-72 w-full rounded-xl bg-black"
+                                  />
+                                ) : (
+                                  <img
+                                    src={msg.attachmentUrl}
+                                    alt="Ảnh đính kèm"
+                                    className="max-h-60 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Nút xóa tin nhắn dành cho người gửi hoặc Admin kiểm duyệt khi hover hoặc trên mobile */}
+                          {msg.id && msg.id < 10000000000 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-full hover:bg-rose-50 text-gray-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
+                              title={isMe ? 'Xóa tin nhắn này' : 'Admin: Xóa tin nhắn vi phạm'}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           )}
                         </div>
+
                         <p
                           className={`text-[10px] mt-1 font-medium ${
                             isMe ? 'text-[#8e9888] pr-1' : 'text-[#8e9888] pl-1'
@@ -449,24 +505,46 @@ const AdminMessages: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Preview Attached Image before Send */}
-              {pendingImageUrl && (
-                <div className="px-5 py-2 bg-white border-t border-[#edf1e8] flex items-center gap-3 shrink-0">
-                  <div className="relative size-12 rounded-lg overflow-hidden border border-[#dce3d5]">
-                    <img
-                      src={pendingImageUrl}
-                      alt="Ảnh đính kèm"
-                      className="size-full object-cover"
-                    />
+              {/* Preview Attached Media (Ảnh hoặc Video) before Send */}
+              {pendingMedia && (
+                <div className="px-5 py-2.5 bg-white border-t border-[#edf1e8] flex items-center gap-3 shrink-0">
+                  <div className="relative size-14 rounded-lg overflow-hidden border border-[#dce3d5] bg-black/5 flex items-center justify-center shrink-0">
+                    {pendingMedia.type === 'VIDEO' ? (
+                      <video
+                        src={pendingMedia.url}
+                        className="size-full object-cover"
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={pendingMedia.url}
+                        alt="Đính kèm"
+                        className="size-full object-cover"
+                      />
+                    )}
+                    {pendingMedia.type === 'VIDEO' && (
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                        <Film size={18} className="text-white drop-shadow" />
+                      </div>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setPendingImageUrl(null)}
-                      className="absolute top-0.5 right-0.5 size-4 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black"
+                      onClick={() => setPendingMedia(null)}
+                      className="absolute top-0.5 right-0.5 size-4 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black cursor-pointer"
+                      title="Gỡ bỏ tệp"
                     >
                       <X size={10} />
                     </button>
                   </div>
-                  <span className="text-xs text-[#717c6b]">Ảnh đã tải lên sẵn sàng gửi</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-[#1c2216]">
+                      {pendingMedia.type === 'VIDEO' ? 'Video đã sẵn sàng gửi' : 'Hình ảnh đã sẵn sàng gửi'}
+                    </span>
+                    <span className="text-[11px] text-[#717c6b] truncate max-w-xs">
+                      {pendingMedia.name || (pendingMedia.type === 'VIDEO' ? 'Tệp video' : 'Tệp hình ảnh')}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -476,21 +554,24 @@ const AdminMessages: React.FC = () => {
                   <input
                     type="file"
                     ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageUpload}
+                    accept="image/*,video/*"
+                    onChange={handleMediaUpload}
                     className="hidden"
                   />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingImage}
-                    className="p-2 rounded-xl border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                    title="Đính kèm hình ảnh"
+                    disabled={uploadingMedia}
+                    className="p-2 rounded-xl border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] transition-colors cursor-pointer shrink-0 disabled:opacity-50 flex items-center gap-1"
+                    title="Đính kèm hình ảnh hoặc video (tối đa 50MB)"
                   >
-                    {uploadingImage ? (
+                    {uploadingMedia ? (
                       <Loader2 size={16} className="animate-spin text-[#326318]" />
                     ) : (
-                      <ImageIcon size={16} />
+                      <>
+                        <ImageIcon size={15} />
+                        <Film size={14} className="text-[#8e9888]" />
+                      </>
                     )}
                   </button>
 
@@ -498,13 +579,18 @@ const AdminMessages: React.FC = () => {
                     type="text"
                     placeholder="Nhập tin nhắn hỗ trợ..."
                     value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
                     className="flex-1 px-3.5 py-2 bg-[#fafcf9] border border-[#dce3d5] focus:border-[#326318] focus:bg-white rounded-xl focus:outline-none text-xs transition-all placeholder:text-[#8e9888]"
                   />
                   <button
                     onClick={handleSendMessage}
-                    disabled={(!messageInput.trim() && !pendingImageUrl) || sending}
+                    disabled={(!messageInput.trim() && !pendingMedia) || sending}
                     className="px-4 py-2 bg-[#326318] hover:bg-[#254d12] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
                   >
                     {sending ? (
