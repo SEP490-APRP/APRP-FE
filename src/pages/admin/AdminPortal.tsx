@@ -279,23 +279,15 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
           <h1 className="min-w-0 flex-1 truncate text-base font-extrabold sm:text-lg">
             {current.name}
           </h1>
-          <LinkButton
-            href="/shop"
-            variant="secondary"
-            size="sm"
-            className="hidden md:inline-flex"
-            leftIcon={<Store size={15} aria-hidden />}
-          >
-            Kênh người bán
-          </LinkButton>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => (onNavigateStore ? onNavigateStore() : routerNavigate('/'))}
             leftIcon={<ShoppingBag size={15} aria-hidden />}
+            className="text-xs font-semibold text-ink-muted hover:text-ink hover:bg-neutral-100"
           >
-            <span className="hidden sm:inline">Xem cửa hàng</span>
-            <ExternalLink size={13} className="hidden opacity-60 sm:block" aria-hidden />
+            <span className="hidden sm:inline">Xem Sàn CapNong</span>
+            <ExternalLink size={13} className="hidden opacity-60 sm:block ml-0.5" aria-hidden />
           </Button>
         </header>
 
