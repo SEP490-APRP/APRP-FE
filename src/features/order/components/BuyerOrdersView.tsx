@@ -9,6 +9,7 @@ import {
   XCircle,
   ChevronRight,
   Navigation,
+  Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -17,8 +18,9 @@ import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { ReviewModal } from '@/features/review'
 import { orderService, paymentService } from '@/services'
-import type { OrderResponse, OrderStatus } from '@/types/order.types'
+import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
 
@@ -59,6 +61,11 @@ export const BuyerOrdersView: React.FC = () => {
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false)
   const [isLoadingResumeOptions, setIsLoadingResumeOptions] = useState(false)
   const [trackingModalOrder, setTrackingModalOrder] = useState<OrderResponse | null>(null)
+
+  // Review Modal State
+  const [reviewModalItem, setReviewModalItem] = useState<OrderItem | null>(null)
+  const [reviewModalOrderId, setReviewModalOrderId] = useState<number | null>(null)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -427,10 +434,30 @@ export const BuyerOrdersView: React.FC = () => {
                             Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
                           </p>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                           <p className="text-sm font-bold text-emerald-700">
                             {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
                           </p>
+                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
+                            it.isReviewed ? (
+                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                ✓ Đã đánh giá
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReviewModalItem(it)
+                                  setReviewModalOrderId(orderId)
+                                  setIsReviewModalOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                              >
+                                <Star size={12} className="fill-white" />
+                                <span>Đánh giá</span>
+                              </button>
+                            )
+                          )}
                         </div>
                       </div>
                     ))
@@ -553,6 +580,21 @@ export const BuyerOrdersView: React.FC = () => {
           onClose={() => setTrackingModalOrder(null)}
         />
       )}
+
+      {/* Modal Đánh giá sản phẩm */}
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        item={reviewModalItem}
+        orderId={reviewModalOrderId ?? undefined}
+        onClose={() => {
+          setIsReviewModalOpen(false)
+          setReviewModalItem(null)
+          setReviewModalOrderId(null)
+        }}
+        onSuccess={() => {
+          fetchOrders()
+        }}
+      />
     </div>
   )
 }

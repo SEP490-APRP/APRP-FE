@@ -275,7 +275,7 @@ const TOUR_STEPS: SidebarStep[] = [
   },
 ]
 
-const STORAGE_KEY = 'farmer_onboarding_done'
+const STORAGE_KEY = 'capnong_farmer_tour_done'
 const TOOLTIP_W = 300
 const TOOLTIP_H = 280
 const GAP = 14
@@ -429,6 +429,7 @@ const OnboardingTour: React.FC<Props> = ({ onNavigate, isOpen, onClose }) => {
 
   const dismiss = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, 'true')
+    localStorage.setItem('farmer_onboarding_done', 'true')
     setVisible(false)
     onClose?.()
   }, [onClose])
@@ -499,15 +500,8 @@ const OnboardingTour: React.FC<Props> = ({ onNavigate, isOpen, onClose }) => {
         focusSidebar(0)
       }, 300)
       return () => clearTimeout(t)
-    } else if (isOpen === false) {
-      setVisible(false)
     } else {
-      if (localStorage.getItem(STORAGE_KEY)) return
-      const t = setTimeout(() => {
-        setVisible(true)
-        focusSidebar(0)
-      }, 700)
-      return () => clearTimeout(t)
+      setVisible(false)
     }
   }, [isOpen, focusSidebar])
 

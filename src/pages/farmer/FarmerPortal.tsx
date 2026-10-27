@@ -88,9 +88,24 @@ export default function FarmerPortal({
   const [currentTab, setCurrentTab] = useState<string>('overview')
   const [shopActive, setShopActive] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [productSearchQuery, setProductSearchQuery] = useState<string>('')
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
+
+  const handleNavigateToProductInventory = (productName?: string) => {
+    if (productName) {
+      setProductSearchQuery(productName)
+    }
+    setCurrentTab('products')
+  }
+  // Chỉ hiển thị tour tự động khi là shoper mới đăng ký và đăng nhập lần đầu tiên
   const [showTour, setShowTour] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.FARMER_TOUR_DONE) !== 'true'
+    const shouldTrigger = sessionStorage.getItem('capnong_trigger_new_shop_tour') === 'true'
+    if (shouldTrigger) {
+      sessionStorage.removeItem('capnong_trigger_new_shop_tour')
+      return true
+    }
+    // Mặc định cho mọi lần đăng nhập sau hoặc shop cũ: KHÔNG hiển thị tự động
+    return false
   })
 
   // Real shop orders hook from backend API (loại trừ AWAITING_PAYMENT)
@@ -631,6 +646,7 @@ export default function FarmerPortal({
                 setShowComboBuilder(true)
               }}
               onInfo={handleInfo}
+              initialSearchQuery={productSearchQuery}
             />
           ) : currentTab === 'orders' ? (
             <Orders
@@ -642,7 +658,10 @@ export default function FarmerPortal({
           ) : currentTab === 'blogs' ? (
             <FarmerBlogs onInfo={handleInfo} />
           ) : currentTab === 'reviews' ? (
-            <Reviews reviews={reviews} />
+            <Reviews
+              reviews={reviews}
+              onNavigateToProductInventory={handleNavigateToProductInventory}
+            />
           ) : currentTab === 'vouchers' ? (
             <Vouchers onInfo={handleInfo} />
           ) : currentTab === 'notifications' ? (
@@ -665,7 +684,13 @@ export default function FarmerPortal({
       <OnboardingTour
         isOpen={showTour}
         onNavigate={(path) => setCurrentTab(path)}
-        onClose={() => setShowTour(false)}
+        onClose={() => {
+          setShowTour(false)
+          localStorage.setItem(STORAGE_KEYS.FARMER_TOUR_DONE, 'true')
+          localStorage.setItem('farmer_onboarding_done', 'true')
+          sessionStorage.removeItem('capnong_trigger_new_shop_tour')
+          localStorage.removeItem('capnong_new_registered_shop_flag')
+        }}
       />
 
       {/* ========================================================================= */}
