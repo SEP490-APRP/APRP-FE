@@ -13,3 +13,4 @@ export { PaymentResultPage, default as PaymentResult } from './PaymentResultPage
 export { BuyerOrdersPage, default as BuyerOrders } from './BuyerOrdersPage'
 export { ProfilePage, default as Profile } from './ProfilePage'
 export { default as ShipperDashboard } from './shipper/Dashboard'
+export { default as MealPlanPage } from './MealPlanPage'

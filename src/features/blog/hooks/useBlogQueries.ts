@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   blogService,
@@ -8,6 +9,7 @@ import {
   type BlogUpdateRequest,
 } from '@/services'
 import type { PageResponse } from '@/types'
+import { useAuth } from '@/stores'
 
 export const blogKeys = {
   all: ['blogs'] as const,
@@ -57,22 +59,30 @@ export function useToggleBlogLike() {
   return useMutation({
     mutationFn: (blogId: number) => blogService.toggleLike(blogId),
     onSuccess: (res, blogId) => {
-      // Optimistic/cache update cho danh sách public
+      const isLiked = res.isLiked
+
+      // 1. Cập nhật ngay trạng thái tim của bài viết chi tiết
+      queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          isLikedByCurrentUser: isLiked,
+        }
+      })
+
+      // 2. Cập nhật ngay trạng thái tim trên danh sách bài viết
       queryClient.setQueriesData<PageResponse<BlogResponse>>(
         { queryKey: blogKeys.all },
         (old) => {
-          if (!old) return old
+          if (!old || !old.content) return old
           return {
             ...old,
             content: old.content.map((b) => {
               const currentId = b.blogId || b.id
               if (currentId === blogId) {
-                const isLiked = res.isLiked
-                const currentLikes = b.likeCount ?? 0
                 return {
                   ...b,
                   isLikedByCurrentUser: isLiked,
-                  likeCount: isLiked ? currentLikes + 1 : Math.max(0, currentLikes - 1),
                 }
               }
               return b
@@ -80,7 +90,9 @@ export function useToggleBlogLike() {
           }
         },
       )
-      // Cập nhật cache của chi tiết
+
+      // 3. Invalidate để refetch số đếm likeCount chuẩn xác từ DB Backend (tránh bị double-count với WebSocket)
+      queryClient.invalidateQueries({ queryKey: blogKeys.all })
       queryClient.invalidateQueries({ queryKey: blogKeys.detail(blogId) })
     },
   })
@@ -143,6 +155,252 @@ export function useDeleteBlogComment() {
       queryClient.invalidateQueries({ queryKey: blogKeys.detail(blogId) })
     },
   })
+}
+
+// ==========================================
+// REALTIME BLOG & COMMUNITY HOOKS
+// ==========================================
+
+/**
+ * Hook lắng nghe sự kiện Realtime (Likes & Comments) của một bài viết cụ thể
+ */
+export function useBlogRealtime(blogId: number | null | undefined) {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+
+  useEffect(() => {
+    if (!blogId || blogId <= 0) return
+
+    const unsub = blogService.subscribeBlog(blogId, (event) => {
+      if (event.type === 'LIKE_UPDATED') {
+        const isMe = Boolean(user?.id && 'userId' in event && String(user.id) === String(event.userId))
+
+        // 1. Cập nhật cache chi tiết bài viết
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            likeCount: event.likeCount,
+            commentCount: event.commentCount ?? old.commentCount,
+            ...(isMe ? { isLikedByCurrentUser: event.action === 'LIKED' } : {}),
+          }
+        })
+
+        // 2. Cập nhật cache trong các danh sách bài viết
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === blogId) {
+                  return {
+                    ...b,
+                    likeCount: event.likeCount,
+                    commentCount: event.commentCount ?? b.commentCount,
+                    ...(isMe ? { isLikedByCurrentUser: event.action === 'LIKED' } : {}),
+                  }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      } else if (event.type === 'COMMENT_ADDED') {
+        // 1. Bổ sung bình luận mới vào danh sách bình luận
+        queryClient.setQueriesData<PageResponse<BlogCommentResponse>>(
+          { queryKey: blogKeys.comments(blogId) },
+          (old) => {
+            if (!old) return old
+            const exists = old.content.some((c) => c.commentId === event.comment.commentId)
+            if (exists) return old
+            return {
+              ...old,
+              totalElements: (old.totalElements ?? old.content.length) + 1,
+              content: [event.comment, ...old.content],
+            }
+          },
+        )
+
+        // 2. Cập nhật commentCount trong chi tiết
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            commentCount: event.commentCount,
+          }
+        })
+
+        // 3. Cập nhật commentCount trong danh sách bài viết
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === blogId) {
+                  return {
+                    ...b,
+                    commentCount: event.commentCount,
+                  }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      } else if (event.type === 'COMMENT_DELETED') {
+        // 1. Xóa bình luận khỏi danh sách
+        queryClient.setQueriesData<PageResponse<BlogCommentResponse>>(
+          { queryKey: blogKeys.comments(blogId) },
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              totalElements: Math.max(0, (old.totalElements ?? old.content.length) - 1),
+              content: old.content.filter((c) => c.commentId !== event.commentId),
+            }
+          },
+        )
+
+        // 2. Cập nhật commentCount trong chi tiết
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(blogId), (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            commentCount: event.commentCount,
+          }
+        })
+
+        // 3. Cập nhật commentCount trong danh sách bài viết
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === blogId) {
+                  return {
+                    ...b,
+                    commentCount: event.commentCount,
+                  }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      }
+    })
+
+    return () => {
+      unsub()
+    }
+  }, [blogId, queryClient, user])
+}
+
+/**
+ * Hook lắng nghe sự kiện Realtime toàn sàn của bảng tin / feed (/topic/blogs)
+ */
+export function useBlogFeedRealtime() {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+
+  useEffect(() => {
+    const unsub = blogService.subscribeBlogFeed((event) => {
+      const isMe = Boolean(user?.id && 'userId' in event && String(user.id) === String(event.userId))
+
+      if (event.type === 'LIKE_UPDATED') {
+        // 1. Cập nhật chi tiết bài viết (nếu đang xem hoặc đã cache)
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(event.blogId), (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            likeCount: event.likeCount,
+            commentCount: event.commentCount ?? old.commentCount,
+            ...(isMe && 'action' in event ? { isLikedByCurrentUser: event.action === 'LIKED' } : {}),
+          }
+        })
+
+        // 2. Cập nhật tất cả danh sách bài viết (trang lớn)
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === event.blogId) {
+                  return {
+                    ...b,
+                    likeCount: event.likeCount,
+                    commentCount: event.commentCount ?? b.commentCount,
+                    ...(isMe && 'action' in event ? { isLikedByCurrentUser: event.action === 'LIKED' } : {}),
+                  }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      } else if (event.type === 'COMMENT_ADDED') {
+        // Cập nhật commentCount trong chi tiết
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(event.blogId), (old) => {
+          if (!old) return old
+          return { ...old, commentCount: event.commentCount }
+        })
+        // Cập nhật commentCount trong danh sách bài viết
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === event.blogId) {
+                  return { ...b, commentCount: event.commentCount }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      } else if (event.type === 'COMMENT_DELETED') {
+        queryClient.setQueryData<BlogResponse>(blogKeys.detail(event.blogId), (old) => {
+          if (!old) return old
+          return { ...old, commentCount: event.commentCount }
+        })
+        queryClient.setQueriesData<PageResponse<BlogResponse>>(
+          { queryKey: blogKeys.all },
+          (old) => {
+            if (!old || !old.content) return old
+            return {
+              ...old,
+              content: old.content.map((b) => {
+                const currentId = b.blogId || b.id
+                if (currentId === event.blogId) {
+                  return { ...b, commentCount: event.commentCount }
+                }
+                return b
+              }),
+            }
+          },
+        )
+      }
+    })
+
+    return () => {
+      unsub()
+    }
+  }, [queryClient, user])
 }
 
 // ==========================================

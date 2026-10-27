@@ -19,6 +19,7 @@ import {
   useAddBlogComment,
   useDeleteBlogComment,
   useToggleBlogLike,
+  useBlogRealtime,
   BlogOptionsMenu,
   CommentOptionsMenu,
 } from '@/features/blog'
@@ -53,6 +54,9 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
   const { data: blogDetail, isLoading: isLoadingDetail } = useBlogDetail(blogId)
   const { data: commentsData } = useBlogComments(blogId)
 
+  // Lắng nghe sự kiện Like & Bình luận thời gian thực cho bài viết này qua WebSocket STOMP
+  useBlogRealtime(blogId)
+
   const toggleLikeMutation = useToggleBlogLike()
   const addCommentMutation = useAddBlogComment()
   const deleteCommentMutation = useDeleteBlogComment()
@@ -73,7 +77,7 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!blogId) return
+    if (!blogId || toggleLikeMutation.isPending) return
     if (!currentUser) {
       globalShowAlert('Vui lòng đăng nhập để thả tim bài viết!', 'Yêu cầu đăng nhập', 'warning')
       return
@@ -281,8 +285,11 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
                 <div className="flex items-center gap-2.5">
                   <button
                     type="button"
+                    disabled={toggleLikeMutation.isPending}
                     onClick={handleLike}
                     className={`px-4 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                      toggleLikeMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''
+                    } ${
                       blogDetail.isLikedByCurrentUser
                         ? 'bg-[#c82626] text-white ring-2 ring-[#c82626]/20'
                         : 'bg-[#faede8] text-[#c82626] hover:bg-[#c82626] hover:text-white'

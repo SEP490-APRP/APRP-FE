@@ -371,6 +371,16 @@ export default function Header({
                       </a>
 
                       <a
+                        href="/ke-hoach-an-uong"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                          <Sparkles size={16} />
+                        </span>
+                        <span>Kế Hoạch Ăn Uống (AI)</span>
+                      </a>
+                      <a
                         href="/tai-khoan"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
@@ -545,7 +555,17 @@ export default function Header({
               Công nghệ AI
             </a>
 
-            {/* 5. Câu chuyện nông dân */}
+            {/* 5. Kế hoạch ăn uống */}
+            <a
+              href="/ke-hoach-an-uong"
+              className={`nav-pill ${route.startsWith('/ke-hoach-an-uong') ? 'is-active' : ''}`}
+              aria-current={route.startsWith('/ke-hoach-an-uong') ? 'page' : undefined}
+              onClick={closeDropdown}
+            >
+              Thực đơn AI
+            </a>
+
+            {/* 6. Câu chuyện nông dân */}
             <a
               href="/cau-chuyen-nong-dan"
               className={`nav-pill ${isFarmerActive ? 'is-active' : ''}`}

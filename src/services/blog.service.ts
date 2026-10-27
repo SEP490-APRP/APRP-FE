@@ -1,4 +1,8 @@
 import { axiosInstance } from './api/axiosInstance'
+import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
+import { getWebSocketUrl, TOKEN_KEY } from '@/services/api.config'
+import { STORAGE_KEYS } from '@/utils'
 import type { ApiResponse, PageResponse } from '@/types'
 import type {
   BlogCommentRequest,
@@ -10,6 +14,257 @@ import type {
 } from './blog.types'
 
 export type * from './blog.types'
+
+export type BlogSocketEvent =
+  | {
+      type: 'LIKE_UPDATED'
+      blogId: number
+      likeCount: number
+      commentCount?: number
+      userId?: number
+      action?: 'LIKED' | 'UNLIKED'
+    }
+  | {
+      type: 'COMMENT_ADDED'
+      blogId: number
+      comment: BlogCommentResponse
+      commentCount: number
+      likeCount?: number
+    }
+  | {
+      type: 'COMMENT_DELETED'
+      blogId: number
+      commentId: number
+      commentCount: number
+      likeCount?: number
+    }
+
+export type BlogEventCallback = (event: BlogSocketEvent) => void
+
+class BlogSocketManager {
+  private client: Client | null = null
+  private isConnecting: boolean = false
+  private isConnected: boolean = false
+  private currentToken: string | null = null
+
+  private blogListeners = new Map<number, Set<BlogEventCallback>>()
+  private feedListeners = new Set<BlogEventCallback>()
+
+  private blogSubscriptions = new Map<number, StompSubscription>()
+  private feedSubscription: StompSubscription | null = null
+
+  private getAuthToken(): string | null {
+    try {
+      return (
+        localStorage.getItem(TOKEN_KEY) ||
+        localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) ||
+        localStorage.getItem(STORAGE_KEYS.TOKEN)
+      )
+    } catch {
+      return null
+    }
+  }
+
+  public connect(token?: string, onConnected?: () => void, onError?: (err: unknown) => void): void {
+    const authToken = token || this.getAuthToken()
+
+    if (this.isConnected && this.currentToken && authToken && this.currentToken !== authToken) {
+      this.disconnect()
+    }
+
+    if (this.isConnected) {
+      onConnected?.()
+      return
+    }
+
+    if (this.isConnecting && this.client) {
+      return
+    }
+
+    const wsUrl = getWebSocketUrl()
+    this.isConnecting = true
+
+    const stompClient = new Client({
+      webSocketFactory: () => new (SockJS as unknown as { new (url: string): WebSocket })(wsUrl),
+      reconnectDelay: 5000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      connectHeaders: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+
+      onConnect: () => {
+        this.isConnecting = false
+        this.isConnected = true
+        this.currentToken = authToken
+        this.reapplySubscriptions()
+        onConnected?.()
+      },
+
+      onDisconnect: () => {
+        this.isConnecting = false
+        this.isConnected = false
+      },
+
+      onStompError: (frame) => {
+        this.isConnecting = false
+        this.isConnected = false
+        console.warn('[WS Blog] STOMP error:', frame.headers['message'])
+        onError?.(frame)
+      },
+
+      onWebSocketError: (err) => {
+        this.isConnecting = false
+        this.isConnected = false
+        console.warn('[WS Blog] WebSocket error:', err)
+        onError?.(err)
+      },
+    })
+
+    this.client = stompClient
+    stompClient.activate()
+  }
+
+  public disconnect(): void {
+    this.cleanupAllSubscriptions()
+    if (this.client) {
+      try {
+        this.client.deactivate()
+      } catch (err) {
+        console.warn('[WS Blog] Error deactivating client:', err)
+      }
+      this.client = null
+    }
+    this.isConnected = false
+    this.isConnecting = false
+    this.currentToken = null
+  }
+
+  public getIsConnected(): boolean {
+    return this.isConnected
+  }
+
+  public subscribeBlog(blogId: number, callback: BlogEventCallback): () => void {
+    if (!this.blogListeners.has(blogId)) {
+      this.blogListeners.set(blogId, new Set())
+    }
+    this.blogListeners.get(blogId)!.add(callback)
+
+    if (this.isConnected && this.client && !this.blogSubscriptions.has(blogId)) {
+      this.subscribeStompTopicForBlog(blogId)
+    } else if (!this.isConnected && !this.isConnecting) {
+      this.connect()
+    }
+
+    return () => {
+      const set = this.blogListeners.get(blogId)
+      if (set) {
+        set.delete(callback)
+        if (set.size === 0) {
+          this.blogListeners.delete(blogId)
+          const sub = this.blogSubscriptions.get(blogId)
+          if (sub) {
+            try {
+              sub.unsubscribe()
+            } catch {
+              // ignore
+            }
+            this.blogSubscriptions.delete(blogId)
+          }
+        }
+      }
+    }
+  }
+
+  public subscribeBlogFeed(callback: BlogEventCallback): () => void {
+    this.feedListeners.add(callback)
+
+    if (this.isConnected && this.client && !this.feedSubscription) {
+      this.subscribeStompTopicForFeed()
+    } else if (!this.isConnected && !this.isConnecting) {
+      this.connect()
+    }
+
+    return () => {
+      this.feedListeners.delete(callback)
+      if (this.feedListeners.size === 0 && this.feedSubscription) {
+        try {
+          this.feedSubscription.unsubscribe()
+        } catch {
+          // ignore
+        }
+        this.feedSubscription = null
+      }
+    }
+  }
+
+  private subscribeStompTopicForBlog(blogId: number): void {
+    if (!this.client || !this.isConnected) return
+
+    try {
+      const sub = this.client.subscribe(`/topic/blogs.${blogId}`, (message: IMessage) => {
+        try {
+          const event: BlogSocketEvent = JSON.parse(message.body)
+          const listeners = this.blogListeners.get(blogId)
+          if (listeners) {
+            listeners.forEach((fn) => fn(event))
+          }
+        } catch (e) {
+          console.error('[WS Blog] Failed to parse blog message body:', e)
+        }
+      })
+      this.blogSubscriptions.set(blogId, sub)
+    } catch (err) {
+      console.warn(`[WS Blog] Error subscribing to /topic/blogs.${blogId}:`, err)
+    }
+  }
+
+  private subscribeStompTopicForFeed(): void {
+    if (!this.client || !this.isConnected) return
+
+    try {
+      this.feedSubscription = this.client.subscribe('/topic/blogs', (message: IMessage) => {
+        try {
+          const event: BlogSocketEvent = JSON.parse(message.body)
+          this.feedListeners.forEach((fn) => fn(event))
+        } catch (e) {
+          console.error('[WS Blog] Failed to parse feed message body:', e)
+        }
+      })
+    } catch (err) {
+      console.warn('[WS Blog] Error subscribing to /topic/blogs:', err)
+    }
+  }
+
+  private reapplySubscriptions(): void {
+    for (const blogId of this.blogListeners.keys()) {
+      this.subscribeStompTopicForBlog(blogId)
+    }
+    if (this.feedListeners.size > 0) {
+      this.subscribeStompTopicForFeed()
+    }
+  }
+
+  private cleanupAllSubscriptions(): void {
+    this.blogSubscriptions.forEach((sub) => {
+      try {
+        sub.unsubscribe()
+      } catch {
+        // ignore
+      }
+    })
+    this.blogSubscriptions.clear()
+
+    if (this.feedSubscription) {
+      try {
+        this.feedSubscription.unsubscribe()
+      } catch {
+        // ignore
+      }
+      this.feedSubscription = null
+    }
+  }
+}
+
+const blogSocketManager = new BlogSocketManager()
 
 export const blogService = {
   // ==========================================
@@ -311,4 +566,40 @@ export const blogService = {
     await this.deleteShopBlog(id)
     return { code: 200, result: true }
   },
+
+  // ==========================================
+  // 5. REALTIME WEBSOCKET (STOMP / SockJS)
+  // ==========================================
+
+  /**
+   * Kết nối WebSocket STOMP Broker
+   */
+  connectWebSocket(token?: string, onConnected?: () => void, onError?: (err: unknown) => void): void {
+    blogSocketManager.connect(token, onConnected, onError)
+  },
+
+  /**
+   * Ngắt kết nối WebSocket
+   */
+  disconnectWebSocket(): void {
+    blogSocketManager.disconnect()
+  },
+
+  /**
+   * Đăng ký lắng nghe sự kiện của một bài viết cụ thể (/topic/blogs.{blogId})
+   */
+  subscribeBlog(blogId: number, callback: BlogEventCallback): () => void {
+    return blogSocketManager.subscribeBlog(blogId, callback)
+  },
+
+  /**
+   * Đăng ký lắng nghe sự kiện trên bảng tin chung (/topic/blogs)
+   */
+  subscribeBlogFeed(callback: BlogEventCallback): () => void {
+    return blogSocketManager.subscribeBlogFeed(callback)
+  },
 }
+
+/** Alias để có thể dùng độc lập tương tự blogSocketService cũ */
+export const blogSocketService = blogSocketManager
+

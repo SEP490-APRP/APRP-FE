@@ -76,4 +76,11 @@ export const chatApi = {
     const res = await axiosInstance.get<ApiResponse<{ unreadCount: number }>>('/chat/unread-count')
     return res.data?.result?.unreadCount ?? 0
   },
+
+  /**
+   * Xóa tin nhắn do chính mình gửi đi
+   */
+  async deleteMessage(messageId: number): Promise<void> {
+    await axiosInstance.delete<ApiResponse<void>>(`/chat/messages/${messageId}`)
+  },
 }
