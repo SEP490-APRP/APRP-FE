@@ -614,6 +614,22 @@
   padding: 0 4px;
   text-align: center;
 }
+.chat-trigger {
+  position: relative;
+}
+.chat-trigger > span {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  border-radius: 20px;
+  background: #e11d48;
+  color: #fff;
+  min-width: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+  text-align: center;
+}
 .nav-bar {
   background: #4a7c2f;
   position: relative;

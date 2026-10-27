@@ -21,9 +21,11 @@ import {
   Truck,
   Ticket,
   Lock,
+  MessageSquare,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
+import { useAuth, useChatStore } from '@/stores'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import logoIcon from '@/assets/logo-icon.png'
@@ -55,7 +57,25 @@ export default function Header({
   const timeoutRef = useRef<number | null>(null)
   const accountRef = useRef<HTMLDivElement | null>(null)
 
-  // Close account menu on outside click
+  const { token } = useAuth()
+  const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+
+  const messagesHref =
+    user?.role === 'shop'
+      ? '/shop?tab=messages'
+      : user?.role === 'admin'
+      ? '/admin/messages'
+      : '/tin-nhan'
+
+  useEffect(() => {
+    if (user && token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [user?.id, token, initRealtime, loadConversations, loadUnreadCount])
+
+  // Close account menu & chat popover on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
@@ -202,14 +222,24 @@ export default function Header({
                   setActiveDropdown(null)
                   setAccountMenuOpen(!accountMenuOpen)
                 }}
-                className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors"
-                aria-label="Tài khoản cá nhân"
+                className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors relative"
+                aria-label={`Tài khoản cá nhân${unreadTotal > 0 ? `, ${unreadTotal} tin nhắn mới` : ''}`}
               >
-                <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                  ) : (
-                    user.name.charAt(0).toUpperCase()
+                <div className="relative shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  {unreadTotal > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-black border-2 border-white shadow-xs animate-bounce"
+                      title={`${unreadTotal} tin nhắn mới`}
+                    >
+                      {unreadTotal > 9 ? '9+' : unreadTotal}
+                    </span>
                   )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
@@ -312,7 +342,7 @@ export default function Header({
                         </a>
                       )}
 
-                      {user.role === 'shop' ? (
+                      {user.role === 'shop' && (
                         <>
                           <a
                             href="/shop"
@@ -335,17 +365,6 @@ export default function Header({
                             <span>Quản Lý Đơn Hàng Bán</span>
                           </a>
                         </>
-                      ) : (
-                        <a
-                          href="/shop"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                            <Store size={16} />
-                          </span>
-                          <span>Kênh Bán Hàng Nhà Vườn</span>
-                        </a>
                       )}
 
                       <a
@@ -380,6 +399,25 @@ export default function Header({
                         </span>
                         <span>Kế Hoạch Ăn Uống (AI)</span>
                       </a>
+
+                      <a
+                        href={messagesHref}
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center justify-between transition-colors group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                            <MessageSquare size={16} />
+                          </span>
+                          <span>Tin Nhắn Của Tôi</span>
+                        </div>
+                        {unreadTotal > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                            {unreadTotal}
+                          </span>
+                        )}
+                      </a>
+
                       <a
                         href="/tai-khoan"
                         onClick={closeDropdown}
@@ -391,16 +429,6 @@ export default function Header({
                         <span>Hồ Sơ Cá Nhân</span>
                       </a>
 
-                      <a
-                        href="/change-password"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                          <Lock size={16} />
-                        </span>
-                        <span>Đổi mật khẩu</span>
-                      </a>
 
                       <hr className="my-1.5 border-[#ede8df]" />
 
@@ -1177,6 +1205,22 @@ export default function Header({
                 >
                   <ShoppingBag size={14} className="text-emerald-700" />
                   <span>Đơn Hàng Của Tôi</span>
+                </a>
+
+                <a
+                  href={messagesHref}
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between mb-1 shadow-xs"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare size={14} className="text-[#326318]" />
+                    <span>Tin Nhắn Của Tôi</span>
+                  </div>
+                  {unreadTotal > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                      {unreadTotal}
+                    </span>
+                  )}
                 </a>
 
                 {user.role === 'admin' && (

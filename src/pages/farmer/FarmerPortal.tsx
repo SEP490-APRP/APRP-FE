@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard,
   BarChart3,
@@ -25,7 +26,7 @@ import type {
   FarmerReview,
 } from './types'
 import { useShopOrders, useShopProfile } from '@/features/shop'
-import { useAuth } from '@/stores'
+import { useAuth, useChatStore } from '@/stores'
 import { useMyProducts } from '@/features/product/hooks/useProductQueries'
 
 // Modular Subpage Components
@@ -62,8 +63,17 @@ export default function FarmerPortal({
   onNavigateStore,
   onInfo,
 }: FarmerPortalProps) {
-  const { user: authUser, logout: authLogout } = useAuth()
+  const { user: authUser, logout: authLogout, token } = useAuth()
   const { data: shopProfile } = useShopProfile()
+  const { unreadTotal, loadConversations, loadUnreadCount, initRealtime, setChatViewActive } = useChatStore()
+
+  useEffect(() => {
+    if (token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [token, initRealtime, loadConversations, loadUnreadCount])
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -85,13 +95,43 @@ export default function FarmerPortal({
     shopProfile?.logoUrl ||
     user?.avatar
 
-  const [currentTab, setCurrentTab] = useState<string>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  const [currentTab, setCurrentTab] = useState<string>(tabFromUrl || 'overview')
   const [shopActive, setShopActive] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
   const [showTour, setShowTour] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.FARMER_TOUR_DONE) !== 'true'
   })
+
+  // Cập nhật tab khi URL search param thay đổi
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && tabParam !== currentTab) {
+      setCurrentTab(tabParam)
+      setSelectedOrderIdForPrep(null)
+    }
+  }, [searchParams])
+
+  const handleTabChange = (tabId: string) => {
+    setCurrentTab(tabId)
+    setSelectedOrderIdForPrep(null)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', tabId)
+        return next
+      },
+      { replace: true },
+    )
+  }
+
+  // Cập nhật trạng thái view chat đang active khi nông dân chọn tab Tin nhắn
+  useEffect(() => {
+    const isMessages = currentTab === 'messages' && !selectedOrderIdForPrep
+    setChatViewActive(isMessages)
+  }, [currentTab, selectedOrderIdForPrep, setChatViewActive])
 
   // Real shop orders hook from backend API (loại trừ AWAITING_PAYMENT)
   const { data: realShopOrdersData } = useShopOrders({ page: 0, size: 50 })
@@ -438,23 +478,24 @@ export default function FarmerPortal({
               <button
                 key={item.id}
                 id={`sidebar-item-${item.id}`}
-                onClick={() => {
-                  setCurrentTab(item.id)
-                  setSelectedOrderIdForPrep(null)
-                }}
-                className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${
-                  isActive
-                    ? showTour
-                      ? 'border-2 border-[#326318] bg-[#326318]/10 text-[#326318] font-black shadow-md'
-                      : 'bg-[#326318]/10 text-[#326318] font-black shadow-sm'
-                    : 'text-[#616a5b] hover:bg-[#f2f6ee] hover:text-[#1c2216]'
-                }`}
+                onClick={() => handleTabChange(item.id)}
+                className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${isActive
+                  ? showTour
+                    ? 'border-2 border-[#326318] bg-[#326318]/10 text-[#326318] font-black shadow-md'
+                    : 'bg-[#326318]/10 text-[#326318] font-black shadow-sm'
+                  : 'text-[#616a5b] hover:bg-[#f2f6ee] hover:text-[#1c2216]'
+                  }`}
               >
                 <item.icon
                   size={19}
                   className={`shrink-0 ${isActive ? 'text-[#326318]' : 'text-[#879181]'}`}
                 />
                 <span className="font-extrabold flex-1">{item.name}</span>
+                {item.id === 'messages' && unreadTotal > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs animate-pulse shrink-0">
+                    {unreadTotal > 9 ? '9+' : unreadTotal}
+                  </span>
+                )}
                 {isActive && <ChevronRight size={14} className="text-[#326318] opacity-70" />}
               </button>
             )
@@ -463,35 +504,29 @@ export default function FarmerPortal({
 
         <div className="p-4 [@media(min-height:980px)]:p-5 border-t border-[#f1f4ed] bg-[#fdfcf9]">
           <div
-            className={`p-2.5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-sm ${
-              currentTab === 'profile' && !selectedOrderIdForPrep
-                ? 'bg-[#326318]/10 border-[#326318] shadow-sm ring-2 ring-[#326318]/20'
-                : 'bg-white border-[#e5eadd] hover:border-[#326318]/40 hover:bg-[#fafcf8]'
-            }`}
+            className={`p-2.5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-sm ${currentTab === 'profile' && !selectedOrderIdForPrep
+              ? 'bg-[#326318]/10 border-[#326318] shadow-sm ring-2 ring-[#326318]/20'
+              : 'bg-white border-[#e5eadd] hover:border-[#326318]/40 hover:bg-[#fafcf8]'
+              }`}
           >
             <div
               id="sidebar-item-profile"
               role="button"
               tabIndex={0}
-              onClick={() => {
-                setCurrentTab('profile')
-                setSelectedOrderIdForPrep(null)
-              }}
+              onClick={() => handleTabChange('profile')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
-                  setCurrentTab('profile')
-                  setSelectedOrderIdForPrep(null)
+                  handleTabChange('profile')
                 }
               }}
               title="Bấm để xem và chỉnh sửa hồ sơ cá nhân"
               className="flex items-center gap-2.5 overflow-hidden flex-1 cursor-pointer group py-0.5"
             >
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-transform group-hover:scale-105 shadow-xs overflow-hidden ${
-                  currentTab === 'profile' && !selectedOrderIdForPrep
-                    ? 'bg-[#326318] text-white ring-2 ring-[#326318]/40'
-                    : 'bg-[#326318] text-white'
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-transform group-hover:scale-105 shadow-xs overflow-hidden ${currentTab === 'profile' && !selectedOrderIdForPrep
+                  ? 'bg-[#326318] text-white ring-2 ring-[#326318]/40'
+                  : 'bg-[#326318] text-white'
+                  }`}
               >
                 {displayShopLogo ? (
                   <img src={displayShopLogo} alt={displayShopName} className="w-full h-full object-cover" />
@@ -501,11 +536,10 @@ export default function FarmerPortal({
               </div>
               <div className="overflow-hidden min-w-0 flex-1">
                 <div
-                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1 ${
-                    currentTab === 'profile' && !selectedOrderIdForPrep
-                      ? 'text-[#326318]'
-                      : 'text-[#1c2216] group-hover:text-[#326318]'
-                  }`}
+                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1 ${currentTab === 'profile' && !selectedOrderIdForPrep
+                    ? 'text-[#326318]'
+                    : 'text-[#1c2216] group-hover:text-[#326318]'
+                    }`}
                 >
                   <span className="truncate">{displayShopName}</span>
                 </div>
@@ -520,9 +554,8 @@ export default function FarmerPortal({
                   className="flex items-center gap-1.5 text-[9px] font-bold text-[#326318] cursor-pointer hover:underline mt-0.5"
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      shopActive ? 'bg-[#326318]' : 'bg-gray-400'
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full ${shopActive ? 'bg-[#326318]' : 'bg-gray-400'
+                      }`}
                   />
                   <span>{shopActive ? 'ĐANG BÁN' : 'TẠM NGHỈ'}</span>
                 </button>
@@ -615,7 +648,7 @@ export default function FarmerPortal({
             />
           ) : currentTab === 'overview' ? (
             <Dashboard
-              onNavigate={(tab) => setCurrentTab(tab)}
+              onNavigate={(tab) => handleTabChange(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
             />
           ) : currentTab === 'revenue-report' ? (
@@ -651,11 +684,14 @@ export default function FarmerPortal({
             <Profile user={user} shopProfile={shopProfile} onInfo={handleInfo} />
           ) : currentTab === 'wallet' ? (
             <WalletComponent onOpenWithdraw={() => setShowWithdrawModal(true)} onInfo={handleInfo} />
-          ) : currentTab === 'messages' ? (
-            <FarmerMessages />
-          ) : (
+          ) : currentTab === 'messages' ? null : (
             <FarmerDisputes />
           )}
+
+          {/* Duy trì phân hệ Tin nhắn luôn mounted để không làm mất tiến trình tải video/ảnh khi chuyển tab */}
+          <div className={!selectedOrderIdForPrep && currentTab === 'messages' ? 'block' : 'hidden'}>
+            <FarmerMessages />
+          </div>
         </div>
       </main>
 
@@ -664,7 +700,7 @@ export default function FarmerPortal({
       {/* ========================================================================= */}
       <OnboardingTour
         isOpen={showTour}
-        onNavigate={(path) => setCurrentTab(path)}
+        onNavigate={(path) => handleTabChange(path)}
         onClose={() => setShowTour(false)}
       />
 
@@ -702,22 +738,20 @@ export default function FarmerPortal({
       {/* Floating Toast Notification */}
       {internalToast && (
         <div
-          className={`fixed top-6 right-6 z-[100] max-w-sm w-full bg-[#1c2216] text-white p-4 rounded-2xl shadow-2xl border flex items-start gap-3 animate-fadeIn ${
-            internalToast.type === 'error'
-              ? 'border-rose-500/50'
-              : internalToast.type === 'warning'
+          className={`fixed top-6 right-6 z-[100] max-w-sm w-full bg-[#1c2216] text-white p-4 rounded-2xl shadow-2xl border flex items-start gap-3 animate-fadeIn ${internalToast.type === 'error'
+            ? 'border-rose-500/50'
+            : internalToast.type === 'warning'
               ? 'border-amber-500/50'
               : 'border-emerald-500/30'
-          }`}
+            }`}
         >
           <div
-            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-black ${
-              internalToast.type === 'error'
-                ? 'bg-rose-500/20 text-rose-400'
-                : internalToast.type === 'warning'
+            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-black ${internalToast.type === 'error'
+              ? 'bg-rose-500/20 text-rose-400'
+              : internalToast.type === 'warning'
                 ? 'bg-amber-500/20 text-amber-400'
                 : 'bg-emerald-500/20 text-emerald-400'
-            }`}
+              }`}
           >
             {internalToast.type === 'error' ? '✕' : internalToast.type === 'warning' ? '⚠️' : '✓'}
           </div>

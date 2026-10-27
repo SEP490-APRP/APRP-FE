@@ -6,10 +6,9 @@ import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
-import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
+import { cartCount, useAuth, useCartStore, useUiStore, useChatStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
-import { FloatingChatWidget } from '@/components/chat/FloatingChatWidget'
 
 export type StorefrontContext = {
   cart: Cart
@@ -37,7 +36,17 @@ function headerRoute(pathname: string): string {
 export default function StorefrontLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, logout, setUser } = useAuth()
+  const { user, token, logout, setUser } = useAuth()
+  const { initRealtime, loadConversations, loadUnreadCount } = useChatStore()
+
+  // Đồng bộ kết nối WebSocket và tin nhắn chưa đọc cho người dùng trên Storefront
+  useEffect(() => {
+    if (user && token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [user?.id, token, initRealtime, loadConversations, loadUnreadCount])
 
   // Đồng bộ ảnh đại diện từ backend nếu session chưa có avatar
   useEffect(() => {
@@ -53,7 +62,7 @@ export default function StorefrontLayout() {
             })
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [user?.id])
   const cart = useCartStore((s) => s.items)
@@ -125,7 +134,23 @@ export default function StorefrontLayout() {
     navigate('/')
   }
 
+  // Lắng nghe sự kiện "open-chat-with-user" từ trang sản phẩm / gian hàng để điều hướng sang /tin-nhan
+  useEffect(() => {
+    const handleOpenChat = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId: number; userName?: string }>
+      if (customEvent.detail?.userId) {
+        navigate(`/tin-nhan?chatId=${customEvent.detail.userId}`)
+      }
+    }
+    window.addEventListener('open-chat-with-user', handleOpenChat)
+    return () => window.removeEventListener('open-chat-with-user', handleOpenChat)
+  }, [navigate])
+
   const isFresh = pathname.startsWith('/nong-san-tuoi')
+  const isChatPage =
+    pathname.startsWith('/tin-nhan') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/messages')
   const context: StorefrontContext = { cart, query, setQuery, onAdd, onInfo: showInfo }
 
   return (
@@ -155,10 +180,10 @@ export default function StorefrontLayout() {
         onInfo={showInfo}
       />
 
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
+      <main id="main-content" tabIndex={-1} className={`flex-1 flex flex-col ${isChatPage ? 'overflow-hidden' : ''}`}>
         <Suspense fallback={<PageLoading />}>
           <Outlet context={context} />
-          <Footer onInfo={showInfo} />
+          {!isChatPage && <Footer onInfo={showInfo} />}
         </Suspense>
       </main>
 
@@ -178,7 +203,6 @@ export default function StorefrontLayout() {
       )}
 
       {cartOpen && <CartModal />}
-      <FloatingChatWidget />
 
       {info && (
         <Modal title={info} onClose={hideInfo}>

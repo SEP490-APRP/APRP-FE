@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import { useAuth } from '@/stores'
+import { useChatStore } from '@/stores/useChatStore'
 import { Button, LinkButton } from '@/components/ui/Button'
 import logoIcon from '@/assets/logo-icon.png'
 import { Drawer } from '@/components/ui/Drawer'
@@ -134,12 +135,21 @@ type AdminPortalProps = {
 }
 
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
-  const { user: storeUser } = useAuth()
+  const { user: storeUser, token } = useAuth()
+  const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
   const tab = tabFromUrl(routerLocation.pathname, routerLocation.hash)
   const [navOpen, setNavOpen] = useState(false)
   const activeUser = user ?? storeUser
+
+  useEffect(() => {
+    if (token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [token, initRealtime, loadConversations, loadUnreadCount])
 
   // Chặn ở UI. Server vẫn phải kiểm tra quyền ở từng API, đây chỉ là lớp hiển thị.
   if (!activeUser || activeUser.role !== 'admin') {
@@ -199,7 +209,11 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                   >
                     <Icon size={18} className="shrink-0" aria-hidden />
                     <span className="flex-1 truncate">{item.name}</span>
-                    {'badge' in item && item.badge && (
+                    {id === 'messages' && unreadTotal > 0 ? (
+                      <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
+                        {unreadTotal}
+                      </span>
+                    ) : 'badge' in item && item.badge ? (
                       <span
                         className={cn(
                           'rounded-full px-2 py-0.5 text-caption font-bold',
@@ -208,7 +222,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                       >
                         {item.badge}
                       </span>
-                    )}
+                    ) : null}
                   </a>
                 </li>
               )

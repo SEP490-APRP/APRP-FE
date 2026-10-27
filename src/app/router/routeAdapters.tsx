@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, Navigate } from 'react-router-dom'
 import { useStorefront } from '@/app/layouts/StorefrontLayout'
 import RequireRole from './RequireRole'
 import type { AuthUser } from '@/types/auth.types'
@@ -37,6 +37,7 @@ const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
+const BuyerMessagesPage = lazy(() => import('@/pages/chat/BuyerMessagesPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -281,6 +282,30 @@ export function MealPlanRoute() {
     <Suspense fallback={<PageLoading />}>
       <MealPlanPage />
     </Suspense>
+  )
+}
+
+export function BuyerMessagesRoute() {
+  const { user } = useAuth()
+
+  // Nếu tài khoản là Shop hoặc Admin thì tự động chuyển đến trang tin nhắn chuyên dụng tương ứng
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop?tab=messages" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin/messages" replace />
+  }
+
+  return (
+    <RequireRole
+      roles={['buyer', 'shop', 'shipper', 'admin']}
+      audience="người dùng đã đăng nhập"
+      loginHref="/dang-nhap"
+    >
+      <Suspense fallback={<PageLoading />}>
+        <BuyerMessagesPage />
+      </Suspense>
+    </RequireRole>
   )
 }
 
