@@ -98,7 +98,7 @@ const AdminMessages: React.FC = () => {
   const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Khởi tạo kết nối STOMP toàn cục và tải danh sách hội thoại
   useEffect(() => {
@@ -479,10 +479,10 @@ const AdminMessages: React.FC = () => {
                           </div>
 
                           {/* Nút xóa tin nhắn dành cho người gửi hoặc Admin kiểm duyệt khi hover hoặc trên mobile */}
-                          {msg.id && msg.id < 10000000000 && (
+                          {msg.id && Number(msg.id) < 10000000000 && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteMessage(msg.id)}
+                              onClick={() => handleDeleteMessage(Number(msg.id))}
                               className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-full hover:bg-rose-50 text-gray-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
                               title={isMe ? 'Xóa tin nhắn này' : 'Admin: Xóa tin nhắn vi phạm'}
                             >

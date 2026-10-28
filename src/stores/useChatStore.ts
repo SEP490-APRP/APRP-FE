@@ -476,7 +476,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const mediaPlaceholder = isVideo ? '[Video]' : '[Hình ảnh]'
 
     const payload = {
-      receiverId,
+      receiverId: active.otherUserId,
       content: trimmed || (attachmentUrl ? mediaPlaceholder : ''),
       type: msgType,
       attachmentUrl,

@@ -108,6 +108,7 @@ export interface PlanGenerateRequest {
   numberOfPeople: number
   targetBudget?: number
   preferredMealTypes?: MealType[]
+  mealTypes?: MealType[]
   extraNotes?: string
 }
 
@@ -155,11 +156,14 @@ export interface PlanPreCheckRequest {
   numberOfPeople?: number
   targetBudget?: number
   preferredMealTypes?: MealType[]
+  mealTypes?: MealType[]
   goal?: string
 }
 
 export interface PlanPreCheckResponse {
   isFeasible: boolean
+  hasStockShortage?: boolean
+  stockShortageMessage?: string
   totalMeals: number
   combosPerMeal: number
   totalCombosNeeded: number

@@ -16,6 +16,7 @@ import { OrderStatusBadge } from './OrderStatusBadge'
 import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
+import { CancelOrderModal } from './CancelOrderModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { orderService, paymentService } from '@/services'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
@@ -48,6 +49,19 @@ export const BuyerOrdersView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
   const [isCancellingBatch, setIsCancellingBatch] = useState(false)
+
+  // Cancel Order Modal State
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean
+    order: OrderResponse | null
+    batchOrders: OrderResponse[] | null
+    errorMessage: string | null
+  }>({
+    isOpen: false,
+    order: null,
+    batchOrders: null,
+    errorMessage: null,
+  })
 
   // QR Modal State
   const [qrModalData, setQrModalData] = useState<PaymentResponse | null>(null)
@@ -218,37 +232,71 @@ export const BuyerOrdersView: React.FC = () => {
     }
   }
 
-  // Xử lý hủy 1 đơn đơn lẻ
-  const handleCancelOrder = async (orderId: number) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId}?`)) return
-    setCancellingOrderId(orderId)
-    try {
-      await orderService.cancelOrder(orderId)
-      await fetchOrders()
-    } catch (err: any) {
-      alert(err?.message || 'Không thể hủy đơn hàng này.')
-    } finally {
-      setCancellingOrderId(null)
-    }
+  // Mở modal xác nhận hủy đơn đơn lẻ
+  const handleOpenCancelModal = (orderOrId: number | OrderResponse) => {
+    const target =
+      typeof orderOrId === 'number'
+        ? orders.find((o) => (o.orderId || o.id) === orderOrId) ||
+          ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
+        : orderOrId
+    setCancelModalState({
+      isOpen: true,
+      order: target,
+      batchOrders: null,
+      errorMessage: null,
+    })
   }
 
-  // Xử lý hủy toàn bộ batch checkout
-  const handleCancelBatch = async (batchOrders: OrderResponse[]) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy toàn bộ checkout này gồm ${batchOrders.length} đơn hàng?`)) return
-    setIsCancellingBatch(true)
-    try {
-      for (const o of batchOrders) {
-        const id = o.orderId || o.id
-        if (id) {
-          await orderService.cancelOrder(id)
+  // Mở modal xác nhận hủy toàn bộ batch checkout
+  const handleOpenCancelBatchModal = (batchOrders: OrderResponse[]) => {
+    setCancelModalState({
+      isOpen: true,
+      order: null,
+      batchOrders,
+      errorMessage: null,
+    })
+  }
+
+  // Thực hiện hủy đơn khi người dùng bấm xác nhận trong modal
+  const handleConfirmCancelOrder = async (_reason: string) => {
+    const { order, batchOrders } = cancelModalState
+    if (batchOrders && batchOrders.length > 0) {
+      setIsCancellingBatch(true)
+      try {
+        for (const o of batchOrders) {
+          const id = o.orderId || o.id
+          if (id) {
+            await orderService.cancelOrder(id)
+          }
         }
+        setCancelModalState({ isOpen: false, order: null, batchOrders: null, errorMessage: null })
+        await fetchOrders()
+      } catch (err: any) {
+        console.error('Lỗi hủy batch:', err)
+        setCancelModalState((prev) => ({
+          ...prev,
+          errorMessage: err?.message || 'Có lỗi khi hủy các đơn trong checkout.',
+        }))
+      } finally {
+        setIsCancellingBatch(false)
       }
-      await fetchOrders()
-    } catch (err: any) {
-      console.error('Lỗi hủy batch:', err)
-      alert(err?.message || 'Có lỗi khi hủy các đơn trong checkout.')
-    } finally {
-      setIsCancellingBatch(false)
+    } else if (order) {
+      const id = order.orderId || order.id
+      if (!id) return
+      setCancellingOrderId(id)
+      try {
+        await orderService.cancelOrder(id)
+        setCancelModalState({ isOpen: false, order: null, batchOrders: null, errorMessage: null })
+        await fetchOrders()
+      } catch (err: any) {
+        console.error('Lỗi khi hủy đơn hàng:', err)
+        setCancelModalState((prev) => ({
+          ...prev,
+          errorMessage: err?.message || 'Không thể hủy đơn hàng này.',
+        }))
+      } finally {
+        setCancellingOrderId(null)
+      }
     }
   }
 
@@ -351,8 +399,8 @@ export const BuyerOrdersView: React.FC = () => {
                   batchId={item.batchId}
                   orders={item.orders}
                   onResumePayment={handleResumeBatchPayment}
-                  onCancelBatch={handleCancelBatch}
-                  onCancelSingleOrder={handleCancelOrder}
+                  onCancelBatch={handleOpenCancelBatchModal}
+                  onCancelSingleOrder={handleOpenCancelModal}
                   isResuming={isLoadingResumeOptions}
                   isCancelling={isCancellingBatch}
                 />
@@ -479,9 +527,9 @@ export const BuyerOrdersView: React.FC = () => {
                     {(order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING') && (
                       <Button
                         variant="secondary"
-                        onClick={() => handleCancelOrder(orderId)}
+                        onClick={() => handleOpenCancelModal(order)}
                         disabled={cancellingOrderId === orderId}
-                        className="gap-1 px-3 py-2 text-xs rounded-xl text-rose-600 hover:bg-rose-50 border-rose-200"
+                        className="gap-1 px-3 py-2 text-xs rounded-xl text-rose-600 hover:bg-rose-50 border-rose-200 cursor-pointer"
                       >
                         <XCircle size={14} />
                         {cancellingOrderId === orderId ? 'Đang hủy...' : 'Hủy đơn'}
@@ -553,6 +601,26 @@ export const BuyerOrdersView: React.FC = () => {
           onClose={() => setTrackingModalOrder(null)}
         />
       )}
+
+      {/* Modal Xác Nhận Hủy Đơn Hàng (Đơn lẻ & Toàn bộ Checkout) */}
+      <CancelOrderModal
+        isOpen={cancelModalState.isOpen}
+        order={cancelModalState.order}
+        batchOrders={cancelModalState.batchOrders}
+        isCancelling={cancellingOrderId !== null || isCancellingBatch}
+        errorMessage={cancelModalState.errorMessage}
+        onClose={() => {
+          if (cancellingOrderId === null && !isCancellingBatch) {
+            setCancelModalState({
+              isOpen: false,
+              order: null,
+              batchOrders: null,
+              errorMessage: null,
+            })
+          }
+        }}
+        onConfirm={handleConfirmCancelOrder}
+      />
     </div>
   )
 }

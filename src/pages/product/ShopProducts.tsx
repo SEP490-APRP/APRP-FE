@@ -506,6 +506,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             </div>
           </div>
 
+          {/* Description */}
+          {shopInfo?.description && (
+            <div className="mt-4 p-4 bg-paper rounded-2xl border border-line">
+              <p className="text-sm text-ink-muted font-medium">{shopInfo.description}</p>
+            </div>
+          )}
+
           {/* 4 Key Metrics Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-line">
             <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">

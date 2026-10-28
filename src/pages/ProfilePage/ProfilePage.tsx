@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import {
   User,
   MapPin,
@@ -28,20 +29,29 @@ import {
   HelpCircle,
   Info,
   Maximize2,
+  HeartPulse,
 } from 'lucide-react'
 import { authService, getSavedAddresses, createSavedAddress, updateSavedAddress, deleteSavedAddress, setDefaultSavedAddress } from '@/services'
 import type { UserResponse } from '@/services/user.types'
 import type { SavedAddress, SavedAddressRequest } from '@/types/address.types'
 import { useAuth, useUiStore } from '@/stores'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
+import HealthProfileTab from './HealthProfileTab'
 
-type ActiveTab = 'account' | 'address' | 'security'
+type ActiveTab = 'account' | 'address' | 'health' | 'security'
 
 export default function ProfilePage() {
   const { user: authUser, setUser: setAuthUser } = useAuth()
   const { showToast } = useUiStore()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('account')
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'health' || tabParam === 'dinh-duong' || tabParam === 'suc-khoe') return 'health'
+    if (tabParam === 'address' || tabParam === 'dia-chi') return 'address'
+    if (tabParam === 'security' || tabParam === 'bao-mat') return 'security'
+    return 'account'
+  })
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<UserResponse | null>(null)
 
@@ -83,6 +93,23 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchProfile()
   }, [])
+
+  const location = useLocation()
+
+  // Sync tab with URL search parameter or path
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    const path = location.pathname.toLowerCase()
+    if (tabParam === 'health' || tabParam === 'dinh-duong' || tabParam === 'suc-khoe' || path.includes('dinh-duong') || path.includes('health')) {
+      setActiveTab('health')
+    } else if (tabParam === 'address' || tabParam === 'dia-chi' || path.includes('dia-chi')) {
+      setActiveTab('address')
+    } else if (tabParam === 'security' || tabParam === 'bao-mat' || tabParam === 'password' || path.includes('mat-khau')) {
+      setActiveTab('security')
+    } else if (tabParam === 'account' || tabParam === 'tai-khoan') {
+      setActiveTab('account')
+    }
+  }, [searchParams, location.pathname])
 
   // Load addresses when switching to address tab
   useEffect(() => {
@@ -525,7 +552,10 @@ export default function ProfilePage() {
               <nav className="flex flex-col gap-1">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('account')}
+                  onClick={() => {
+                    setActiveTab('account')
+                    setSearchParams({ tab: 'account' })
+                  }}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
                     activeTab === 'account'
                       ? 'bg-[#326318] text-white shadow-xs'
@@ -538,7 +568,10 @@ export default function ProfilePage() {
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('address')}
+                  onClick={() => {
+                    setActiveTab('address')
+                    setSearchParams({ tab: 'address' })
+                  }}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
                     activeTab === 'address'
                       ? 'bg-[#326318] text-white shadow-xs'
@@ -560,7 +593,26 @@ export default function ProfilePage() {
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('security')}
+                  onClick={() => {
+                    setActiveTab('health')
+                    setSearchParams({ tab: 'health' })
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
+                    activeTab === 'health'
+                      ? 'bg-[#326318] text-white shadow-xs'
+                      : 'text-[#4e5845] hover:bg-[#f5f1e8] hover:text-[#1b2216]'
+                  }`}
+                >
+                  <HeartPulse size={16} />
+                  <span className="flex-1">Dinh dưỡng & Dị ứng</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('security')
+                    setSearchParams({ tab: 'security' })
+                  }}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
                     activeTab === 'security'
                       ? 'bg-[#326318] text-white shadow-xs'
@@ -874,7 +926,12 @@ export default function ProfilePage() {
             )}
 
             {/* ========================================================== */}
-            {/* TAB 3: BẢO MẬT & ĐỔI MẬT KHẨU                             */}
+            {/* TAB 3: DINH DƯỠNG & DỊ ỨNG (SRS 3.17.1)                     */}
+            {/* ========================================================== */}
+            {activeTab === 'health' && <HealthProfileTab />}
+
+            {/* ========================================================== */}
+            {/* TAB 4: BẢO MẬT & ĐỔI MẬT KHẨU                             */}
             {/* ========================================================== */}
             {activeTab === 'security' && (
               <div className="max-w-xl">

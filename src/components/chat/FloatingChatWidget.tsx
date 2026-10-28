@@ -488,10 +488,10 @@ export const FloatingChatWidget: React.FC = () => {
                           </div>
 
                           {/* Nút xóa tin nhắn CHỈ DÀNH CHO NGƯỜI GỬI (isMe) khi hover hoặc trên mobile */}
-                          {isMe && msg.id && msg.id < 10000000000 && (
+                          {isMe && msg.id && Number(msg.id) < 10000000000 && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteMessage(msg.id)}
+                              onClick={() => handleDeleteMessage(Number(msg.id))}
                               className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-full hover:bg-rose-50 text-gray-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
                               title="Xóa tin nhắn này"
                             >
@@ -603,7 +603,7 @@ export const FloatingChatWidget: React.FC = () => {
                 />
                 <button
                   type="submit"
-                  disabled={(!inputText.trim() && !pendingImageUrl) || isSending}
+                  disabled={(!inputText.trim() && !pendingMedia) || isSending}
                   className="size-8 rounded-xl bg-[#326318] hover:bg-[#254d12] text-white flex items-center justify-center transition-all disabled:opacity-40 cursor-pointer shrink-0 shadow-xs"
                   title="Gửi tin nhắn"
                 >
