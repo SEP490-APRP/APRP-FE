@@ -2,4 +2,5 @@ export { readStoredUser, useAuth, useAuthStore } from './useAuthStore'
 export { useUiStore } from './useUiStore'
 export { cartCount, cartTotal, sanitizeCart, useCartStore } from './useCartStore'
 export { useChatStore } from './useChatStore'
+export { useNotificationStore } from './useNotificationStore'
 

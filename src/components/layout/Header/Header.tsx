@@ -23,10 +23,12 @@ import {
   Lock,
   MessageSquare,
   HeartPulse,
+  Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
-import { useAuth, useChatStore } from '@/stores'
+import { useAuth, useChatStore, useNotificationStore } from '@/stores'
+import NotificationDropdown from './NotificationDropdown'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import logoIcon from '@/assets/logo-icon.png'
@@ -57,6 +59,7 @@ export default function Header({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const timeoutRef = useRef<number | null>(null)
   const accountRef = useRef<HTMLDivElement | null>(null)
+  const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
 
   const { token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
@@ -103,6 +106,7 @@ export default function Header({
     setActiveDropdown(null)
     setOpenMobile(false)
     setAccountMenuOpen(false)
+    setNotifOpen(false)
   }
 
   const handleSelectCategory = (term: string, targetPath: string = '/nong-san-tuoi') => {
@@ -213,6 +217,30 @@ export default function Header({
             <ShoppingBasket />
             {count > 0 && <span>{count}</span>}
           </button>
+
+          {/* Notification Trigger & Popover */}
+          {user && (
+            <div className="relative">
+              <button
+                type="button"
+                className="icon-button relative"
+                aria-label={`Thông báo, ${unreadCount} chưa đọc`}
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setAccountMenuOpen(false)
+                  setNotifOpen(!notifOpen)
+                }}
+              >
+                <Bell />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white font-extrabold text-[10px] flex items-center justify-center border-2 border-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
+            </div>
+          )}
 
           {/* Auth Action Buttons: Đăng nhập & Đăng ký (hoặc Hồ sơ nếu đã đăng nhập) */}
           <div className="relative flex items-center gap-1.5 z-50" ref={accountRef}>

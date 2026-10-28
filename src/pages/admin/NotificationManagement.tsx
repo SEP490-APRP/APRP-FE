@@ -28,6 +28,7 @@ const NotificationManagement: React.FC = () => {
   const [target, setTarget] = useState<TargetOption>('all')
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
+  const [evidence, setEvidence] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
 
   const notificationsQuery = useNotifications()
@@ -47,10 +48,12 @@ const NotificationManagement: React.FC = () => {
       await send.mutateAsync({
         title,
         message,
+        evidence: evidence.trim() || undefined,
         receiverTypes: TARGET_MAPPING[target],
       })
       setTitle('')
       setMessage('')
+      setEvidence('')
       globalShowAlert('Thông báo đã được gửi thành công!', 'Thành công', 'success')
     } catch (err) {
       console.error('Failed to send notification', err)
@@ -133,6 +136,18 @@ const NotificationManagement: React.FC = () => {
                 rows={6}
                 placeholder="Nội dung thông báo mà người dùng sẽ thấy..."
                 className="w-full px-6 py-4 bg-gray-50 border border-transparent rounded-[24px] text-sm font-medium outline-none focus:ring-4 focus:ring-primary/5 focus:bg-white transition-all resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                Link liên kết / Bằng chứng (Tùy chọn)
+              </label>
+              <input
+                value={evidence}
+                onChange={(e) => setEvidence(e.target.value)}
+                placeholder="https://... hoặc đường dẫn hình ảnh / bài viết liên quan"
+                className="w-full px-6 py-4 bg-gray-50 border border-transparent rounded-[24px] text-sm font-medium outline-none focus:ring-4 focus:ring-primary/5 focus:bg-white transition-all"
               />
             </div>
 
