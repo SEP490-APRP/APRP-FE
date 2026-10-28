@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Sparkles,
   Users,
@@ -10,6 +10,7 @@ import {
   ChefHat,
   Check,
   AlertTriangle,
+  AlertCircle,
   Info,
   ArrowRight,
   ArrowLeft,
@@ -73,8 +74,17 @@ export default function PlanGeneratorModal({
   // Multi-step Flow State
   const [step, setStep] = useState<'INPUT' | 'ADVISORY'>('INPUT')
   const [preCheckData, setPreCheckData] = useState<PlanPreCheckResponse | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) {
+      setErrorMessage(null)
+      setStep('INPUT')
+    }
+  }, [isOpen])
 
   const toggleMealType = (m: MealType) => {
+    setErrorMessage(null)
     if (preferredMeals.includes(m)) {
       if (preferredMeals.length > 1) {
         setPreferredMeals(preferredMeals.filter((item) => item !== m))
@@ -91,29 +101,44 @@ export default function PlanGeneratorModal({
     mealTypes?: MealType[],
   ) => {
     try {
+      setErrorMessage(null)
+      const selectedMeals = mealTypes || preferredMeals
       const newPlan = await generateMutation.mutateAsync({
         goal: selectedGoal,
         numberOfDays: days,
         numberOfPeople: people,
         targetBudget: targetBudgetValue && targetBudgetValue > 0 ? targetBudgetValue : undefined,
-        preferredMealTypes: mealTypes || preferredMeals,
+        preferredMealTypes: selectedMeals,
+        mealTypes: selectedMeals,
         extraNotes: extraNotes.trim() || undefined,
       })
 
-      useUiStore.getState().showToast('Đã tạo thực đơn dinh dưỡng thành công!')
+      useUiStore.getState().showToast('Đã tạo thực đơn dinh dưỡng thành công!', 'success')
       if (onSuccess) {
         onSuccess(newPlan.planId)
       }
       onClose()
     } catch (err: any) {
-      console.error(err)
-      const msg = err?.message || 'Không thể tạo kế hoạch ăn uống. Vui lòng thử lại sau.'
-      useUiStore.getState().showToast(msg)
+      console.error('Lỗi khi sinh thực đơn AI:', err)
+      const rawMsg = err?.data?.message || err?.message || ''
+      let userMsg = 'Kho nông sản hiện không có đủ combo rau củ còn hàng phù hợp với các tiêu chí bạn đã chọn.'
+
+      if (rawMsg.includes('No suitable combos') || rawMsg.includes('không có đủ combo') || rawMsg.includes('hết hàng')) {
+        userMsg = rawMsg.length > 30 && !rawMsg.includes('No suitable combos')
+          ? rawMsg
+          : 'Kho nông sản hiện không có đủ combo rau củ còn hàng phù hợp với các tiêu chí (ngân sách, khẩu phần hoặc loại bữa) bạn đã chọn. Vui lòng nới lỏng ngân sách, giảm số ngày ăn hoặc chọn bữa trưa/tối.'
+      } else if (rawMsg) {
+        userMsg = rawMsg
+      }
+
+      setErrorMessage(userMsg)
+      useUiStore.getState().showToast(userMsg, 'error')
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage(null)
     const parsedBudget = budget ? parseInt(budget.replace(/\D/g, ''), 10) : undefined
 
     try {
@@ -124,9 +149,10 @@ export default function PlanGeneratorModal({
         numberOfPeople: numPeople,
         targetBudget: parsedBudget && parsedBudget > 0 ? parsedBudget : undefined,
         preferredMealTypes: preferredMeals,
+        mealTypes: preferredMeals,
       })
 
-      if (!checkRes.isFeasible || checkRes.hasPortionWarning || checkRes.hasBudgetWarning) {
+      if (!checkRes.isFeasible || checkRes.hasPortionWarning || checkRes.hasBudgetWarning || checkRes.hasStockShortage) {
         setPreCheckData(checkRes)
         setStep('ADVISORY')
         return
@@ -135,7 +161,7 @@ export default function PlanGeneratorModal({
       // If perfectly feasible & no portion mismatch, generate directly
       await triggerGenerate(numDays, numPeople, parsedBudget, preferredMeals)
     } catch (err: any) {
-      console.error(err)
+      console.error('Precheck error, proceeding with generation:', err)
       // Fallback: if pre-check fails unexpectedly, proceed with generation
       await triggerGenerate(numDays, numPeople, parsedBudget, preferredMeals)
     }
@@ -149,7 +175,8 @@ export default function PlanGeneratorModal({
     }
 
     const parsedBudget = budget ? parseInt(budget.replace(/\D/g, ''), 10) : 500000
-    const stdCost = preCheckData?.estimatedStandardCost || 600000
+    const stdCost = preCheckData?.estimatedStandardCost || 450000
+    const optCost = Math.round(stdCost * (2 / 3))
 
     return [
       {
@@ -159,8 +186,8 @@ export default function PlanGeneratorModal({
         description: 'Lên thực đơn cho bữa Trưa và Tối đầy đủ món canh/xào, bữa sáng gia đình tự túc nhẹ nhàng.',
         suggestedMealTypes: ['LUNCH', 'DINNER'] as MealType[],
         suggestedDays: numDays,
-        suggestedBudget: parsedBudget,
-        estimatedCost: Math.round(parsedBudget * 0.75),
+        suggestedBudget: optCost,
+        estimatedCost: optCost,
       },
       {
         scenarioId: 'REDUCE_DAYS',
@@ -169,8 +196,8 @@ export default function PlanGeneratorModal({
         description: `Giữ trọn vẹn các bữa ăn đầy đủ chất nhưng gói gọn trong ${Math.max(2, numDays - 1)} ngày để vừa vặn ngân sách hiện tại.`,
         suggestedDays: Math.max(2, numDays - 1),
         suggestedMealTypes: preferredMeals,
-        suggestedBudget: parsedBudget,
-        estimatedCost: parsedBudget,
+        suggestedBudget: Math.max(parsedBudget, Math.round(stdCost * 0.7)),
+        estimatedCost: Math.max(parsedBudget, Math.round(stdCost * 0.7)),
       },
       {
         scenarioId: 'REALISTIC_BUDGET',
@@ -186,8 +213,13 @@ export default function PlanGeneratorModal({
   }, [preCheckData, budget, numDays, preferredMeals])
 
   const handleApplyScenario = async (sc: PlanScenarioOption) => {
+    setErrorMessage(null)
     const daysToUse = sc.suggestedDays || sc.adjustedDays || numDays
-    const budgetToUse = sc.suggestedBudget || sc.adjustedBudget || (sc.estimatedCost ? Math.round(sc.estimatedCost) : undefined)
+    const rawBudget = sc.suggestedBudget || sc.adjustedBudget
+    // If rawBudget was passed as an inadequate number (lower than estimatedCost), prioritize realistic cost
+    const budgetToUse = (sc.estimatedCost && (!rawBudget || rawBudget < sc.estimatedCost))
+      ? Math.round(sc.estimatedCost)
+      : (rawBudget || (sc.estimatedCost ? Math.round(sc.estimatedCost) : undefined))
     const rawMeals = sc.suggestedMealTypes || sc.adjustedMealTypes
     const mealsToUse = (rawMeals && rawMeals.length > 0)
       ? (rawMeals as MealType[])
@@ -202,6 +234,7 @@ export default function PlanGeneratorModal({
   }
 
   const handleProceedAnyway = async () => {
+    setErrorMessage(null)
     const parsedBudget = budget ? parseInt(budget.replace(/\D/g, ''), 10) : undefined
     await triggerGenerate(numDays, numPeople, parsedBudget, preferredMeals)
   }
@@ -243,6 +276,33 @@ export default function PlanGeneratorModal({
         {/* STEP 1: FORM INPUT */}
         {step === 'INPUT' ? (
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Alert nếu có lỗi tạo thực đơn */}
+            {errorMessage && (
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-300 bg-rose-50/95 p-4 text-xs text-rose-900 shadow-xs">
+                <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="font-bold text-rose-900 text-sm">Không thể tạo thực đơn dinh dưỡng</div>
+                  <p className="text-rose-800 leading-relaxed">{errorMessage}</p>
+                  <div className="mt-2 text-[11px] text-rose-700 bg-white/80 rounded-xl p-2.5 border border-rose-200">
+                    <span className="font-semibold block mb-1">💡 Hướng xử lý:</span>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Thử giảm số ngày lên kế hoạch (ví dụ từ 7 ngày xuống 2–3 ngày)</li>
+                      <li>Bỏ bớt bữa sáng hoặc chỉ chọn 2 bữa chính (Trưa & Tối)</li>
+                      <li>Nới lỏng ngân sách dự kiến để AI tiếp cận nhiều combo nông sản hơn</li>
+                      <li>Kiểm tra lại mục Dị ứng trong <strong>Hồ sơ sức khỏe</strong> nếu bộ lọc loại trừ quá nhiều món</li>
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-rose-400 hover:text-rose-700 p-1"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             {/* Banner bảo vệ dị ứng */}
             {profile?.allergens && profile.allergens.length > 0 && (
               <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5 text-xs text-emerald-900">
@@ -479,6 +539,40 @@ export default function PlanGeneratorModal({
                 </span>
               </div>
             </div>
+
+            {/* Warning: Stock Shortage Notice */}
+            {preCheckData?.hasStockShortage && (
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-300 bg-rose-50/90 p-4 text-xs text-rose-950">
+                <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <div className="font-bold text-rose-900 text-sm">
+                    Cảnh báo tồn kho: Không đủ combo rau củ khả dụng
+                  </div>
+                  <p className="text-rose-800 leading-relaxed">
+                    {preCheckData.stockShortageMessage ||
+                      'Số lượng combo rau củ còn hàng hiện tại chưa đủ cho toàn bộ số ngày và số bữa ăn đã chọn. Vui lòng giảm số ngày hoặc áp dụng các phương án rút gọn bên dưới.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message when scenario generation fails */}
+            {errorMessage && (
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-300 bg-rose-50/95 p-4 text-xs text-rose-900 shadow-xs">
+                <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="font-bold text-rose-900 text-sm">Chưa thể áp dụng phương án</div>
+                  <p className="text-rose-800 leading-relaxed">{errorMessage}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-rose-400 hover:text-rose-700 p-1"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Warning 1: Portion Size Notice */}
             {preCheckData?.hasPortionWarning && (

@@ -543,7 +543,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const mediaPlaceholder = isAudio ? '[Tin nhắn thoại]' : isVideo ? '[Video]' : '[Hình ảnh]'
 
     const payload = {
-      receiverId,
+      receiverId: active.otherUserId,
       content: trimmed || (attachmentUrl ? mediaPlaceholder : ''),
       type: msgType,
       attachmentUrl,

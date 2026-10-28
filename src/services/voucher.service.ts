@@ -124,9 +124,7 @@ export const voucherService = {
     const list = await this.getPublicVouchers()
     const shopList = list.filter((voucher) => {
       const isShopOwned = Number(voucher.shopId) === Number(shopId)
-      const isShopScope = voucher.voucherScope === 'SHOP' || voucher.creatorRole === 'SHOP'
-      const isPlatformScope = voucher.voucherScope === 'PLATFORM' || voucher.creatorRole === 'ADMIN'
-      return isShopOwned || (isShopScope && isShopOwned) || (isPlatformScope && !isShopOwned)
+      return isShopOwned && voucher.active !== false
     })
     const start = page * size
     const end = start + size

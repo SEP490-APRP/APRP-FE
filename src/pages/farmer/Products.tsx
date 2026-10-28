@@ -27,7 +27,7 @@ import {
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
-import { EditProductModal } from '@/features/product/components/EditProductModal'
+import { EditProductModal, DeleteProductModal } from '@/features/product'
 import Pagination from '@/components/ui/Pagination/Pagination'
 
 interface ProductsProps {
@@ -123,6 +123,9 @@ export default function Products({
     isOpen: boolean
     product: ProductResponse | null
   }>({ isOpen: false, product: null })
+
+  // Modal xác nhận tạm dừng / gỡ nông sản
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
 
   // Lấy dữ liệu kho hàng của Shop từ BE (tải tối đa 100 mặt hàng mỗi loại để phân trang & lọc Client-side đồng nhất)
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
@@ -298,24 +301,30 @@ export default function Products({
     setPage(0)
   }
 
-  const handleDelete = async (p: any) => {
+  const isDeleting =
+    deleteMutation.isPending ||
+    deleteComboMutation.isPending ||
+    deleteMysteryBoxMutation.isPending
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    const p = deleteTarget
     const prodId = Number(p.id ?? p.productId)
     const prodName = p.productName || p.name || 'Sản phẩm'
-    if (window.confirm(`Bạn có chắc muốn tạm dừng/gỡ bỏ "${prodName}"?`)) {
-      try {
-        if (isComboItem(p)) {
-          await deleteComboMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Combo: ${prodName}`)
-        } else if (isBlindBoxItem(p)) {
-          await deleteMysteryBoxMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
-        } else {
-          await deleteMutation.mutateAsync(prodId)
-          onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
-        }
-      } catch (err: any) {
-        onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
+    try {
+      if (isComboItem(p)) {
+        await deleteComboMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Combo: ${prodName}`)
+      } else if (isBlindBoxItem(p)) {
+        await deleteMysteryBoxMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
+      } else {
+        await deleteMutation.mutateAsync(prodId)
+        onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
       }
+      setDeleteTarget(null)
+    } catch (err: any) {
+      onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
     }
   }
 
@@ -745,7 +754,7 @@ export default function Products({
                       {/* Nút Xóa / Tạm dừng */}
                       <button
                         type="button"
-                        onClick={() => handleDelete(p)}
+                        onClick={() => setDeleteTarget(p)}
                         title="Tạm dừng / Gỡ sản phẩm"
                         className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
                       >
@@ -815,6 +824,19 @@ export default function Products({
           onInfo={onInfo}
         />
       )}
+
+      {/* Delete / Pause Product Modal */}
+      <DeleteProductModal
+        isOpen={deleteTarget !== null}
+        item={deleteTarget}
+        isDeleting={isDeleting}
+        isCombo={deleteTarget ? isComboItem(deleteTarget) : false}
+        isBlindBox={deleteTarget ? isBlindBoxItem(deleteTarget) : false}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null)
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

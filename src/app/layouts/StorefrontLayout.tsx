@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
-import { CheckCircle2, Info } from 'lucide-react'
+import { CheckCircle2, Info, AlertCircle, AlertTriangle } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
@@ -67,7 +67,7 @@ export default function StorefrontLayout() {
   }, [user?.id])
   const cart = useCartStore((s) => s.items)
   const changeQuantity = useCartStore((s) => s.changeQuantity)
-  const { toast, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
+  const { toast, toastType, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
   const [query, setQuery] = useState('')
 
   const myCartQuery = useMyCart()
@@ -188,17 +188,33 @@ export default function StorefrontLayout() {
       </main>
 
       {toast && (
-        <div className="toast" role="status">
-          <CheckCircle2 size={19} />
-          <span>{toast}</span>
-          <button
-            onClick={() => {
-              hideToast()
-              openCart()
-            }}
-          >
-            Xem giỏ
-          </button>
+        <div className={`toast ${toastType === 'error' ? 'toast-error' : toastType === 'warning' ? 'toast-warning' : ''}`} role="status">
+          {toastType === 'error' ? (
+            <AlertCircle size={20} className="text-rose-300 shrink-0" />
+          ) : toastType === 'warning' ? (
+            <AlertTriangle size={20} className="text-amber-300 shrink-0" />
+          ) : (
+            <CheckCircle2 size={20} className="text-emerald-300 shrink-0" />
+          )}
+          <span className="flex-1">{toast}</span>
+          {(!toastType || toastType === 'success') && (
+            <button
+              onClick={() => {
+                hideToast()
+                openCart()
+              }}
+            >
+              Xem giỏ
+            </button>
+          )}
+          {(toastType === 'error' || toastType === 'warning') && (
+            <button
+              onClick={hideToast}
+              className="text-white/80 hover:text-white underline text-xs"
+            >
+              Đóng
+            </button>
+          )}
         </div>
       )}
 

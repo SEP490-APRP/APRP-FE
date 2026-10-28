@@ -5,6 +5,7 @@ import {
   useToggleBlogLike,
   useDeleteBlog,
   useUpdateBlogStatus,
+  useBlogFeedRealtime,
   BlogEditorModal,
   BlogArticleReaderModal,
   BlogCreateModal,
@@ -26,6 +27,9 @@ interface FarmerStoriesPageProps {
 export default function FarmerStoriesPage({ onInfo }: FarmerStoriesPageProps) {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
+
+  // Lắng nghe cập nhật realtime lượt Like & Bình luận toàn sàn
+  useBlogFeedRealtime()
 
   const isShopOrAdmin = useMemo(() => {
     const role = (user?.role || '').toUpperCase()
@@ -116,6 +120,7 @@ export default function FarmerStoriesPage({ onInfo }: FarmerStoriesPageProps) {
   // Interaction handlers
   const handleLike = (e: React.MouseEvent, blogId: number) => {
     e.stopPropagation()
+    if (toggleLikeMutation.isPending) return
     if (!user) {
       globalShowAlert(
         'Vui lòng đăng nhập để thả tim và lưu bài viết yêu thích.',

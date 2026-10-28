@@ -15,14 +15,24 @@ export type * from './healthProfile.types'
 export const healthProfileService = {
   // Lấy danh mục dị ứng
   async getAllergens(): Promise<Allergen[]> {
-    const res = await axiosInstance.get('/allergens')
-    return unwrap<Allergen[]>(res)
+    try {
+      const res = await axiosInstance.get('/catalogs/allergens')
+      return unwrap<Allergen[]>(res)
+    } catch {
+      const res = await axiosInstance.get('/allergens')
+      return unwrap<Allergen[]>(res)
+    }
   },
 
   // Lấy danh mục bệnh lý / tình trạng sức khỏe
   async getHealthConditions(): Promise<HealthCondition[]> {
-    const res = await axiosInstance.get('/health-conditions')
-    return unwrap<HealthCondition[]>(res)
+    try {
+      const res = await axiosInstance.get('/catalogs/health-conditions')
+      return unwrap<HealthCondition[]>(res)
+    } catch {
+      const res = await axiosInstance.get('/health-conditions')
+      return unwrap<HealthCondition[]>(res)
+    }
   },
 
   // Lấy hồ sơ sức khỏe hiện tại của Buyer

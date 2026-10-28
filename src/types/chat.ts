@@ -36,10 +36,14 @@ export interface ChatMessageRequest {
 }
 
 export interface ChatNotification {
-  type: 'NEW_MESSAGE' | 'READ_RECEIPT'
+  type: 'NEW_MESSAGE' | 'READ_RECEIPT' | 'UNREAD_COUNT' | 'DELETE_MESSAGE' | string
   conversationId: number
   senderId?: number
   senderName?: string
   content?: string
   unreadCount?: number
+  messageId?: number
+  conversationUnread?: number
+  newLastMessage?: string
+  newLastMessageTime?: string
 }

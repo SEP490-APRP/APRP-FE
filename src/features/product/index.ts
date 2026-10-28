@@ -25,6 +25,7 @@ export {
 export { ProductGrid } from './components/ProductGrid'
 export { ProductImageGalleryModal } from './components/ProductImageGalleryModal'
 export { EditProductModal } from './components/EditProductModal'
+export { DeleteProductModal } from './components/DeleteProductModal'
 export {
   productKeys,
   type ProductDetailData,

@@ -22,6 +22,7 @@ import {
   Ticket,
   Lock,
   MessageSquare,
+  HeartPulse,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
@@ -427,6 +428,28 @@ export default function Header({
                           <User size={16} />
                         </span>
                         <span>Hồ Sơ Cá Nhân</span>
+                      </a>
+
+                      <a
+                        href="/tai-khoan?tab=health"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+                          <HeartPulse size={16} />
+                        </span>
+                        <span>Dinh Dưỡng & Dị Ứng</span>
+                      </a>
+
+                      <a
+                        href="/change-password"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <Lock size={16} />
+                        </span>
+                        <span>Đổi mật khẩu</span>
                       </a>
 
 
@@ -1221,6 +1244,16 @@ export default function Header({
                       {unreadTotal}
                     </span>
                   )}
+                </a>
+
+                <a
+                  href="/tai-khoan?tab=health"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <HeartPulse size={14} className="text-rose-600" />
+                  <span>Dinh Dưỡng & Dị Ứng</span>
+
                 </a>
 
                 {user.role === 'admin' && (
