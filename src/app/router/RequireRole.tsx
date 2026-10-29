@@ -50,13 +50,28 @@ export default function RequireRole({
           title="Không có quyền truy cập"
           description={`Khu vực này chỉ dành riêng cho ${audience}. Tài khoản hiện tại (${user.name} - ${user.role.toUpperCase()}) không đủ quyền.`}
           action={
-            <div className="flex items-center justify-center gap-3 mt-4">
-              <LinkButton href="/" leftIcon={<Home size={15} />}>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+              {user.role?.toLowerCase() === 'shop' && (
+                <LinkButton href="/shop" leftIcon={<Home size={15} />}>
+                  Về Kênh Nhà Vườn
+                </LinkButton>
+              )}
+              {user.role?.toLowerCase() === 'shipper' && (
+                <LinkButton href="/shipper" leftIcon={<Home size={15} />}>
+                  Về Cổng Giao Hàng
+                </LinkButton>
+              )}
+              {user.role?.toLowerCase() === 'admin' && (
+                <LinkButton href="/admin" leftIcon={<Home size={15} />}>
+                  Về Trang Quản Trị
+                </LinkButton>
+              )}
+              <LinkButton href="/" variant="secondary" leftIcon={<Home size={15} />}>
                 Về trang chủ
               </LinkButton>
               <LinkButton
                 href={cleanLoginPath}
-                variant="secondary"
+                variant="outline"
                 leftIcon={<LogIn size={15} />}
               >
                 Đổi tài khoản

@@ -27,7 +27,7 @@ import {
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
-import { EditProductModal } from '@/features/product/components/EditProductModal'
+import { EditProductModal, DeleteProductModal } from '@/features/product'
 import Pagination from '@/components/ui/Pagination/Pagination'
 
 interface ProductsProps {
@@ -124,6 +124,9 @@ export default function Products({
     product: ProductResponse | null
   }>({ isOpen: false, product: null })
 
+  // Modal xác nhận tạm dừng / gỡ nông sản
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+
   // Lấy dữ liệu kho hàng của Shop từ BE (tải tối đa 100 mặt hàng mỗi loại để phân trang & lọc Client-side đồng nhất)
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
@@ -208,31 +211,31 @@ export default function Products({
   const displayItems: ProductResponse[] = hasApiData || comboItems.length > 0 || boxItems.length > 0
     ? allStoreItems
     : propProducts.map((p) => ({
-        id: Number(p.id) || 1,
-        productId: Number(p.id) || 1,
-        productName: p.name,
-        name: p.name,
-        sellingPrice: p.price,
-        price: p.price,
-        stockQuantity: p.stock,
-        stock: p.stock,
-        unit: p.unit || 'kg',
-        status: ((p.status as string) === 'Chờ duyệt'
-          ? 'PENDING'
-          : (p.status as string) === 'Đang bán'
-            ? 'ACTIVE'
-            : (p.status as string) === 'Bị từ chối'
-              ? 'REJECTED'
-              : 'INACTIVE') as any,
-        category: p.category as any,
-        categoryId: 1,
-        imageUrl: p.image,
-        image: p.image,
-        expiryDate: undefined,
-        rejectReason: undefined,
-        defectReason: undefined,
-        images: [],
-      }))
+      id: Number(p.id) || 1,
+      productId: Number(p.id) || 1,
+      productName: p.name,
+      name: p.name,
+      sellingPrice: p.price,
+      price: p.price,
+      stockQuantity: p.stock,
+      stock: p.stock,
+      unit: p.unit || 'kg',
+      status: ((p.status as string) === 'Chờ duyệt'
+        ? 'PENDING'
+        : (p.status as string) === 'Đang bán'
+          ? 'ACTIVE'
+          : (p.status as string) === 'Bị từ chối'
+            ? 'REJECTED'
+            : 'INACTIVE') as any,
+      category: p.category as any,
+      categoryId: 1,
+      imageUrl: p.image,
+      image: p.image,
+      expiryDate: undefined,
+      rejectReason: undefined,
+      defectReason: undefined,
+      images: [],
+    }))
 
   // Danh sách các mặt hàng phù hợp với trạng thái statusFilter đang chọn
   const itemsByStatus = displayItems.filter((p) => {
@@ -298,24 +301,30 @@ export default function Products({
     setPage(0)
   }
 
-  const handleDelete = async (p: any) => {
+  const isDeleting =
+    deleteMutation.isPending ||
+    deleteComboMutation.isPending ||
+    deleteMysteryBoxMutation.isPending
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    const p = deleteTarget
     const prodId = Number(p.id ?? p.productId)
     const prodName = p.productName || p.name || 'Sản phẩm'
-    if (window.confirm(`Bạn có chắc muốn tạm dừng/gỡ bỏ "${prodName}"?`)) {
-      try {
-        if (isComboItem(p)) {
-          await deleteComboMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Combo: ${prodName}`)
-        } else if (isBlindBoxItem(p)) {
-          await deleteMysteryBoxMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
-        } else {
-          await deleteMutation.mutateAsync(prodId)
-          onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
-        }
-      } catch (err: any) {
-        onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
+    try {
+      if (isComboItem(p)) {
+        await deleteComboMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Combo: ${prodName}`)
+      } else if (isBlindBoxItem(p)) {
+        await deleteMysteryBoxMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
+      } else {
+        await deleteMutation.mutateAsync(prodId)
+        onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
       }
+      setDeleteTarget(null)
+    } catch (err: any) {
+      onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
     }
   }
 
@@ -372,10 +381,10 @@ export default function Products({
             <button
               id="tour-products-combo-btn"
               type="button"
-              onClick={onOpenComboBuilder}
+              onClick={() => onOpenComboBuilder?.()}
               className="px-4 py-2 rounded-full bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
             >
-              Tạo Combo Món
+              Tạo Combo Nông Sản
             </button>
           )}
 
@@ -385,7 +394,7 @@ export default function Products({
             onClick={onOpenBlindBoxTool}
             className="px-4 py-2 rounded-full bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
           >
-            Tạo Túi Mù Blind Box
+            Tạo Túi Mù
           </button>
 
           <button
@@ -394,7 +403,6 @@ export default function Products({
             onClick={onOpenAddProduct}
             className="px-4 py-2 rounded-full bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-sm flex items-center gap-1 cursor-pointer transition-all"
           >
-            <Plus size={14} />
             <span>Đăng Bán Nông Sản</span>
           </button>
         </div>
@@ -408,55 +416,50 @@ export default function Products({
             <button
               type="button"
               onClick={() => handleStatusChange('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'ALL'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ALL'
                   ? 'bg-[#1c2216] text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Tất cả
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('ACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'ACTIVE'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ACTIVE'
                   ? 'bg-[#326318] text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Đang bán
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('PENDING')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'PENDING'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'PENDING'
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Chờ duyệt
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('REJECTED')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'REJECTED'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'REJECTED'
                   ? 'bg-red-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Từ chối
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('INACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'INACTIVE'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'INACTIVE'
                   ? 'bg-gray-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Tạm dừng
             </button>
@@ -485,44 +488,40 @@ export default function Products({
             <button
               type="button"
               onClick={() => handleTypeChange('ALL')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'ALL'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'ALL'
                   ? 'bg-[#1c2216] text-white'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
             >
               Tất cả ({itemsByStatus.length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('SINGLE')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'SINGLE'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'SINGLE'
                   ? 'bg-[#326318] text-white'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
             >
               Nông sản lẻ ({itemsByStatus.filter((p) => !isBlindBoxItem(p) && !isComboItem(p)).length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('MYSTERY_BOX')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'MYSTERY_BOX'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'MYSTERY_BOX'
                   ? 'bg-[#8a4e1d] text-white'
                   : 'bg-white border border-[#f5ddbd] text-[#8a4e1d] hover:bg-[#fdf5eb]'
-              }`}
+                }`}
             >
               Túi mù ({itemsByStatus.filter(isBlindBoxItem).length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('COMBO')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'COMBO'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'COMBO'
                   ? 'bg-[#195962] text-white'
                   : 'bg-white border border-[#cae4e7] text-[#195962] hover:bg-[#edf6f7]'
-              }`}
+                }`}
             >
               Combo ({itemsByStatus.filter(isComboItem).length})
             </button>
@@ -534,11 +533,10 @@ export default function Products({
               id="tour-products-category-filter-btn"
               type="button"
               onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${
-                categoryFilter !== 'ALL'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${categoryFilter !== 'ALL'
                   ? 'bg-[#326318] text-white border-[#326318] shadow-xs'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
               title="Lọc danh mục nông sản"
             >
               <Filter size={12} />
@@ -577,11 +575,10 @@ export default function Products({
                       handleCategoryChange('ALL')
                       setIsCategoryDropdownOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${
-                      categoryFilter === 'ALL'
+                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${categoryFilter === 'ALL'
                         ? 'text-[#326318] bg-[#f4f7f1] font-bold'
                         : 'text-[#2e3726]'
-                    }`}
+                      }`}
                   >
                     <span>Tất cả danh mục</span>
                     {categoryFilter === 'ALL' && <Check size={12} className="text-[#326318]" />}
@@ -595,11 +592,10 @@ export default function Products({
                         handleCategoryChange(c.categoryId)
                         setIsCategoryDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${
-                        categoryFilter === c.categoryId
+                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${categoryFilter === c.categoryId
                           ? 'text-[#326318] bg-[#f4f7f1] font-bold'
                           : 'text-[#2e3726]'
-                      }`}
+                        }`}
                     >
                       <span className="truncate">{c.name}</span>
                       {categoryFilter === c.categoryId && (
@@ -679,7 +675,7 @@ export default function Products({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm font-black text-[#1c2216]">{prodName}</h4>
-                        
+
                         {isBlindBoxItem(p) ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#fdf5eb] text-[#8a4e1d] border border-[#f5ddbd]">
                             Túi Mù
@@ -758,7 +754,7 @@ export default function Products({
                       {/* Nút Xóa / Tạm dừng */}
                       <button
                         type="button"
-                        onClick={() => handleDelete(p)}
+                        onClick={() => setDeleteTarget(p)}
                         title="Tạm dừng / Gỡ sản phẩm"
                         className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
                       >
@@ -828,6 +824,19 @@ export default function Products({
           onInfo={onInfo}
         />
       )}
+
+      {/* Delete / Pause Product Modal */}
+      <DeleteProductModal
+        isOpen={deleteTarget !== null}
+        item={deleteTarget}
+        isDeleting={isDeleting}
+        isCombo={deleteTarget ? isComboItem(deleteTarget) : false}
+        isBlindBox={deleteTarget ? isBlindBoxItem(deleteTarget) : false}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null)
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

@@ -1,8 +1,9 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag,
   Store,
+  ChevronRight,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react'
@@ -161,13 +162,19 @@ export const CartView: React.FC = () => {
                       checked={isShopAllSelected}
                       onChange={() => toggleSelectShop(shop.items)}
                       className="w-4 h-4 rounded text-[#326318] focus:ring-[#326318] accent-[#326318] cursor-pointer"
+                      aria-label={`Chọn tất cả sản phẩm của ${shop.shopName}`}
                     />
-                    <div className="flex items-center gap-2">
-                      <Store size={18} className="text-[#326318]" />
-                      <span className="font-semibold text-ink text-sm">
+                    <Link
+                      to={`/cua-hang/${shop.shopId}`}
+                      className="flex items-center gap-2 group cursor-pointer hover:underline"
+                      title={`Xem gian hàng ${shop.shopName}`}
+                    >
+                      <Store size={18} className="text-[#326318] group-hover:scale-110 transition-transform" />
+                      <span className="font-semibold text-ink text-sm group-hover:text-[#326318] transition-colors">
                         {shop.shopName}
                       </span>
-                    </div>
+                      <ChevronRight size={15} className="text-stone-400 group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all" />
+                    </Link>
                   </div>
                   <span className="text-xs text-ink-muted">
                     {shop.items.length} món

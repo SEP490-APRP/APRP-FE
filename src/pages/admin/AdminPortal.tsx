@@ -293,7 +293,12 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
           </Button>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main
+          className={cn(
+            'flex-1 min-h-0',
+            tab === 'messages' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto',
+          )}
+        >
           {/* key={tab}: mỗi tab mount mới, không giữ state lỗi của tab trước */}
           <Suspense key={tab} fallback={<AdminPageSkeleton />}>
             <Page />

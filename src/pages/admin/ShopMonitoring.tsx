@@ -11,6 +11,8 @@ import {
   Eye,
   Mail,
   Store,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react'
 import type { UserResponse } from '@/services'
 import { useFetchUser, useSetUserActive, useUsersByRole } from '@/features/user'
@@ -223,7 +225,7 @@ const ShopMonitoring: React.FC = () => {
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-4">
                         <div className="size-10 bg-gray-50 rounded-2xl flex items-center justify-center text-primary">
-                          <span className="material-symbols-outlined">storefront</span>
+                          <Store className="size-5" />
                         </div>
                         <div>
                           <p className="text-sm font-black text-gray-900">
@@ -358,7 +360,7 @@ const ShopMonitoring: React.FC = () => {
                         />
                       ) : (
                         <div className="size-20 rounded-3xl bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0">
-                          <span className="material-symbols-outlined text-[40px]">storefront</span>
+                          <Store className="size-10" />
                         </div>
                       )}
                       <div>
@@ -471,8 +473,7 @@ const ShopMonitoring: React.FC = () => {
                     {selectedShop.achievement && (
                       <div>
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[14px]">folder_open</span>{' '}
-                          Giấy tờ / Chứng nhận
+                          <FolderOpen className="size-3.5" /> Giấy tờ / Chứng nhận
                         </h4>
                         <a
                           href={selectedShop.achievement}
@@ -488,10 +489,7 @@ const ShopMonitoring: React.FC = () => {
                             />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="text-white font-bold bg-black/50 px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-sm">
-                                  open_in_new
-                                </span>{' '}
-                                Phóng to
+                                <ExternalLink className="size-3.5" /> Phóng to
                               </span>
                             </div>
                           </div>

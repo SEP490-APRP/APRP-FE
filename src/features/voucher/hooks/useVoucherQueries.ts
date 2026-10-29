@@ -26,20 +26,25 @@ async function fetchShopVouchers(
   // API có thể trả mảng hoặc trang phân trang.
   const content: VoucherResponse[] = Array.isArray(result) ? result : (result?.content ?? [])
   const totalPages = Array.isArray(result) ? 1 : (result?.totalPages ?? 0)
-  const vouchers = content.filter((v) => Number(v.shopId) === shopId || v.creatorRole === 'SHOP')
+  const vouchers = content.filter((v) => Number(v.shopId) === Number(shopId))
   if (!signedIn || vouchers.length === 0) return { vouchers, totalPages, canReceive: {} }
 
-  const statuses = await Promise.all(
-    vouchers.map(async (v) => {
-      try {
-        const res = await voucherService.canReceiveVoucher(v.voucherCode)
-        return [v.voucherCode, Boolean(res.result)] as const
-      } catch {
-        return [v.voucherCode, false] as const
-      }
-    }),
-  )
-  return { vouchers, totalPages, canReceive: Object.fromEntries(statuses) }
+  try {
+    const myVouchers = await voucherService.getMyVouchers()
+    const ownedCodes = new Set(
+      (myVouchers || []).map((v) => v.voucherCode?.trim().toUpperCase()),
+    )
+    const canReceive = Object.fromEntries(
+      vouchers.map((v) => [
+        v.voucherCode,
+        !ownedCodes.has(v.voucherCode?.trim().toUpperCase()),
+      ]),
+    )
+    return { vouchers, totalPages, canReceive }
+  } catch {
+    const canReceive = Object.fromEntries(vouchers.map((v) => [v.voucherCode, true]))
+    return { vouchers, totalPages, canReceive }
+  }
 }
 
 /** Voucher của một shop (chỉ loại SHOP), kèm trạng thái "còn nhận được" khi đã đăng nhập. */

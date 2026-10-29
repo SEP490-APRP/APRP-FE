@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
-import { CheckCircle2, Info } from 'lucide-react'
+import { CheckCircle2, Info, AlertCircle, AlertTriangle } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
@@ -9,6 +9,7 @@ import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
 import { cartCount, useAuth, useCartStore, useUiStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
+import { FloatingChatWidget } from '@/components/chat/FloatingChatWidget'
 
 export type StorefrontContext = {
   cart: Cart
@@ -27,6 +28,7 @@ function headerRoute(pathname: string): string {
   if (/^\/(nong-san-tuoi|san-pham|cua-hang)/.test(pathname)) return '/nong-san-tuoi'
   if (pathname.startsWith('/combo-tui-mu')) return '/combo-tui-mu'
   if (pathname.startsWith('/cong-nghe-ai')) return '/cong-nghe-ai'
+  if (pathname.startsWith('/ke-hoach-an-uong')) return '/ke-hoach-an-uong'
   if (pathname.startsWith('/cau-chuyen-nong-dan')) return '/cau-chuyen-nong-dan'
   if (/^\/(dang-nhap|dang-ky)/.test(pathname)) return '/dang-nhap'
   return pathname
@@ -56,7 +58,7 @@ export default function StorefrontLayout() {
   }, [user?.id])
   const cart = useCartStore((s) => s.items)
   const changeQuantity = useCartStore((s) => s.changeQuantity)
-  const { toast, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
+  const { toast, toastType, info, cartOpen, showToast, hideToast, showInfo, hideInfo, openCart } = useUiStore()
   const [query, setQuery] = useState('')
 
   const myCartQuery = useMyCart()
@@ -130,7 +132,7 @@ export default function StorefrontLayout() {
     <div className="min-h-screen flex flex-col bg-paper-warm">
       <a
         href="#main-content"
-        className="skip-link"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-leaf-700 focus:text-white focus:rounded-xl focus:shadow-xl focus:font-bold focus:outline-none"
         onClick={(e) => {
           e.preventDefault()
           document.getElementById('main-content')?.focus()
@@ -161,21 +163,38 @@ export default function StorefrontLayout() {
       </main>
 
       {toast && (
-        <div className="toast" role="status">
-          <CheckCircle2 size={19} />
-          <span>{toast}</span>
-          <button
-            onClick={() => {
-              hideToast()
-              openCart()
-            }}
-          >
-            Xem giỏ
-          </button>
+        <div className={`toast ${toastType === 'error' ? 'toast-error' : toastType === 'warning' ? 'toast-warning' : ''}`} role="status">
+          {toastType === 'error' ? (
+            <AlertCircle size={20} className="text-rose-300 shrink-0" />
+          ) : toastType === 'warning' ? (
+            <AlertTriangle size={20} className="text-amber-300 shrink-0" />
+          ) : (
+            <CheckCircle2 size={20} className="text-emerald-300 shrink-0" />
+          )}
+          <span className="flex-1">{toast}</span>
+          {(!toastType || toastType === 'success') && (
+            <button
+              onClick={() => {
+                hideToast()
+                openCart()
+              }}
+            >
+              Xem giỏ
+            </button>
+          )}
+          {(toastType === 'error' || toastType === 'warning') && (
+            <button
+              onClick={hideToast}
+              className="text-white/80 hover:text-white underline text-xs"
+            >
+              Đóng
+            </button>
+          )}
         </div>
       )}
 
       {cartOpen && <CartModal />}
+      <FloatingChatWidget />
 
       {info && (
         <Modal title={info} onClose={hideInfo}>

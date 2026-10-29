@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ShieldCheck,
   UserCheck,
@@ -8,6 +9,13 @@ import {
   FileText,
   Landmark,
   AlertCircle,
+  Clock,
+  X,
+  Phone,
+  Store,
+  Truck,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react'
 import type { UserResponse } from '@/services'
 import { useApproveKyc, useUsersByRole } from '@/features/user'
@@ -37,6 +45,16 @@ const KYCApproval: React.FC = () => {
         ? 'Duyệt hồ sơ thất bại. Vui lòng thử lại sau.'
         : null
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && viewingUser) {
+        setViewingUser(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [viewingUser])
+
   const handleApprove = (userId: number, roleName: string) => {
     approve.mutate({ userId, roleName })
   }
@@ -64,8 +82,8 @@ const KYCApproval: React.FC = () => {
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-white p-4 rounded-[28px] border border-gray-100 shadow-sm flex items-center gap-4 pr-10">
-            <div className="size-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-              <span className="material-symbols-outlined">assignment_ind</span>
+            <div className="size-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+              <Clock className="size-5" />
             </div>
             <div>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -77,8 +95,8 @@ const KYCApproval: React.FC = () => {
             </div>
           </div>
           <div className="bg-white p-4 rounded-[28px] border border-gray-100 shadow-sm flex items-center gap-4 pr-10">
-            <div className="size-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-              <span className="material-symbols-outlined">verified_user</span>
+            <div className="size-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+              <ShieldCheck className="size-5" />
             </div>
             <div>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -353,259 +371,267 @@ const KYCApproval: React.FC = () => {
         </div>
       </div>
       {/* Modal chi tiết hồ sơ */}
-      {viewingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm shadow-2xl animate-in fade-in">
-          <div className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <button
-              onClick={() => setViewingUser(null)}
-              className="absolute top-6 right-6 size-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+      {viewingUser &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm shadow-2xl animate-in fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewingUser(null)
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
             >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+              <button
+                onClick={() => setViewingUser(null)}
+                className="absolute top-6 right-6 size-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
 
-            <div className="p-10 border-b border-gray-100">
-              <div className="flex items-center gap-6">
-                <img
-                  src={getImageUrl(viewingUser.logoUrl)}
-                  className="size-24 rounded-3xl object-cover shadow-md bg-gray-50"
-                  alt="Avatar"
-                />
+              <div className="p-10 border-b border-gray-100">
+                <div className="flex items-center gap-6">
+                  <img
+                    src={getImageUrl(viewingUser.logoUrl)}
+                    className="size-24 rounded-3xl object-cover shadow-md bg-gray-50"
+                    alt="Avatar"
+                  />
+                  <div>
+                    <span
+                      className={`inline-block mb-2 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${viewingUser.role?.name === 'SHOP' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}
+                    >
+                      {viewingUser.role?.name === 'SHOP' ? 'Nhà vườn' : 'Shipper'}
+                    </span>
+                    <h3 className="text-3xl font-black text-gray-900 tracking-tight">
+                      {viewingUser.fullName || 'Người dùng Xấu Mã'}
+                    </h3>
+                    <p className="text-gray-500 font-medium text-sm mt-1">{viewingUser.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-10 space-y-8">
+                {/* Thông tin liên hệ */}
                 <div>
-                  <span
-                    className={`inline-block mb-2 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${viewingUser.role?.name === 'SHOP' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}
-                  >
-                    {viewingUser.role?.name === 'SHOP' ? 'Nhà vườn' : 'Shipper'}
-                  </span>
-                  <h3 className="text-3xl font-black text-gray-900 tracking-tight">
-                    {viewingUser.fullName || 'Người dùng Xấu Mã'}
-                  </h3>
-                  <p className="text-gray-500 font-medium text-sm mt-1">{viewingUser.email}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-10 space-y-8">
-              {/* Thông tin liên hệ */}
-              <div>
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">contact_phone</span> Thông
-                  tin liên hệ
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      SỐ ĐIỆN THOẠI
-                    </p>
-                    <p className="font-bold text-gray-900 mt-1">
-                      {viewingUser.phoneNumber || 'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      ĐỊA CHỈ
-                    </p>
-                    <p className="font-bold text-gray-900 mt-1">{viewingUser.address || 'N/A'}</p>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Phone className="size-4" /> Thông tin liên hệ
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        SỐ ĐIỆN THOẠI
+                      </p>
+                      <p className="font-bold text-gray-900 mt-1">
+                        {viewingUser.phoneNumber || 'N/A'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        ĐỊA CHỈ
+                      </p>
+                      <p className="font-bold text-gray-900 mt-1">
+                        {viewingUser.address || 'N/A'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Thông tin Cửa hàng / Shipper */}
-              <div>
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">
-                    {viewingUser.role?.name === 'SHOP' ? 'store' : 'local_shipping'}
-                  </span>
-                  {viewingUser.role?.name === 'SHOP'
-                    ? 'Thông tin cửa hàng'
-                    : 'Thông tin hoạt động'}
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {viewingUser.role?.name === 'SHOP' ? (
-                    <>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                {/* Thông tin Cửa hàng / Shipper */}
+                <div>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    {viewingUser.role?.name === 'SHOP' ? (
+                      <Store className="size-4" />
+                    ) : (
+                      <Truck className="size-4" />
+                    )}
+                    {viewingUser.role?.name === 'SHOP'
+                      ? 'Thông tin cửa hàng'
+                      : 'Thông tin hoạt động'}
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewingUser.role?.name === 'SHOP' ? (
+                      <>
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            TÊN CỬA HÀNG
+                          </p>
+                          <p className="font-bold text-gray-900 mt-1">
+                            {viewingUser.shopName || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            MÔ TẢ
+                          </p>
+                          <p className="font-bold text-gray-900 mt-1 line-clamp-2">
+                            {viewingUser.description || 'N/A'}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            BẰNG LÁI / CCCD
+                          </p>
+                          <p className="font-bold text-gray-900 mt-1">
+                            {viewingUser.license || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            BIỂN SỐ XE
+                          </p>
+                          <p className="font-bold text-gray-900 mt-1">
+                            {viewingUser.vehicleNumber || 'N/A'}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ngân hàng */}
+                <div>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Landmark className="size-4" /> Thông tin thanh toán
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          TÊN CỬA HÀNG
+                          NGÂN HÀNG
                         </p>
                         <p className="font-bold text-gray-900 mt-1">
-                          {viewingUser.shopName || 'N/A'}
+                          {viewingUser.bankName || 'N/A'}
                         </p>
                       </div>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          MÔ TẢ
+                          SỐ TÀI KHOẢN
                         </p>
-                        <p className="font-bold text-gray-900 mt-1 line-clamp-2">
-                          {viewingUser.description || 'N/A'}
+                        <p className="font-bold text-gray-900 mt-1">
+                          {viewingUser.bankAccount || 'N/A'}
                         </p>
                       </div>
-                    </>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          CHỦ TÀI KHOẢN
+                        </p>
+                        <p className="font-bold text-gray-900 mt-1">
+                          {viewingUser.bankAccountHolder || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Giấy tờ chứng chỉ */}
+                <div>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <FolderOpen className="size-4" /> Tài liệu đính kèm
+                  </h4>
+                  {viewingUser.role?.name === 'SHIPPER' ? (
+                    (() => {
+                      const docs = [
+                        { url: viewingUser.licenseImageUrl, label: 'Bằng lái xe / CCCD' },
+                        { url: viewingUser.logoUrl, label: 'Ảnh chân dung' },
+                        { url: viewingUser.vehicleDocImageUrl, label: 'Giấy tờ xe' },
+                      ].filter((d) => d.url)
+                      if (docs.length === 0) {
+                        return (
+                          <div className="bg-gray-50 border border-gray-100 border-dashed rounded-2xl p-6 text-center">
+                            <p className="text-gray-400 font-bold text-sm">
+                              Chưa tải lên chứng chỉ/hoặc giấy phép
+                            </p>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {docs.map((doc) => (
+                            <a
+                              key={doc.label}
+                              href={getImageUrl(doc.url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block w-full"
+                            >
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                                {doc.label}
+                              </p>
+                              <div className="h-40 w-full bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative group">
+                                <img
+                                  src={getImageUrl(doc.url)}
+                                  className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-500"
+                                  alt={doc.label}
+                                />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2 text-xs">
+                                    <ExternalLink className="size-3.5" /> Xem đầy đủ
+                                  </span>
+                                </div>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      )
+                    })()
+                  ) : viewingUser.achievement ? (
+                    <a
+                      href={getImageUrl(viewingUser.achievement)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full"
+                    >
+                      <div className="h-48 w-full bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative group">
+                        <img
+                          src={getImageUrl(viewingUser.achievement)}
+                          className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-500"
+                          alt="Chứng chỉ"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2">
+                            <ExternalLink className="size-4" /> Mở xem toàn màn hình
+                          </span>
+                        </div>
+                      </div>
+                    </a>
                   ) : (
-                    <>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          BẰNG LÁI / CCCD
-                        </p>
-                        <p className="font-bold text-gray-900 mt-1">
-                          {viewingUser.license || 'N/A'}
-                        </p>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          BIỂN SỐ XE
-                        </p>
-                        <p className="font-bold text-gray-900 mt-1">
-                          {viewingUser.vehicleNumber || 'N/A'}
-                        </p>
-                      </div>
-                    </>
+                    <div className="bg-gray-50 border border-gray-100 border-dashed rounded-2xl p-6 text-center">
+                      <p className="text-gray-400 font-bold text-sm">
+                        Chưa tải lên chứng chỉ/hoặc giấy phép
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Ngân hàng */}
-              <div>
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">account_balance</span>{' '}
-                  Thông tin thanh toán
-                </h4>
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        NGÂN HÀNG
-                      </p>
-                      <p className="font-bold text-gray-900 mt-1">
-                        {viewingUser.bankName || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        SỐ TÀI KHOẢN
-                      </p>
-                      <p className="font-bold text-gray-900 mt-1">
-                        {viewingUser.bankAccount || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        CHỦ TÀI KHOẢN
-                      </p>
-                      <p className="font-bold text-gray-900 mt-1">
-                        {viewingUser.bankAccountHolder || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Giấy tờ chứng chỉ */}
-              <div>
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">folder_open</span> Tài
-                  liệu đính kèm
-                </h4>
-                {viewingUser.role?.name === 'SHIPPER' ? (
-                  (() => {
-                    const docs = [
-                      { url: viewingUser.licenseImageUrl, label: 'Bằng lái xe / CCCD' },
-                      { url: viewingUser.logoUrl, label: 'Ảnh chân dung' },
-                      { url: viewingUser.vehicleDocImageUrl, label: 'Giấy tờ xe' },
-                    ].filter((d) => d.url)
-                    if (docs.length === 0) {
-                      return (
-                        <div className="bg-gray-50 border border-gray-100 border-dashed rounded-2xl p-6 text-center">
-                          <p className="text-gray-400 font-bold text-sm">
-                            Chưa tải lên chứng chỉ/hoặc giấy phép
-                          </p>
-                        </div>
-                      )
+              <div className="p-10 border-t border-gray-100 bg-gray-50/50 rounded-b-[40px] flex justify-end gap-4">
+                <button
+                  onClick={() => setViewingUser(null)}
+                  className="px-6 py-4 bg-white border border-gray-200 text-gray-700 text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm cursor-pointer"
+                >
+                  ĐÓNG LẠI
+                </button>
+                <button
+                  onClick={() => {
+                    if (viewingUser.id && viewingUser.role?.name) {
+                      handleApprove(viewingUser.id, viewingUser.role.name)
+                      setViewingUser(null)
                     }
-                    return (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {docs.map((doc) => (
-                          <a
-                            key={doc.label}
-                            href={getImageUrl(doc.url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-full"
-                          >
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
-                              {doc.label}
-                            </p>
-                            <div className="h-40 w-full bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative group">
-                              <img
-                                src={getImageUrl(doc.url)}
-                                className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-500"
-                                alt={doc.label}
-                              />
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2 text-xs">
-                                  <span className="material-symbols-outlined text-sm">
-                                    open_in_new
-                                  </span>{' '}
-                                  Xem đầy đủ
-                                </span>
-                              </div>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    )
-                  })()
-                ) : viewingUser.achievement ? (
-                  <a
-                    href={getImageUrl(viewingUser.achievement)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full"
-                  >
-                    <div className="h-48 w-full bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative group">
-                      <img
-                        src={getImageUrl(viewingUser.achievement)}
-                        className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-500"
-                        alt="Chứng chỉ"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2">
-                          <span className="material-symbols-outlined text-sm">open_in_new</span> Mở
-                          xem toàn màn hình
-                        </span>
-                      </div>
-                    </div>
-                  </a>
-                ) : (
-                  <div className="bg-gray-50 border border-gray-100 border-dashed rounded-2xl p-6 text-center">
-                    <p className="text-gray-400 font-bold text-sm">
-                      Chưa tải lên chứng chỉ/hoặc giấy phép
-                    </p>
-                  </div>
-                )}
+                  }}
+                  className="px-8 py-4 bg-emerald-600 text-white text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
+                >
+                  DUYỆT HỒ SƠ NÀY
+                </button>
               </div>
             </div>
-
-            <div className="p-10 border-t border-gray-100 bg-gray-50/50 rounded-b-[40px] flex justify-end gap-4">
-              <button
-                onClick={() => setViewingUser(null)}
-                className="px-6 py-4 bg-white border border-gray-200 text-gray-700 text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm"
-              >
-                ĐÓNG LẠI
-              </button>
-              <button
-                onClick={() => {
-                  if (viewingUser.id && viewingUser.role?.name) {
-                    handleApprove(viewingUser.id, viewingUser.role.name)
-                    setViewingUser(null)
-                  }
-                }}
-                className="px-8 py-4 bg-emerald-600 text-white text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
-              >
-                DUYỆT HỒ SƠ NÀY
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

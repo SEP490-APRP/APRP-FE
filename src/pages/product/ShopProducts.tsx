@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Grid,
   List,
-  Filter,
   Star,
   ShoppingCart,
   Heart,
@@ -22,9 +21,17 @@ import {
   X,
   ThumbsUp,
   ThumbsDown,
+  Sparkles,
+  Info,
+  ChevronRight,
+  Store,
+  Leaf,
+  CheckCircle2,
+  Award,
+  Filter,
 } from 'lucide-react'
-const Facebook = ({ className }: { className?: string }) => (<svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>);
 
+import freshFarmerBanner from '@/assets/fresh-farmer-banner.jpg'
 import { useAddToCart } from '@/features/cart'
 import { useShopMysteryBoxes } from '@/features/mystery-box'
 import { useShopProducts } from '@/features/product'
@@ -35,12 +42,20 @@ import { globalShowAlert } from '@/components/common/Popup'
 import { absoluteUrl, getErrorMessage } from '@/utils'
 import { CapNongLoading } from '@/components/ui/Loading'
 
+const Facebook = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+)
+
 interface ShopProductsProps {
   shopId: number
   onBack: () => void
   isAuthenticated?: boolean
   onOpenLogin?: () => void
 }
+
+type TabType = 'products' | 'mystery-boxes' | 'reviews' | 'about'
 
 const ShopProducts: React.FC<ShopProductsProps> = ({
   shopId,
@@ -49,25 +64,29 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   onOpenLogin = () => {},
 }) => {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<TabType>('products')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [onlyInStock, setOnlyInStock] = useState(false)
   const [sortBy, setSortBy] = useState('default')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isFollowing, setIsFollowing] = useState(false)
 
   const productsQuery = useShopProducts(shopId)
   const shopQuery = useUser(shopId)
   const reviewsQuery = useShopReviews(shopId)
   const boxesQuery = useShopMysteryBoxes(shopId)
+
   const products = productsQuery.data ?? []
   const shopInfo = shopQuery.data ?? null
   const reviews = reviewsQuery.data ?? []
   const mysteryBoxes = boxesQuery.data ?? []
-  // Như bản cũ: chờ đủ 4 nguồn; nguồn nào lỗi thì coi như rỗng.
+
   const loading =
     productsQuery.isPending || shopQuery.isPending || reviewsQuery.isPending || boxesQuery.isPending
 
-  const vouchersQuery = useShopVouchers(shopId, 0, 3, isAuthenticated)
+  const vouchersQuery = useShopVouchers(shopId, 0, 4, isAuthenticated)
   const shopVouchers = vouchersQuery.data?.vouchers ?? []
   const canReceiveMap = vouchersQuery.data?.canReceive ?? {}
   const voucherLoading = vouchersQuery.isFetching
@@ -145,6 +164,28 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     }
   }
 
+  const handleToggleFollow = () => {
+    if (!isAuthenticated) {
+      onOpenLogin()
+      return
+    }
+    setIsFollowing((prev) => {
+      const next = !prev
+      globalShowAlert(
+        next ? `Đã theo dõi ${shopName}!` : `Đã hủy theo dõi ${shopName}.`,
+        'Thông báo',
+        'info',
+      )
+      return next
+    })
+  }
+
+  const shopName =
+    shopInfo?.shopName ||
+    shopInfo?.fullName ||
+    (products.length > 0 ? products[0].shopName : null) ||
+    'Nhà Vườn Nông Sản'
+
   const handleChatNow = () => {
     if (!isAuthenticated) {
       onOpenLogin()
@@ -157,46 +198,63 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     )
   }
 
-  // Filter and sort products
-  let filteredProducts = products
-
-  if (sortBy === 'asc') {
-    filteredProducts = [...filteredProducts].sort(
-      (a, b) =>
-        (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0) -
-        (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0),
-    )
-  } else if (sortBy === 'desc') {
-    filteredProducts = [...filteredProducts].sort(
-      (a, b) =>
-        (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0) -
-        (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0),
-    )
-  } else if (sortBy === 'name') {
-    filteredProducts = [...filteredProducts].sort((a, b) =>
-      a.productName.localeCompare(b.productName),
-    )
+  const getCategoryName = (p: any): string => {
+    if (!p?.category) return ''
+    if (typeof p.category === 'string') return p.category
+    return p.category.name || ''
   }
 
-  const activeProducts = products.filter(
-    (p) => (p.stockKg ?? p.stockQuantity ?? p.stock ?? 0) > 0,
-  ).length
+  // Filter and sort products
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>()
+    products.forEach((p) => {
+      const cat = getCategoryName(p)
+      if (cat) set.add(cat)
+    })
+    return Array.from(set)
+  }, [products])
 
-  // Calculate average rating
+  const filteredProducts = useMemo(() => {
+    let list = [...products]
+
+    if (selectedCategory) {
+      list = list.filter((p) => getCategoryName(p) === selectedCategory)
+    }
+
+    if (onlyInStock) {
+      list = list.filter((p) => (p.stockKg ?? p.stockQuantity ?? p.stock ?? 0) > 0)
+    }
+
+    if (sortBy === 'asc') {
+      list.sort(
+        (a, b) =>
+          (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0) -
+          (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0),
+      )
+    } else if (sortBy === 'desc') {
+      list.sort(
+        (a, b) =>
+          (b.pricePerKg ?? b.sellingPrice ?? b.price ?? 0) -
+          (a.pricePerKg ?? a.sellingPrice ?? a.price ?? 0),
+      )
+    } else if (sortBy === 'name') {
+      list.sort((a, b) => a.productName.localeCompare(b.productName))
+    }
+
+    return list
+  }, [products, selectedCategory, onlyInStock, sortBy])
+
+  const activeProducts = useMemo(() => {
+    return products.filter((p) => (p.stockKg ?? p.stockQuantity ?? p.stock ?? 0) > 0).length
+  }, [products])
+
   const calculateAverageRating = () => {
-    if (reviews.length === 0) return 0
+    if (reviews.length === 0) return '0.0'
     const sum = reviews.reduce((acc, rev) => acc + rev.ratingStar, 0)
     return (sum / reviews.length).toFixed(1)
   }
 
   const averageRating = calculateAverageRating()
-
-  // Get shop name from shopInfo first, then from first product, then fallback
-  const shopName =
-    shopInfo?.shopName ||
-    shopInfo?.fullName ||
-    (products.length > 0 ? products[0].shopName : null) ||
-    'Cửa hàng'
 
   if (loading) {
     return (
@@ -207,37 +265,58 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     )
   }
 
+  const shopAvatar =
+    shopInfo?.logoUrl ||
+    shopInfo?.avatar ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(shopName)}&background=326318&color=fff&size=200&bold=true`
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold text-sm transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            Quay lại
-          </button>
-          <h3 className="font-black text-gray-900 text-lg">{shopName}</h3>
-          <div className="flex gap-2">
+    <div className="min-h-screen bg-paper pb-24 font-sans text-ink">
+      {/* 1. Breadcrumb Bar */}
+      <div className="bg-white/90 border-b border-line backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between text-xs">
+          <nav className="flex items-center gap-1.5 text-ink-muted truncate">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1 font-bold text-leaf-700 hover:text-leaf-800 transition-colors mr-2 cursor-pointer"
+            >
+              <ArrowLeft className="size-3.5" />
+              <span>Quay lại</span>
+            </button>
+            <span className="cursor-pointer hover:text-leaf-700" onClick={() => navigate('/')}>
+              Trang chủ
+            </span>
+            <ChevronRight className="size-3 text-line-strong shrink-0" />
+            <span
+              className="cursor-pointer hover:text-leaf-700"
+              onClick={() => navigate('/nong-san-tuoi')}
+            >
+              Nhà vườn
+            </span>
+            <ChevronRight className="size-3 text-line-strong shrink-0" />
+            <span className="font-bold text-ink truncate">{shopName}</span>
+          </nav>
+
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-gray-100 text-gray-400'
+                  ? 'bg-leaf-50 text-leaf-700 border border-leaf-200'
+                  : 'text-ink-muted hover:bg-paper hover:text-ink'
               }`}
+              title="Xem dạng lưới"
             >
               <Grid className="size-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-gray-100 text-gray-400'
+                  ? 'bg-leaf-50 text-leaf-700 border border-leaf-200'
+                  : 'text-ink-muted hover:bg-paper hover:text-ink'
               }`}
+              title="Xem dạng danh sách"
             >
               <List className="size-4" />
             </button>
@@ -245,481 +324,664 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
         </div>
       </div>
 
-      {/* Shop Info Card */}
-      <div className="bg-gradient-to-br from-green-50 to-blue-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Shop Avatar */}
-            <div className="size-20 rounded-2xl overflow-hidden bg-gradient-to-br from-green-100 to-blue-100 flex-shrink-0 border-4 border-white shadow-lg">
-              <img
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(shopName)}&background=63b34a&color=fff&size=200&bold=true`}
-                alt={shopName}
-                className="w-full h-full object-cover"
-              />
+      {/* 2. Farm Cover Banner */}
+      <div className="relative w-full h-52 sm:h-64 md:h-72 overflow-hidden bg-leaf-900">
+        <img
+          src={freshFarmerBanner}
+          alt={`Cảnh quan nông trại của ${shopName}`}
+          className="w-full h-full object-cover object-center scale-105"
+        />
+        <div
+          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20"
+          aria-hidden
+        />
+        <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-white/90 text-xs font-semibold border border-white/20">
+          <Leaf className="size-3.5 text-sun-300" />
+          <span>Nông Trại Canh Tác Hữu Cơ CapNong</span>
+        </div>
+      </div>
+
+      {/* 3. Floating Farm Profile Identity Card */}
+      <div className="max-w-7xl mx-auto px-4 -mt-16 sm:-mt-20 relative z-20">
+        <div className="bg-white rounded-3xl border border-line p-5 sm:p-7 shadow-card">
+          <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+            {/* Avatar & Main Info */}
+            <div className="flex flex-col sm:flex-row gap-5 items-start">
+              <div className="size-24 sm:size-28 rounded-2xl overflow-hidden bg-paper-warm border-4 border-white shadow-md shrink-0 relative group">
+                <img
+                  src={shopAvatar}
+                  alt={shopName}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute bottom-1 right-1 size-5 bg-leaf-700 text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+                  <ShieldCheck className="size-3" />
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h1 className="text-xl sm:text-2xl font-black text-ink tracking-tight">
+                    {shopName}
+                  </h1>
+                  {shopInfo?.status === 'ACTIVE' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-leaf-50 text-leaf-700 border border-leaf-200">
+                      <ShieldCheck className="size-3.5" />
+                      Đã xác thực
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sun-100 text-soil-700 border border-sun-300/40">
+                    <Award className="size-3.5" />
+                    Chuẩn VietGAP
+                  </span>
+                </div>
+
+                {shopInfo?.address && (
+                  <p className="flex items-center gap-1 text-xs text-ink-muted font-medium mb-3">
+                    <MapPin className="size-3.5 text-soil-600 shrink-0" />
+                    <span>{shopInfo.address}</span>
+                  </p>
+                )}
+
+                {shopInfo?.description ? (
+                  <p className="text-xs text-ink-muted leading-relaxed line-clamp-2 max-w-2xl bg-paper-warm/80 px-3 py-2 rounded-xl border border-line">
+                    {shopInfo.description}
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink-muted italic">
+                    Chuyên cung cấp rau củ quả, trái cây tươi sạch trực tiếp từ vườn thu hoạch trong
+                    ngày.
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Shop Info */}
-            <div className="flex-1">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <div>
-                  <h2 className="text-2xl font-black text-gray-900 mb-1">{shopName}</h2>
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    {shopInfo?.status === 'ACTIVE' && (
-                      <span className="flex items-center gap-1 text-primary font-bold">
-                        <ShieldCheck className="size-3.5" />
-                        Đã xác thực
-                      </span>
-                    )}
-                    {shopInfo?.address && (
-                      <span className="flex items-center gap-1 text-gray-600 font-medium">
-                        <MapPin className="size-3.5" />
-                        {shopInfo.address}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button className="text-red-500 hover:scale-110 transition-transform">
-                  <Heart className="size-5" />
-                </button>
-              </div>
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2.5 w-full lg:w-auto pt-2 lg:pt-1">
+              <button
+                onClick={handleChatNow}
+                className="flex-1 lg:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-leaf-700 hover:bg-leaf-800 text-white font-bold text-xs rounded-xl shadow-md shadow-leaf-700/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <MessageCircle className="size-4" />
+                <span>Nhắn tin</span>
+              </button>
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Package className="size-4 text-blue-600" />
-                    <span className="text-lg font-black text-gray-900">{products.length}</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Sản phẩm</p>
-                </div>
+              <button
+                onClick={handleToggleFollow}
+                className={`flex-1 lg:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 font-bold text-xs rounded-xl border transition-all cursor-pointer ${
+                  isFollowing
+                    ? 'bg-leaf-50 text-leaf-700 border-leaf-200 shadow-xs'
+                    : 'bg-white hover:bg-paper-warm text-ink border-line'
+                }`}
+              >
+                <Heart
+                  className={`size-4 ${isFollowing ? 'fill-leaf-700 text-leaf-700' : 'text-ink-muted'}`}
+                />
+                <span>{isFollowing ? 'Đang theo dõi' : 'Theo dõi'}</span>
+              </button>
 
-                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="size-4 text-primary" />
-                    <span className="text-lg font-black text-gray-900">{activeProducts}</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Đang bán</p>
-                </div>
-
-                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Star className="size-4 text-yellow-600" />
-                    <span className="text-lg font-black text-gray-900">
-                      {reviews.length > 0 ? averageRating : 'N/A'}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">
-                    Đánh giá {reviews.length > 0 && `(${reviews.length})`}
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="size-4 text-purple-600" />
-                    <span className="text-lg font-black text-gray-900">Online</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Trạng thái</p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="relative">
                 <button
-                  onClick={handleChatNow}
-                  className="px-4 py-2 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary-dark transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+                  onClick={() => setShowShareMenu((v) => !v)}
+                  className="p-2.5 bg-white hover:bg-paper-warm text-ink font-bold text-xs rounded-xl border border-line transition-colors cursor-pointer"
+                  title="Chia sẻ gian hàng"
                 >
-                  <MessageCircle className="size-3.5" />
-                  Chat ngay
+                  <Share2 className="size-4" />
                 </button>
-                <button className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200">
-                  <Heart className="size-3.5" />
-                  Theo dõi
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowShareMenu((v) => !v)}
-                    className="px-4 py-2 bg-white text-gray-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-200"
-                  >
-                    <Share2 className="size-3.5" />
-                    Chia sẻ
-                  </button>
-                  {showShareMenu && (
-                    <div className="absolute left-0 top-11 z-30 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 w-52 animate-in fade-in slide-in-from-top-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                          Chia sẻ cửa hàng
-                        </p>
-                        <button
-                          onClick={() => setShowShareMenu(false)}
-                          className="size-5 flex items-center justify-center hover:bg-gray-100 rounded-lg"
-                        >
-                          <X className="size-3 text-gray-400" />
-                        </button>
-                      </div>
-                      <div className="space-y-1">
-                        <button
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(absoluteUrl(`/cua-hang/${shopId}`))
-                            setCopied(true)
-                            setTimeout(() => setCopied(false), 2000)
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-700 transition-colors"
-                        >
-                          {copied ? (
-                            <Check className="size-3.5 text-green-500" />
-                          ) : (
-                            <Copy className="size-3.5 text-gray-400" />
-                          )}
-                          {copied ? 'Đã sao chép!' : 'Sao chép link'}
-                        </button>
-                        <button
-                          onClick={() =>
-                            window.open(
-                              `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absoluteUrl(`/cua-hang/${shopId}`))}`,
-                              '_blank',
-                              'width=600,height=400',
+
+                {showShareMenu && (
+                  <div className="absolute right-0 top-12 z-40 bg-white rounded-2xl shadow-xl border border-line p-3 w-56 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-line">
+                      <p className="text-[10px] font-black text-ink-muted uppercase tracking-widest">
+                        Chia sẻ gian hàng
+                      </p>
+                      <button
+                        onClick={() => setShowShareMenu(false)}
+                        className="size-5 flex items-center justify-center hover:bg-paper rounded-lg cursor-pointer"
+                      >
+                        <X className="size-3 text-ink-muted" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(absoluteUrl(`/cua-hang/${shopId}`))
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 2000)
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-paper text-xs font-bold text-ink transition-colors cursor-pointer"
+                      >
+                        {copied ? (
+                          <Check className="size-3.5 text-leaf-700" />
+                        ) : (
+                          <Copy className="size-3.5 text-ink-muted" />
+                        )}
+                        <span>{copied ? 'Đã sao chép link!' : 'Sao chép liên kết'}</span>
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          window.open(
+                            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                              absoluteUrl(`/cua-hang/${shopId}`),
+                            )}`,
+                            '_blank',
+                            'width=600,height=400',
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-600 transition-colors cursor-pointer"
+                      >
+                        <Facebook className="size-3.5" />
+                        <span>Chia sẻ Facebook</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const rawUrl = absoluteUrl(`/cua-hang/${shopId}`)
+                          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                          if (isMobile) {
+                            window.location.href = `zalo://share?url=${encodeURIComponent(rawUrl)}`
+                          } else {
+                            navigator.clipboard.writeText(rawUrl)
+                            globalShowAlert(
+                              'Đã sao chép link! Hãy dán vào Zalo để chia sẻ với bạn bè.',
+                              'Zalo',
+                              'info',
                             )
                           }
-                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-600 transition-colors"
-                        >
-                          <Facebook className="size-3.5" /> Facebook
-                        </button>
-                        <button
-                          onClick={() => {
-                            const rawUrl = absoluteUrl(`/cua-hang/${shopId}`)
-                            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-                            if (isMobile) {
-                              window.location.href = `zalo://share?url=${encodeURIComponent(rawUrl)}`
-                            } else {
-                              navigator.clipboard.writeText(rawUrl)
-                              alert('Đã sao chép link! Mở Zalo và dán vào hội thoại để chia sẻ.')
-                            }
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-500 transition-colors"
-                        >
-                          <span className="size-3.5 rounded-full bg-blue-500 text-white text-[7px] font-black flex items-center justify-center flex-shrink-0">
-                            Z
-                          </span>
-                          Zalo
-                        </button>
-                        <button
-                          onClick={() => {
-                            const rawUrl = absoluteUrl(`/cua-hang/${shopId}`)
-                            const url = encodeURIComponent(rawUrl)
-                            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-                            if (isMobile) {
-                              window.location.href = `fb-messenger://share?link=${url}`
-                            } else {
-                              window.open(
-                                `https://www.facebook.com/dialog/send?link=${url}&app_id=&redirect_uri=${url}`,
-                                '_blank',
-                                'width=600,height=400',
-                              )
-                            }
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-indigo-600 transition-colors"
-                        >
-                          <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.913 1.405 5.514 3.608 7.24V22l3.259-1.793c.872.242 1.795.372 2.748.372 5.523 0 10-4.145 10-9.336C21.615 6.145 17.523 2 12 2zm1.067 12.573l-2.545-2.715-4.965 2.715 5.463-5.8 2.609 2.715 4.9-2.715-5.462 5.8z" />
-                          </svg>
-                          Messenger
-                        </button>
-                      </div>
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-sky-50 text-xs font-bold text-sky-600 transition-colors cursor-pointer"
+                      >
+                        <span className="size-3.5 rounded-full bg-sky-500 text-white text-[7px] font-black flex items-center justify-center shrink-0">
+                          Z
+                        </span>
+                        <span>Chia sẻ qua Zalo</span>
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Description */}
           {shopInfo?.description && (
-            <div className="mt-4 p-4 bg-white rounded-xl border border-gray-100">
-              <p className="text-sm text-gray-600 font-medium">{shopInfo.description}</p>
+            <div className="mt-4 p-4 bg-paper rounded-2xl border border-line">
+              <p className="text-sm text-ink-muted font-medium">{shopInfo.description}</p>
             </div>
           )}
 
-          <div className="mt-4 bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <Gift className="size-5 text-primary" />
-                <h3 className="text-sm font-black text-gray-900">Voucher cá»§a shop</h3>
+          {/* 4 Key Metrics Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-line">
+            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-leaf-50 flex items-center justify-center text-leaf-700 shrink-0">
+                <Package className="size-4" />
               </div>
-              <button
-                onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
-                className="text-xs font-black text-primary hover:text-primary-dark"
-              >
-                Xem tất cả
-              </button>
+              <div>
+                <p className="text-base font-black text-ink leading-tight">{products.length}</p>
+                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  Nông sản
+                </p>
+              </div>
             </div>
 
-            {voucherLoading ? (
-              <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
-                Đang tải voucher...
+            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 shrink-0">
+                <TrendingUp className="size-4" />
               </div>
-            ) : voucherError ? (
-              <div className="rounded-2xl bg-red-50 p-4 text-xs font-bold text-red-600">
-                {voucherError}
+              <div>
+                <p className="text-base font-black text-ink leading-tight">{activeProducts}</p>
+                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  Đang thu hoạch
+                </p>
               </div>
-            ) : shopVouchers.length === 0 ? (
-              <div className="rounded-2xl bg-gray-50 p-4 text-xs font-bold text-gray-400">
-                Shop hiện chưa có voucher để nhận.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {shopVouchers.map((voucher) => {
-                  const canReceive = canReceiveMap[voucher.voucherCode] !== false
-                  const isPercent = voucher.voucherType === 'PERCENTAGE'
-                  const isFreeShip = voucher.voucherType === 'FREE_SHIPPING' || voucher.voucherTarget === 'SHIPPING'
-                  const discountLabel = isPercent
-                    ? `Giảm ${voucher.discountValue}%`
-                    : isFreeShip
-                      ? 'Miễn phí vận chuyển'
-                      : `Giảm ${Number(voucher.discountValue).toLocaleString('vi-VN')}đ`
-                  const scopeLabel = voucher.voucherScope === 'PLATFORM' || voucher.creatorRole === 'ADMIN' ? 'Toàn sàn' : 'Shop'
-                  const isPlatform = scopeLabel === 'Toàn sàn'
+            </div>
 
-                  return (
-                    <div
-                      key={voucher.voucherCode}
-                      className="rounded-2xl border border-dashed border-emerald-300 bg-linear-to-br from-emerald-50/60 to-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:border-emerald-500 transition-colors"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="font-mono text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                            {voucher.voucherCode}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isPlatform
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {scopeLabel}
-                          </span>
-                          {isFreeShip && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                              Freeship
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-base font-black text-gray-900">
-                          {discountLabel}
-                        </p>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">
-                          {voucher.maxDiscount ? `Tối đa ${Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · ` : ''}
-                          Đơn từ {Number(voucher.minOrderValue || 0).toLocaleString('vi-VN')}đ
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleReceiveVoucher(voucher.voucherCode)}
-                        disabled={
-                          receivingVoucher === voucher.voucherCode ||
-                          (isAuthenticated && !canReceive)
-                        }
-                        className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors disabled:bg-gray-200 disabled:text-gray-500 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        {receivingVoucher === voucher.voucherCode
-                          ? 'Đang lưu...'
-                          : isAuthenticated && !canReceive
-                            ? 'Đã trong ví voucher'
-                            : 'Lưu Voucher'}
-                      </button>
-                    </div>
-                  )
-                })}
+            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-sun-100 flex items-center justify-center text-soil-700 shrink-0">
+                <Star className="size-4 fill-sun-500 text-sun-500" />
               </div>
-            )}
+              <div>
+                <p className="text-base font-black text-ink leading-tight">
+                  {reviews.length > 0 ? averageRating : '5.0'}
+                  <span className="text-xs text-ink-muted font-normal ml-1">
+                    ({reviews.length})
+                  </span>
+                </p>
+                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  Đánh giá uy tín
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
+              <div className="size-9 rounded-xl bg-leaf-100/60 flex items-center justify-center text-leaf-700 shrink-0">
+                <Clock className="size-4" />
+              </div>
+              <div>
+                <p className="text-base font-black text-leaf-700 leading-tight">Sẵn sàng</p>
+                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                  Trạng thái vườn
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar Filter */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm sticky top-20">
-              <div className="flex items-center gap-2 mb-5">
-                <Filter className="size-4 text-primary" />
-                <h3 className="font-black text-gray-900 text-sm">Bộ lọc</h3>
+      {/* 4. Voucher Tickets Carousel */}
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        <div className="bg-paper-warm rounded-3xl border border-line p-5 sm:p-6 shadow-xs">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="size-8 rounded-xl bg-leaf-100 flex items-center justify-center text-leaf-700">
+                <Gift className="size-4" />
               </div>
-
-              <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4">
-                <h4 className="font-black text-gray-700 text-xs mb-2 uppercase">
-                  Đơn vị thống nhất
-                </h4>
-                <p className="text-xs font-bold text-gray-500">Tất cả sản phẩm được bán theo kg.</p>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-ink">
+                  Voucher Ưu Đãi Nhà Vườn
+                </h3>
+                <p className="text-[11px] text-ink-muted">
+                  Thu thập mã giảm giá để mua nông sản giá tốt nhất
+                </p>
               </div>
             </div>
+
+            <button
+              onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
+              className="text-xs font-bold text-leaf-700 hover:text-leaf-800 transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>Xem tất cả</span>
+              <ChevronRight className="size-3.5" />
+            </button>
           </div>
 
-          {/* Products Grid */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              {/* Controls */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-100">
-                <p className="text-sm font-bold text-gray-600">
-                  Hiển thị{' '}
-                  <span className="text-primary font-black">{filteredProducts.length}</span> sản
-                  phẩm
-                </p>
+          {voucherLoading ? (
+            <div className="rounded-2xl bg-white p-4 text-xs font-bold text-ink-muted flex items-center justify-center gap-2">
+              <Loader2 className="size-4 animate-spin text-leaf-700" />
+              <span>Đang kiểm tra voucher hiện có...</span>
+            </div>
+          ) : voucherError ? (
+            <div className="rounded-2xl bg-sale-soft p-4 text-xs font-bold text-sale">
+              {voucherError}
+            </div>
+          ) : shopVouchers.length === 0 ? (
+            <div className="rounded-2xl bg-white p-4 text-xs font-medium text-ink-muted text-center border border-dashed border-line">
+              Hiện nhà vườn chưa phát hành voucher mới. Hãy theo dõi để nhận thông báo ưu đãi sớm
+              nhất nhé!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {shopVouchers.map((voucher) => {
+                const canReceive = canReceiveMap[voucher.voucherCode] !== false
+                const isPercent = voucher.voucherType === 'PERCENTAGE'
+                const isFreeShip =
+                  voucher.voucherType === 'FREE_SHIPPING' || voucher.voucherTarget === 'SHIPPING'
+                const discountLabel = isPercent
+                  ? `Giảm ${voucher.discountValue}%`
+                  : isFreeShip
+                    ? 'Miễn phí vận chuyển'
+                    : `Giảm ${Number(voucher.discountValue).toLocaleString('vi-VN')}đ`
+                const scopeLabel =
+                  voucher.voucherScope === 'PLATFORM' || voucher.creatorRole === 'ADMIN'
+                    ? 'Toàn sàn'
+                    : 'Shop'
+
+                return (
+                  <div
+                    key={voucher.voucherCode}
+                    className="rounded-2xl border border-dashed border-leaf-300 bg-white p-3.5 flex flex-col justify-between gap-3 shadow-xs hover:border-leaf-600 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                        <span className="font-mono text-[11px] font-black uppercase text-leaf-800 bg-leaf-100 px-2 py-0.5 rounded-md">
+                          {voucher.voucherCode}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-soil-50 text-soil-700 border border-soil-100">
+                          {scopeLabel}
+                        </span>
+                        {isFreeShip && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
+                            Freeship
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-black text-ink">{discountLabel}</p>
+                      <p className="text-[11px] text-ink-muted font-medium mt-0.5">
+                        {voucher.maxDiscount
+                          ? `Tối đa ${Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · `
+                          : ''}
+                        Đơn từ {Number(voucher.minOrderValue || 0).toLocaleString('vi-VN')}đ
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleReceiveVoucher(voucher.voucherCode)}
+                      disabled={
+                        receivingVoucher === voucher.voucherCode || (isAuthenticated && !canReceive)
+                      }
+                      className="w-full rounded-xl bg-leaf-700 px-3 py-2 text-xs font-bold text-white hover:bg-leaf-800 transition-colors disabled:bg-line disabled:text-ink-muted cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                    >
+                      {receivingVoucher === voucher.voucherCode
+                        ? 'Đang lưu...'
+                        : isAuthenticated && !canReceive
+                          ? 'Đã trong ví'
+                          : 'Lưu Voucher'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 5. Navigation Tab Bar */}
+      <div className="max-w-7xl mx-auto px-4 mt-8">
+        <div className="flex items-center gap-2 border-b border-line pb-3 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'products'
+                ? 'bg-leaf-700 text-white shadow-sm'
+                : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
+            }`}
+          >
+            <Leaf className="size-3.5" />
+            <span>Tất cả nông sản</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'products'
+                  ? 'bg-leaf-800 text-white'
+                  : 'bg-paper-warm text-ink-muted'
+              }`}
+            >
+              {products.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('mystery-boxes')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'mystery-boxes'
+                ? 'bg-leaf-700 text-white shadow-sm'
+                : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
+            }`}
+          >
+            <Gift className="size-3.5" />
+            <span>Combo &amp; Túi mù bí ẩn</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'mystery-boxes'
+                  ? 'bg-leaf-800 text-white'
+                  : 'bg-paper-warm text-ink-muted'
+              }`}
+            >
+              {mysteryBoxes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'reviews'
+                ? 'bg-leaf-700 text-white shadow-sm'
+                : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
+            }`}
+          >
+            <Star className="size-3.5" />
+            <span>Đánh giá từ khách</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'reviews' ? 'bg-leaf-800 text-white' : 'bg-paper-warm text-ink-muted'
+              }`}
+            >
+              {reviews.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'about'
+                ? 'bg-leaf-700 text-white shadow-sm'
+                : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
+            }`}
+          >
+            <Store className="size-3.5" />
+            <span>Về nhà vườn</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 6. Main Tab Content */}
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        {/* TAB 1: SẢN PHẨM NÔNG SẢN */}
+        {activeTab === 'products' && (
+          <div>
+            {/* Toolbar: Category Chips, Stock Filter, Sort */}
+            <div className="bg-white rounded-2xl border border-line p-4 mb-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-leaf-50 text-leaf-700 text-xs font-bold border border-leaf-200">
+                  <CheckCircle2 className="size-3.5" />
+                  100% bán theo kg
+                </span>
+
+                {availableCategories.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto">
+                    <button
+                      onClick={() => setSelectedCategory(null)}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                        selectedCategory === null
+                          ? 'bg-ink text-white'
+                          : 'bg-paper text-ink-muted hover:text-ink'
+                      }`}
+                    >
+                      Tất cả
+                    </button>
+                    {availableCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                          selectedCategory === cat
+                            ? 'bg-ink text-white'
+                            : 'bg-paper text-ink-muted hover:text-ink'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 self-end md:self-auto">
+                <label className="flex items-center gap-1.5 text-xs text-ink-muted font-medium cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={onlyInStock}
+                    onChange={(e) => setOnlyInStock(e.target.checked)}
+                    className="accent-leaf-700 rounded-sm"
+                  />
+                  <span>Chỉ hiện còn hàng</span>
+                </label>
+
+                <div className="h-4 w-px bg-line" />
+
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:border-gray-300 transition-colors"
+                  className="px-3 py-1.5 bg-paper border border-line rounded-xl text-xs font-bold text-ink cursor-pointer hover:border-leaf-300 transition-colors"
                 >
-                  <option value="default">Mặc định</option>
-                  <option value="name">Tên A-Z</option>
+                  <option value="default">Sắp xếp: Mặc định</option>
                   <option value="asc">Giá: Thấp → Cao</option>
                   <option value="desc">Giá: Cao → Thấp</option>
+                  <option value="name">Tên: A → Z</option>
                 </select>
               </div>
+            </div>
 
-              {/* Products */}
-              {filteredProducts.length > 0 ? (
-                <div
-                  className={`grid gap-5 ${
-                    viewMode === 'grid'
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                      : 'grid-cols-1'
-                  }`}
-                >
-                  {filteredProducts.map((product) => {
-                    const basePricePerKg = product.pricePerKg ?? product.sellingPrice ?? 0
-                    return (
+            {/* Product List / Grid */}
+            {filteredProducts.length > 0 ? (
+              <div
+                className={`grid gap-5 ${
+                  viewMode === 'grid'
+                    ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                    : 'grid-cols-1'
+                }`}
+              >
+                {filteredProducts.map((product) => {
+                  const basePricePerKg = product.pricePerKg ?? product.sellingPrice ?? 0
+                  const isOutOfStock =
+                    (product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <= 0
+                  const hasDiscount = product.salePrice != null && product.salePrice > 0
+
+                  return (
+                    <div
+                      key={product.id}
+                      className={`group bg-white rounded-2xl border border-line overflow-hidden hover:shadow-card-hover hover:border-leaf-300 transition-all flex flex-col justify-between ${
+                        viewMode === 'list' ? 'sm:flex-row sm:items-center p-3 sm:gap-5' : ''
+                      }`}
+                    >
+                      {/* Image */}
                       <div
-                        key={product.id}
-                        className={`group ${viewMode === 'list' ? 'flex gap-4' : ''}`}
+                        className={`relative overflow-hidden bg-paper-warm ${
+                          viewMode === 'list'
+                            ? 'w-full sm:w-40 aspect-square sm:aspect-auto sm:h-36 rounded-xl'
+                            : 'aspect-square w-full'
+                        }`}
                       >
-                        {/* Image */}
-                        <div
-                          className={`relative ${
-                            viewMode === 'list' ? 'w-32 h-32' : 'aspect-square'
-                          } rounded-xl overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-primary/50 transition-all flex-shrink-0`}
-                        >
-                          <img
-                            src={
-                              product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`
-                            }
-                            alt={product.productName}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <=
-                            0 && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <span className="text-white text-xs font-black">Hết hàng</span>
-                            </div>
-                          )}
-                          <button
-                            onClick={() => handleAddToCart(product.id)}
-                            disabled={
-                              (product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) <=
-                                0 || addingToCart === product.id
-                            }
-                            className={`absolute ${
-                              viewMode === 'list'
-                                ? 'bottom-2 right-2 size-8'
-                                : 'bottom-3 right-3 size-10'
-                            } bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            {addingToCart === product.id ? (
-                              <Loader2
-                                className={`${viewMode === 'list' ? 'size-4' : 'size-5'} animate-spin`}
-                              />
-                            ) : (
-                              <ShoppingCart className={viewMode === 'list' ? 'size-4' : 'size-5'} />
-                            )}
-                          </button>
-                        </div>
+                        <img
+                          src={
+                            product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`
+                          }
+                          alt={product.productName}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <span className="text-white text-xs font-black uppercase tracking-wider bg-black/40 px-3 py-1 rounded-full border border-white/20">
+                              Hết hàng
+                            </span>
+                          </div>
+                        )}
+                        {hasDiscount && !isOutOfStock && (
+                          <span className="absolute top-2 left-2 bg-sale text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                            -{product.discountPercent}%
+                          </span>
+                        )}
+                      </div>
 
-                        {/* Info */}
-                        <div className="flex-1 mt-3">
-                          <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                      {/* Info & Purchase */}
+                      <div className={`p-4 flex-1 flex flex-col justify-between`}>
+                        <div>
+                          <p className="text-[10px] text-ink-muted uppercase font-bold tracking-wider mb-1">
+                            {getCategoryName(product) || 'Nông sản sạch'}
+                          </p>
+                          <h4
+                            onClick={() => navigate(`/san-pham/${product.id}`)}
+                            className="font-bold text-ink text-sm mb-1.5 line-clamp-2 group-hover:text-leaf-700 transition-colors cursor-pointer"
+                          >
                             {product.productName}
                           </h4>
-                          <p className="text-xs text-gray-500 font-medium mb-2">Đơn vị: kg</p>
 
-                          <div className="flex flex-col gap-0.5 mb-2">
-                            {product.salePrice != null && product.salePrice > 0 ? (
+                          <div className="flex items-baseline gap-1.5 mb-2">
+                            {hasDiscount ? (
                               <>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs text-red-500 line-through font-semibold">
-                                    {basePricePerKg.toLocaleString('vi-VN')}đ/kg
-                                  </span>
-                                  <span className="bg-primary text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                                    -{product.discountPercent}%
-                                  </span>
-                                </div>
-                                <span className="text-lg font-black text-primary">
-                                  {product.salePrice.toLocaleString('vi-VN')}đ/kg
+                                <span className="text-base font-black text-leaf-700">
+                                  {product.salePrice!.toLocaleString('vi-VN')}đ
+                                </span>
+                                <span className="text-xs text-ink-muted line-through">
+                                  {basePricePerKg.toLocaleString('vi-VN')}đ
                                 </span>
                               </>
                             ) : (
-                              <span className="text-lg font-black text-primary">
-                                {basePricePerKg.toLocaleString('vi-VN')}đ/kg
+                              <span className="text-base font-black text-leaf-700">
+                                {basePricePerKg.toLocaleString('vi-VN')}đ
                               </span>
                             )}
+                            <span className="text-xs text-ink-muted font-normal">/ kg</span>
                           </div>
+                        </div>
 
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-gray-500 font-medium">
-                              Còn:{' '}
+                        <div className="flex items-center justify-between pt-3 border-t border-line mt-2">
+                          <span className="text-[11px] text-ink-muted">
+                            Còn{' '}
+                            <strong className="text-ink font-bold">
                               {(
                                 product.stockKg ??
                                 product.stockQuantity ??
                                 product.stock ??
                                 0
-                              ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
-                              kg
-                            </span>
-                            {(product.stockKg ?? product.stockQuantity ?? product.stock ?? 0) >
-                            0 ? (
-                              <span className="text-[10px] text-primary font-bold">Còn hàng</span>
+                              ).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}
+                            </strong>{' '}
+                            kg
+                          </span>
+
+                          <button
+                            onClick={() => handleAddToCart(product.id)}
+                            disabled={isOutOfStock || addingToCart === product.id}
+                            className="p-2 bg-leaf-700 hover:bg-leaf-800 text-white rounded-xl transition-all shadow-sm disabled:bg-line disabled:text-ink-muted cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                            title="Thêm vào giỏ hàng"
+                          >
+                            {addingToCart === product.id ? (
+                              <Loader2 className="size-4 animate-spin" />
                             ) : (
-                              <span className="text-[10px] text-red-600 font-bold">Hết hàng</span>
+                              <ShoppingCart className="size-4" />
                             )}
-                          </div>
+                          </button>
                         </div>
                       </div>
-                    )
-                  })}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Warm Natural Empty State */
+              <div className="bg-white rounded-3xl border border-dashed border-line p-10 md:p-16 text-center max-w-2xl mx-auto shadow-xs">
+                <div className="size-16 rounded-full bg-leaf-50 flex items-center justify-center text-leaf-700 mx-auto mb-4 border border-leaf-200">
+                  <Leaf className="size-8 text-leaf-600 animate-pulse" />
                 </div>
-              ) : (
-                <div className="py-16 text-center">
-                  <Package className="size-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">Không có sản phẩm nào</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Mystery Boxes Section */}
-        {mysteryBoxes.length > 0 && (
-          <div className="mt-6">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                <div className="size-9 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <Gift className="size-5 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-900">Túi Mù Của Shop</h3>
-                  <p className="text-xs text-gray-400 font-bold">
-                    {mysteryBoxes.length} túi mù đang bán
-                  </p>
+                <h3 className="text-lg font-black text-ink mb-2">
+                  Nhà vườn đang chuẩn bị vụ mùa mới
+                </h3>
+                <p className="text-xs sm:text-sm text-ink-muted leading-relaxed mb-6 max-w-md mx-auto">
+                  Hiện các nông sản sạch của đợt thu hoạch này đã bán hết hoặc đang trong thời gian
+                  chăm sóc tự nhiên. Quý khách có thể nhắn tin trực tiếp để hỏi lịch thu hoạch hoặc
+                  khám phá thêm các nông trại khác nhé!
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={handleChatNow}
+                    className="px-5 py-2.5 bg-leaf-700 hover:bg-leaf-800 text-white text-xs font-bold rounded-xl shadow-md shadow-leaf-700/20 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <MessageCircle className="size-4" />
+                    <span>Hỏi thăm nhà vườn</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/nong-san-tuoi')}
+                    className="px-5 py-2.5 bg-paper hover:bg-paper-warm text-ink text-xs font-bold rounded-xl border border-line transition-all cursor-pointer"
+                  >
+                    Khám phá nông sản khác
+                  </button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* TAB 2: COMBO & TÚI MÙ (MYSTERY BOXES) */}
+        {activeTab === 'mystery-boxes' && (
+          <div>
+            {mysteryBoxes.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {mysteryBoxes.map((box: any) => (
                   <div
                     key={box.id}
-                    className="group relative bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100 overflow-hidden hover:shadow-lg hover:border-purple-200 transition-all"
+                    className="group bg-white rounded-3xl border border-line overflow-hidden hover:shadow-card-hover transition-all flex flex-col justify-between"
                   >
-                    {/* Image */}
-                    <div className="relative aspect-square overflow-hidden bg-purple-100">
+                    <div className="relative aspect-square bg-gradient-to-br from-soil-50 via-paper-warm to-leaf-50 flex items-center justify-center overflow-hidden">
                       {box.imageUrl ? (
                         <img
                           src={box.imageUrl}
@@ -727,178 +989,194 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-purple-300">
-                          <Gift className="size-16" />
-                          <span className="text-4xl font-black text-purple-200">?</span>
+                        <div className="text-center p-6">
+                          <Gift className="size-16 text-soil-600/40 mx-auto mb-2" />
+                          <span className="text-3xl font-black text-soil-700/30">?</span>
                         </div>
                       )}
-                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                        <Gift className="size-3 text-yellow-400" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          Bí ẩn
-                        </span>
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                        <Sparkles className="size-3 text-sun-300" />
+                        <span>Túi mù bí ẩn</span>
                       </div>
-                      <button
-                        onClick={() => handleAddBoxToCart(box.id)}
-                        disabled={addingBoxToCart === box.id}
-                        className="absolute bottom-3 right-3 size-10 bg-primary text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95 disabled:opacity-50"
-                      >
-                        {addingBoxToCart === box.id ? (
-                          <Loader2 className="size-5 animate-spin" />
-                        ) : (
-                          <ShoppingCart className="size-5" />
-                        )}
-                      </button>
                     </div>
 
-                    {/* Info */}
-                    <div className="p-4">
-                      <h4 className="font-black text-gray-800 text-sm mb-1 line-clamp-1">
-                        {box.boxType}
-                      </h4>
-                      {box.description && (
-                        <p className="text-xs text-gray-500 font-medium mb-2 line-clamp-2">
-                          {box.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-lg font-black text-primary">
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-black text-ink text-base mb-1">{box.boxType}</h4>
+                        {box.description && (
+                          <p className="text-xs text-ink-muted leading-relaxed line-clamp-2 mb-3">
+                            {box.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-line mt-3">
+                        <span className="text-lg font-black text-leaf-700">
                           {box.price.toLocaleString('vi-VN')}đ
                         </span>
+
                         <button
                           onClick={() => handleAddBoxToCart(box.id)}
                           disabled={addingBoxToCart === box.id}
-                          className="px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-1"
+                          className="px-4 py-2 bg-leaf-700 hover:bg-leaf-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                         >
                           {addingBoxToCart === box.id ? (
-                            <Loader2 className="size-3 animate-spin" />
+                            <Loader2 className="size-3.5 animate-spin" />
                           ) : (
-                            <ShoppingCart className="size-3" />
+                            <ShoppingCart className="size-3.5" />
                           )}
-                          Thêm vào giỏ
+                          <span>Thêm vào giỏ</span>
                         </button>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-dashed border-line p-12 text-center max-w-md mx-auto">
+                <Gift className="size-12 text-ink-muted/40 mx-auto mb-3" />
+                <h4 className="font-bold text-ink text-sm mb-1">Chưa có Túi Mù</h4>
+                <p className="text-xs text-ink-muted">
+                  Nhà vườn hiện chưa mở bán gói combo bí ẩn. Mời bạn xem các loại rau củ quả tươi lẻ
+                  nhé!
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Reviews Section */}
-        {reviews.length > 0 && (
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+        {/* TAB 3: ĐÁNH GIÁ TỪ KHÁCH MUA */}
+        {activeTab === 'reviews' && (
+          <div className="bg-white rounded-3xl border border-line p-6 sm:p-8 shadow-xs">
+            {/* Summary Rating */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-line mb-6">
+              <div>
+                <h3 className="text-lg font-black text-ink mb-1">Đánh giá từ khách hàng</h3>
+                <p className="text-xs text-ink-muted">
+                  Phản hồi minh bạch từ người mua thực tế sau khi nhận nông sản
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 bg-paper-warm px-5 py-3 rounded-2xl border border-line">
+                <div className="text-3xl font-black text-ink">{averageRating}</div>
                 <div>
-                  <h3 className="text-xl font-black text-gray-900">Đánh giá từ khách hàng</h3>
-                  <p className="text-sm text-gray-500 font-medium mt-1">
-                    {reviews.length} đánh giá • Trung bình {averageRating}/5.0
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex text-yellow-400">
+                  <div className="flex text-sun-500 mb-0.5">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`size-5 ${i < Math.round(Number(averageRating)) ? 'fill-yellow-400' : 'text-gray-200'}`}
+                        className={`size-4 ${
+                          i < Math.round(Number(averageRating))
+                            ? 'fill-sun-500 text-sun-500'
+                            : 'text-line-strong'
+                        }`}
                       />
                     ))}
                   </div>
-                  <span className="text-2xl font-black text-gray-900">{averageRating}</span>
+                  <p className="text-[11px] text-ink-muted font-bold">
+                    Dựa trên {reviews.length} lượt đánh giá
+                  </p>
                 </div>
               </div>
+            </div>
 
+            {/* Review Cards */}
+            {reviews.length > 0 ? (
               <div className="space-y-6">
                 {reviews.map((review) => {
                   const isLiked = review.currentUserReaction === 'LIKE'
                   const isDisliked = review.currentUserReaction === 'DISLIKE'
                   const isReacting = reactingReviewId === review.id
+
                   return (
                     <div
                       key={review.id}
-                      className="flex gap-4 pb-6 border-b border-gray-50 last:border-0 last:pb-0"
+                      className="flex gap-4 pb-6 border-b border-line last:border-0 last:pb-0"
                     >
-                      {/* Avatar */}
-                      <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-sm border border-primary/20 shrink-0">
-                        {review.fullName ? review.fullName.charAt(0).toUpperCase() : 'U'}
+                      <div className="size-10 rounded-full bg-leaf-50 border border-leaf-200 flex items-center justify-center font-bold text-leaf-700 text-sm shrink-0">
+                        {review.fullName ? review.fullName.charAt(0).toUpperCase() : 'K'}
                       </div>
 
                       <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-start justify-between gap-4 mb-2">
                           <div>
-                            <h4 className="font-bold text-gray-900 text-sm">
+                            <h4 className="font-bold text-ink text-sm">
                               {review.fullName || `Khách hàng #${review.buyerId}`}
                             </h4>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
-                              {review.createAt
-                                ? new Date(review.createAt).toLocaleDateString('vi-VN')
-                                : 'Gần đây'}
-                            </p>
-                            <div className="flex text-yellow-400 mt-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`size-3 ${i < review.ratingStar ? 'fill-yellow-400' : 'text-gray-200'}`}
-                                />
-                              ))}
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <div className="flex text-sun-500">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`size-3 ${
+                                      i < review.ratingStar
+                                        ? 'fill-sun-500 text-sun-500'
+                                        : 'text-line-strong'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-[10px] text-ink-muted">
+                                {review.createAt
+                                  ? new Date(review.createAt).toLocaleDateString('vi-VN')
+                                  : 'Gần đây'}
+                              </span>
                             </div>
                             {(review.productName || review.boxType) && (
-                              <p className="text-[10px] text-gray-400 mt-0.5 italic">
-                                {review.productName
-                                  ? `SP: ${review.productName}`
-                                  : `Túi mù: ${review.boxType}`}
-                              </p>
+                              <span className="inline-block text-[10px] bg-paper px-2 py-0.5 rounded-md text-ink-muted mt-1 font-medium border border-line">
+                                {review.productName ? `Sản phẩm: ${review.productName}` : `Túi mù`}
+                              </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                              Hữu ích?
-                            </span>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               onClick={() => handleReact(review.id, 'LIKE')}
                               disabled={isReacting}
-                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${isLiked ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-600'} disabled:opacity-50`}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+                                isLiked
+                                  ? 'bg-leaf-700 text-white border-leaf-700'
+                                  : 'bg-white text-ink-muted border-line hover:border-leaf-300'
+                              } disabled:opacity-50`}
                             >
-                              <ThumbsUp className="size-3" />({review.likeCount ?? 0})
+                              <ThumbsUp className="size-3" />
+                              <span>{review.likeCount ?? 0}</span>
                             </button>
                             <button
                               onClick={() => handleReact(review.id, 'DISLIKE')}
                               disabled={isReacting}
-                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${isDisliked ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-200 hover:border-red-400 hover:text-red-500'} disabled:opacity-50`}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+                                isDisliked
+                                  ? 'bg-sale text-white border-sale'
+                                  : 'bg-white text-ink-muted border-line hover:border-sale'
+                              } disabled:opacity-50`}
                             >
-                              <ThumbsDown className="size-3" />({review.dislikeCount ?? 0})
+                              <ThumbsDown className="size-3" />
+                              <span>{review.dislikeCount ?? 0}</span>
                             </button>
                           </div>
                         </div>
 
-                        <p className="text-gray-700 text-sm leading-relaxed mb-3">
+                        <p className="text-ink text-xs sm:text-sm leading-relaxed mb-3">
                           {review.comment}
                         </p>
 
                         {review.evidence && (
-                          <div className="mb-3 rounded-xl overflow-hidden border border-gray-200 w-24 aspect-square">
+                          <div className="mb-3 rounded-xl overflow-hidden border border-line w-24 aspect-square bg-paper-warm">
                             <img
                               src={review.evidence}
-                              alt="Bằng chứng"
+                              alt="Hình ảnh thực tế từ khách"
                               className="w-full h-full object-cover"
                             />
                           </div>
                         )}
 
-                        {/* Shop Reply */}
                         {review.replyFromShop && (
-                          <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="size-5 bg-primary rounded-full flex items-center justify-center text-white">
-                                <MessageCircle className="size-3" />
-                              </div>
-                              <span className="text-xs font-black text-gray-900">
-                                Phản hồi từ Shop
-                              </span>
+                          <div className="mt-3 p-3.5 bg-paper rounded-xl border border-line">
+                            <div className="flex items-center gap-1.5 mb-1 text-leaf-700 font-bold text-xs">
+                              <MessageCircle className="size-3.5" />
+                              <span>Phản hồi từ Nhà vườn:</span>
                             </div>
-                            <p className="text-gray-600 text-sm pl-7 italic">
+                            <p className="text-xs text-ink-muted italic pl-5">
                               {review.replyFromShop}
                             </p>
                           </div>
@@ -907,6 +1185,48 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     </div>
                   )
                 })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Star className="size-10 text-line-strong mx-auto mb-2" />
+                <p className="text-xs text-ink-muted font-medium">
+                  Chưa có đánh giá nào cho gian hàng này.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: VỀ NHÀ VƯỜN */}
+        {activeTab === 'about' && (
+          <div className="bg-white rounded-3xl border border-line p-6 sm:p-8 shadow-xs space-y-6">
+            <div>
+              <h3 className="text-lg font-black text-ink mb-2">Giới thiệu về {shopName}</h3>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                {shopInfo?.description ||
+                  `${shopName} là đối tác tin cậy của CapNong, cam kết cung ứng các loại rau củ quả tươi ngon, thu hoạch tại vườn và đóng gói cẩn thận để giữ trọn vị ngọt tự nhiên khi đến tay người tiêu dùng.`}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-line">
+              <div className="p-4 rounded-2xl bg-paper-warm border border-line">
+                <h4 className="font-bold text-ink text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <MapPin className="size-4 text-soil-700" />
+                  <span>Khu vực canh tác</span>
+                </h4>
+                <p className="text-xs text-ink-muted font-medium">
+                  {shopInfo?.address || 'Đang cập nhật địa chỉ nhà vườn'}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-paper-warm border border-line">
+                <h4 className="font-bold text-ink text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-leaf-700" />
+                  <span>Cam kết chất lượng</span>
+                </h4>
+                <p className="text-xs text-ink-muted font-medium">
+                  Nông sản minh bạch xuất xứ, không chất bảo quản độc hại, hỗ trợ đổi trả nếu dập hỏng.
+                </p>
               </div>
             </div>
           </div>
@@ -917,4 +1237,3 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 }
 
 export default ShopProducts
-

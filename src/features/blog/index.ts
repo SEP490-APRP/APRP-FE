@@ -6,6 +6,8 @@ export {
   useBlogComments,
   useAddBlogComment,
   useDeleteBlogComment,
+  useBlogRealtime,
+  useBlogFeedRealtime,
   useMyBlogs,
   useCreateShopBlog,
   useUpdateShopBlog,

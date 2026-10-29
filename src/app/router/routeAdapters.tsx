@@ -36,6 +36,7 @@ const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
+const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -75,31 +76,19 @@ export function PrivacyRoute() {
 export function ProductRoute() {
   const { productId = DEFAULT_PRODUCT_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ProductDetail productId={productId} onBack={() => navigate('/')} />
-    </div>
-  )
+  return <ProductDetail productId={productId} onBack={() => navigate('/')} />
 }
 
 export function ShopRoute() {
   const { shopId = DEFAULT_SHOP_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ShopPage shopId={shopId} onBack={() => navigate('/')} />
-    </div>
-  )
+  return <ShopPage shopId={shopId} onBack={() => navigate('/')} />
 }
 
 export function ShopVouchersRoute() {
   const { shopId = DEFAULT_SHOP_ID } = useParams()
   const navigate = useNavigate()
-  return (
-    <div className="pt-6">
-      <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
-    </div>
-  )
+  return <ShopVouchers shopId={shopId} onBack={() => navigate(`/cua-hang/${shopId}`)} />
 }
 
 export function MyVouchersRoute() {
@@ -130,6 +119,24 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
       onLoginSuccess={(user: AuthUser) => {
         const fromLocation = (state as { from?: { pathname: string } })?.from?.pathname
         if (fromLocation && fromLocation !== '/dang-nhap' && fromLocation !== '/dang-ky') {
+          const isTargetingAdmin = fromLocation.startsWith('/admin')
+          const isTargetingShop = fromLocation.startsWith('/shop')
+          const isTargetingShipper = fromLocation.startsWith('/shipper')
+
+          // Nếu route trước đó không phù hợp với quyền của tài khoản vừa đăng nhập, chuyển về trang chủ của role đó
+          if (isTargetingAdmin && user.role !== 'admin') {
+            navigate(user.role === 'shop' ? '/shop' : user.role === 'shipper' ? '/shipper' : '/')
+            return
+          }
+          if (isTargetingShop && user.role !== 'shop') {
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shipper' ? '/shipper' : '/')
+            return
+          }
+          if (isTargetingShipper && user.role !== 'shipper') {
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+            return
+          }
+
           navigate(fromLocation)
         } else {
           navigate(
@@ -266,6 +273,14 @@ export function ShipperRoute() {
     >
       <ShipperDashboard {...usePortalProps()} />
     </RequireRole>
+  )
+}
+
+export function MealPlanRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <MealPlanPage />
+    </Suspense>
   )
 }
 
