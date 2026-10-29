@@ -1,5 +1,5 @@
 import axiosInstance from '@/services/api/axiosInstance'
-import type { ApiResponse } from '@/types'
+import type { ApiResponse, PageResponse } from '@/types'
 import type { NotificationItem, AdminSendNotificationRequest } from './notification.types'
 
 export type * from './notification.types'
@@ -7,6 +7,17 @@ export type * from './notification.types'
 export const notificationService = {
   async getMyNotifications(): Promise<ApiResponse<NotificationItem[]>> {
     const res = await axiosInstance.get<ApiResponse<NotificationItem[]>>('/notifications/my')
+    return res.data
+  },
+
+  async getMyNotificationsPaged(
+    page = 0,
+    size = 10,
+  ): Promise<ApiResponse<PageResponse<NotificationItem>>> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<NotificationItem>>>(
+      '/notifications/my/paged',
+      { params: { page, size } },
+    )
     return res.data
   },
 

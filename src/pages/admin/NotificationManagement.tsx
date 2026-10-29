@@ -13,7 +13,6 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useNotifications, useSendNotification } from '@/features/notification'
-import { globalShowAlert } from '@/components/common/Popup'
 
 type TargetOption = 'all' | 'buyer' | 'farmer' | 'shipper'
 
@@ -30,6 +29,7 @@ const NotificationManagement: React.FC = () => {
   const [message, setMessage] = useState('')
   const [evidence, setEvidence] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
+  const [successNotice, setSuccessNotice] = useState<string | null>(null)
 
   const notificationsQuery = useNotifications()
   const send = useSendNotification()
@@ -54,7 +54,8 @@ const NotificationManagement: React.FC = () => {
       setTitle('')
       setMessage('')
       setEvidence('')
-      globalShowAlert('Thông báo đã được gửi thành công!', 'Thành công', 'success')
+      setSuccessNotice('Thông báo đã được gửi thành công đến các đối tượng!')
+      setTimeout(() => setSuccessNotice(null), 5000)
     } catch (err) {
       console.error('Failed to send notification', err)
       setSendError('Gửi thông báo thất bại. Vui lòng kiểm tra lại quyền Admin hoặc thử lại sau.')
@@ -83,6 +84,13 @@ const NotificationManagement: React.FC = () => {
               Soạn thông báo mới
             </h4>
           </div>
+
+          {successNotice && (
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 animate-in fade-in slide-in-from-top-2 duration-300">
+              <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+              <span className="text-sm font-semibold">{successNotice}</span>
+            </div>
+          )}
 
           <div className="space-y-8">
             <div className="flex flex-col gap-4">

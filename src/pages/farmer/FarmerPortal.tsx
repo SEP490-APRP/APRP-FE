@@ -26,7 +26,7 @@ import type {
   FarmerReview,
 } from './types'
 import { useShopOrders, useShopProfile } from '@/features/shop'
-import { useAuth, useChatStore } from '@/stores'
+import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import { useMyProducts } from '@/features/product/hooks/useProductQueries'
 
 // Modular Subpage Components
@@ -66,6 +66,7 @@ export default function FarmerPortal({
   const { user: authUser, logout: authLogout, token } = useAuth()
   const { data: shopProfile } = useShopProfile()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime, setChatViewActive } = useChatStore()
+  const unreadNotifCount = useNotificationStore((s) => s.unreadCount)
 
   useEffect(() => {
     if (token) {
@@ -618,9 +619,14 @@ export default function FarmerPortal({
                 setSelectedOrderIdForPrep(null)
               }}
               className="w-10 h-10 rounded-full bg-[#f4f7f1] hover:bg-[#eaf0e6] flex items-center justify-center text-[#555d4e] relative transition-colors cursor-pointer"
+              title="Thông báo hệ thống"
             >
               <Bell size={18} />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#e53935] ring-2 ring-white" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#e53935] text-[10px] font-black text-white flex items-center justify-center ring-2 ring-white animate-pulse">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
             </button>
 
             <button

@@ -89,7 +89,9 @@ export default function Notifications() {
             </p>
           </div>
         ) : (
-          notifications.map((nt) => (
+          notifications
+            .filter((nt) => nt && (nt.title || nt.message))
+            .map((nt) => (
             <div
               key={nt.id}
               onClick={() => {

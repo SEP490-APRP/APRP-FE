@@ -45,6 +45,16 @@ const DEFAULT_SHOP_ID = '101'
 // ---- Storefront Route Adapters (Truyền state/handlers từ StorefrontLayout xuống pages) ----
 
 export function HomeRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
   const { onAdd, onInfo, cart } = useStorefront()
   return <Home onAdd={onAdd} onInfo={onInfo} cart={cart} />
 }
@@ -93,8 +103,18 @@ export function ShopVouchersRoute() {
 }
 
 export function MyVouchersRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop?tab=vouchers" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
   return (
-    <RequireRole roles={['buyer', 'shop', 'admin']} audience="khách mua hàng">
+    <RequireRole roles={['buyer']} audience="khách mua hàng">
       <div className="pt-6">
         <MyVouchersPage />
       </div>
@@ -119,7 +139,29 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
       initialRole={initialRole}
       onLoginSuccess={(user: AuthUser) => {
         const fromLocation = (state as { from?: { pathname: string } })?.from?.pathname
-        if (fromLocation && fromLocation !== '/dang-nhap' && fromLocation !== '/dang-ky') {
+        if (
+          fromLocation &&
+          fromLocation !== '/dang-nhap' &&
+          fromLocation !== '/dang-ky' &&
+          fromLocation !== '/'
+        ) {
+          const isTargetingAdmin = fromLocation.startsWith('/admin')
+          const isTargetingShop = fromLocation.startsWith('/shop')
+          const isTargetingShipper = fromLocation.startsWith('/shipper')
+
+          // Nếu user là shop, admin hoặc shipper mà đích đến trước đó là storefront/buyer page, chuyển thẳng về portal
+          if (user.role === 'shop' && !isTargetingShop) {
+            navigate('/shop')
+            return
+          }
+          if (user.role === 'admin' && !isTargetingAdmin) {
+            navigate('/admin')
+            return
+          }
+          if (user.role === 'shipper' && !isTargetingShipper) {
+            navigate('/shipper')
+            return
+          }
           const isTargetingAdmin = fromLocation.startsWith('/admin')
           const isTargetingShop = fromLocation.startsWith('/shop')
           const isTargetingShipper = fromLocation.startsWith('/shipper')
@@ -228,7 +270,7 @@ export function CartRoute() {
 export function CheckoutRoute() {
   return (
     <RequireRole
-      roles={['buyer', 'shop', 'shipper', 'admin']}
+      roles={['buyer']}
       audience="khách mua hàng"
       loginHref="/dang-nhap"
     >
@@ -242,9 +284,19 @@ export function PaymentResultRoute() {
 }
 
 export function BuyerOrdersRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop/orders" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
   return (
     <RequireRole
-      roles={['buyer', 'shop', 'shipper', 'admin']}
+      roles={['buyer']}
       audience="khách mua hàng"
       loginHref="/dang-nhap"
     >
@@ -254,9 +306,19 @@ export function BuyerOrdersRoute() {
 }
 
 export function ProfileRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop?tab=profile" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
   return (
     <RequireRole
-      roles={['buyer', 'shop', 'shipper', 'admin']}
+      roles={['buyer']}
       audience="người dùng"
       loginHref="/dang-nhap"
     >
@@ -278,6 +340,16 @@ export function ShipperRoute() {
 }
 
 export function MealPlanRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') {
+    return <Navigate to="/shop" replace />
+  }
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
   return (
     <Suspense fallback={<PageLoading />}>
       <MealPlanPage />
@@ -295,10 +367,13 @@ export function BuyerMessagesRoute() {
   if (user?.role === 'admin') {
     return <Navigate to="/admin/messages" replace />
   }
+  if (user?.role === 'shipper') {
+    return <Navigate to="/shipper" replace />
+  }
 
   return (
     <RequireRole
-      roles={['buyer', 'shop', 'shipper', 'admin']}
+      roles={['buyer']}
       audience="người dùng đã đăng nhập"
       loginHref="/dang-nhap"
     >

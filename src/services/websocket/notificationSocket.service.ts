@@ -10,7 +10,7 @@ class NotificationSocketService {
   private client: Client | null = null
   private isConnected: boolean = false
   private currentUserId: string | number | null = null
-  private subscription: StompSubscription | null = null
+  private subscriptions: StompSubscription[] = []
   private listeners = new Set<NotificationReceivedCallback>()
 
   private getAuthToken(): string | null {
@@ -54,13 +54,14 @@ class NotificationSocketService {
 
       onConnect: () => {
         this.isConnected = true
+        console.log('[WS Notification] Connected successfully for user ID:', userId)
         this.subscribeToNotifications(userId)
         onConnected?.()
       },
 
       onDisconnect: () => {
         this.isConnected = false
-        this.subscription = null
+        this.cleanupSubscriptions()
       },
 
       onStompError: (frame) => {
@@ -80,27 +81,58 @@ class NotificationSocketService {
     stompClient.activate()
   }
 
-  private subscribeToNotifications(userId: string | number): void {
-    if (!this.client || !this.isConnected) return
-
-    if (this.subscription) {
+  private cleanupSubscriptions(): void {
+    this.subscriptions.forEach((sub) => {
       try {
-        this.subscription.unsubscribe()
+        sub.unsubscribe()
       } catch {
         // ignore
       }
-      this.subscription = null
-    }
+    })
+    this.subscriptions = []
+  }
 
-    // Subscribe to destination matching BE: "/queue/notifications.{userId}"
-    this.subscription = this.client.subscribe(`/queue/notifications.${userId}`, (message: IMessage) => {
+  private subscribeToNotifications(userId: string | number): void {
+    if (!this.client || !this.isConnected) return
+
+    this.cleanupSubscriptions()
+
+    const handleMessage = (message: IMessage) => {
       try {
-        const notif: NotificationItem = JSON.parse(message.body)
+        const raw = JSON.parse(message.body)
+        // Lọc bỏ các payload sự kiện của Chat (NEW_MESSAGE, UNREAD_COUNT) hoặc payload thiếu title & message
+        if (
+          !raw ||
+          raw.type === 'NEW_MESSAGE' ||
+          raw.type === 'UNREAD_COUNT' ||
+          (!raw.title && !raw.message)
+        ) {
+          return
+        }
+
+        const notif: NotificationItem = raw
+        console.log('[WS Notification] 🔔 Received real-time notification:', notif)
         this.listeners.forEach((listener) => listener(notif))
       } catch (err) {
         console.error('[WS Notification] Error parsing incoming notification:', err)
       }
-    })
+    }
+
+    // 1. Kênh public queue theo userId: /queue/notifications.{userId}
+    try {
+      const subDirect = this.client.subscribe(`/queue/notifications.${userId}`, handleMessage)
+      this.subscriptions.push(subDirect)
+    } catch (e) {
+      console.warn('[WS Notification] Failed to subscribe to direct user queue:', e)
+    }
+
+    // 2. Kênh private STOMP user queue: /user/queue/notifications
+    try {
+      const subUser = this.client.subscribe('/user/queue/notifications', handleMessage)
+      this.subscriptions.push(subUser)
+    } catch (e) {
+      console.warn('[WS Notification] Failed to subscribe to STOMP user queue:', e)
+    }
   }
 
   public onNotification(callback: NotificationReceivedCallback): () => void {
@@ -111,14 +143,7 @@ class NotificationSocketService {
   }
 
   public disconnect(): void {
-    if (this.subscription) {
-      try {
-        this.subscription.unsubscribe()
-      } catch {
-        // ignore
-      }
-      this.subscription = null
-    }
+    this.cleanupSubscriptions()
     if (this.client) {
       try {
         this.client.deactivate()

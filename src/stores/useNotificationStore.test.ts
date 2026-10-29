@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNotificationStore } from './useNotificationStore'
 import { notificationService } from '@/services/notification.service'
 import { notificationSocketService } from '@/services/websocket/notificationSocket.service'
+import { playNotificationChime } from '@/utils/audio'
+
+vi.mock('@/utils/audio', () => ({
+  playNotificationChime: vi.fn(),
+}))
 
 vi.mock('@/services/notification.service', () => ({
   notificationService: {
@@ -136,6 +141,7 @@ describe('useNotificationStore - Global Realtime Notification Management', () =>
     expect(state.notifications).toHaveLength(2)
     expect(state.notifications[0].id).toBe(1)
     expect(state.unreadCount).toBe(1)
+    expect(playNotificationChime).toHaveBeenCalled()
   })
 
   it('connectRealtime và disconnectRealtime tương tác đúng với notificationSocketService', () => {

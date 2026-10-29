@@ -14,5 +14,4 @@ const AdminMessages: React.FC = () => {
     </div>
   )
 }
-
 export default AdminMessages
