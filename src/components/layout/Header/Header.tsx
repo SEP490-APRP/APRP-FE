@@ -226,15 +226,16 @@ export default function Header({
               </button>
             ) : (
               <>
-                {/* Desktop: Explicit "Đăng nhập" and "Đăng ký" buttons */}
+                {/* Desktop: Explicit "Đăng nhập" and "Đăng ký" buttons with Hero colors & compact size */}
                 <div className="hidden sm:flex items-center gap-1.5">
                   <a
                     href="/dang-nhap"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-nhap') || route.startsWith('/login')
-                        ? 'bg-[#326318] text-white border-[#326318] shadow-sm'
-                        : 'border-[#d6dccf] text-[#326318] hover:bg-[#326318]/10 hover:border-[#326318]'
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
+                      route.startsWith('/dang-nhap') || route.startsWith('/login')
+                        ? 'bg-primary-container text-white border-primary-container shadow-sm'
+                        : 'border-[#4a7c2f]/40 hover:border-[#326318] bg-white/80 hover:bg-[#4a7c2f]/10 text-[#2b591b]'
+                    }`}
                   >
                     <UserRound size={14} />
                     <span>Đăng nhập</span>
@@ -243,10 +244,11 @@ export default function Header({
                   <a
                     href="/dang-ky"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-ky') || route.startsWith('/register')
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
+                      route.startsWith('/dang-ky') || route.startsWith('/register')
                         ? 'bg-[#254b12] text-white border-[#254b12] shadow-sm'
-                        : 'bg-[#326318] hover:bg-[#254b12] text-white border-[#326318] shadow-sm hover:shadow'
-                      }`}
+                        : 'bg-primary-container hover:bg-primary text-white border-transparent shadow-sm shadow-primary-container/25'
+                    }`}
                   >
                     <span>Đăng ký</span>
                   </a>

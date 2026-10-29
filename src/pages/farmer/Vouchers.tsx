@@ -10,6 +10,7 @@ import {
 } from '@/services'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 interface VouchersProps {
   onOpenCreateVoucher?: () => void
@@ -151,10 +152,12 @@ export default function Vouchers({ onInfo }: VouchersProps) {
 
       {/* Danh sách Voucher */}
       {loading ? (
-        <div className="py-16 text-center text-sm text-stone-500 space-y-2">
-          <Loader2 size={32} className="animate-spin text-[#326318] mx-auto" />
-          <p>Đang tải danh sách voucher của shop...</p>
-        </div>
+        <CapNongLoading
+          className="!min-h-[300px]"
+          message="Đang tải danh sách voucher của shop..."
+          subMessage="Kênh khuyến mãi & ưu đãi nhà vườn CapNong"
+          size="md"
+        />
       ) : vouchers.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-[#e8ece3] space-y-3">
           <Gift size={40} className="mx-auto text-stone-300" />

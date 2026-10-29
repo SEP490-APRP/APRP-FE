@@ -18,6 +18,7 @@ import { voucherService, type VoucherResponse } from '@/services'
 import { globalShowAlert } from '@/components/common/Popup'
 import { useAuth } from '@/stores'
 import { getErrorMessage } from '@/utils'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 type TabType = 'ALL' | 'SHIPPING' | 'PLATFORM' | 'SHOP'
 
@@ -291,10 +292,12 @@ const MyVouchersPage: React.FC = () => {
 
         {/* Danh sách voucher */}
         {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="size-10 animate-spin text-emerald-700" />
-            <p className="text-sm font-bold text-gray-500">Đang tải kho voucher của bạn...</p>
-          </div>
+          <CapNongLoading
+            className="!min-h-[360px]"
+            message="Đang tải kho voucher của bạn..."
+            subMessage="CapNong · Kho ưu đãi giảm giá và miễn phí vận chuyển"
+            size="md"
+          />
         ) : filteredVouchers.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
             <div className="size-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">

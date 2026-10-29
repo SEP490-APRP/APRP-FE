@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowRight,
   CheckCircle2,
   Gift,
@@ -279,8 +279,8 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
             ))}
           </ul>
 
-          {/* Banner: gọn trên mobile (ẩn ảnh lớn), đầy đủ từ sm */}
-          <aside className="relative order-1 flex flex-col justify-between gap-6 overflow-hidden rounded-panel bg-gradient-to-b from-soil-600 via-[#6e3910] to-[#452008] p-6 text-white shadow-card sm:flex-row lg:order-2 lg:col-span-4 lg:flex-col xl:col-span-3">
+          {/* Banner: bo góc rounded-2xl đồng đều với từng thẻ combo */}
+          <aside className="relative order-1 flex flex-col justify-between gap-6 overflow-hidden rounded-2xl bg-gradient-to-b from-soil-600 via-[#6e3910] to-[#452008] p-6 text-white shadow-card sm:flex-row lg:order-2 lg:col-span-4 lg:flex-col xl:col-span-3">
             <div className="relative z-10 flex flex-col gap-4">
               <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/20 bg-white/20 px-3 py-1 text-caption font-bold uppercase tracking-wider">
                 <Sparkles size={13} className="text-sun-300" aria-hidden /> Bí ẩn mỗi ngày

@@ -29,6 +29,7 @@ import {
 import { exportService } from '@/services/export.service'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 interface OrdersProps {
   onOpenOrderPrep?: (orderId: string) => void
@@ -326,12 +327,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
       {/* 4. Orders List Body */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-3xl border border-[#e8ece3]">
-          <Loader2 className="size-8 text-[#326318] animate-spin" />
-          <p className="text-xs text-[#7e8779] font-bold uppercase tracking-widest">
-            Đang tải dữ liệu đơn hàng từ hệ thống...
-          </p>
-        </div>
+        <CapNongLoading
+          className="!min-h-[360px]"
+          message="Đang tải dữ liệu đơn hàng..."
+          subMessage="Kênh quản lý đơn hàng nhà vườn CapNong"
+          size="md"
+        />
       ) : isError ? (
         <div className="bg-red-50 border border-red-200 rounded-3xl p-8 text-center space-y-3">
           <AlertCircle className="size-8 text-red-500 mx-auto" />

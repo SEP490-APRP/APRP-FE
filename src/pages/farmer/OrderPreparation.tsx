@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, Boxes, Package, Gift } f
 import * as orderService from '@/services/order.service'
 import { useReadyOrder } from '@/features/shop/hooks/useShopOrders'
 import type { OrderResponse } from '@/types/order.types'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 interface OrderPreparationProps {
   orderId?: string
@@ -71,10 +72,12 @@ export default function OrderPreparation({ orderId, onBack, onInfo }: OrderPrepa
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl p-12 border border-[#e8ece3] shadow-sm flex flex-col items-center justify-center gap-3 max-w-2xl">
-        <Loader2 className="size-8 text-[#326318] animate-spin" />
-        <p className="text-xs text-[#7e8779] font-bold">Đang tải thông tin đóng gói đơn hàng...</p>
-      </div>
+      <CapNongLoading
+        className="!min-h-[300px]"
+        message="Đang tải thông tin đóng gói đơn hàng..."
+        subMessage="Quy chuẩn đóng gói và bàn giao cho shipper"
+        size="md"
+      />
     )
   }
 

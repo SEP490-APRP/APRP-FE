@@ -5,6 +5,7 @@ import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
 import { globalShowAlert } from '@/components/common/Popup'
 import { useAuth } from '@/stores'
 import { getErrorMessage } from '@/utils'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 const PAGE_SIZE = 10
 
@@ -125,9 +126,12 @@ const ShopVouchers: React.FC<ShopVouchersProps> = ({ shopId: propShopId, onBack:
       </div>
 
       {loading ? (
-        <div className="flex min-h-[320px] items-center justify-center">
-          <Loader2 className="size-10 animate-spin text-primary" />
-        </div>
+        <CapNongLoading
+          className="!min-h-[320px]"
+          message="Đang tải ưu đãi của gian hàng..."
+          subMessage="Khám phá các voucher giảm giá và ưu đãi vận chuyển"
+          size="md"
+        />
       ) : vouchers.length === 0 ? (
         <div className="rounded-[32px] border border-gray-100 bg-white p-16 text-center shadow-sm">
           <Gift className="mx-auto mb-4 size-14 text-gray-200" />

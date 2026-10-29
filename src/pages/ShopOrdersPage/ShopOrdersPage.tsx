@@ -14,6 +14,7 @@ import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
 import { OrderCard } from '@/features/shop/components/OrderCard'
 import { OrderDetailModal } from '@/features/shop/components/OrderDetailModal'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 /* ── Tab definitions (Loại bỏ hoàn toàn AWAITING_PAYMENT khỏi phía Shop) ── */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
@@ -104,10 +105,12 @@ export function ShopOrdersPage() {
 
         {/* Content */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="size-8 text-emerald-500 animate-spin" />
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Đang tải đơn hàng...</p>
-          </div>
+          <CapNongLoading
+            className="!min-h-[360px]"
+            message="Đang tải danh sách đơn hàng..."
+            subMessage="Kênh quản lý đơn hàng nhà vườn CapNong"
+            size="md"
+          />
         ) : isError ? (
           <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl p-5 text-red-600">
             <AlertCircle className="size-5 shrink-0" />

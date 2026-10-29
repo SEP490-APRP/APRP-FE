@@ -23,6 +23,7 @@ import type { UserResponse } from '../../services/auth.service';
 import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../services/codSettlement.service';
 import { globalShowAlert } from '@/components/common/Popup';
 import logoIcon from '@/assets/logo-icon.png';
+import { CapNongLoading } from '@/components/ui/Loading';
 
 interface ShipperDashboardProps {
   onLogout?: () => void;
@@ -548,7 +549,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   // ===================== RENDER: ĐƠN ĐANG GIAO =====================
   const renderMyOrders = () => {
-    if (loadingMyOrders) return <div className="flex justify-center py-20"><Loader2 className="size-8 text-primary animate-spin" /></div>;
+    if (loadingMyOrders) return (
+      <CapNongLoading
+        className="!min-h-[300px]"
+        message="Đang tải danh sách đơn đang giao..."
+        subMessage="Cổng vận chuyển CapNong Shipper"
+        size="md"
+      />
+    );
     if (myOrders.length === 0) return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Truck className="size-12" /></div>
@@ -712,17 +720,28 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
           {ordersToShow.length === 0 ? (
-            <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
-              <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
-              <p className="text-lg font-black text-gray-400 uppercase">
-                Không có đơn nào
-              </p>
-              <p className="text-xs text-gray-400">Thử tải lại</p>
-              <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
-                className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
-                <RefreshCw className="size-4" /> Tải lại
-              </button>
-            </div>
+            loadingOrders ? (
+              <div className="col-span-3">
+                <CapNongLoading
+                  className="!min-h-[300px]"
+                  message="Đang quét đơn hàng mới quanh bạn..."
+                  subMessage="Hệ thống tự động tìm đơn đã sẵn sàng giao"
+                  size="md"
+                />
+              </div>
+            ) : (
+              <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
+                <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
+                <p className="text-lg font-black text-gray-400 uppercase">
+                  Không có đơn nào
+                </p>
+                <p className="text-xs text-gray-400">Thử tải lại</p>
+                <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
+                  className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
+                  <RefreshCw className="size-4" /> Tải lại
+                </button>
+              </div>
+            )
           ) : ordersToShow.map((order) => {
             const codOrder = (order.paymentMethod ?? '').toUpperCase() === 'COD';
             const prepaidAmount = getCodPrepaidAmount(order);

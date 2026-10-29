@@ -33,6 +33,7 @@ import { useUser } from '@/features/user'
 import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
 import { globalShowAlert } from '@/components/common/Popup'
 import { absoluteUrl, getErrorMessage } from '@/utils'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 interface ShopProductsProps {
   shopId: number
@@ -199,12 +200,10 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="size-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-gray-600 font-medium">Đang tải thông tin cửa hàng...</p>
-        </div>
-      </div>
+      <CapNongLoading
+        message="Đang tải thông tin gian hàng..."
+        subMessage="CapNong · Kết nối trực tiếp nhà vườn uy tín"
+      />
     )
   }
 

@@ -36,6 +36,7 @@ import { globalShowAlert } from '@/components/common/Popup'
 import ShopProducts from './ShopProducts'
 import { useAuth } from '@/stores'
 import { absoluteUrl } from '@/utils'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 // ── Cloudinary URL helper ────────────────────────────────────────────────────
 function clImg(url: string | undefined, mode: 'main' | 'thumb' = 'main'): string {
@@ -324,12 +325,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4 w-full">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-          Đang tải sản phẩm chi tiết...
-        </p>
-      </div>
+      <CapNongLoading
+        message="Đang tải thông tin nông sản..."
+        subMessage="CapNong · Kiểm định chất lượng từ nhà vườn"
+      />
     )
   }
 

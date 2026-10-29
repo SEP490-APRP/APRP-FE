@@ -75,48 +75,70 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Banner: trên mobile/tablet thành khối ngang gọn, không còn min-h 520px đẩy sản phẩm xuống */}
-          <aside className="relative flex flex-col justify-between gap-6 overflow-hidden rounded-panel bg-gradient-to-b from-leaf-700 to-leaf-900 p-6 text-white shadow-card sm:flex-row lg:col-span-4 lg:flex-col xl:col-span-3">
-            <div className="relative z-10 flex flex-col gap-4">
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3 py-1 text-caption font-bold uppercase tracking-wider">
+          {/* Banner: bo góc rounded-2xl khớp đồng đều với từng thẻ sản phẩm bên phải */}
+          <aside className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-b from-leaf-700 via-leaf-800 to-leaf-900 p-6 sm:p-7 text-white shadow-card sm:flex-row lg:col-span-4 lg:flex-col xl:col-span-3">
+            {/* Ambient subtle glow background */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-10 -right-10 h-64 w-64 rounded-full bg-sun-300/10 blur-3xl"
+            />
+
+            <div className="relative z-10 flex flex-col gap-4 sm:gap-4.5">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-1 text-caption font-bold uppercase tracking-wider backdrop-blur-xs">
                 <Sparkles size={13} className="text-sun-300" aria-hidden /> Tiết kiệm đến 50%
               </span>
-              <h3 className="text-2xl font-extrabold leading-tight">
+
+              <h3 className="text-2xl sm:text-3xl font-extrabold leading-tight tracking-tight">
                 Rau củ tươi sạch cho gian bếp gia đình
               </h3>
-              <p className="rounded-card border border-white/15 bg-black/15 p-3.5">
-                <span className="block text-caption uppercase tracking-wide text-white/80">
-                  Ưu đãi hôm nay
-                </span>
-                <span className="text-2xl font-black text-sun-300 sm:text-3xl">
-                  Chỉ từ {money(lowestPrice)}
-                </span>
-                <span className="text-caption text-white/80">/kg</span>
+
+              <p className="text-xs sm:text-sm leading-relaxed text-white/85">
+                Nông sản thu hoạch sớm mỗi sáng từ nhà vườn liên kết, giữ trọn độ tươi ngon và dưỡng chất tự nhiên với mức giá trợ giá giải cứu tốt nhất.
               </p>
-              <ul className="flex flex-col gap-2 text-sm text-white/90">
+
+              <div className="rounded-xl border border-white/20 bg-black/20 p-4 backdrop-blur-xs flex flex-col gap-1.5 shadow-inner">
+                <div className="flex items-center justify-between text-caption uppercase tracking-wider text-white/80 font-semibold">
+                  <span>Ưu đãi hôm nay</span>
+                  <span className="text-sun-300 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sun-300/20 border border-sun-300/30">
+                    Tươi chuẩn 100%
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black text-sun-300 tracking-tight">
+                    Chỉ từ {money(lowestPrice)}
+                  </span>
+                  <span className="text-caption text-white/80">/kg</span>
+                </div>
+              </div>
+
+              <ul className="flex flex-col gap-2 text-xs sm:text-sm text-white/95">
                 {BENEFITS.map(({ icon: Icon, text }) => (
-                  <li key={text} className="flex items-center gap-2">
-                    <Icon size={15} className="shrink-0 text-leaf-300" aria-hidden />
-                    {text}
+                  <li key={text} className="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-white/10 border border-white/10">
+                    <Icon size={15} className="shrink-0 text-sun-300" aria-hidden />
+                    <span className="font-medium">{text}</span>
                   </li>
                 ))}
               </ul>
+
               <LinkButton
                 href="/nong-san-tuoi"
                 variant="secondary"
                 size="lg"
-                className="w-full border-0 sm:w-fit"
+                className="w-full border-0 sm:w-fit font-bold shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 mt-1"
               >
                 Khám phá ngay <ArrowRight size={16} aria-hidden />
               </LinkButton>
             </div>
-            <img
-              src={promoImg}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="relative z-10 mx-auto hidden max-h-64 w-auto object-contain drop-shadow-xl sm:block sm:max-w-[45%] lg:max-w-full"
-            />
+
+            <div className="relative z-10 pt-4 mt-auto flex items-center justify-center">
+              <img
+                src={promoImg}
+                alt="Nông sản tươi ngon giải cứu"
+                loading="lazy"
+                decoding="async"
+                className="mx-auto hidden max-h-64 sm:max-h-72 lg:max-h-80 w-auto object-contain drop-shadow-2xl transition-transform duration-500 hover:scale-105 sm:block sm:max-w-[45%] lg:max-w-full"
+              />
+            </div>
           </aside>
 
           {/* Dùng lại ProductGrid/ProductCard; mobile chỉ hiện 4 sản phẩm đầu, phần còn lại ở trang Nông sản tươi */}
