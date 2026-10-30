@@ -162,9 +162,6 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
             navigate('/shipper')
             return
           }
-          const isTargetingAdmin = fromLocation.startsWith('/admin')
-          const isTargetingShop = fromLocation.startsWith('/shop')
-          const isTargetingShipper = fromLocation.startsWith('/shipper')
 
           // Nếu route trước đó không phù hợp với quyền của tài khoản vừa đăng nhập, chuyển về trang chủ của role đó
           if (isTargetingAdmin && user.role !== 'admin') {
