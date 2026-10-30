@@ -3,6 +3,7 @@ import type { ChatMessage, Conversation, ChatNotification } from '@/types/chat'
 import { chatApi } from '@/services/api/chat.api'
 import { chatSocketService } from '@/services/websocket/chatSocket.service'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { playNotificationChime } from '@/utils/audio'
 
 interface ChatState {
   conversations: Conversation[]
@@ -14,6 +15,7 @@ interface ChatState {
   isOpen: boolean
   isLoadingConversations: boolean
   isLoadingMessages: boolean
+  isChatViewActive: boolean
 
   // Actions
   initRealtime: (token?: string) => void
@@ -32,6 +34,7 @@ interface ChatState {
   markAsRead: (conversationId: number) => Promise<void>
   deleteMessage: (messageId: number, conversationId?: number) => Promise<void>
   setOpen: (open: boolean) => void
+  setChatViewActive: (active: boolean) => void
   reset: () => void
 }
 
@@ -49,6 +52,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typingUsers: {},
   isWsConnected: false,
   isOpen: false,
+  isChatViewActive: false,
   isLoadingConversations: false,
   isLoadingMessages: false,
 
@@ -65,24 +69,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
 
     // Lắng nghe tin nhắn mới
+    // Lắng nghe tin nhắn mới
     unbindMessage = chatSocketService.onMessage((msg: ChatMessage) => {
       const convId = Number(msg.conversationId)
       if (!convId) return
 
+      const currentUser = useAuthStore.getState().user
+      const isFromMe = Number(msg.senderId) === Number(currentUser?.id)
+
+      // Phát âm thanh chime thông báo nếu tin nhắn đến từ người khác
+      if (!isFromMe) {
+        playNotificationChime()
+      }
+
       set((state) => {
         const currentMsgs = state.messages[convId] || []
-        // Tránh trùng tin nhắn theo ID
-        const exists = currentMsgs.some((m) => m.id === msg.id)
-        const updatedMsgs = exists ? currentMsgs : [...currentMsgs, msg]
+        // Tránh trùng tin nhắn theo ID và thay thế tin nhắn lạc quan (optimistic)
+        const filtered = currentMsgs.filter(
+          (m) =>
+            Number(m.id) !== Number(msg.id) &&
+            !(
+              Number(m.id) > 10000000000 &&
+              m.content === msg.content &&
+              (m.attachmentUrl || '') === (msg.attachmentUrl || '')
+            )
+        )
+        const updatedMsgs = [...filtered, msg]
 
-        // Cập nhật lastMessage và unreadCount trong danh sách hội thoại
-        let found = false
+        // Chỉ coi là đang active nếu người dùng THỰC SỰ đang ở view chat và cửa sổ trình duyệt đang focus
+        const isTabFocused =
+          typeof document !== 'undefined' &&
+          !document.hidden &&
+          (typeof document.hasFocus !== 'function' || document.hasFocus())
+
         const isCurrentlyActive =
-          Number(state.activeConversation?.id) === convId ||
-          (state.activeConversation &&
-            (Number(state.activeConversation.otherUserId) === Number(msg.senderId) ||
-              Number(state.activeConversation.otherUserId) === Number(msg.receiverId)))
+          state.isChatViewActive &&
+          isTabFocused &&
+          (Number(state.activeConversation?.id) === convId ||
+            (state.activeConversation &&
+              (Number(state.activeConversation.otherUserId) === Number(msg.senderId) ||
+                Number(state.activeConversation.otherUserId) === Number(msg.receiverId))))
 
+        let found = false
         let updatedActiveConv = state.activeConversation
         if (isCurrentlyActive && updatedActiveConv && Number(updatedActiveConv.id) !== convId) {
           updatedActiveConv = {
@@ -91,10 +119,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
         }
 
+        const isAudio =
+          msg.type?.toUpperCase() === 'AUDIO' ||
+          msg.type?.toUpperCase() === 'VOICE' ||
+          /\.(mp3|wav|ogg|m4a)(\?.*)?$/i.test(msg.attachmentUrl || '')
         const isVideo =
-          msg.type?.toUpperCase() === 'VIDEO' ||
-          /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(msg.attachmentUrl || '')
-        const mediaPlaceholder = isVideo ? '[Video]' : '[Hình ảnh]'
+          !isAudio &&
+          (msg.type?.toUpperCase() === 'VIDEO' ||
+            /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(msg.attachmentUrl || ''))
+        const mediaPlaceholder = isAudio ? '[Tin nhắn thoại]' : isVideo ? '[Video]' : '[Hình ảnh]'
 
         const updatedConversations = state.conversations.map((c) => {
           if (
@@ -108,7 +141,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               id: convId,
               lastMessage: msg.content || (msg.attachmentUrl ? mediaPlaceholder : ''),
               lastMessageTime: msg.createdAt || msg.sentAt || new Date().toISOString(),
-              unreadCount: isCurrentlyActive ? 0 : (c.unreadCount || 0) + 1,
+              unreadCount: isFromMe || isCurrentlyActive ? 0 : (c.unreadCount || 0) + 1,
             }
           }
           return c
@@ -122,7 +155,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         })
 
         const calculatedUnread = updatedConversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
-        const newUnreadTotal = !found && !isCurrentlyActive ? state.unreadTotal + 1 : calculatedUnread
+        const newUnreadTotal = !found && !isCurrentlyActive && !isFromMe ? state.unreadTotal + 1 : calculatedUnread
 
         return {
           messages: {
@@ -140,13 +173,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         get().loadConversations()
       }
 
-      // Nếu đang mở đúng hội thoại này, tự động đánh dấu đã đọc
-      const currentActive = get().activeConversation
-      if (
-        currentActive &&
-        (Number(currentActive.id) === convId ||
-          Number(currentActive.otherUserId) === Number(msg.senderId))
-      ) {
+      // CHỈ đánh dấu đã đọc khi THỰC SỰ đang mở xem và focus vào tab chat
+      const isTabFocused =
+        typeof document !== 'undefined' &&
+        !document.hidden &&
+        (typeof document.hasFocus !== 'function' || document.hasFocus())
+
+      const isViewingNow =
+        get().isChatViewActive &&
+        isTabFocused &&
+        get().activeConversation &&
+        (Number(get().activeConversation?.id) === convId ||
+          Number(get().activeConversation?.otherUserId) === Number(msg.senderId))
+
+      if (isViewingNow) {
         get().markAsRead(convId)
       }
     })
@@ -463,17 +503,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const trimmed = content.trim()
     if (!active || (!trimmed && !attachmentUrl)) return
 
+    const receiverId = Number(active.otherUserId)
+
+    let currentConv = active
+    if (Number(currentConv.id) <= 0 && receiverId) {
+      try {
+        const realConv = await chatApi.initConversation(receiverId)
+        if (realConv && realConv.id) {
+          currentConv = realConv
+          set((state) => ({
+            conversations: state.conversations.map((c) =>
+              Number(c.otherUserId) === receiverId ? realConv : c,
+            ),
+            activeConversation: realConv,
+          }))
+        }
+      } catch (e) {
+        console.warn('[useChatStore] Init real conversation error in sendMessage:', e)
+      }
+    }
+
+    const isAudio =
+      type?.toUpperCase() === 'AUDIO' ||
+      type?.toUpperCase() === 'VOICE' ||
+      (attachmentUrl ? /\.(mp3|wav|ogg|m4a)(\?.*)?$/i.test(attachmentUrl) : false)
     const isVideo =
-      type?.toUpperCase() === 'VIDEO' ||
-      (attachmentUrl ? /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(attachmentUrl) : false)
+      !isAudio &&
+      (type?.toUpperCase() === 'VIDEO' ||
+        (attachmentUrl ? /\.(mp4|mov|webm|avi|mkv)(\?.*)?$/i.test(attachmentUrl) : false))
     const msgType = attachmentUrl
-      ? isVideo
-        ? 'VIDEO'
-        : type === 'TEXT'
-          ? 'IMAGE'
-          : type
+      ? isAudio
+        ? 'AUDIO'
+        : isVideo
+          ? 'VIDEO'
+          : type === 'TEXT'
+            ? 'IMAGE'
+            : type
       : type
-    const mediaPlaceholder = isVideo ? '[Video]' : '[Hình ảnh]'
+    const mediaPlaceholder = isAudio ? '[Tin nhắn thoại]' : isVideo ? '[Video]' : '[Hình ảnh]'
 
     const payload = {
       receiverId: active.otherUserId,
@@ -482,6 +549,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
       attachmentUrl,
       referenceId,
     }
+
+    const convId = Number(currentConv.id)
+    const optimisticId = Date.now()
+    const optimisticMsg: ChatMessage = {
+      id: optimisticId,
+      conversationId: convId,
+      senderId: Number(useAuthStore.getState().user?.id || 0),
+      receiverId,
+      content: trimmed || (attachmentUrl ? mediaPlaceholder : ''),
+      type: msgType,
+      attachmentUrl,
+      referenceId,
+      sentAt: new Date().toISOString(),
+      isRead: false,
+    }
+
+    // Hiển thị lạc quan ngay tức thì (0ms) trên UI để người dùng thấy tin nhắn ngay lập tức
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [convId]: [...(state.messages[convId] || []), optimisticMsg],
+      },
+      conversations: state.conversations.map((c) =>
+        Number(c.id) === convId
+          ? {
+            ...c,
+            lastMessage: optimisticMsg.content,
+            lastMessageTime: optimisticMsg.sentAt,
+          }
+          : c
+      ),
+    }))
 
     // Gửi qua WebSocket trước
     if (get().isWsConnected) {
@@ -492,13 +591,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Fallback qua REST
     try {
       const sentMsg = await chatApi.sendMessage(payload)
-      const convId = Number(active.id)
-      set((state) => ({
-        messages: {
-          ...state.messages,
-          [convId]: [...(state.messages[convId] || []), sentMsg],
-        },
-      }))
+      set((state) => {
+        const current = state.messages[convId] || []
+        const replaced = current.map((m) => (m.id === optimisticId ? sentMsg : m))
+        return {
+          messages: {
+            ...state.messages,
+            [convId]: replaced,
+          },
+        }
+      })
     } catch (err) {
       console.error('[useChatStore] Failed to send message:', err)
     }
@@ -551,10 +653,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const updatedConversations = state.conversations.map((c) =>
           Number(c.id) === convId
             ? {
-                ...c,
-                lastMessage: newLastContent,
-                lastMessageTime: lastMsg?.createdAt || lastMsg?.sentAt || c.lastMessageTime,
-              }
+              ...c,
+              lastMessage: newLastContent,
+              lastMessageTime: lastMsg?.createdAt || lastMsg?.sentAt || c.lastMessageTime,
+            }
             : c
         )
 
@@ -581,5 +683,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setOpen: (open: boolean) => {
     set({ isOpen: open })
+  },
+
+  setChatViewActive: (active: boolean) => {
+    set({ isChatViewActive: active })
+    // Nếu vừa kích hoạt lại view chat và đang có activeConversation, đánh dấu đã đọc
+    if (active) {
+      const conv = get().activeConversation
+      if (conv && Number(conv.id) > 0) {
+        get().markAsRead(Number(conv.id))
+      }
+    }
+  },
+
+  reset: () => {
+    get().disconnectRealtime()
+    set({
+      conversations: [],
+      activeConversation: null,
+      messages: {},
+      unreadTotal: 0,
+      typingUsers: {},
+      isWsConnected: false,
+      isOpen: false,
+      isChatViewActive: false,
+      isLoadingConversations: false,
+      isLoadingMessages: false,
+    })
   },
 }))

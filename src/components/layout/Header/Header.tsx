@@ -21,10 +21,14 @@ import {
   Truck,
   Ticket,
   Lock,
+  MessageSquare,
   HeartPulse,
+  Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
+import { useAuth, useChatStore, useNotificationStore } from '@/stores'
+import NotificationDropdown from './NotificationDropdown'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import logoIcon from '@/assets/logo-icon.png'
@@ -55,8 +59,51 @@ export default function Header({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const timeoutRef = useRef<number | null>(null)
   const accountRef = useRef<HTMLDivElement | null>(null)
+  const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
 
-  // Close account menu on outside click
+  const { token } = useAuth()
+  const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+
+  const totalAlerts = (unreadCount || 0) + (unreadTotal || 0)
+  const [isBellRinging, setIsBellRinging] = useState(false)
+  const prevTotalAlertsRef = useRef(totalAlerts)
+
+  useEffect(() => {
+    if (totalAlerts > prevTotalAlertsRef.current) {
+      setIsBellRinging(true)
+      const timer = setTimeout(() => {
+        setIsBellRinging(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+    prevTotalAlertsRef.current = totalAlerts
+  }, [totalAlerts])
+
+  const messagesHref =
+    user?.role === 'shop'
+      ? '/shop?tab=messages'
+      : user?.role === 'admin'
+      ? '/admin/messages'
+      : '/tin-nhan'
+
+  const homeHref =
+    user?.role === 'shop'
+      ? '/shop'
+      : user?.role === 'admin'
+      ? '/admin'
+      : user?.role === 'shipper'
+      ? '/shipper'
+      : '/'
+
+  useEffect(() => {
+    if (user && token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [user?.id, token, initRealtime, loadConversations, loadUnreadCount])
+
+  // Close account menu & chat popover on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
@@ -83,6 +130,7 @@ export default function Header({
     setActiveDropdown(null)
     setOpenMobile(false)
     setAccountMenuOpen(false)
+    setNotifOpen(false)
   }
 
   const handleSelectCategory = (term: string, targetPath: string = '/nong-san-tuoi') => {
@@ -138,7 +186,7 @@ export default function Header({
     <header className="site-header relative z-50">
       {/* Main Header Row */}
       <div className="page-container header-main relative z-50">
-        <a href="/" className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
+        <a href={homeHref} className="brand" aria-label="CapNong – Trang chủ" onClick={closeDropdown}>
           <img
             src={logoIcon}
             alt="CapNong"
@@ -174,25 +222,89 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="header-actions flex items-center gap-2">
-          {/* Vendor Button / Direct Registration for Shop */}
-          <a
-            href="/dang-ky?role=shop"
-            className="btn btn-gold vendor-button hidden sm:inline-flex"
-            onClick={closeDropdown}
-          >
-            <Store size={16} />
-            <span>Bán nông sản</span>
-          </a>
+          {/* Vendor Button / Direct Portal Access based on Role */}
+          {user?.role === 'shop' ? (
+            <a
+              href="/shop"
+              className="btn btn-gold vendor-button hidden sm:inline-flex"
+              onClick={closeDropdown}
+            >
+              <Store size={16} />
+              <span>Kênh Nhà Vườn</span>
+            </a>
+          ) : user?.role === 'admin' ? (
+            <a
+              href="/admin"
+              className="btn btn-gold vendor-button hidden sm:inline-flex"
+              onClick={closeDropdown}
+            >
+              <ShieldCheck size={16} />
+              <span>Vào Admin</span>
+            </a>
+          ) : user?.role === 'shipper' ? (
+            <a
+              href="/shipper"
+              className="btn btn-gold vendor-button hidden sm:inline-flex"
+              onClick={closeDropdown}
+            >
+              <Truck size={16} />
+              <span>Cổng Shipper</span>
+            </a>
+          ) : (
+            <a
+              href="/dang-ky?role=shop"
+              className="btn btn-gold vendor-button hidden sm:inline-flex"
+              onClick={closeDropdown}
+            >
+              <Store size={16} />
+              <span>Bán nông sản</span>
+            </a>
+          )}
 
-          {/* Cart Trigger */}
-          <button
-            className="icon-button cart-trigger"
-            aria-label={`Giỏ hàng, ${count} sản phẩm`}
-            onClick={onCart}
-          >
-            <ShoppingBasket />
-            {count > 0 && <span>{count}</span>}
-          </button>
+          {/* Cart Trigger (Chỉ dành cho khách mua) */}
+          {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
+            <button
+              className="icon-button cart-trigger"
+              aria-label={`Giỏ hàng, ${count} sản phẩm`}
+              onClick={onCart}
+            >
+              <ShoppingBasket />
+              {count > 0 && <span>{count}</span>}
+            </button>
+          )}
+
+          {/* Notification Trigger & Popover */}
+          {user && (
+            <div className="relative">
+              <button
+                type="button"
+                className="icon-button relative"
+                aria-label={`Thông báo và tin nhắn, ${totalAlerts} chưa đọc`}
+                title={
+                  totalAlerts > 0
+                    ? `${unreadCount} thông báo, ${unreadTotal} tin nhắn chưa đọc`
+                    : 'Thông báo'
+                }
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setAccountMenuOpen(false)
+                  setNotifOpen(!notifOpen)
+                }}
+              >
+                <Bell className={isBellRinging ? 'animate-bell-ring text-[#326318]' : ''} />
+                {totalAlerts > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white font-extrabold text-[10px] flex items-center justify-center border-2 border-white">
+                    {totalAlerts > 99 ? '99+' : totalAlerts}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown
+                isOpen={notifOpen}
+                onClose={() => setNotifOpen(false)}
+                messagesHref={messagesHref}
+              />
+            </div>
+          )}
 
           {/* Auth Action Buttons: Đăng nhập & Đăng ký (hoặc Hồ sơ nếu đã đăng nhập) */}
           <div className="relative flex items-center gap-1.5 z-50" ref={accountRef}>
@@ -203,14 +315,24 @@ export default function Header({
                   setActiveDropdown(null)
                   setAccountMenuOpen(!accountMenuOpen)
                 }}
-                className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors"
-                aria-label="Tài khoản cá nhân"
+                className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors relative"
+                aria-label={`Tài khoản cá nhân${unreadTotal > 0 ? `, ${unreadTotal} tin nhắn mới` : ''}`}
               >
-                <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                  ) : (
-                    user.name.charAt(0).toUpperCase()
+                <div className="relative shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  {unreadTotal > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-black border-2 border-white shadow-xs animate-bounce"
+                      title={`${unreadTotal} tin nhắn mới`}
+                    >
+                      {unreadTotal > 9 ? '9+' : unreadTotal}
+                    </span>
                   )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
@@ -313,7 +435,7 @@ export default function Header({
                         </a>
                       )}
 
-                      {user.role === 'shop' ? (
+                      {user.role === 'shop' && (
                         <>
                           <a
                             href="/shop"
@@ -336,72 +458,87 @@ export default function Header({
                             <span>Quản Lý Đơn Hàng Bán</span>
                           </a>
                         </>
-                      ) : (
-                        <a
-                          href="/shop"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                            <Store size={16} />
-                          </span>
-                          <span>Kênh Bán Hàng Nhà Vườn</span>
-                        </a>
+                      )}
+
+                      {/* BUYER-ONLY LINKS: Chỉ hiển thị cho khách mua */}
+                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                        <>
+                          <a
+                            href="/orders"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                          >
+                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                              <ShoppingBag size={16} />
+                            </span>
+                            <span>Đơn Hàng Của Tôi</span>
+                          </a>
+
+                          <a
+                            href="/my-vouchers"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                          >
+                            <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
+                              <Ticket size={16} />
+                            </span>
+                            <span>Kho Voucher Của Tôi</span>
+                          </a>
+
+                          <a
+                            href="/ke-hoach-an-uong"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                          >
+                            <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                              <Sparkles size={16} />
+                            </span>
+                            <span>Kế Hoạch Ăn Uống (AI)</span>
+                          </a>
+                        </>
                       )}
 
                       <a
-                        href="/orders"
+                        href={messagesHref}
                         onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center justify-between transition-colors group"
                       >
-                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                          <ShoppingBag size={16} />
-                        </span>
-                        <span>Đơn Hàng Của Tôi</span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                            <MessageSquare size={16} />
+                          </span>
+                          <span>Tin Nhắn Của Tôi</span>
+                        </div>
+                        {unreadTotal > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                            {unreadTotal}
+                          </span>
+                        )}
                       </a>
 
                       <a
-                        href="/my-vouchers"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
-                          <Ticket size={16} />
-                        </span>
-                        <span>Kho Voucher Của Tôi</span>
-                      </a>
-
-                      <a
-                        href="/ke-hoach-an-uong"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
-                          <Sparkles size={16} />
-                        </span>
-                        <span>Kế Hoạch Ăn Uống (AI)</span>
-                      </a>
-                      <a
-                        href="/tai-khoan"
+                        href={user.role === 'shop' ? '/shop?tab=profile' : '/tai-khoan'}
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
                         <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
                           <User size={16} />
                         </span>
-                        <span>Hồ Sơ Cá Nhân</span>
+                        <span>{user.role === 'shop' ? 'Hồ Sơ Nhà Vườn' : 'Hồ Sơ Cá Nhân'}</span>
                       </a>
 
-                      <a
-                        href="/tai-khoan?tab=health"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                          <HeartPulse size={16} />
-                        </span>
-                        <span>Dinh Dưỡng & Dị Ứng</span>
-                      </a>
+                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                        <a
+                          href="/tai-khoan?tab=health"
+                          onClick={closeDropdown}
+                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                        >
+                          <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+                            <HeartPulse size={16} />
+                          </span>
+                          <span>Dinh Dưỡng & Dị Ứng</span>
+                        </a>
+                      )}
 
                       <a
                         href="/change-password"
@@ -413,6 +550,7 @@ export default function Header({
                         </span>
                         <span>Đổi mật khẩu</span>
                       </a>
+
 
                       <hr className="my-1.5 border-[#ede8df]" />
 
@@ -513,7 +651,7 @@ export default function Header({
           <nav aria-label="Điều hướng chính" className="hidden lg:flex items-center gap-1.5">
             {/* 1. Trang chủ */}
             <a
-              href="/"
+              href={homeHref}
               className={`nav-pill ${isHomeActive ? 'is-active' : ''}`}
               aria-current={isHomeActive ? 'page' : undefined}
               onClick={closeDropdown}
@@ -967,7 +1105,7 @@ export default function Header({
         <div className="lg:hidden bg-[#fbf9f4] border-t border-[#ede8df] px-4 py-4 flex flex-col gap-2 shadow-2xl max-h-[80vh] overflow-y-auto">
           {/* 1. Trang chủ */}
           <a
-            href="/"
+            href={homeHref}
             className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isHomeActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
               }`}
             onClick={closeDropdown}
@@ -1182,23 +1320,43 @@ export default function Header({
                   </a>
                 </div>
 
-                <a
-                  href="/orders"
-                  onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
-                >
-                  <ShoppingBag size={14} className="text-emerald-700" />
-                  <span>Đơn Hàng Của Tôi</span>
-                </a>
+                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                  <a
+                    href="/orders"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
+                  >
+                    <ShoppingBag size={14} className="text-emerald-700" />
+                    <span>Đơn Hàng Của Tôi</span>
+                  </a>
+                )}
 
                 <a
-                  href="/tai-khoan?tab=health"
+                  href={messagesHref}
                   onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
+                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between mb-1 shadow-xs"
                 >
-                  <HeartPulse size={14} className="text-rose-600" />
-                  <span>Dinh Dưỡng & Dị Ứng</span>
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare size={14} className="text-[#326318]" />
+                    <span>Tin Nhắn Của Tôi</span>
+                  </div>
+                  {unreadTotal > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                      {unreadTotal}
+                    </span>
+                  )}
                 </a>
+
+                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                  <a
+                    href="/tai-khoan?tab=health"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
+                  >
+                    <HeartPulse size={14} className="text-rose-600" />
+                    <span>Dinh Dưỡng & Dị Ứng</span>
+                  </a>
+                )}
 
                 {user.role === 'admin' && (
                   <a

@@ -4,8 +4,6 @@ import {
   Gavel,
   TrendingDown,
   UserCheck,
-  Search,
-  Bell,
   Lock,
   Loader2,
   AlertCircle,
@@ -101,39 +99,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-8 p-8 animate-in fade-in duration-500">
-      {/* Top Admin Action Bar */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-6 flex-1 max-w-xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-300" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm nhanh đơn hàng, tài khoản, khiếu nại..."
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/5 focus:bg-white transition-all"
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="size-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 hover:text-primary transition-all relative">
-            <Bell className="size-6" />
-            <span className="absolute top-3 right-3 size-2.5 bg-red-500 border-2 border-white rounded-full"></span>
-          </button>
-          <div className="h-8 w-px bg-gray-100 mx-2" />
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-black text-gray-900">Admin Hệ Thống</p>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                Root Access
-              </p>
-            </div>
-            <img
-              src="https://picsum.photos/seed/admin_avatar/100/100"
-              className="size-11 rounded-2xl object-cover border-2 border-white shadow-sm"
-              alt="avatar"
-            />
-          </div>
-        </div>
-      </div>
+
 
       {error && (
         <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-bold text-sm">

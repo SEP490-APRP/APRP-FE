@@ -2,6 +2,7 @@ import {
   Suspense,
   lazy,
   useEffect,
+  useRef,
   useState,
   type ComponentType,
   type LazyExoticComponent,
@@ -11,7 +12,6 @@ import {
   Banknote,
   BarChart3,
   Bell,
-  ExternalLink,
   Gavel,
   LayoutDashboard,
   LogIn,
@@ -20,9 +20,9 @@ import {
   MessageSquare,
   Newspaper,
   PackageCheck,
+  Search,
   Shield,
   ShieldCheck,
-  ShoppingBag,
   Store,
   Truck,
   UserX,
@@ -31,7 +31,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
-import { useAuth } from '@/stores'
+import { useAuth, useChatStore, useNotificationStore } from '@/stores'
+import NotificationDropdown from '@/components/layout/Header/NotificationDropdown'
 import { Button, LinkButton } from '@/components/ui/Button'
 import logoIcon from '@/assets/logo-icon.png'
 import { Drawer } from '@/components/ui/Drawer'
@@ -134,12 +135,38 @@ type AdminPortalProps = {
 }
 
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
-  const { user: storeUser } = useAuth()
+  const { user: storeUser, token } = useAuth()
+  const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+  const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
   const tab = tabFromUrl(routerLocation.pathname, routerLocation.hash)
   const [navOpen, setNavOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const activeUser = user ?? storeUser
+
+  const totalAlerts = (unreadCount || 0) + (unreadTotal || 0)
+  const [isBellRinging, setIsBellRinging] = useState(false)
+  const prevTotalAlertsRef = useRef(totalAlerts)
+
+  useEffect(() => {
+    if (totalAlerts > prevTotalAlertsRef.current) {
+      setIsBellRinging(true)
+      const timer = setTimeout(() => {
+        setIsBellRinging(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+    prevTotalAlertsRef.current = totalAlerts
+  }, [totalAlerts])
+
+  useEffect(() => {
+    if (token) {
+      initRealtime(token)
+      loadConversations()
+      loadUnreadCount()
+    }
+  }, [token, initRealtime, loadConversations, loadUnreadCount])
 
   // Chặn ở UI. Server vẫn phải kiểm tra quyền ở từng API, đây chỉ là lớp hiển thị.
   if (!activeUser || activeUser.role !== 'admin') {
@@ -199,7 +226,11 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                   >
                     <Icon size={18} className="shrink-0" aria-hidden />
                     <span className="flex-1 truncate">{item.name}</span>
-                    {'badge' in item && item.badge && (
+                    {id === 'messages' && unreadTotal > 0 ? (
+                      <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
+                        {unreadTotal}
+                      </span>
+                    ) : 'badge' in item && item.badge ? (
                       <span
                         className={cn(
                           'rounded-full px-2 py-0.5 text-caption font-bold',
@@ -208,7 +239,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                       >
                         {item.badge}
                       </span>
-                    )}
+                    ) : null}
                   </a>
                 </li>
               )
@@ -259,38 +290,78 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-line bg-white px-4 sm:px-6 lg:px-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setNavOpen(true)}
-            aria-label="Mở menu quản trị"
-            aria-expanded={navOpen}
-          >
-            <Menu size={20} aria-hidden />
-          </Button>
-          <h1 className="min-w-0 flex-1 truncate text-base font-extrabold sm:text-lg">
-            {current.name}
-          </h1>
-          <LinkButton
-            href="/shop"
-            variant="secondary"
-            size="sm"
-            className="hidden md:inline-flex"
-            leftIcon={<Store size={15} aria-hidden />}
-          >
-            Kênh người bán
-          </LinkButton>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => (onNavigateStore ? onNavigateStore() : routerNavigate('/'))}
-            leftIcon={<ShoppingBag size={15} aria-hidden />}
-          >
-            <span className="hidden sm:inline">Xem cửa hàng</span>
-            <ExternalLink size={13} className="hidden opacity-60 sm:block" aria-hidden />
-          </Button>
+        <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-white px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setNavOpen(true)}
+              aria-label="Mở menu quản trị"
+              aria-expanded={navOpen}
+            >
+              <Menu size={20} aria-hidden />
+            </Button>
+            <h1 className="truncate text-base font-extrabold sm:text-lg text-ink">
+              {current.name}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 justify-end max-w-2xl">
+            {/* Thanh tìm kiếm nhanh */}
+            <div className="relative flex-1 max-w-xs sm:max-w-sm md:max-w-md">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted"
+                aria-hidden
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm nhanh đơn hàng, tài khoản..."
+                className="w-full rounded-full bg-[#f4f7f1] py-2 pl-9 pr-4 text-xs font-medium text-ink placeholder:text-ink-muted outline-none transition-all focus:bg-white focus:ring-2 focus:ring-leaf-600 focus:border-transparent"
+              />
+            </div>
+
+            {/* Chuông thông báo Admin */}
+            <div className="relative">
+              <button
+                type="button"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#f4f7f1] text-[#555d4e] transition-colors hover:bg-[#eaf0e6] hover:text-[#326318] cursor-pointer"
+                aria-label="Thông báo hệ thống"
+                title={`Thông báo (${unreadCount} thông báo, ${unreadTotal} tin nhắn)`}
+                onClick={() => setNotifOpen(!notifOpen)}
+              >
+                <Bell size={18} className={isBellRinging ? 'animate-bell-ring text-leaf-700' : ''} />
+                {totalAlerts > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white ring-2 ring-white animate-pulse">
+                    {totalAlerts > 99 ? '99+' : totalAlerts}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown
+                isOpen={notifOpen}
+                onClose={() => setNotifOpen(false)}
+                messagesHref="/admin/messages"
+                viewAllHref="/admin/notifications"
+              />
+            </div>
+
+            {/* Profile Admin tóm tắt */}
+            <div className="hidden sm:flex items-center gap-2.5 pl-1 border-l border-line">
+              <div className="text-right">
+                <p className="text-xs font-bold text-ink leading-tight">{activeUser.name || 'Admin Hệ Thống'}</p>
+                <p className="text-[10px] font-semibold text-leaf-700 leading-tight">Root Access</p>
+              </div>
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf-800 text-caption font-bold text-white shadow-xs"
+                aria-hidden
+              >
+                {initials || 'AD'}
+              </span>
+            </div>
+          </div>
         </header>
 
         <main
@@ -328,3 +399,4 @@ function AdminPageSkeleton() {
     </div>
   )
 }
+
