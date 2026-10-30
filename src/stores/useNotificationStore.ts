@@ -17,9 +17,10 @@ interface NotificationStore {
   activeToasts: ActiveNotificationToast[]
   selectedNotification: NotificationItem | null
   isDetailOpen: boolean
+  isReadOnly?: boolean
 
   setIsOpen: (open: boolean) => void
-  openDetail: (item: NotificationItem) => void
+  openDetail: (item: NotificationItem, options?: { readOnly?: boolean }) => void
   closeDetail: () => void
   fetchNotifications: () => Promise<void>
   fetchUnreadCount: () => Promise<void>
@@ -44,18 +45,20 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   activeToasts: [],
   selectedNotification: null,
   isDetailOpen: false,
+  isReadOnly: false,
 
   setIsOpen: (open) => set({ isOpen: open }),
 
-  openDetail: (item: NotificationItem) => {
-    set({ selectedNotification: item, isDetailOpen: true })
-    if (!item.isRead) {
+  openDetail: (item: NotificationItem, options?: { readOnly?: boolean }) => {
+    const isReadOnly = options?.readOnly ?? false
+    set({ selectedNotification: item, isDetailOpen: true, isReadOnly })
+    if (!isReadOnly && !item.isRead) {
       get().markAsRead(item.id)
     }
   },
 
   closeDetail: () => {
-    set({ selectedNotification: null, isDetailOpen: false })
+    set({ selectedNotification: null, isDetailOpen: false, isReadOnly: false })
   },
 
   fetchNotifications: async () => {
@@ -211,6 +214,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       activeToasts: [],
       selectedNotification: null,
       isDetailOpen: false,
+      isReadOnly: false,
     })
   },
 }))

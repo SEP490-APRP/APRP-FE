@@ -31,6 +31,26 @@ export const notificationService = {
     return res.data
   },
 
+  async getAllNotificationsPaged(
+    page = 0,
+    size = 10,
+    role?: string,
+    keyword?: string,
+  ): Promise<ApiResponse<PageResponse<NotificationItem>>> {
+    const res = await axiosInstance.get<ApiResponse<PageResponse<NotificationItem>>>(
+      '/notifications/all/paged',
+      {
+        params: {
+          page,
+          size,
+          role: role && role !== 'all' ? role : undefined,
+          keyword: keyword?.trim() ? keyword.trim() : undefined,
+        },
+      },
+    )
+    return res.data
+  },
+
   async adminSendToGroups(
     payload: AdminSendNotificationRequest,
   ): Promise<ApiResponse<void>> {

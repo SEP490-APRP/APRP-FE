@@ -38,6 +38,28 @@ describe('notificationService - REST API client', () => {
     expect(res.result).toEqual(mockData)
   })
 
+  it('getMyNotificationsPaged gọi đúng endpoint GET /notifications/my/paged', async () => {
+    const mockPageData = {
+      page: 0,
+      size: 10,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+      content: [{ id: 1, title: 'Đơn hàng mới', message: 'Bạn có đơn hàng #123' }],
+    }
+    mockAxios.get.mockResolvedValueOnce({
+      data: { code: 1000, result: mockPageData },
+    })
+
+    const res = await notificationService.getMyNotificationsPaged(0, 10)
+
+    expect(mockAxios.get).toHaveBeenCalledWith('/notifications/my/paged', {
+      params: { page: 0, size: 10 },
+    })
+    expect(res.result).toEqual(mockPageData)
+  })
+
   it('getMyUnreadCount gọi đúng endpoint GET /notifications/unread-count', async () => {
     mockAxios.get.mockResolvedValueOnce({
       data: { code: 1000, result: 5 },
@@ -61,6 +83,28 @@ describe('notificationService - REST API client', () => {
 
     expect(mockAxios.get).toHaveBeenCalledWith('/notifications/all')
     expect(res.result).toEqual(mockData)
+  })
+
+  it('getAllNotificationsPaged gọi đúng endpoint GET /notifications/all/paged', async () => {
+    const mockPageData = {
+      page: 0,
+      size: 5,
+      totalElements: 10,
+      totalPages: 2,
+      first: true,
+      last: false,
+      content: [{ id: 10, title: 'Bảo trì hệ thống', message: 'Hệ thống bảo trì tối nay' }],
+    }
+    mockAxios.get.mockResolvedValueOnce({
+      data: { code: 1000, result: mockPageData },
+    })
+
+    const res = await notificationService.getAllNotificationsPaged(0, 5)
+
+    expect(mockAxios.get).toHaveBeenCalledWith('/notifications/all/paged', {
+      params: { page: 0, size: 5 },
+    })
+    expect(res.result).toEqual(mockPageData)
   })
 
   it('adminSendToGroups gọi đúng endpoint POST /notifications/admin/send-to-groups', async () => {

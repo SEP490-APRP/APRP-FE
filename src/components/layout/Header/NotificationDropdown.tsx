@@ -8,6 +8,7 @@ interface NotificationDropdownProps {
   isOpen: boolean
   onClose: () => void
   messagesHref?: string
+  viewAllHref?: string
 }
 
 function formatRelativeTime(dateStr?: string): string {
@@ -38,6 +39,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   isOpen,
   onClose,
   messagesHref = '/tin-nhan',
+  viewAllHref = '/tai-khoan?tab=thong-bao',
 }) => {
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement | null>(null)
@@ -48,6 +50,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    openDetail,
   } = useNotificationStore()
   const unreadTotal = useChatStore((s) => s.unreadTotal)
 
@@ -72,8 +75,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     if (!item.isRead) {
       markAsRead(item.id)
     }
+    openDetail(item)
     onClose()
-    navigate('/tai-khoan?tab=thong-bao')
   }
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
@@ -178,44 +181,42 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             >
               {/* Unread indicator dot */}
               <div className="shrink-0 mt-1">
-                {!item.isRead ? (
-                  <span className="block size-1.5 rounded-full bg-[#326318]" />
-                ) : (
-                  <span className="block size-1.5 rounded-full bg-transparent" />
-                )}
+                <div
+                  className={`size-2 rounded-full ${
+                    item.isRead ? 'bg-transparent' : 'bg-[#326318]'
+                  }`}
+                />
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1.5">
-                  <h5
-                    className={`text-[11px] truncate ${
-                      item.isRead ? 'font-semibold text-[#32392c]' : 'font-extrabold text-[#192014]'
+                <div className="flex items-baseline justify-between gap-1 mb-0.5">
+                  <p
+                    className={`text-xs truncate ${
+                      item.isRead ? 'font-medium text-[#464f3e]' : 'font-extrabold text-[#171f11]'
                     }`}
                   >
                     {item.title}
-                  </h5>
-                  <span className="text-[9.5px] text-[#8a9184] shrink-0 flex items-center gap-0.5">
+                  </p>
+                  <span className="text-[9.5px] text-[#8a9184] shrink-0 font-medium flex items-center gap-0.5">
                     <Clock size={9} />
                     {formatRelativeTime(item.createAt || item.createdAt)}
                   </span>
                 </div>
 
-                <p className="text-[10.5px] text-[#555e4e] line-clamp-2 mt-0.5 leading-snug">
+                <p
+                  className={`text-[11px] line-clamp-2 leading-relaxed ${
+                    item.isRead ? 'text-[#737d6e]' : 'text-[#313b2a]'
+                  }`}
+                >
                   {item.message}
                 </p>
 
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9.5px] font-semibold text-[#326318] group-hover:underline flex items-center gap-0.5">
-                    <span>Bấm để đọc toàn bộ</span>
-                    <ChevronRight size={9} />
+                {item.evidence && (
+                  <span className="inline-block mt-1 text-[9.5px] text-[#326318] font-bold">
+                    Có liên kết đính kèm →
                   </span>
-                  {item.evidence && (
-                    <span className="inline-flex items-center gap-0.5 text-[9.5px] text-gray-400">
-                      • Có link
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
 
               {/* Delete button */}
@@ -240,7 +241,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           type="button"
           onClick={() => {
             onClose()
-            navigate('/tai-khoan?tab=thong-bao')
+            navigate(viewAllHref)
           }}
           className="font-bold text-[#326318] hover:text-[#214310] flex items-center gap-1 cursor-pointer transition-colors text-[10.5px]"
         >

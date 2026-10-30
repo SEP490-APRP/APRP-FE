@@ -344,6 +344,7 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                 isOpen={notifOpen}
                 onClose={() => setNotifOpen(false)}
                 messagesHref="/admin/messages"
+                viewAllHref="/admin/notifications"
               />
             </div>
 
@@ -398,3 +399,4 @@ function AdminPageSkeleton() {
     </div>
   )
 }
+

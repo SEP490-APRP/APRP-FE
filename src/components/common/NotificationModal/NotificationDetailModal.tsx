@@ -55,10 +55,25 @@ export function formatNotificationDate(dateValue?: any): string {
   }
 }
 
+export function getSafeLink(rawUrl?: string): { isSafe: boolean; href: string } {
+  if (!rawUrl) return { isSafe: false, href: '' }
+  const trimmed = rawUrl.trim()
+  if (!trimmed) return { isSafe: false, href: '' }
+  const lower = trimmed.toLowerCase()
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
+    return { isSafe: false, href: '' }
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+    return { isSafe: true, href: trimmed }
+  }
+  return { isSafe: true, href: `https://${trimmed}` }
+}
+
 export const NotificationDetailModal: React.FC = () => {
   const {
     selectedNotification,
     isDetailOpen,
+    isReadOnly,
     closeDetail,
     deleteNotification,
     markAsRead,
@@ -136,12 +151,17 @@ export const NotificationDetailModal: React.FC = () => {
             <h3 id="noti-modal-title" className="text-base font-bold text-[#1c2216] leading-snug">
               {noti.title}
             </h3>
-            {noti.adminName && (
+            {noti.adminName ? (
               <div className="flex items-center gap-1.5 text-xs text-[#6a7563] mt-1 font-medium">
                 <User size={12} className="text-[#326318]" />
                 <span>Người gửi: <strong>{noti.adminName}</strong> (Ban Quản Trị)</span>
               </div>
-            )}
+            ) : isReadOnly ? (
+              <div className="flex items-center gap-1.5 text-xs text-[#6a7563] mt-1 font-medium">
+                <User size={12} className="text-[#326318]" />
+                <span>Người gửi: <strong>Ban Quản Trị</strong> (Hệ thống)</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="p-3.5 rounded-xl bg-[#faf8f4] border border-[#f0ece1] text-xs text-[#3b4435] leading-relaxed whitespace-pre-wrap select-text max-h-[45vh] overflow-y-auto">
@@ -149,55 +169,78 @@ export const NotificationDetailModal: React.FC = () => {
           </div>
 
           {/* Evidence / Attach Link */}
-          {noti.evidence && (
-            <div className="p-3 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">Liên kết đính kèm</p>
-                <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+          {noti.evidence && (() => {
+            const safe = getSafeLink(noti.evidence)
+            return (
+              <div className="p-3 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">Liên kết đính kèm</p>
+                  <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+                </div>
+                {safe.isSafe ? (
+                  <a
+                    href={safe.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
+                  >
+                    <span>Mở link</span>
+                    <ExternalLink size={12} />
+                  </a>
+                ) : (
+                  <span className="shrink-0 px-2.5 py-1 rounded bg-gray-100 text-[10px] text-gray-500 font-medium">
+                    Liên kết không an toàn
+                  </span>
+                )}
               </div>
-              <a
-                href={noti.evidence}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
-              >
-                <span>Mở link</span>
-                <ExternalLink size={12} />
-              </a>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Footer Actions */}
         <div className="px-5 py-3 border-t border-[#f0ebd9] bg-[#faf7ef] flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer"
-          >
-            <Trash2 size={13} />
-            <span>Xoá thông báo</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            {!noti.isRead && (
+          {!isReadOnly ? (
+            <>
               <button
                 type="button"
-                onClick={handleMarkAsRead}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#326318] bg-white border border-[#326318]/30 hover:bg-[#f2f8ed] transition-colors cursor-pointer"
+                onClick={handleDelete}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer"
               >
-                <CheckCheck size={13} />
-                <span>Đánh dấu đã đọc</span>
+                <Trash2 size={13} />
+                <span>Xoá thông báo</span>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={closeDetail}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#47523f] bg-white border border-[#e5dfd2] hover:bg-[#f2ede1] transition-colors cursor-pointer"
-            >
-              Đóng
-            </button>
-          </div>
+
+              <div className="flex items-center gap-2">
+                {!noti.isRead && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAsRead}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#326318] bg-white border border-[#326318]/30 hover:bg-[#f2f8ed] transition-colors cursor-pointer"
+                  >
+                    <CheckCheck size={13} />
+                    <span>Đánh dấu đã đọc</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeDetail}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#47523f] bg-white border border-[#e5dfd2] hover:bg-[#f2ede1] transition-colors cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-end w-full">
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-dark transition-colors cursor-pointer shadow-xs"
+              >
+                Đóng
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
