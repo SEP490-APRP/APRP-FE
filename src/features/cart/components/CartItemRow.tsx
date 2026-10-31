@@ -34,7 +34,7 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
   return (
     <div
       className={`flex items-center gap-3 transition-opacity ${
-        compact ? 'py-2.5 first:pt-1 last:pb-1 text-xs' : 'p-4 text-sm'
+        compact ? 'py-2.5 first:pt-1 last:pb-1 text-xs' : 'py-3 px-1 text-xs sm:text-sm'
       } ${isUpdating ? 'opacity-60' : ''}`}
     >
       {/* Checkbox item */}
@@ -50,7 +50,7 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
       {/* Ảnh sản phẩm */}
       <div
         className={`rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#e8ece3] ${
-          compact ? 'w-14 h-14' : 'w-16 h-16'
+          compact ? 'w-14 h-14' : 'w-13 h-13 sm:w-14 sm:h-14'
         }`}
       >
         {item.imageUrl ? (
