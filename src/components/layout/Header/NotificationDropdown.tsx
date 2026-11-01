@@ -51,8 +51,15 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     markAllAsRead,
     deleteNotification,
     openDetail,
+    fetchNotifications,
   } = useNotificationStore()
   const unreadTotal = useChatStore((s) => s.unreadTotal)
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications()
+    }
+  }, [isOpen, fetchNotifications])
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {

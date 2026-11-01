@@ -59,7 +59,14 @@ export default function Header({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const timeoutRef = useRef<number | null>(null)
   const accountRef = useRef<HTMLDivElement | null>(null)
-  const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
+  const {
+    unreadCount,
+    isOpen: notifOpen,
+    setIsOpen: setNotifOpen,
+    fetchNotifications,
+    fetchUnreadCount,
+    connectRealtime,
+  } = useNotificationStore()
 
   const { token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
@@ -100,8 +107,20 @@ export default function Header({
       initRealtime(token)
       loadConversations()
       loadUnreadCount()
+      connectRealtime(user.id, token)
+      fetchNotifications()
+      fetchUnreadCount()
     }
-  }, [user?.id, token, initRealtime, loadConversations, loadUnreadCount])
+  }, [
+    user?.id,
+    token,
+    initRealtime,
+    loadConversations,
+    loadUnreadCount,
+    connectRealtime,
+    fetchNotifications,
+    fetchUnreadCount,
+  ])
 
   // Close account menu & chat popover on outside click
   useEffect(() => {
