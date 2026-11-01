@@ -28,6 +28,7 @@ import {
   UserX,
   Wallet,
   Ticket,
+  Star,
   type LucideIcon,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
@@ -101,6 +102,11 @@ const TABS = {
     icon: MessageSquare,
     page: lazy(() => import('./Messages')),
   },
+  reviews: {
+    name: 'Giám sát Đánh giá',
+    icon: Star,
+    page: lazy(() => import('./ReviewMonitoring')),
+  },
 } satisfies Record<
   string,
   { name: string; icon: LucideIcon; page: LazyExoticComponent<ComponentType>; badge?: string }
@@ -110,7 +116,7 @@ export type AdminTabId = keyof typeof TABS
 
 const SECTIONS: { title: string; items: AdminTabId[] }[] = [
   { title: 'Tổng quan & Báo cáo', items: ['overview', 'user-report'] },
-  { title: 'Kiểm duyệt', items: ['kyc', 'products', 'disputes'] },
+  { title: 'Kiểm duyệt & Đánh giá', items: ['kyc', 'products', 'disputes', 'reviews'] },
   { title: 'Thành viên', items: ['shops', 'shippers', 'bad-buyers'] },
   { title: 'Tài chính & Đối soát', items: ['cod', 'wallet', 'vouchers'] },
   { title: 'Truyền thông & CSKH', items: ['news', 'notifications', 'messages'] },

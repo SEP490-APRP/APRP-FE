@@ -229,6 +229,19 @@ export default function AuthPage({
     // 4. Lưu vào Zustand Auth Store
     login(sessionUser, token)
 
+    // Nếu là shop mới đăng ký đăng nhập lần đầu tiên -> kích hoạt tour
+    if (mappedRole === 'shop') {
+      const isNewShop = localStorage.getItem('capnong_new_registered_shop_flag') === 'true'
+      const newShopEmail = localStorage.getItem('capnong_new_registered_shop_email')
+      const currentEmail = (profileUser?.email || payload?.email || fallbackEmail || '').toLowerCase()
+
+      if (isNewShop && (!newShopEmail || newShopEmail === currentEmail)) {
+        sessionStorage.setItem('capnong_trigger_new_shop_tour', 'true')
+        localStorage.removeItem('capnong_new_registered_shop_flag')
+        localStorage.removeItem('capnong_new_registered_shop_email')
+      }
+    }
+
     setSuccessNotice(
       mappedRole === 'shop'
         ? 'Đăng nhập Gian Hàng thành công! Đang chuyển đến bảng quản lý...'
@@ -396,6 +409,9 @@ export default function AuthPage({
             values.shopDescription?.trim() ||
             `Khu vực: ${values.shopRegion}. Canh tác: ${values.shopFarmingType}`,
         })
+
+        localStorage.setItem('capnong_new_registered_shop_flag', 'true')
+        localStorage.setItem('capnong_new_registered_shop_email', values.email.trim().toLowerCase())
 
         setSuccessNotice('Đăng ký gian hàng thành công! Mã OTP đã được gửi đến email của bạn.')
         setTimeout(() => {
