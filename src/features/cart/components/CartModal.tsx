@@ -20,7 +20,6 @@ import { LegacyProduceImage } from '@/features/product'
 import { useAddToCart } from '../hooks/useAddToCart'
 import { useCartOperations } from '../hooks/useCartOperations'
 import { CartItemRow } from './CartItemRow'
-import { CartDeleteModal } from './CartDeleteModal'
 import { cartCount, cartTotal, useAuth, useCartStore, useUiStore } from '@/stores'
 
 const DETAIL_IDS: Record<string, number> = {
@@ -55,6 +54,8 @@ export function CartModal() {
   const setIsMinimized = useUiStore((s) => s.setCartMinimized)
   const addToCartMutation = useAddToCart()
   const [addingSuggestId, setAddingSuggestId] = useState<string | null>(null)
+  const [confirmingShopId, setConfirmingShopId] = useState<number | null>(null)
+  const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false)
 
   // Local mock store (fallback khi khách chưa đăng nhập)
   const localCart = useCartStore((s) => s.items)
@@ -77,6 +78,9 @@ export function CartModal() {
     totalAllCount,
     editingQuantities,
     isItemUpdating,
+    isShopRemoving,
+    handleRemoveShop,
+    handleClearAllCart,
     handleQuantityChange,
     handleDirectQuantityChange,
     handleCommitQuantity,
@@ -237,10 +241,10 @@ export function CartModal() {
             </div>
           </div>
 
-          {/* Master Select All Checkbox (khi đã đăng nhập và có sản phẩm) */}
+          {/* Master Select All Checkbox & Nút Xóa sạch (khi đã đăng nhập và có sản phẩm) */}
           {user && totalAllCount > 0 && (
-            <div className="mt-3 pt-2.5 border-t border-[#f0ebe0] flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-[#293520]">
+            <div className="mt-3 pt-2.5 border-t border-[#f0ebe0] flex items-center justify-between gap-2 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-[#293520] shrink-0">
                 <input
                   type="checkbox"
                   className="w-4 h-4 rounded text-[#326318] focus:ring-[#326318] border-stone-300 cursor-pointer"
@@ -250,11 +254,51 @@ export function CartModal() {
                 <span>Chọn tất cả ({totalAllCount} món)</span>
               </label>
 
-              {selectedItemIds.size > 0 && (
-                <span className="text-[11px] text-[#326318] font-bold bg-[#e8f3de] px-2 py-0.5 rounded-full">
-                  Đã chọn {totalSelectedCount} món
-                </span>
-              )}
+              <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                {isConfirmingClearAll ? (
+                  <div className="flex items-center gap-1.5 text-[11px] bg-red-50 border border-red-200 text-red-700 px-2.5 py-0.5 rounded-lg animate-fadeIn whitespace-nowrap">
+                    <span>Xóa sạch giỏ?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClearAllCart()
+                        setIsConfirmingClearAll(false)
+                      }}
+                      disabled={isRemoving}
+                      className="font-bold text-red-700 hover:text-red-900 underline cursor-pointer ml-0.5"
+                    >
+                      Xóa
+                    </button>
+                    <span className="text-red-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingClearAll(false)}
+                      className="text-stone-500 hover:text-stone-700 cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {selectedItemIds.size > 0 && (
+                      <span className="text-[11px] text-[#326318] font-bold bg-[#e8f3de] px-2 py-0.5 rounded-full">
+                        Đã chọn {totalSelectedCount} món
+                      </span>
+                    )}
+                    <span className="text-stone-300 text-xs select-none">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingClearAll(true)}
+                      disabled={isRemoving}
+                      className="text-stone-400 hover:text-red-600 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium disabled:opacity-40"
+                      title="Xóa sạch toàn bộ sản phẩm trong giỏ hàng"
+                    >
+                      <Trash2 size={12} />
+                      <span>Xóa sạch</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -390,12 +434,12 @@ export function CartModal() {
                     className="border border-[#e6e0d2] rounded-2xl bg-white overflow-hidden shadow-xs"
                   >
                     {/* Header Nhà Vườn */}
-                    <div className="bg-[#f7f5ed] px-3.5 py-2.5 flex items-center justify-between border-b border-[#e9e3d5]">
-                      <div className="flex items-center gap-2">
+                    <div className="bg-[#f7f5ed] px-3.5 py-2.5 flex items-center justify-between gap-2 border-b border-[#e9e3d5]">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <input
                           type="checkbox"
                           id={`shop-select-${shop.shopId}`}
-                          className="w-4 h-4 rounded text-[#326318] border-stone-300 focus:ring-[#326318] cursor-pointer"
+                          className="w-4 h-4 rounded text-[#326318] border-stone-300 focus:ring-[#326318] cursor-pointer shrink-0"
                           checked={isShopAllSelected}
                           onChange={() => toggleSelectShop(shop.items)}
                           aria-label={`Chọn tất cả sản phẩm của ${shop.shopName}`}
@@ -403,19 +447,62 @@ export function CartModal() {
                         <Link
                           to={`/cua-hang/${shop.shopId}`}
                           onClick={closeCart}
-                          className="flex items-center gap-1.5 group cursor-pointer hover:underline"
+                          className="flex items-center gap-1.5 group cursor-pointer hover:underline min-w-0"
                           title={`Xem gian hàng ${shop.shopName}`}
                         >
-                          <Store size={14} className="text-[#326318] group-hover:scale-110 transition-transform" />
-                          <span className="font-bold text-xs text-[#1c2e17] group-hover:text-[#326318] transition-colors">
+                          <Store size={14} className="text-[#326318] group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="font-bold text-xs text-[#1c2e17] group-hover:text-[#326318] transition-colors truncate">
                             {shop.shopName}
                           </span>
-                          <ChevronRight size={13} className="text-stone-400 group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all" />
+                          <ChevronRight size={13} className="text-stone-400 group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all shrink-0" />
                         </Link>
                       </div>
-                      <span className="text-[11px] text-[#717869] font-medium">
-                        {shop.items.length} món
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                        <span className="text-[11px] text-[#717869] font-medium whitespace-nowrap">
+                          {shop.items.length} món
+                        </span>
+                        <span className="text-stone-300 text-xs select-none">|</span>
+                        {confirmingShopId === shop.shopId ? (
+                          <div className="flex items-center gap-1.5 text-[11px] bg-red-50 border border-red-200 text-red-700 px-2 py-0.5 rounded-lg animate-fadeIn whitespace-nowrap">
+                            <span>Xóa?</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleRemoveShop(shop.items, shop.shopName)
+                                setConfirmingShopId(null)
+                              }}
+                              disabled={isShopRemoving(shop.items)}
+                              className="font-bold text-red-700 hover:text-red-900 underline cursor-pointer ml-0.5 whitespace-nowrap"
+                            >
+                              Xóa
+                            </button>
+                            <span className="text-red-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingShopId(null)}
+                              className="text-stone-500 hover:text-stone-700 cursor-pointer whitespace-nowrap"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingShopId(shop.shopId)}
+                            disabled={isRemoving || isShopRemoving(shop.items)}
+                            className="text-stone-400 hover:text-red-600 p-1 -mr-1 rounded-md hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium disabled:opacity-40 whitespace-nowrap"
+                            title={`Xóa tất cả ${shop.items.length} món của ${shop.shopName}`}
+                            aria-label={`Xóa tất cả sản phẩm của ${shop.shopName}`}
+                          >
+                            {isShopRemoving(shop.items) ? (
+                              <Loader2 size={12} className="animate-spin text-red-500" />
+                            ) : (
+                              <Trash2 size={12} />
+                            )}
+                            <span>Xóa shop</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Danh sách items của shop */}
@@ -584,13 +671,7 @@ export function CartModal() {
         )}
       </div>
 
-      {/* Modal xác nhận xóa sản phẩm khỏi giỏ hàng */}
-      <CartDeleteModal
-        item={deletingItem}
-        isDeleting={isRemoving}
-        onConfirm={confirmDeleteItem}
-        onCancel={() => setDeletingItem(null)}
-      />
+
     </div>
   )
 }
