@@ -36,6 +36,7 @@ interface ProductsProps {
   onOpenBlindBoxTool: () => void
   onOpenComboBuilder?: (combo?: any) => void
   onInfo?: (msg: string) => void
+  initialSearchQuery?: string
 }
 
 export type StatusFilter = 'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED' | 'INACTIVE'
@@ -88,6 +89,7 @@ export default function Products({
   onOpenBlindBoxTool,
   onOpenComboBuilder,
   onInfo,
+  initialSearchQuery = '',
 }: ProductsProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [typeFilter, setTypeFilter] = useState<ProductTypeFilter>('ALL')
@@ -108,7 +110,14 @@ export default function Products({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isCategoryDropdownOpen])
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearchQuery)
+
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setSearch(initialSearchQuery)
+      setPage(0)
+    }
+  }, [initialSearchQuery])
   const [page, setPage] = useState<number>(0)
   const pageSize = 10
 

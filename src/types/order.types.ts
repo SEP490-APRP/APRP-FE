@@ -33,6 +33,7 @@ export interface OrderItem {
   subtotal?: number
   imageUrl?: string
   itemType?: 'PRODUCT' | 'MYSTERY_BOX' | 'BUILD_COMBO' | string
+  isReviewed?: boolean
 }
 
 /** Thông tin shop gắn trong đơn hàng */
