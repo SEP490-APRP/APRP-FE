@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard,
   BarChart3,
@@ -85,7 +86,43 @@ export default function FarmerPortal({
     shopProfile?.logoUrl ||
     user?.avatar
 
-  const [currentTab, setCurrentTab] = useState<string>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const validTabs = [
+    'overview',
+    'products',
+    'orders',
+    'disputes',
+    'blogs',
+    'reviews',
+    'vouchers',
+    'notifications',
+    'profile',
+    'wallet',
+    'messages',
+  ]
+  const tabParam = searchParams.get('tab')
+  const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
+  const [currentTab, setCurrentTab] = useState<string>(initialTab)
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && validTabs.includes(tab)) {
+      setCurrentTab(tab)
+      setSelectedOrderIdForPrep(null)
+    }
+
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'dang-ban') {
+      setShowAddProductModal(true)
+    } else if (action === 'blindbox' || action === 'tui-mu') {
+      setShowBlindBoxTool(true)
+    } else if (action === 'combo') {
+      setShowComboBuilder(true)
+    } else if (action === 'withdraw' || action === 'rut-tien') {
+      setShowWithdrawModal(true)
+    }
+  }, [searchParams])
+
   const [shopActive, setShopActive] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
@@ -412,6 +449,7 @@ export default function FarmerPortal({
             onClick={() => {
               setCurrentTab('overview')
               setSelectedOrderIdForPrep(null)
+              setSearchParams({ tab: 'overview' }, { replace: true })
             }}
             className="flex items-center gap-3 cursor-pointer group"
           >
@@ -441,6 +479,7 @@ export default function FarmerPortal({
                 onClick={() => {
                   setCurrentTab(item.id)
                   setSelectedOrderIdForPrep(null)
+                  setSearchParams({ tab: item.id }, { replace: true })
                 }}
                 className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${
                   isActive

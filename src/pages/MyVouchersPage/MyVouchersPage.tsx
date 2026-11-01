@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   HelpCircle,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMyVouchers } from '@/features/voucher'
 import { voucherService, type VoucherResponse } from '@/services'
 import { globalShowAlert } from '@/components/common/Popup'
@@ -31,6 +31,7 @@ const formatDate = (value?: string) => {
 
 const MyVouchersPage: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { isAuthenticated } = useAuth()
   const { data: myVouchers = [], isLoading, refetch } = useMyVouchers(isAuthenticated)
   const [publicVouchers, setPublicVouchers] = useState<VoucherResponse[]>([])
@@ -67,7 +68,19 @@ const MyVouchersPage: React.FC = () => {
     return Array.from(map.values())
   }, [publicVouchers, myVouchers])
 
-  const [activeTab, setActiveTab] = useState<TabType>('ALL')
+  const tabParam = searchParams.get('tab')?.toUpperCase() as TabType | null
+  const initialTab: TabType =
+    tabParam && ['ALL', 'SHIPPING', 'PLATFORM', 'SHOP'].includes(tabParam) ? tabParam : 'ALL'
+
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab')?.toUpperCase() as TabType | null
+    if (currentTab && ['ALL', 'SHIPPING', 'PLATFORM', 'SHOP'].includes(currentTab)) {
+      setActiveTab(currentTab)
+    }
+  }, [searchParams])
+
   const [inputCode, setInputCode] = useState('')
   const [submittingCode, setSubmittingCode] = useState(false)
 
