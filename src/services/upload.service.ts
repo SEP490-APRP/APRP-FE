@@ -26,6 +26,7 @@ export const uploadService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60_000,
     })
 
     return response.data
@@ -45,11 +46,13 @@ export const uploadService = {
     formData.append('file', file)
     formData.append('folder', folder)
 
-    const endpoint = file.type.startsWith('video/') ? '/upload/video' : '/upload/image'
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name)
+    const endpoint = isVideo ? '/upload/video' : '/upload/image'
     const response = await axiosInstance.post<ApiResponse<UploadResponse>>(endpoint, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 180_000, // Cho phép 3 phút để upload video dung lượng lớn lên Cloudinary
     })
 
     return response.data

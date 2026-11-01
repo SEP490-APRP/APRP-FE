@@ -6,6 +6,7 @@ import { DEFAULT_TITLE, type RouteHandle } from '../router/routeMeta'
 const SECTIONED = ['/nong-san-tuoi', '/combo-tui-mu']
 
 import { CapNongLoading } from '@/components/ui/Loading'
+import { useAuth, useNotificationStore } from '@/stores'
 
 /** Loading indicator khi chuyển trang / tải lazy chunk */
 export function PageLoading() {
@@ -19,11 +20,26 @@ export function PageLoading() {
  * 2. Tự động đổi document.title theo metadata của từng route
  * 3. Tự động cuộn trang (lên đầu hoặc cuộn mượt tới anchor section)
  * 4. Bọc Suspense toàn cục với PageLoading
+ * 5. Kết nối WebSocket Notification thời gian thực cho user đăng nhập
  */
 export default function RootLayout() {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const matches = useMatches()
+  const { user, token } = useAuth()
+  const { connectRealtime, disconnectRealtime, fetchNotifications, fetchUnreadCount } =
+    useNotificationStore()
+
+  // 0. Kết nối WebSocket Notification và tải thông báo ban đầu
+  useEffect(() => {
+    if (user?.id) {
+      connectRealtime(user.id, token ?? undefined)
+      fetchNotifications()
+      fetchUnreadCount()
+    } else {
+      disconnectRealtime()
+    }
+  }, [user?.id, token, connectRealtime, disconnectRealtime, fetchNotifications, fetchUnreadCount])
 
   // 1. Tự động chuyển hướng mượt mà nếu người dùng truy cập link cũ có dấu # hoặc hash thay đổi
   useEffect(() => {

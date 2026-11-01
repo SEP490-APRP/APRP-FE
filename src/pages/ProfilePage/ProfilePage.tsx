@@ -30,19 +30,22 @@ import {
   Info,
   Maximize2,
   HeartPulse,
+  Bell,
 } from 'lucide-react'
 import { authService, getSavedAddresses, createSavedAddress, updateSavedAddress, deleteSavedAddress, setDefaultSavedAddress } from '@/services'
 import type { UserResponse } from '@/services/user.types'
 import type { SavedAddress, SavedAddressRequest } from '@/types/address.types'
-import { useAuth, useUiStore } from '@/stores'
+import { useAuth, useUiStore, useNotificationStore } from '@/stores'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 import HealthProfileTab from './HealthProfileTab'
+import NotificationTab from './NotificationTab'
 
-type ActiveTab = 'account' | 'address' | 'health' | 'security'
+type ActiveTab = 'account' | 'address' | 'health' | 'security' | 'notifications'
 
 export default function ProfilePage() {
   const { user: authUser, setUser: setAuthUser } = useAuth()
   const { showToast } = useUiStore()
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
@@ -50,6 +53,7 @@ export default function ProfilePage() {
     if (tabParam === 'health' || tabParam === 'dinh-duong' || tabParam === 'suc-khoe') return 'health'
     if (tabParam === 'address' || tabParam === 'dia-chi') return 'address'
     if (tabParam === 'security' || tabParam === 'bao-mat') return 'security'
+    if (tabParam === 'notifications' || tabParam === 'thong-bao' || tabParam === 'thongbao') return 'notifications'
     return 'account'
   })
   const [loading, setLoading] = useState(true)
@@ -106,6 +110,9 @@ export default function ProfilePage() {
       setActiveTab('address')
     } else if (tabParam === 'security' || tabParam === 'bao-mat' || tabParam === 'password' || path.includes('mat-khau')) {
       setActiveTab('security')
+
+    } else if (tabParam === 'notifications' || tabParam === 'thong-bao' || tabParam === 'thongbao' || path.includes('thong-bao')) {
+      setActiveTab('notifications')
     } else if (tabParam === 'account' || tabParam === 'tai-khoan') {
       setActiveTab('account')
     }
@@ -425,7 +432,7 @@ export default function ProfilePage() {
 
   return (
     <div className="w-full bg-[#f8f6f0] min-h-screen py-6 sm:py-9 text-[#1c2317]">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={`${activeTab === 'notifications' ? 'max-w-7xl' : 'max-w-6xl'} mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-200`}>
         
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-2 text-xs text-[#757e6e] mb-6">
@@ -611,6 +618,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => {
                     setActiveTab('security')
+
                     setSearchParams({ tab: 'security' })
                   }}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
@@ -621,6 +629,31 @@ export default function ProfilePage() {
                 >
                   <Key size={16} />
                   <span className="flex-1">Bảo mật & Đổi mật khẩu</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('notifications')
+                    setSearchParams({ tab: 'thong-bao' })
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all text-left cursor-pointer ${
+                    activeTab === 'notifications'
+                      ? 'bg-[#326318] text-white shadow-xs'
+                      : 'text-[#4e5845] hover:bg-[#f5f1e8] hover:text-[#1b2216]'
+                  }`}
+                >
+                  <Bell size={16} />
+                  <span className="flex-1">Thông báo của tôi</span>
+                  {unreadCount > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        activeTab === 'notifications' ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
+                      }`}
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
                 </button>
 
                 <hr className="my-1.5 border-[#eee8db]" />
@@ -657,7 +690,7 @@ export default function ProfilePage() {
           {/* ------------------------------------------------------------ */}
           {/* RIGHT COLUMN: MAIN CONTENT CANVAS                           */}
           {/* ------------------------------------------------------------ */}
-          <main className="flex-1 min-w-0 w-full bg-white rounded-2xl border border-[#e6e0d3] p-6 sm:p-7 shadow-xs">
+          <main className="flex-1 min-w-0 w-full bg-white rounded-xl border border-[#e6e0d3] p-5 sm:p-6 shadow-xs">
             
             {/* ========================================================== */}
             {/* TAB 1: THÔNG TIN TÀI KHOẢN                                 */}
@@ -1044,6 +1077,8 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* TAB 5: THÔNG BÁO CỦA TÔI */}
+            {activeTab === 'notifications' && <NotificationTab />}
           </main>
 
         </div>

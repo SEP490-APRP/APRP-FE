@@ -228,7 +228,22 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
 
                         <p className="text-ink text-sm leading-relaxed mb-4">{review.comment}</p>
 
-                        {review.evidence && (
+                        {review.imageUrls && review.imageUrls.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {review.imageUrls.map((url, i) => (
+                              <div
+                                key={i}
+                                className="rounded-xl overflow-hidden border border-line w-24 h-24 bg-white shrink-0 hover:scale-105 transition-transform"
+                              >
+                                <img
+                                  src={url}
+                                  alt={`Bằng chứng ${i + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : review.evidence ? (
                           <div className="mb-4 rounded-xl overflow-hidden border border-line w-32 aspect-square bg-white">
                             <img
                               src={review.evidence}
@@ -236,7 +251,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                               className="w-full h-full object-cover"
                             />
                           </div>
-                        )}
+                        ) : null}
 
                         {review.replyFromShop && (
                           <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-line relative mt-3">

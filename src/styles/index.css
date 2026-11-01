@@ -614,6 +614,22 @@
   padding: 0 4px;
   text-align: center;
 }
+.chat-trigger {
+  position: relative;
+}
+.chat-trigger > span {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  border-radius: 20px;
+  background: #e11d48;
+  color: #fff;
+  min-width: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+  text-align: center;
+}
 .nav-bar {
   background: #4a7c2f;
   position: relative;
@@ -1568,3 +1584,26 @@
 }
 
 
+
+@keyframes bell-ring {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  15%, 45% {
+    transform: rotate(14deg);
+  }
+  30%, 60% {
+    transform: rotate(-14deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+  85% {
+    transform: rotate(-6deg);
+  }
+}
+
+.animate-bell-ring {
+  animation: bell-ring 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+}
