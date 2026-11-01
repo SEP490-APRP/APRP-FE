@@ -120,9 +120,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const isOtherTyping = useMemo(() => {
     if (!activeConversation) return false
     return Boolean(
-      typingUsers[activeConversation.otherUserId] ||
-        typingUsers[Number(activeConversation.otherUserId)] ||
-        typingUsers[String(activeConversation.otherUserId)],
+      typingUsers[Number(activeConversation.otherUserId)] ||
+        (typingUsers as Record<string | number, boolean>)[activeConversation.otherUserId],
     )
   }, [activeConversation, typingUsers])
 

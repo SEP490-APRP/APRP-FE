@@ -720,7 +720,7 @@ export default function ReviewMonitoring() {
                         ) : rev.evidence ? (
                           <button
                             type="button"
-                            onClick={() => setLightboxImage(rev.evidence)}
+                            onClick={() => setLightboxImage(rev.evidence ?? null)}
                             className="size-11 rounded-md overflow-hidden border border-line hover:border-leaf-600 shrink-0 transition-transform hover:scale-105 cursor-pointer"
                             title="Nhấp để phóng to"
                           >

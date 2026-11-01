@@ -307,21 +307,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isWsConnected: false })
   },
 
-  reset: () => {
-    get().disconnectRealtime()
-    set({
-      conversations: [],
-      activeConversation: null,
-      messages: {},
-      unreadTotal: 0,
-      typingUsers: {},
-      isWsConnected: false,
-      isOpen: false,
-      isLoadingConversations: false,
-      isLoadingMessages: false,
-    })
-  },
-
   loadConversations: async () => {
     try {
       set({ isLoadingConversations: true })

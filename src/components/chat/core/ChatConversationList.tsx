@@ -79,9 +79,8 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
             )
 
             const isTyping = Boolean(
-              typingUsers[conv.otherUserId] ||
               typingUsers[Number(conv.otherUserId)] ||
-              typingUsers[String(conv.otherUserId)],
+              (typingUsers as Record<string | number, boolean>)[conv.otherUserId],
             )
 
             return (

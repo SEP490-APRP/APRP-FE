@@ -38,7 +38,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { isRecording, recordingSeconds, startRecording, stopRecording, cancelRecording } =
     useVoiceRecorder()

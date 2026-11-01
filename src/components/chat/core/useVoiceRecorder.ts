@@ -34,7 +34,7 @@ export function useVoiceRecorder(): VoiceRecorderState {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const mimeTypeInfoRef = useRef<{ mimeType: string; ext: string }>({ mimeType: 'audio/webm', ext: 'webm' })
 

@@ -102,17 +102,19 @@ export default function Header({
       ? '/shipper'
       : '/'
 
+  const userId = (user as { id?: string | number } | null | undefined)?.id
+
   useEffect(() => {
-    if (user && token) {
+    if (user && token && userId) {
       initRealtime(token)
       loadConversations()
       loadUnreadCount()
-      connectRealtime(user.id, token)
+      connectRealtime(userId, token)
       fetchNotifications()
       fetchUnreadCount()
     }
   }, [
-    user?.id,
+    userId,
     token,
     initRealtime,
     loadConversations,

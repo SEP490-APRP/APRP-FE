@@ -647,6 +647,7 @@ export const BuyerOrdersView: React.FC = () => {
           }
         }}
         onConfirm={handleConfirmCancelOrder}
+      />
 
       {/* Modal Đánh giá sản phẩm */}
       <ReviewModal

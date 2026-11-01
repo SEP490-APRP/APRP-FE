@@ -28,13 +28,15 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
     if (!msg.id) return
 
     const isConfirmed = await globalShowConfirm(
+      isModerateAdmin ? 'Kiểm duyệt & Xóa tin nhắn' : 'Thu hồi tin nhắn',
       isModerateAdmin
         ? 'Admin: Bạn có chắc chắn muốn xóa tin nhắn vi phạm này của người dùng không? Thao tác này sẽ xóa tin nhắn vĩnh viễn trên hệ thống.'
         : 'Bạn có chắc chắn muốn thu hồi tin nhắn này không? Tin nhắn sẽ biến mất đối với cả hai bên.',
-      isModerateAdmin ? 'Kiểm duyệt & Xóa tin nhắn' : 'Thu hồi tin nhắn',
-      isModerateAdmin ? 'Xóa vi phạm' : 'Thu hồi',
-      'Hủy bỏ',
-      true,
+      {
+        confirmText: isModerateAdmin ? 'Xóa vi phạm' : 'Thu hồi',
+        cancelText: 'Hủy bỏ',
+        isDestructive: true,
+      },
     )
 
     if (isConfirmed) {
