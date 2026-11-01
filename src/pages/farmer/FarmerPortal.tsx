@@ -97,8 +97,41 @@ export default function FarmerPortal({
     user?.avatar
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const tabFromUrl = searchParams.get('tab')
-  const [currentTab, setCurrentTab] = useState<string>(tabFromUrl || 'overview')
+  const validTabs = [
+    'overview',
+    'products',
+    'orders',
+    'disputes',
+    'blogs',
+    'reviews',
+    'vouchers',
+    'notifications',
+    'profile',
+    'wallet',
+    'messages',
+  ]
+  const tabParam = searchParams.get('tab')
+  const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
+  const [currentTab, setCurrentTab] = useState<string>(initialTab)
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && validTabs.includes(tab)) {
+      setCurrentTab(tab)
+      setSelectedOrderIdForPrep(null)
+    }
+
+    const action = searchParams.get('action')
+    if (action === 'add' || action === 'dang-ban') {
+      setShowAddProductModal(true)
+    } else if (action === 'blindbox' || action === 'tui-mu') {
+      setShowBlindBoxTool(true)
+    } else if (action === 'combo') {
+      setShowComboBuilder(true)
+    } else if (action === 'withdraw' || action === 'rut-tien') {
+      setShowWithdrawModal(true)
+    }
+  }, [searchParams])
   const [shopActive, setShopActive] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [productSearchQuery, setProductSearchQuery] = useState<string>('')
@@ -468,6 +501,7 @@ export default function FarmerPortal({
             onClick={() => {
               setCurrentTab('overview')
               setSelectedOrderIdForPrep(null)
+              setSearchParams({ tab: 'overview' }, { replace: true })
             }}
             className="flex items-center gap-3 cursor-pointer group"
           >
@@ -495,12 +529,13 @@ export default function FarmerPortal({
                 key={item.id}
                 id={`sidebar-item-${item.id}`}
                 onClick={() => handleTabChange(item.id)}
-                className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${isActive
-                  ? showTour
-                    ? 'border-2 border-[#326318] bg-[#326318]/10 text-[#326318] font-black shadow-md'
-                    : 'bg-[#326318]/10 text-[#326318] font-black shadow-sm'
-                  : 'text-[#616a5b] hover:bg-[#f2f6ee] hover:text-[#1c2216]'
-                  }`}
+                className={`farmer-sidebar-btn w-full flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 cursor-pointer text-left ${
+                  isActive
+                    ? showTour
+                      ? 'border-2 border-[#326318] bg-[#326318]/10 text-[#326318] font-black shadow-md'
+                      : 'bg-[#326318]/10 text-[#326318] font-black shadow-sm'
+                    : 'text-[#616a5b] hover:bg-[#f2f6ee] hover:text-[#1c2216]'
+                }`}
               >
                 <item.icon
                   size={19}

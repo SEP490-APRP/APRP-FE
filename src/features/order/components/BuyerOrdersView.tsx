@@ -46,7 +46,8 @@ export const BuyerOrdersView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const currentTab = (searchParams.get('tab') as TabKey) || 'ALL'
-  const [searchKeyword, setSearchKeyword] = useState('')
+  const orderIdParam = searchParams.get('orderId')
+  const [searchKeyword, setSearchKeyword] = useState(orderIdParam || '')
   const [orders, setOrders] = useState<OrderResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
@@ -116,6 +117,24 @@ export const BuyerOrdersView: React.FC = () => {
       fetchOrders()
     }
   }, [user, currentTab])
+
+  useEffect(() => {
+    const id = searchParams.get('orderId')
+    if (id) {
+      setSearchKeyword(id)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const cancelTargetId = searchParams.get('orderId')
+    const shouldAutoCancel = searchParams.get('action') === 'cancel'
+    if (shouldAutoCancel && cancelTargetId && orders.length > 0 && !cancelModalState.isOpen) {
+      const found = orders.find((o) => String(o.orderId || o.id) === cancelTargetId)
+      if (found && (found.status === 'PENDING' || found.status === 'AWAITING_PAYMENT')) {
+        handleOpenCancelModal(found)
+      }
+    }
+  }, [orders, searchParams])
 
   // Lọc theo từ khóa tìm kiếm
   const filteredOrders = useMemo(() => {

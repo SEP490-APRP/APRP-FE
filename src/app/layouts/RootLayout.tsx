@@ -6,6 +6,7 @@ import { DEFAULT_TITLE, type RouteHandle } from '../router/routeMeta'
 const SECTIONED = ['/nong-san-tuoi', '/combo-tui-mu']
 
 import { CapNongLoading } from '@/components/ui/Loading'
+import { ChatbotFloatingWidget } from '@/features/chatbot'
 import { useAuth, useNotificationStore } from '@/stores'
 
 /** Loading indicator khi chuyển trang / tải lazy chunk */
@@ -21,6 +22,7 @@ export function PageLoading() {
  * 3. Tự động cuộn trang (lên đầu hoặc cuộn mượt tới anchor section)
  * 4. Bọc Suspense toàn cục với PageLoading
  * 5. Kết nối WebSocket Notification thời gian thực cho user đăng nhập
+ * 6. Hiển thị CapNong Copilot Chatbot xuyên suốt toàn bộ phân hệ (Buyer, Shop, Shipper, Admin)
  */
 export default function RootLayout() {
   const { pathname, search } = useLocation()
@@ -96,6 +98,8 @@ export default function RootLayout() {
       <Suspense fallback={<PageLoading />}>
         <Outlet />
       </Suspense>
+      {/* Trợ lý AI Copilot xuất hiện trên toàn bộ phân hệ người dùng (Khách mua, Nhà vườn, Shipper) */}
+      <ChatbotFloatingWidget />
     </div>
   )
 }
