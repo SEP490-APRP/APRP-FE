@@ -16,6 +16,7 @@ import type { OrderResponse } from '../../../types/order.types'
 import { OrderStatusBadge } from './OrderStatusBadge'
 import { useConfirmOrder, useReadyOrder, useCancelOrder } from '../hooks/useShopOrders'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { OrderSettlementCard } from '@/features/wallet'
 
 interface OrderDetailModalProps {
   order: OrderResponse
@@ -132,6 +133,13 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
               {order.totalAmount.toLocaleString('vi-VN')}đ
             </span>
           </div>
+
+          {/* Chia tiền về ví (dự kiến hoặc đã quyết toán) */}
+          {orderId && order.status !== 'CANCELLED' && order.status !== 'FAILED' && order.status !== 'AWAITING_PAYMENT' && (
+            <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3">
+              <OrderSettlementCard orderId={orderId} viewer="SHOP" />
+            </div>
+          )}
 
           {/* Banner PAID */}
           {order.status === 'PAID' && (

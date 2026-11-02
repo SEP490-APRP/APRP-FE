@@ -24,6 +24,7 @@ import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../serv
 import { globalShowAlert } from '@/components/common/Popup';
 import logoIcon from '@/assets/logo-icon.png';
 import { CapNongLoading } from '@/components/ui/Loading';
+import { ShipperWalletPanel } from '@/features/wallet';
 
 interface ShipperDashboardProps {
   onLogout?: () => void;
@@ -1159,6 +1160,12 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             </div>
           </div>
         )}
+
+        {activeTab === 'Hồ sơ cá nhân' && (
+          <div className="mt-8">
+            <ShipperWalletPanel />
+          </div>
+        )}
       </div>
 
       {/* Notification Modal */}
@@ -1324,4 +1331,4 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   );
 };
 
-export default ShipperDashboard;
+export default ShipperDashboard;

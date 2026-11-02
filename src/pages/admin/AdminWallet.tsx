@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Wallet, TrendingUp, Download, Loader2, AlertCircle, XCircle } from 'lucide-react'
 import type { WithdrawRequestResponse } from '@/services'
 import {
+  AdminPlatformLedger,
   useAdminWalletOverview,
   useConfirmWithdraw,
   useCreateWithdrawQr,
@@ -184,7 +185,9 @@ const AdminWallet: React.FC = () => {
     .reduce((sum, h) => sum + h.amount, 0)
   const platformTotalBalance = platformWallet?.totalBalance ?? 0
   const platformFrozenBalance = platformWallet?.frozenBalance ?? 0
-  const platformAvailableBalance = Math.max(0, platformTotalBalance - platformFrozenBalance)
+  // Ví sàn có thể âm khi tiền sàn bù voucher lớn hơn phí dịch vụ thu được.
+  // Tiền tạm giữ (đơn chưa hoàn tất) nằm riêng, chưa cộng vào số dư.
+  const platformAvailableBalance = platformTotalBalance
 
   const filteredHistory = useMemo(() => {
     if (historyFilter === 'ALL') return history
@@ -236,10 +239,10 @@ const AdminWallet: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            Ví sàn - Tổng
+            Ví sàn - Tổng (gồm tạm giữ)
           </p>
           <h3 className="text-2xl font-black text-gray-900">
-            {platformTotalBalance.toLocaleString('vi-VN')}
+            {(platformTotalBalance + platformFrozenBalance).toLocaleString('vi-VN')}
             <span className="text-sm font-normal text-gray-400 ml-1">đ</span>
           </h3>
         </div>
@@ -254,7 +257,7 @@ const AdminWallet: React.FC = () => {
         </div>
         <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
           <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">
-            Ví sàn - Đang giữ
+            Ví sàn - Tạm giữ (chờ đơn hoàn tất)
           </p>
           <h3 className="text-2xl font-black text-amber-600">
             {platformFrozenBalance.toLocaleString('vi-VN')}
@@ -262,6 +265,9 @@ const AdminWallet: React.FC = () => {
           </h3>
         </div>
       </div>
+
+      {/* Sổ cái ví sàn, tra cứu chia tiền, hoàn tiền (API thật) */}
+      <AdminPlatformLedger />
 
       {/* Withdraw & Processing Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
