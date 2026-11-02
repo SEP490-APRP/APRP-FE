@@ -16,7 +16,7 @@ export function useCartOperations() {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set())
   // Cờ theo dõi khởi tạo lần đầu để không ghi đè lựa chọn bỏ tick của user
   const isInitializedRef = useRef(false)
-  // State xác nhận xóa sản phẩm
+  // State xác nhận xóa sản phẩm (để tương thích ngược nếu cần)
   const [deletingItem, setDeletingItem] = useState<CartItemResponse | null>(null)
   // State lưu số lượng đang chỉnh sửa trực tiếp qua ô input
   const [editingQuantities, setEditingQuantities] = useState<Record<number, string>>({})
@@ -25,6 +25,14 @@ export function useCartOperations() {
   const isItemUpdating = (cartItemId: number) =>
     (updateMutation.isPending && (updateMutation.variables as any)?.cartItemId === cartItemId) ||
     (removeMutation.isPending && (removeMutation.variables as any)?.cartItemIds?.includes(cartItemId))
+
+  // Kiểm tra xem toàn bộ shop có đang trong quá trình xóa hay không
+  const isShopRemoving = (shopItems: CartItemResponse[]) => {
+    if (!removeMutation.isPending) return false
+    const pendingIds = (removeMutation.variables as any)?.cartItemIds as number[] | undefined
+    if (!pendingIds) return false
+    return shopItems.some((i) => pendingIds.includes(i.cartItemId))
+  }
 
   // Giữ nguyên các lựa chọn checkbox của người dùng khi cập nhật số lượng
   useEffect(() => {
@@ -113,10 +121,108 @@ export function useCartOperations() {
     })
   }
 
+  const handleRemove = (item: CartItemResponse) => {
+    if (removeMutation.isPending) return
+    const id = item.cartItemId
+    removeMutation.mutate(
+      { cartItemIds: [id] },
+      {
+        onSuccess: () => {
+          setSelectedItemIds((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+          setEditingQuantities((prev) => {
+            if (!(id in prev)) return prev
+            const next = { ...prev }
+            delete next[id]
+            return next
+          })
+          useUiStore
+            .getState()
+            .showToast(`Đã xóa ${item.itemName || item.name || 'sản phẩm'} khỏi giỏ hàng`)
+        },
+        onError: (err: any) => {
+          const msg =
+            err?.response?.data?.message || err?.message || 'Không thể xóa sản phẩm khỏi giỏ hàng'
+          useUiStore.getState().showToast(msg)
+        },
+      },
+    )
+  }
+
+  const handleRemoveShop = (shopItems: CartItemResponse[], shopName?: string) => {
+    if (removeMutation.isPending) return
+    const ids = shopItems.map((i) => i.cartItemId)
+    if (ids.length === 0) return
+    removeMutation.mutate(
+      { cartItemIds: ids },
+      {
+        onSuccess: () => {
+          setSelectedItemIds((prev) => {
+            const next = new Set(prev)
+            ids.forEach((id) => next.delete(id))
+            return next
+          })
+          setEditingQuantities((prev) => {
+            const next = { ...prev }
+            let changed = false
+            ids.forEach((id) => {
+              if (id in next) {
+                delete next[id]
+                changed = true
+              }
+            })
+            return changed ? next : prev
+          })
+          useUiStore
+            .getState()
+            .showToast(
+              shopName
+                ? `Đã xóa tất cả sản phẩm của ${shopName} khỏi giỏ hàng`
+                : 'Đã xóa tất cả sản phẩm của nhà vườn khỏi giỏ hàng',
+            )
+        },
+        onError: (err: any) => {
+          const msg =
+            err?.response?.data?.message ||
+            err?.message ||
+            'Không thể xóa các sản phẩm của nhà vườn'
+          useUiStore.getState().showToast(msg)
+        },
+      },
+    )
+  }
+
+  const handleClearAllCart = () => {
+    if (removeMutation.isPending) return
+    if (!cart?.shopCarts) return
+    const allIds = cart.shopCarts.flatMap((s) => s.items.map((i) => i.cartItemId))
+    if (allIds.length === 0) return
+    removeMutation.mutate(
+      { cartItemIds: allIds },
+      {
+        onSuccess: () => {
+          setSelectedItemIds(new Set())
+          setEditingQuantities({})
+          useUiStore.getState().showToast('Đã xóa sạch toàn bộ giỏ hàng')
+        },
+        onError: (err: any) => {
+          const msg =
+            err?.response?.data?.message ||
+            err?.message ||
+            'Không thể xóa toàn bộ giỏ hàng'
+          useUiStore.getState().showToast(msg)
+        },
+      },
+    )
+  }
+
   const handleQuantityChange = (item: CartItemResponse, delta: number) => {
     const newQty = item.quantity + delta
     if (newQty <= 0) {
-      setDeletingItem(item)
+      handleRemove(item)
       return
     }
     const maxStock = item.stockQuantity ?? 999
@@ -143,7 +249,7 @@ export function useCartOperations() {
     })
 
     if (isNaN(num) || num <= 0) {
-      setDeletingItem(item)
+      handleRemove(item)
       return
     }
 
@@ -159,24 +265,8 @@ export function useCartOperations() {
 
   const confirmDeleteItem = () => {
     if (!deletingItem) return
-    const id = deletingItem.cartItemId
-    removeMutation.mutate(
-      { cartItemIds: [id] },
-      {
-        onSuccess: () => {
-          setSelectedItemIds((prev) => {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          })
-          setDeletingItem(null)
-        },
-      },
-    )
-  }
-
-  const handleRemove = (item: CartItemResponse) => {
-    setDeletingItem(item)
+    handleRemove(deletingItem)
+    setDeletingItem(null)
   }
 
   // Tính tổng tiền & số lượng cho DB cart
@@ -226,7 +316,7 @@ export function useCartOperations() {
       if (item && rawVal !== undefined) {
         const num = parseInt(rawVal, 10)
         if (isNaN(num) || num <= 0) {
-          setDeletingItem(item)
+          handleRemove(item)
         } else {
           const maxStock = item.stockQuantity ?? 999
           const finalQty = Math.min(num, maxStock)
@@ -255,11 +345,14 @@ export function useCartOperations() {
     totalAllCount,
     editingQuantities,
     isItemUpdating,
+    isShopRemoving,
     handleQuantityChange,
     handleDirectQuantityChange,
     handleCommitQuantity,
     commitAllPendingQuantities,
     handleRemove,
+    handleRemoveShop,
+    handleClearAllCart,
     deletingItem,
     setDeletingItem,
     confirmDeleteItem,

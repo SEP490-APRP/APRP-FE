@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   MessageSquare,
   X,
@@ -57,6 +57,7 @@ export const FloatingChatWidget: React.FC = () => {
   const [pendingMedia, setPendingMedia] = useState<{ url: string; type: 'IMAGE' | 'VIDEO'; name?: string } | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -104,18 +105,12 @@ export const FloatingChatWidget: React.FC = () => {
     return () => window.removeEventListener('open-chat-with-user', handleOpenChat)
   }, [user, setOpen, startChatWithUser])
 
-  // Tự động cuộn xuống cuối khi có tin nhắn mới trong hội thoại active
-  useEffect(() => {
-    if (activeConversation && isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages, activeConversation, isOpen])
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const isVideo = file.type.startsWith('video/')
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name)
     const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
     if (file.size > maxSize) {
       alert(
@@ -152,8 +147,9 @@ export const FloatingChatWidget: React.FC = () => {
     if ((!inputText.trim() && !pendingMedia) || isSending || !activeConversation) return
 
     const content = inputText.trim()
-    const attachmentUrl = pendingMedia?.url || undefined
-    const type = pendingMedia ? pendingMedia.type : 'TEXT'
+    const media = pendingMedia
+    const attachmentUrl = media?.url || undefined
+    const type = media ? media.type : 'TEXT'
     setInputText('')
     setPendingMedia(null)
     setIsSending(true)
@@ -166,6 +162,8 @@ export const FloatingChatWidget: React.FC = () => {
       await sendMessage(content, type, attachmentUrl)
     } catch (err) {
       console.error('[FloatingChatWidget] Send message error:', err)
+      setInputText(content)
+      setPendingMedia(media)
     } finally {
       setIsSending(false)
     }
@@ -198,6 +196,37 @@ export const FloatingChatWidget: React.FC = () => {
 
   const activeMessages = activeConversation ? messages[Number(activeConversation.id)] || [] : []
   const isOtherUserTyping = activeConversation && typingUsers[activeConversation.otherUserId]
+
+  // Hàm cuộn xuống tin nhắn cuối cùng
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      const el = messagesContainerRef.current
+      if (behavior === 'smooth') {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      } else {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' })
+    }
+  }, [])
+
+  // Tự động cuộn xuống khi mở widget, khi đổi hội thoại, tải xong tin nhắn hoặc có tin nhắn mới
+  useEffect(() => {
+    if (!activeConversation || !isOpen || isLoadingMessages) return
+
+    scrollToBottom('auto')
+    const t1 = setTimeout(() => scrollToBottom('auto'), 50)
+    const t2 = setTimeout(() => scrollToBottom('smooth'), 150)
+    const t3 = setTimeout(() => scrollToBottom('smooth'), 350)
+
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [activeConversation?.id, activeMessages.length, isLoadingMessages, isOpen, isOtherUserTyping, scrollToBottom])
 
   // Định dạng thời gian hiển thị thân thiện (xử lý cả ISO string lẫn mảng LocalDateTime của Java)
   const formatTime = (timeStr?: any) => {
@@ -430,7 +459,10 @@ export const FloatingChatWidget: React.FC = () => {
             /* VIEW 2: KHUNG CHAT ACTIVE */
             <div className="flex-1 flex flex-col min-h-0 bg-[#fafcf9]">
               {/* VÙNG HIỂN THỊ TIN NHẮN */}
-              <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-3.5 space-y-2.5"
+              >
                 {isLoadingMessages ? (
                   <div className="flex items-center justify-center h-32">
                     <Loader2 size={20} className="animate-spin text-[#326318]" />
@@ -456,9 +488,9 @@ export const FloatingChatWidget: React.FC = () => {
                         key={msg.id || idx}
                         className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
                       >
-                        <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`flex items-center gap-1.5 max-w-[80%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div
-                            className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
+                            className={`w-fit max-w-full px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words whitespace-pre-wrap shadow-2xs ${
                               isMe
                                 ? 'bg-[#326318] text-white rounded-br-xs'
                                 : 'bg-white text-[#1c2216] border border-[#e8ece3] rounded-bl-xs'
@@ -474,6 +506,7 @@ export const FloatingChatWidget: React.FC = () => {
                                     preload="metadata"
                                     src={msg.attachmentUrl}
                                     className="max-h-56 w-full rounded-lg bg-black"
+                                    onLoadedData={() => scrollToBottom('auto')}
                                   />
                                 ) : (
                                   <img
@@ -481,6 +514,7 @@ export const FloatingChatWidget: React.FC = () => {
                                     alt="Tệp đính kèm"
                                     className="max-h-40 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                     onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                    onLoad={() => scrollToBottom('auto')}
                                   />
                                 )}
                               </div>
@@ -580,7 +614,7 @@ export const FloatingChatWidget: React.FC = () => {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingMedia}
                   className="size-8 rounded-xl border border-[#dce3d5] text-[#616b5a] hover:bg-[#f6f9f3] hover:text-[#326318] flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                  title="Đính kèm hình ảnh hoặc video (tối đa 50MB)"
+                  title="Đính kèm hình ảnh hoặc video (tối đa 100MB)"
                 >
                   {uploadingMedia ? (
                     <Loader2 size={14} className="animate-spin text-[#326318]" />

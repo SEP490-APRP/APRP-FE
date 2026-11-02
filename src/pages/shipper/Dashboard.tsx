@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { notificationService, NotificationItem, orderService } from '../../services';
@@ -35,11 +35,32 @@ type TrackingStatus = 'off' | 'starting' | 'active' | 'error';
 
 const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigateStore }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const handleGoHome = () => {
     if (onNavigateStore) onNavigateStore();
     else navigate('/');
   };
-  const [activeTab, setActiveTab] = useState('Đơn hàng mới');
+
+  const tabParam = searchParams.get('tab');
+  const initialTab =
+    tabParam === 'delivering' || tabParam === 'dang-giao'
+      ? 'Đơn đang giao'
+      : tabParam === 'profile' || tabParam === 'ho-so' || tabParam === 'cod' || tabParam === 'wallet'
+        ? 'Hồ sơ cá nhân'
+        : 'Đơn hàng mới';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const param = searchParams.get('tab');
+    if (param === 'delivering' || param === 'dang-giao') {
+      setActiveTab('Đơn đang giao');
+    } else if (param === 'profile' || param === 'ho-so' || param === 'cod' || param === 'wallet') {
+      setActiveTab('Hồ sơ cá nhân');
+    } else if (param === 'new' || param === 'don-moi') {
+      setActiveTab('Đơn hàng mới');
+    }
+  }, [searchParams]);
   const [radius, setRadius] = useState('5km');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);

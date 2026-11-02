@@ -27,6 +27,7 @@ import {
   MyVouchersRoute,
   MealPlanRoute,
   ProfileRoute,
+  BuyerMessagesRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
@@ -104,9 +105,16 @@ export const router = createBrowserRouter([
           { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
+          // Tin nhắn & Trò chuyện (Chat trực tuyến với Nhà Vườn & Hỗ trợ)
+          { path: 'tin-nhan/*', element: <BuyerMessagesRoute />, handle: title('Tin Nhắn & Trò Chuyện · CapNong') },
+          { path: 'messages/*', element: <Navigate replace to="/tin-nhan" /> },
+          { path: 'chat/*', element: <Navigate replace to="/tin-nhan" /> },
+
           // Xác thực & Tài khoản
           { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
           { path: 'profile/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'thong-bao/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
+          { path: 'notifications/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
           { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },
           { path: 'login/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },

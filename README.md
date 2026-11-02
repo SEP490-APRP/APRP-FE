@@ -91,11 +91,11 @@ src/
 * **Gồm**: `images/` (hình ảnh), `icons/` (icon SVG), `fonts/` (font chữ nội bộ).
 * *Lưu ý*: Các file `.gitkeep` rỗng được đặt trong các folder này nhằm đảm bảo Git theo dõi được thư mục khi chưa có file thực tế.
 
-#### 3. `components/` — Shared Components
-Được phân tầng theo nguyên lý thiết kế hệ thống (Design System):
-* **`ui/` (Atomic / Primitives)**: Chứa các component giao diện cơ bản nhất, **không chứa nghiệp vụ** (ví dụ: `Button`, `Input`, `Badge`, `Checkbox`). Nhận props và render UI.
-* **`layout/`**: Các thành phần tạo nên khung bố cục của trang web như `Header`, `Sidebar`, `Footer` và `MainLayout`.
-* **`common/`**: Các component tái sử dụng trên nhiều trang nhưng có độ phức tạp cao hơn (ví dụ: `UserAvatar`, `DataTable`, `ConfirmModal`).
+                    #### 3. `components/` — Shared Components
+                    Được phân tầng theo nguyên lý thiết kế hệ thống (Design System):
+                    * **`ui/` (Atomic / Primitives)**: Chứa các component giao diện cơ bản nhất, **không chứa nghiệp vụ** (ví dụ: `Button`, `Input`, `Badge`, `Checkbox`). Nhận props và render UI.
+                    * **`layout/`**: Các thành phần tạo nên khung bố cục của trang web như `Header`, `Sidebar`, `Footer` và `MainLayout`.
+                    * **`common/`**: Các component tái sử dụng trên nhiều trang nhưng có độ phức tạp cao hơn (ví dụ: `UserAvatar`, `DataTable`, `ConfirmModal`).
 
 #### 4. `features/` — Domain Modules (Feature-Driven Architecture)
 * **Nhiệm vụ**: Đóng gói mã nguồn theo từng nghiệp vụ kinh doanh độc lập (Domain Logic).

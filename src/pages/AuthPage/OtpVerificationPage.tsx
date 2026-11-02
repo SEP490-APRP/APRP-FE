@@ -145,6 +145,10 @@ export const OtpVerificationPage = () => {
         user?.status === 'PENDING' || isShop || isShipper
 
       if (isPendingApproval) {
+        if (isShop) {
+          localStorage.setItem('capnong_new_registered_shop_flag', 'true')
+          localStorage.setItem('capnong_new_registered_shop_email', trimmedEmail.toLowerCase())
+        }
         setSuccessMsg(
           'Xác thực OTP thành công! Hồ sơ đăng ký của bạn đã được chuyển tới Ban Quản Trị để phê duyệt.',
         )
