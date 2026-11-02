@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
 import { money, type Cart, type Product as StorefrontProduct } from '@/mocks/catalog'
-import { ProductGrid, useAllProducts } from '@/features/product'
+import { ProductGrid, useHomeProducts } from '@/features/product'
 import { LinkButton } from '@/components/ui/Button'
 
 const BENEFITS = [
@@ -12,7 +12,8 @@ const BENEFITS = [
 ] as const
 
 export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Cart }) {
-  const { data: apiProducts, isLoading } = useAllProducts()
+  // Trang chủ chỉ hiện 8 sản phẩm (4 trên, 4 dưới); xem thêm ở trang Nông sản tươi
+  const { data: apiProducts, isLoading } = useHomeProducts(8)
 
   const displayProducts = useMemo<StorefrontProduct[]>(() => {
     if (apiProducts && apiProducts.length > 0) {
