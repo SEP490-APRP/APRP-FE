@@ -15,6 +15,7 @@ import {
 export const productKeys = {
   all: ['products'] as const,
   list: () => [...productKeys.all, 'list'] as const,
+  home: (size: number) => [...productKeys.all, 'home', size] as const,
   forBuyer: () => [...productKeys.all, 'for-buyer'] as const,
   myShop: (params?: GetMyProductsParams) => [...productKeys.all, 'my-shop', params ?? {}] as const,
   detail: (idOrSlug: string) => [...productKeys.all, 'detail', idOrSlug] as const,
@@ -32,6 +33,14 @@ export function useAllProducts() {
   return useQuery({
     queryKey: productKeys.list(),
     queryFn: async () => (await productService.getAll()).result ?? [],
+  })
+}
+
+/** Trang chủ: chỉ lấy {size} sản phẩm mới nhất (BE phân trang: GET /products?page=1&size=) */
+export function useHomeProducts(size = 8) {
+  return useQuery({
+    queryKey: productKeys.home(size),
+    queryFn: async () => ((await productService.getAll({ page: 1, size })).result ?? []).slice(0, size),
   })
 }
 

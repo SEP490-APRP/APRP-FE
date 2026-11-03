@@ -37,6 +37,7 @@ import type { UserResponse } from '@/services/user.types'
 import type { SavedAddress, SavedAddressRequest } from '@/types/address.types'
 import { useAuth, useUiStore, useNotificationStore } from '@/stores'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
+import { CapNongLoading } from '@/components/ui/Loading'
 import HealthProfileTab from './HealthProfileTab'
 import NotificationTab from './NotificationTab'
 
@@ -429,6 +430,15 @@ export default function ProfilePage() {
     }
   }
   const badge = getBadgeInfo(rescuedKg)
+
+  if (loading) {
+    return (
+      <CapNongLoading
+        message="Đang tải thông tin tài khoản..."
+        subMessage="CapNong · Quản lý hồ sơ và sổ địa chỉ cá nhân"
+      />
+    )
+  }
 
   return (
     <div className="w-full bg-[#f8f6f0] min-h-screen py-6 sm:py-9 text-[#1c2317]">
