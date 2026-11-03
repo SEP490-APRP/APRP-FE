@@ -130,7 +130,12 @@ const Disputes: React.FC = () => {
     }
   }
 
-  const evidenceList = selectedDispute?.evidence ? selectedDispute.evidence.split(';') : []
+  const evidenceList =
+    selectedDispute?.evidenceUrls && selectedDispute.evidenceUrls.length > 0
+      ? selectedDispute.evidenceUrls
+      : selectedDispute?.evidence
+        ? selectedDispute.evidence.split(';')
+        : []
   const [activeEvidence, setActiveEvidence] = useState(0)
 
   return (
