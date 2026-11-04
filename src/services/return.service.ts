@@ -240,4 +240,14 @@ export const returnService = {
     })
     return { code: 200, result: unwrap<PageResponse<ReturnRequestResponse>>(res) }
   },
-}
+  /**
+   * Shipper báo cáo giao/nhận hàng hoàn thất bại
+   */
+  async shipperFail(
+    id: number,
+    data?: ShipperReturnActionRequest,
+  ): Promise<ApiResponse<ReturnRequestResponse>> {
+    const res = await axiosInstance.post(`/returns/${id}/shipper/fail`, data)
+    return { code: 200, result: unwrap<ReturnRequestResponse>(res) }
+  },
+};

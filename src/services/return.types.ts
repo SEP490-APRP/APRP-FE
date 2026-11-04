@@ -3,9 +3,11 @@ export type ReturnStatus =
   | 'SHOP_APPROVED'
   | 'DISPUTED'
   | 'ADMIN_APPROVED'
+  | 'APPROVED'
   | 'RETURN_SHIPPING'
   | 'RETURN_PICKED_UP'
   | 'RETURN_DELIVERED'
+  | 'RETURN_FAILED'
   | 'REFUND_PENDING'
   | 'COMPLETED'
   | 'REJECTED'
@@ -27,6 +29,8 @@ export interface ReturnRequestResponse {
   status: ReturnStatus
   isReturnGoods?: boolean
   returnShippingFee?: number
+  shippingPaymentMethod?: 'WALLET' | 'COD'
+  isShippingFeePaid?: boolean
   createdAt: string
   updatedAt?: string
   pickedUpAt?: string
@@ -60,12 +64,15 @@ export interface ShopReturnRespondRequest {
   accept: boolean
   shopResponse: string
   isReturnGoods?: boolean
+  shippingPaymentMethod?: 'WALLET' | 'COD'
+  returnShippingFee?: number
 }
 
 export interface AdminReturnDecisionRequest {
   accept: boolean
   refundAmount?: number
   isReturnGoods?: boolean
+  shippingPaymentMethod?: 'WALLET' | 'COD'
   returnShippingFee?: number
   adminRemark?: string
 }

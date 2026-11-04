@@ -102,6 +102,8 @@ export function useShopRespondDispute() {
       accept: boolean
       shopResponse: string
       isReturnGoods?: boolean
+      shippingPaymentMethod?: 'WALLET' | 'COD'
+      returnShippingFee?: number
     }) => returnService.shopRespond(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: orderKeys.all })

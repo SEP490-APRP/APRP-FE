@@ -63,6 +63,11 @@ const STATUS_CONFIG: Record<
     badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
     icon: CheckCircle2,
   },
+  RETURN_FAILED: {
+    label: 'Giao/nhận thất bại',
+    badgeClass: 'bg-rose-50 text-rose-800 border-rose-200',
+    icon: XCircle,
+  },
   COMPLETED: {
     label: 'Đã hoàn tất',
     badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -85,6 +90,7 @@ export default function FarmerDisputes() {
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [selectedDispute, setSelectedDispute] = useState<ReturnRequestResponse | null>(null)
   const [shopResponseText, setShopResponseText] = useState<string>('')
+  const [shippingPaymentMethod, setShippingPaymentMethod] = useState<'WALLET' | 'COD'>('WALLET')
   const [activeMediaUrl, setActiveMediaUrl] = useState<string | null>(null)
 
   const { data: disputes = [], isLoading, refetch } = useShopDisputes()
@@ -126,6 +132,7 @@ export default function FarmerDisputes() {
         accept,
         shopResponse: shopResponseText.trim() || (accept ? 'Shop đã đồng ý yêu cầu.' : 'Shop từ chối yêu cầu hoàn trả.'),
         isReturnGoods,
+        shippingPaymentMethod: isReturnGoods ? shippingPaymentMethod : undefined,
       })
 
       globalShowAlert(
@@ -494,6 +501,46 @@ export default function FarmerDisputes() {
                 <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1">
                   <span className="font-bold text-indigo-900">Phán quyết từ Quản trị viên (Admin):</span>
                   <p className="text-indigo-800 leading-relaxed">{selectedDispute.adminRemark}</p>
+                </div>
+              )}
+
+              {/* Lựa chọn phương thức thanh toán cước hoàn (Shop chịu 100%) */}
+              {selectedDispute.status === 'PENDING' && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-950">
+                      Phí ship hoàn trả hàng: <span className="text-emerald-700">Shop chịu 100% (~20.000 đ)</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800">
+                    Nếu Shop đồng ý lấy lại hàng, vui lòng chọn phương thức chi trả cước phí:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShippingPaymentMethod('WALLET')}
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
+                        shippingPaymentMethod === 'WALLET'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="text-[11px]">Trừ Ví sàn</div>
+                      <div className="text-[10px] font-normal opacity-90">Trừ từ số dư ví ngay</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShippingPaymentMethod('COD')}
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
+                        shippingPaymentMethod === 'COD'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="text-[11px]">Tiền mặt COD</div>
+                      <div className="text-[10px] font-normal opacity-90">Đưa shipper khi nhận hàng</div>
+                    </button>
+                  </div>
                 </div>
               )}
 

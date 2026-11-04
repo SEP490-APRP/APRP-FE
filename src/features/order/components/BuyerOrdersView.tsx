@@ -544,7 +544,7 @@ export const BuyerOrdersView: React.FC = () => {
                           <p className="text-sm font-bold text-emerald-700">
                             {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
                           </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
+                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
                             <div className="flex items-center gap-1.5 flex-wrap justify-end">
                               {it.isRequestedReturn ? (
                                 <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
