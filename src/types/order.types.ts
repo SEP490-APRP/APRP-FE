@@ -64,6 +64,7 @@ export interface OrderResponse {
   totalAmount: number
   shippingFee?: number
   voucherDiscountAmount?: number
+  refundAmount?: number
   shippingLatitude?: number
   shippingLongitude?: number
   shopLatitude?: number
