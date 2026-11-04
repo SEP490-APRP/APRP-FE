@@ -45,8 +45,7 @@ const Disputes: React.FC = () => {
         matchesSearch &&
         (d.status === 'PENDING' ||
           d.status === 'SHOP_APPROVED' ||
-          d.status === 'DISPUTED' ||
-          d.status === 'REFUND_PENDING')
+          d.status === 'DISPUTED' || d.status === 'ADMIN_APPROVED' || d.status === 'REFUND_PENDING')
       )
     if (statusFilter === 'COMPLETED') return matchesSearch && d.status === 'COMPLETED'
     return matchesSearch && d.status === statusFilter
@@ -102,7 +101,9 @@ const Disputes: React.FC = () => {
         }
 
         globalShowAlert(
-          'Đã thực hiện thao tác ' + (accept ? 'phê duyệt' : 'từ chối'),
+          accept
+            ? 'Đã duyệt khiếu nại! Yêu cầu được chuyển cho Shop để lựa chọn phương án lấy lại hàng hoặc hoàn tiền ngay trong 24h.'
+            : 'Đã từ chối khiếu nại.',
           'Thành công',
           'success',
         )
@@ -243,6 +244,11 @@ const Disputes: React.FC = () => {
                     {item.status === 'REJECTED' && (
                       <>
                         <XCircle className="size-3" /> ĐÃ TỪ CHỐI
+                      </>
+                    )}
+                    {item.status === 'ADMIN_APPROVED' && (
+                      <>
+                        <Clock className="size-3 text-indigo-500" /> CHỜ SHOP CHỌN THU HỒI
                       </>
                     )}
                     {item.status === 'DISPUTED' && (

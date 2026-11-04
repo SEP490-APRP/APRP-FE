@@ -44,9 +44,9 @@ const STATUS_CONFIG: Record<
     icon: AlertTriangle,
   },
   ADMIN_APPROVED: {
-    label: 'Admin đã duyệt',
+    label: 'Admin duyệt - Chờ Shop chọn thu hồi',
     badgeClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-    icon: CheckCircle2,
+    icon: Gavel,
   },
   RETURN_SHIPPING: {
     label: 'Chờ shipper lấy',
@@ -105,7 +105,7 @@ export default function FarmerDisputes() {
       item.id?.toString().includes(searchTerm)
 
     if (statusFilter === 'ALL') return matchesSearch
-    if (statusFilter === 'PENDING') return matchesSearch && item.status === 'PENDING'
+    if (statusFilter === 'PENDING') return matchesSearch && (item.status === 'PENDING' || item.status === 'ADMIN_APPROVED')
     if (statusFilter === 'DISPUTED') return matchesSearch && item.status === 'DISPUTED'
     if (statusFilter === 'SHIPPING')
       return (
@@ -119,7 +119,7 @@ export default function FarmerDisputes() {
   })
 
   // Thống kê nhanh
-  const countPending = disputes.filter((d) => d.status === 'PENDING').length
+  const countPending = disputes.filter((d) => d.status === 'PENDING' || d.status === 'ADMIN_APPROVED').length
   const countDisputed = disputes.filter((d) => d.status === 'DISPUTED').length
   const countCompleted = disputes.filter((d) => d.status === 'COMPLETED').length
 
@@ -205,7 +205,7 @@ export default function FarmerDisputes() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {[
               { key: 'ALL', label: 'Tất cả' },
-              { key: 'PENDING', label: 'Chờ duyệt' },
+              { key: 'PENDING', label: 'Cần xử lý' },
               { key: 'SHIPPING', label: 'Đang vận chuyển' },
               { key: 'DISPUTED', label: 'Tranh chấp' },
               { key: 'COMPLETED', label: 'Đã hoàn tất' },
@@ -505,7 +505,7 @@ export default function FarmerDisputes() {
               )}
 
               {/* Lựa chọn phương thức thanh toán cước hoàn (Shop chịu 100%) */}
-              {selectedDispute.status === 'PENDING' && (
+              {(selectedDispute.status === 'PENDING' || selectedDispute.status === 'ADMIN_APPROVED') && (
                 <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-emerald-950">
@@ -545,6 +545,36 @@ export default function FarmerDisputes() {
               )}
 
               {/* Ô phản hồi của Shop (nếu đang chờ xử lý PENDING) */}
+              {selectedDispute.status === 'ADMIN_APPROVED' && (
+                <>
+                  {/* Không lấy lại hàng -> Hoàn tiền ngay */}
+                  <button
+                    type="button"
+                    onClick={() => handleRespond(true, false)}
+                    disabled={respondMutation.isPending}
+                    className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    <DollarSign size={15} />
+                    <span>Hoàn tiền ngay (Không lấy lại hàng)</span>
+                  </button>
+
+                  {/* Lấy lại hàng -> Shop chịu phí ship */}
+                  <button
+                    type="button"
+                    onClick={() => handleRespond(true, true)}
+                    disabled={respondMutation.isPending}
+                    className="py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {respondMutation.isPending ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={15} />
+                    )}
+                    <span>Lấy lại hàng &amp; Chịu phí ship</span>
+                  </button>
+                </>
+              )}
+
               {selectedDispute.status === 'PENDING' && (
                 <div className="space-y-2 pt-2 border-t border-stone-100">
                   <label className="text-xs font-bold text-stone-800 flex items-center justify-between">
