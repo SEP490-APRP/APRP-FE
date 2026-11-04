@@ -406,59 +406,86 @@ const Disputes: React.FC = () => {
                           className="w-full h-24 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-medium outline-none focus:border-primary transition-all resize-none"
                         />
                       </div>
-                      <div className="grid grid-cols-1 gap-3">
-                        <button
-                          onClick={() => handleAdminAction(true, 100)}
-                          disabled={
-                            submitting ||
-                            selectedDispute.status === 'COMPLETED' ||
-                            selectedDispute.status === 'REFUND_PENDING'
-                          }
-                          className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95 disabled:opacity-50"
-                        >
-                          {submitting ? (
-                            <Loader2 className="size-5 animate-spin mx-auto" />
-                          ) : selectedDispute.status === 'SHOP_APPROVED' ? (
-                            'XÁC NHẬN HOÀN TIỀN 100%'
-                          ) : (
-                            'PHÊ DUYỆT HOÀN TIỀN 100%'
-                          )}
-                        </button>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            onClick={() => handleAdminAction(true, 50)}
-                            disabled={
-                              submitting ||
-                              selectedDispute.status === 'COMPLETED' ||
-                              selectedDispute.status === 'REFUND_PENDING'
-                            }
-                            className="py-3 bg-green-50 text-primary font-black rounded-xl border border-primary/20 hover:bg-green-100 transition-colors disabled:opacity-50"
-                          >
-                            HOÀN 50%
-                          </button>
-                          <button
-                            onClick={() => handleAdminAction(false)}
-                            disabled={
-                              submitting ||
-                              selectedDispute.status === 'COMPLETED' ||
-                              selectedDispute.status === 'REFUND_PENDING'
-                            }
-                            className="py-3 bg-red-50 text-red-500 font-black rounded-xl border border-red-100 hover:bg-red-100 transition-colors disabled:opacity-50"
-                          >
-                            TỪ CHỐI
-                          </button>
-                        </div>
-                      </div>
-                      {selectedDispute.status === 'COMPLETED' && (
-                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
-                          <div className="size-8 bg-emerald-500 rounded-full flex items-center justify-center text-white scale-75">
-                            <ShieldCheck className="size-5" />
-                          </div>
-                          <p className="text-xs font-bold text-emerald-700">
-                            Khiếu nại này đã được giải quyết thành công.
-                          </p>
-                        </div>
-                      )}
+                      {(() => {
+                        const isResolved =
+                          selectedDispute.status === 'COMPLETED' ||
+                          selectedDispute.status === 'ADMIN_APPROVED' ||
+                          selectedDispute.status === 'REJECTED' ||
+                          selectedDispute.status === 'CANCELLED' ||
+                          selectedDispute.status === 'RETURN_SHIPPING' ||
+                          selectedDispute.status === 'RETURN_PICKED_UP' ||
+                          selectedDispute.status === 'RETURN_DELIVERED' ||
+                          selectedDispute.status === 'REFUND_PENDING';
+
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 gap-3">
+                              <button
+                                onClick={() => handleAdminAction(true, 100)}
+                                disabled={submitting || isResolved}
+                                className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {submitting ? (
+                                  <Loader2 className="size-5 animate-spin mx-auto" />
+                                ) : selectedDispute.status === 'SHOP_APPROVED' ? (
+                                  'XÁC NHẬN HOÀN TIỀN 100%'
+                                ) : (
+                                  'PHÊ DUYỆT HOÀN TIỀN 100%'
+                                )}
+                              </button>
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => handleAdminAction(true, 50)}
+                                  disabled={submitting || isResolved}
+                                  className="py-3 bg-green-50 text-primary font-black rounded-xl border border-primary/20 hover:bg-green-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  HOÀN 50%
+                                </button>
+                                <button
+                                  onClick={() => handleAdminAction(false)}
+                                  disabled={submitting || isResolved}
+                                  className="py-3 bg-red-50 text-red-500 font-black rounded-xl border border-red-100 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  TỪ CHỐI
+                                </button>
+                              </div>
+                            </div>
+
+                            {selectedDispute.status === 'ADMIN_APPROVED' && (
+                              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-indigo-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <Clock className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-indigo-800">
+                                  Đã phê duyệt khiếu nại. Yêu cầu đang được chuyển cho Shop để lựa chọn phương án lấy lại hàng hoặc hoàn tiền ngay trong 24h.
+                                </p>
+                              </div>
+                            )}
+
+                            {selectedDispute.status === 'REJECTED' && (
+                              <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <XCircle className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-red-700">
+                                  Admin đã từ chối yêu cầu khiếu nại này.
+                                </p>
+                              </div>
+                            )}
+
+                            {selectedDispute.status === 'COMPLETED' && (
+                              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-emerald-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <ShieldCheck className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-emerald-700">
+                                  Khiếu nại này đã được giải quyết thành công.
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <p className="text-[10px] text-gray-400 font-medium italic text-center">
                         Hành động này sẽ giải quyết tranh chấp và cập nhật ví tiền của các bên liên
                         quan.

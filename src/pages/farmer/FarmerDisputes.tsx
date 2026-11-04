@@ -544,35 +544,19 @@ export default function FarmerDisputes() {
                 </div>
               )}
 
-              {/* Ô phản hồi của Shop (nếu đang chờ xử lý PENDING) */}
+              {/* Hướng dẫn khi Admin đã phê duyệt */}
               {selectedDispute.status === 'ADMIN_APPROVED' && (
-                <>
-                  {/* Không lấy lại hàng -> Hoàn tiền ngay */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, false)}
-                    disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    <DollarSign size={15} />
-                    <span>Hoàn tiền ngay (Không lấy lại hàng)</span>
-                  </button>
-
-                  {/* Lấy lại hàng -> Shop chịu phí ship */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, true)}
-                    disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    {respondMutation.isPending ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      <CheckCircle2 size={15} />
-                    )}
-                    <span>Lấy lại hàng &amp; Chịu phí ship</span>
-                  </button>
-                </>
+                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 space-y-2">
+                  <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
+                    <Gavel size={16} className="text-indigo-600 shrink-0" />
+                    <span>Admin đã phê duyệt khiếu nại của khách hàng</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-800 leading-relaxed">
+                    Gian hàng có <strong>24 giờ</strong> để đưa ra phương án xử lý hàng hoàn trả ở phía dưới:
+                    <br />• <strong>Không lấy lại hàng:</strong> Hoàn tiền ngay cho người mua (không tốn phí ship hoàn).
+                    <br />• <strong>Lấy lại hàng &amp; Chịu phí ship:</strong> Shipper sẽ lấy hàng hoàn trả về cho gian hàng (Shop chịu phí vận chuyển hoàn).
+                  </p>
+                </div>
               )}
 
               {selectedDispute.status === 'PENDING' && (
@@ -640,6 +624,36 @@ export default function FarmerDisputes() {
                       <CheckCircle2 size={15} />
                     )}
                     <span>Đồng ý trả hàng (Giao shipper)</span>
+                  </button>
+                </>
+              )}
+
+              {selectedDispute.status === 'ADMIN_APPROVED' && (
+                <>
+                  {/* Không lấy lại hàng -> Hoàn tiền ngay */}
+                  <button
+                    type="button"
+                    onClick={() => handleRespond(true, false)}
+                    disabled={respondMutation.isPending}
+                    className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    <DollarSign size={15} />
+                    <span>Hoàn tiền ngay (Không lấy hàng)</span>
+                  </button>
+
+                  {/* Lấy lại hàng -> Shop chịu phí ship */}
+                  <button
+                    type="button"
+                    onClick={() => handleRespond(true, true)}
+                    disabled={respondMutation.isPending}
+                    className="py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {respondMutation.isPending ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={15} />
+                    )}
+                    <span>Lấy lại hàng &amp; Chịu phí ship</span>
                   </button>
                 </>
               )}
