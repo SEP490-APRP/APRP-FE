@@ -51,8 +51,7 @@ const ORDER_TABS: { label: string; statuses: OrderStatus[]; badgeColor: string }
   { label: 'Sẵn sàng giao', statuses: ['READY'], badgeColor: 'bg-purple-100 text-purple-800' },
   { label: 'Đang giao', statuses: ['SHIPPING', 'PICKED_UP'], badgeColor: 'bg-sky-100 text-sky-800' },
   { label: 'Đã giao', statuses: ['DELIVERED', 'COMPLETED'], badgeColor: 'bg-green-100 text-green-800' },
-  { label: 'Trả hàng / Hoàn tiền', statuses: ['REFUND_REQUESTED', 'REFUNDED'], badgeColor: 'bg-rose-100 text-rose-800' },
-  { label: 'Đã hủy', statuses: ['CANCELLED', 'FAILED'], badgeColor: 'bg-stone-100 text-stone-800' },
+  { label: 'Đã hủy', statuses: ['CANCELLED', 'FAILED'], badgeColor: 'bg-rose-100 text-rose-800' },
 ]
 
 export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
