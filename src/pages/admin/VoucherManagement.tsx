@@ -14,6 +14,10 @@ import {
   Percent,
   Calendar,
   Sparkles,
+  Calculator,
+  ShieldCheck,
+  AlertTriangle,
+  TrendingUp,
 } from 'lucide-react'
 import {
   voucherService,
@@ -55,6 +59,74 @@ export default function VoucherManagement() {
     return d.toISOString().slice(0, 16)
   })
   const [isPublic, setIsPublic] = useState(true)
+
+  // Tính toán dự toán kinh tế sàn (Economic & Commission Estimator)
+  const economicEstimate = useMemo(() => {
+    const minOrder = Number(minOrderValue) || 0
+    let maxSubsidy = 0
+
+    if (voucherType === 'FIXED_AMOUNT') {
+      maxSubsidy = Number(discountValue) || 0
+    } else if (voucherType === 'PERCENTAGE') {
+      if (maxDiscount && maxDiscount > 0) {
+        maxSubsidy = Number(maxDiscount)
+      } else {
+        maxSubsidy = (minOrder * (Number(discountValue) || 0)) / 100
+      }
+    } else if (voucherType === 'FREE_SHIPPING') {
+      maxSubsidy = maxDiscount && maxDiscount > 0 ? Number(maxDiscount) : Number(discountValue) || 0
+    }
+
+    // Hoa hồng sàn thu tối thiểu trên đơn hàng (10% tiền hàng từ Shop)
+    const commission = minOrder * 0.1
+    // Lợi nhuận ròng sàn trên 1 đơn hàng ở mức đơn tối thiểu:
+    const netProfit = commission - maxSubsidy
+    const netProfitMargin = minOrder > 0 ? (netProfit / minOrder) * 100 : 0
+
+    // Giá trị đơn tối thiểu đề xuất để sàn hòa vốn:
+    const breakEvenMinOrder = Math.ceil(maxSubsidy / 0.1)
+    // Giá trị đơn tối thiểu đề xuất để sàn có lãi an toàn ~3%:
+    const profitableMinOrder = Math.ceil(maxSubsidy / 0.07)
+
+    let status: 'PROFIT' | 'BREAK_EVEN' | 'LOSS' = 'PROFIT'
+    if (netProfit < 0) {
+      status = 'LOSS'
+    } else if (netProfitMargin < 2) {
+      status = 'BREAK_EVEN'
+    }
+
+    return {
+      minOrder,
+      maxSubsidy,
+      commission,
+      netProfit,
+      netProfitMargin,
+      breakEvenMinOrder,
+      profitableMinOrder,
+      status,
+    }
+  }, [minOrderValue, voucherType, discountValue, maxDiscount])
+
+
+  // Helper chuẩn hóa ô số: không cho phép số 0 đứng đầu, chỉ cho phép số nguyên dương
+  const handleNumericInput = (
+    setter: (val: number) => void,
+    maxVal?: number,
+  ) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    const clean = raw.replace(/^0+(?=\d)/, '')
+    let num = clean === '' ? 0 : parseInt(clean, 10)
+    if (maxVal !== undefined && num > maxVal) {
+      num = maxVal
+    }
+    setter(num)
+  }
+
+  const handleMaxDiscountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    const clean = raw.replace(/^0+(?=\d)/, '')
+    setMaxDiscount(clean === '' ? undefined : parseInt(clean, 10))
+  }
 
   const loadVouchers = async () => {
     setLoading(true)
@@ -129,6 +201,15 @@ export default function VoucherManagement() {
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!voucherCode.trim()) return
+
+    if (voucherScope !== 'WELCOME' && economicEstimate.status === 'LOSS') {
+      globalShowAlert(
+        `Mức giảm voucher (${economicEstimate.maxSubsidy.toLocaleString('vi-VN')} đ) vượt quá 10% hoa hồng sàn thu được từ shop (${economicEstimate.commission.toLocaleString('vi-VN')} đ). Vui lòng đặt đơn tối thiểu ít nhất ${economicEstimate.breakEvenMinOrder.toLocaleString('vi-VN')} đ để bảo toàn lợi nhuận sàn.`,
+        'Voucher gây lỗ cho sàn',
+        'error',
+      )
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -331,8 +412,11 @@ export default function VoucherManagement() {
         </div>
       )}
 
-      {/* Danh sách Voucher Grid */}
-      {loading ? (
+      {/* Main Layout: Danh sách voucher bên trái, Khung tạo voucher bên phải */}
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        {/* Cột Trái: Danh sách Voucher dồn qua trái khi mở khung tạo */}
+        <div className={`w-full transition-all duration-300 ${showCreateModal ? 'lg:flex-1 min-w-0' : 'w-full'}`}>
+          {loading ? (
         <div className="py-20 text-center text-sm text-gray-500 space-y-3 bg-white rounded-3xl border border-gray-100 shadow-xs">
           <Loader2 size={32} className="animate-spin text-purple-600 mx-auto" />
           <p className="font-semibold text-gray-600">Đang tải danh sách voucher toàn sàn...</p>
@@ -360,7 +444,7 @@ export default function VoucherManagement() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={`grid gap-6 ${showCreateModal ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
           {filteredVouchers.map((vc) => {
             const isPercent = vc.voucherType === 'PERCENTAGE'
             const isFreeship =
@@ -554,21 +638,11 @@ export default function VoucherManagement() {
           })}
         </div>
       )}
+        </div>
 
-      {/* Modal Tạo Voucher Admin via createPortal */}
-      {showCreateModal &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setShowCreateModal(false)
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100"
-            >
+        {/* Cột Phải: Khung Tạo Voucher Admin (Hiển thị trực tiếp trong trang) */}
+        {showCreateModal && (
+          <div className="w-full lg:w-[480px] xl:w-[520px] shrink-0 bg-white rounded-3xl border border-gray-200 shadow-lg flex flex-col overflow-hidden animate-fadeIn sticky top-4">
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4.5 border-b border-gray-100 bg-gray-50/50">
                 <div className="flex items-center gap-2.5">
@@ -653,12 +727,26 @@ export default function VoucherManagement() {
                       <span className="text-red-500">*</span>
                     </label>
                     <Input
-                      type="number"
-                      min={1}
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={discountValue === 0 ? '' : discountValue}
+                      onChange={handleNumericInput(
+                        setDiscountValue,
+                        voucherType === 'PERCENTAGE' ? 100 : undefined,
+                      )}
                       required
+                      className={
+                        voucherScope !== 'WELCOME' && economicEstimate.status === 'LOSS'
+                          ? 'border-rose-400 focus:ring-rose-500 font-bold'
+                          : 'font-bold'
+                      }
                     />
+                    {voucherType !== 'PERCENTAGE' && discountValue > 0 && (
+                      <span className="text-[11px] text-purple-700 font-semibold mt-1 block">
+                        = {Number(discountValue).toLocaleString('vi-VN')} đ
+                      </span>
+                    )}
                   </div>
                   {voucherType === 'PERCENTAGE' && (
                     <div>
@@ -666,28 +754,181 @@ export default function VoucherManagement() {
                         Giảm tối đa (VNĐ)
                       </label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         placeholder="Không giới hạn"
                         value={maxDiscount ?? ''}
-                        onChange={(e) =>
-                          setMaxDiscount(e.target.value ? Number(e.target.value) : undefined)
-                        }
+                        onChange={handleMaxDiscountInput}
+                        className="font-bold"
                       />
+                      {maxDiscount && maxDiscount > 0 ? (
+                        <span className="text-[11px] text-gray-500 font-semibold mt-1 block">
+                          Tối đa: {Number(maxDiscount).toLocaleString('vi-VN')} đ
+                        </span>
+                      ) : null}
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Giá trị đơn hàng tối thiểu (VNĐ)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-gray-700">
+                      Giá trị đơn hàng tối thiểu (VNĐ) <span className="text-red-500">*</span>
+                    </label>
+                    {voucherScope !== 'WELCOME' && economicEstimate.status === 'LOSS' && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-pulse">
+                        <AlertTriangle size={12} /> Cần tối thiểu{' '}
+                        {economicEstimate.breakEvenMinOrder.toLocaleString('vi-VN')} đ để hòa vốn
+                      </span>
+                    )}
+                  </div>
                   <Input
-                    type="number"
-                    min={0}
-                    value={minOrderValue}
-                    onChange={(e) => setMinOrderValue(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={minOrderValue === 0 ? '' : minOrderValue}
+                    onChange={handleNumericInput(setMinOrderValue)}
+                    className={
+                      voucherScope !== 'WELCOME' && economicEstimate.status === 'LOSS'
+                        ? 'border-rose-400 focus:ring-rose-500 font-bold'
+                        : 'font-bold'
+                    }
                   />
+                  {minOrderValue > 0 && (
+                    <span className="text-[11px] text-gray-500 font-medium mt-1 block">
+                      = {Number(minOrderValue).toLocaleString('vi-VN')} đ
+                    </span>
+                  )}
                 </div>
+
+                {/* Hộp Cảnh Báo Lợi Nhuận Sàn & Dự Toán Chi Tiết */}
+                {voucherScope !== 'WELCOME' && (
+                  <div
+                    className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${
+                      economicEstimate.status === 'LOSS'
+                        ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-sm ring-1 ring-rose-200'
+                        : economicEstimate.status === 'BREAK_EVEN'
+                        ? 'bg-amber-50 border-amber-300 text-amber-950'
+                        : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-black">
+                        {economicEstimate.status === 'LOSS' ? (
+                          <AlertTriangle size={18} className="text-rose-600 animate-bounce shrink-0" />
+                        ) : economicEstimate.status === 'BREAK_EVEN' ? (
+                          <Calculator size={18} className="text-amber-600 shrink-0" />
+                        ) : (
+                          <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+                        )}
+                        <span className={economicEstimate.status === 'LOSS' ? 'text-rose-900 text-xs sm:text-sm font-black' : 'font-bold'}>
+                          {economicEstimate.status === 'LOSS'
+                            ? 'CẢNH BÁO: VOUCHER NÀY SẼ LÀM SÀN BỊ LỖ RÒNG!'
+                            : economicEstimate.status === 'BREAK_EVEN'
+                            ? 'Dự toán Lợi nhuận sàn: Hòa Vốn / Lãi Mỏng'
+                            : 'Dự toán Lợi nhuận sàn: Biên Lãi An Toàn'}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 ${
+                          economicEstimate.status === 'LOSS'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : economicEstimate.status === 'BREAK_EVEN'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-emerald-600 text-white'
+                        }`}
+                      >
+                        {economicEstimate.status === 'LOSS'
+                          ? `Lỗ ${economicEstimate.netProfit.toLocaleString('vi-VN')} đ`
+                          : economicEstimate.status === 'BREAK_EVEN'
+                          ? `Hòa vốn (${economicEstimate.netProfitMargin.toFixed(1)}%)`
+                          : `Lãi +${economicEstimate.netProfitMargin.toFixed(1)}%`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2.5 py-2.5 px-3 bg-white/90 rounded-xl border border-gray-200/80 text-xs shadow-2xs">
+                      <div>
+                        <span className="text-gray-500 block text-[10px]">Hoa hồng shop (10%):</span>
+                        <span className="font-bold text-gray-900">
+                          +{economicEstimate.commission.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block text-[10px]">Sàn tài trợ voucher:</span>
+                        <span className="font-bold text-rose-600">
+                          -{economicEstimate.maxSubsidy.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block text-[10px]">Lợi nhuận ròng sàn:</span>
+                        <span
+                          className={`font-black text-xs sm:text-sm block ${
+                            economicEstimate.netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                          }`}
+                        >
+                          {economicEstimate.netProfit >= 0 ? '+' : ''}
+                          {economicEstimate.netProfit.toLocaleString('vi-VN')} đ
+                          <span className="text-[10px] font-normal block text-gray-500">
+                            ({economicEstimate.netProfitMargin.toFixed(1)}% đơn tối thiểu)
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {economicEstimate.status === 'LOSS' && (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs text-rose-800 font-medium leading-relaxed">
+                          ⚠️ Số tiền voucher sàn bù (<strong>{economicEstimate.maxSubsidy.toLocaleString('vi-VN')} đ</strong>) vượt quá 10% hoa hồng sàn thu được từ shop (<strong>{economicEstimate.commission.toLocaleString('vi-VN')} đ</strong>).
+                          Hệ thống sẽ <strong>chặn không cho tạo</strong> voucher này để bảo vệ ngân sách sàn.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setMinOrderValue(economicEstimate.breakEvenMinOrder)}
+                            className="text-xs font-bold bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                          >
+                            <span>👉 Tự sửa Đơn tối thiểu để Hòa vốn:</span>
+                            <strong className="underline">
+                              {economicEstimate.breakEvenMinOrder.toLocaleString('vi-VN')} đ
+                            </strong>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMinOrderValue(economicEstimate.profitableMinOrder)}
+                            className="text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                          >
+                            <span>👉 Gợi ý Đơn tối thiểu để Lãi 3%:</span>
+                            <strong className="underline">
+                              {economicEstimate.profitableMinOrder.toLocaleString('vi-VN')} đ
+                            </strong>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {economicEstimate.status === 'BREAK_EVEN' && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                        <p className="text-[11px] text-amber-800 leading-tight">
+                          ℹ️ Sàn hòa vốn hoặc lãi mỏng (&lt; 2%). Khuyến nghị đặt đơn tối thiểu để đạt biên lợi nhuận an toàn ~3%.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setMinOrderValue(economicEstimate.profitableMinOrder)}
+                          className="shrink-0 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Gợi ý lãi 3% ({economicEstimate.profitableMinOrder.toLocaleString('vi-VN')} đ)
+                        </button>
+                      </div>
+                    )}
+
+                    {economicEstimate.status === 'PROFIT' && (
+                      <p className="text-[11px] text-emerald-800 flex items-center gap-1 font-medium">
+                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                        Biên lợi nhuận sàn an toàn. Không rủi ro tài chính khi áp dụng đơn lẻ hoặc tách đơn đa shop.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -695,11 +936,13 @@ export default function VoucherManagement() {
                       Tổng lượt nhận
                     </label>
                     <Input
-                      type="number"
-                      min={1}
-                      value={claimLimit}
-                      onChange={(e) => setClaimLimit(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={claimLimit === 0 ? '' : claimLimit}
+                      onChange={handleNumericInput(setClaimLimit)}
                       required
+                      className="font-bold"
                     />
                   </div>
                   <div>
@@ -707,11 +950,13 @@ export default function VoucherManagement() {
                       Lượt dùng mỗi khách
                     </label>
                     <Input
-                      type="number"
-                      min={1}
-                      value={perUserLimit}
-                      onChange={(e) => setPerUserLimit(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={perUserLimit === 0 ? '' : perUserLimit}
+                      onChange={handleNumericInput(setPerUserLimit, 100)}
                       required
+                      className="font-bold"
                     />
                   </div>
                 </div>
@@ -771,10 +1016,9 @@ export default function VoucherManagement() {
                   </Button>
                 </div>
               </form>
-            </div>
-          </div>,
-          document.body,
+          </div>
         )}
+      </div>
     </div>
   )
 }
