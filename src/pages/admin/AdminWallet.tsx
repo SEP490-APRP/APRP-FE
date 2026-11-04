@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Wallet, TrendingUp, Download, Loader2, AlertCircle, XCircle } from 'lucide-react'
 import type { WithdrawRequestResponse } from '@/services'
 import {
+  AdminPlatformLedger,
+  AdminWalletOverview,
   useAdminWalletOverview,
   useConfirmWithdraw,
   useCreateWithdrawQr,
@@ -11,6 +13,7 @@ import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 import { getErrorMessage } from '@/utils'
 
 function getWithdrawOwnerLabel(req: WithdrawRequestResponse): string {
+  if (req.ownerName) return req.ownerName
   if (req.shipperId) return `SHIPPER-${req.shipperId}`
   if (req.buyerId) return `BUYER-${req.buyerId}`
   if (req.shopOwnerId) return `SHOP-${req.shopOwnerId}`
@@ -59,7 +62,6 @@ const AdminWallet: React.FC = () => {
 
   const pendingRequests = overview.data?.pending ?? EMPTY_REQUESTS
   const history = overview.data?.history ?? EMPTY_REQUESTS
-  const platformWallet = overview.data?.platformWallet ?? null
   // Giống bản cũ: hiện màn tải cả khi tải lại sau mỗi thao tác.
   const isLoading = overview.isFetching
   const error = overview.isError
@@ -182,9 +184,6 @@ const AdminWallet: React.FC = () => {
   const totalProcessing = history
     .filter((h) => h.status === 'PENDING')
     .reduce((sum, h) => sum + h.amount, 0)
-  const platformTotalBalance = platformWallet?.totalBalance ?? 0
-  const platformFrozenBalance = platformWallet?.frozenBalance ?? 0
-  const platformAvailableBalance = Math.max(0, platformTotalBalance - platformFrozenBalance)
 
   const filteredHistory = useMemo(() => {
     if (historyFilter === 'ALL') return history
@@ -232,36 +231,11 @@ const AdminWallet: React.FC = () => {
         </div>
       )}
 
-      {/* Platform Wallet Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            Ví sàn - Tổng
-          </p>
-          <h3 className="text-2xl font-black text-gray-900">
-            {platformTotalBalance.toLocaleString('vi-VN')}
-            <span className="text-sm font-normal text-gray-400 ml-1">đ</span>
-          </h3>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm">
-          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">
-            Ví sàn - Khả dụng
-          </p>
-          <h3 className="text-2xl font-black text-emerald-600">
-            {platformAvailableBalance.toLocaleString('vi-VN')}
-            <span className="text-sm font-normal text-emerald-400 ml-1">đ</span>
-          </h3>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
-          <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">
-            Ví sàn - Đang giữ
-          </p>
-          <h3 className="text-2xl font-black text-amber-600">
-            {platformFrozenBalance.toLocaleString('vi-VN')}
-            <span className="text-sm font-normal text-amber-400 ml-1">đ</span>
-          </h3>
-        </div>
-      </div>
+      {/* Tổng hợp ví sàn: tiền giữ hộ, hoa hồng, ví sàn, COD, hoàn tiền, bảng đối tác (API thật) */}
+      <AdminWalletOverview />
+
+      {/* Sổ cái ví sàn, tra cứu chia tiền, hoàn tiền (API thật) */}
+      <AdminPlatformLedger />
 
       {/* Withdraw & Processing Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
@@ -403,12 +377,13 @@ const AdminWallet: React.FC = () => {
                           <p className="text-gray-400 uppercase">
                             {req.bankName || 'Chưa cung cấp'}
                           </p>
+                          {req.bankAccountName && (
+                            <p className="text-gray-600 font-semibold uppercase">{req.bankAccountName}</p>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-xs text-gray-500 font-medium">
-                        {req.processedAt
-                          ? new Date(req.processedAt).toLocaleString('vi-VN')
-                          : 'Đang chờ'}
+                        {req.createdAt ? new Date(req.createdAt).toLocaleString('vi-VN') : 'Đang chờ'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
@@ -553,7 +528,9 @@ const AdminWallet: React.FC = () => {
                       {(tx.amount || 0).toLocaleString('vi-VN')} đ
                     </td>
                     <td className="px-6 py-4 text-xs text-gray-400">
-                      {tx.processedAt ? new Date(tx.processedAt).toLocaleString('vi-VN') : 'N/A'}
+                      {tx.processedAt || tx.createdAt
+                        ? new Date((tx.processedAt || tx.createdAt) as string).toLocaleString('vi-VN')
+                        : 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       <span

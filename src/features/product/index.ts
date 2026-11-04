@@ -30,6 +30,7 @@ export {
   productKeys,
   type ProductDetailData,
   useAllProducts,
+  useHomeProducts,
   useProductDetail,
   useShopProducts,
   useMyProducts,
