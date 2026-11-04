@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Ticket,
+  Wallet,
   Lock,
   MessageSquare,
   HeartPulse,
@@ -506,6 +507,17 @@ export default function Header({
                               <Ticket size={16} />
                             </span>
                             <span>Kho Voucher Của Tôi</span>
+                          </a>
+
+                          <a
+                            href="/my-wallet"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                          >
+                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                              <Wallet size={16} />
+                            </span>
+                            <span>Ví Của Tôi</span>
                           </a>
 
                           <a
@@ -1351,6 +1363,17 @@ export default function Header({
                   >
                     <ShoppingBag size={14} className="text-emerald-700" />
                     <span>Đơn Hàng Của Tôi</span>
+                  </a>
+                )}
+
+                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                  <a
+                    href="/my-wallet"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
+                  >
+                    <Wallet size={14} />
+                    <span>Ví Của Tôi</span>
                   </a>
                 )}
 

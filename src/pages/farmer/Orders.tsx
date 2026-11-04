@@ -29,6 +29,7 @@ import {
 import { exportService } from '@/services/export.service'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { OrderSettlementCard } from '@/features/wallet'
 import { CapNongLoading } from '@/components/ui/Loading'
 
 interface OrdersProps {
@@ -806,6 +807,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                   {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ
                 </strong>
               </div>
+              {(selectedOrder.orderId ?? selectedOrder.id) &&
+                !['CANCELLED', 'FAILED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
+                  <div className="p-4 rounded-2xl bg-white border border-[#e8ece3]">
+                    <OrderSettlementCard orderId={(selectedOrder.orderId ?? selectedOrder.id) as number} viewer="SHOP" />
+                  </div>
+                )}
               {selectedOrder.status === 'SHIPPING' && (
                 <div className="pt-2">
                   <button

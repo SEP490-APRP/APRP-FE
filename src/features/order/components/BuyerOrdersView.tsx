@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Navigation,
   Star,
+  PackageCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -51,6 +52,8 @@ export const BuyerOrdersView: React.FC = () => {
   const [orders, setOrders] = useState<OrderResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
+  const [completingOrderId, setCompletingOrderId] = useState<number | null>(null)
+  const [completeError, setCompleteError] = useState<string | null>(null)
   const [isCancellingBatch, setIsCancellingBatch] = useState(false)
 
   // Cancel Order Modal State
@@ -326,6 +329,26 @@ export const BuyerOrdersView: React.FC = () => {
     }
   }
 
+  // Buyer xác nhận đã nhận hàng: DELIVERED -> COMPLETED, backend chia tiền vào ví Shop / Shipper / Sàn
+  const handleCompleteOrder = async (order: OrderResponse) => {
+    const id = order.orderId || order.id
+    if (!id) return
+    if (!window.confirm(`Xác nhận bạn đã nhận đủ hàng của đơn #${id}? Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.`)) {
+      return
+    }
+    setCompleteError(null)
+    setCompletingOrderId(id)
+    try {
+      await orderService.completeOrder(id)
+      await fetchOrders()
+    } catch (err: any) {
+      console.error('Lỗi xác nhận nhận hàng:', err)
+      setCompleteError(err?.message || 'Không thể xác nhận đã nhận hàng.')
+    } finally {
+      setCompletingOrderId(null)
+    }
+  }
+
   const handleQrConfirmed = async () => {
     setIsQrModalOpen(false)
     setQrModalData(null)
@@ -383,6 +406,12 @@ export const BuyerOrdersView: React.FC = () => {
           className="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border border-line text-sm text-ink outline-none focus:border-emerald-500 shadow-sm transition-colors"
         />
       </div>
+
+      {completeError && (
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-4 py-3">
+          {completeError}
+        </div>
+      )}
 
       {/* Danh sách đơn hàng */}
       {isLoading ? (
@@ -579,6 +608,19 @@ export const BuyerOrdersView: React.FC = () => {
                       >
                         <XCircle size={14} />
                         {cancellingOrderId === orderId ? 'Đang hủy...' : 'Hủy đơn'}
+                      </Button>
+                    )}
+
+                    {/* Đã giao -> Buyer xác nhận ĐÃ NHẬN HÀNG (chia tiền vào ví) */}
+                    {order.status === 'DELIVERED' && (
+                      <Button
+                        variant="primary"
+                        onClick={() => handleCompleteOrder(order)}
+                        disabled={completingOrderId === orderId}
+                        className="gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20"
+                      >
+                        <PackageCheck size={14} />
+                        {completingOrderId === orderId ? 'Đang xác nhận...' : 'Đã nhận hàng'}
                       </Button>
                     )}
 
