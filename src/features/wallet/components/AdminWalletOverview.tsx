@@ -182,22 +182,22 @@ export function AdminWalletOverview() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {/* 5. Hoàn tiền */}
         <Card>
-          <Label right={<RotateCcw size={14} className="text-red-500" />}>Cần hoàn tiền cho khách</Label>
-          <div className="mt-2 text-2xl font-black text-red-600">{v(o?.refundAmount)}</div>
-          <p className="text-xs text-gray-500">{o?.refundOrders ?? 0} đơn đã trả online bị huỷ / giao thất bại / trả trùng</p>
+          <Label right={<RotateCcw size={14} className="text-amber-600" />}>Tiền đã hoàn trả khách hàng</Label>
+          <div className="mt-2 text-2xl font-black text-gray-900">{v(o?.refundAmount)}</div>
+          <p className="text-xs text-gray-500">{o?.refundOrders ?? 0} đơn đã hoàn tiền thành công vào ví người mua</p>
         </Card>
         <Card>
-          <Label right={<Users size={14} className="text-gray-400" />}>Đã trả cho đối tác (số dư rút được)</Label>
+          <Label right={<Users size={14} className="text-gray-400" />}>Số dư khả dụng đối tác (Ví Shop & Shipper)</Label>
           <div className="mt-2 text-2xl font-black text-gray-900">
             {v((o?.shopAvailable ?? 0) + (o?.shipperAvailable ?? 0))}
           </div>
-          <Row label="Shop" value={v(o?.shopAvailable)} />
-          <Row label="Shipper (âm = đang nợ COD)" value={v(o?.shipperAvailable)} tone={(o?.shipperAvailable ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'} />
+          <Row label="Ví Shop" value={v(o?.shopAvailable)} />
+          <Row label="Ví Shipper (âm = đang nợ COD)" value={v(o?.shipperAvailable)} tone={(o?.shipperAvailable ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'} />
         </Card>
         <Card>
-          <Label right={<TrendingUp size={14} className="text-gray-400" />}>Dòng tiền {PERIOD_TEXT[period]}</Label>
+          <Label right={<TrendingUp size={14} className="text-gray-400" />}>Tổng giá trị giao dịch (GMV)</Label>
           <div className="mt-2 text-2xl font-black text-gray-900">{v(o?.settledGmv)}</div>
-          <p className="text-xs text-gray-500">Tổng khách đã trả cho đơn hoàn tất · {o?.settledOrders ?? 0} đơn</p>
+          <p className="text-xs text-gray-500">Tổng thanh toán cho các đơn hoàn tất · {o?.settledOrders ?? 0} đơn ({PERIOD_TEXT[period]})</p>
         </Card>
       </div>
 

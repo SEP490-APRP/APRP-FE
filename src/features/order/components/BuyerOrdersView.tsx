@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Navigation,
   Star,
+  RotateCcw,
   PackageCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -19,6 +20,7 @@ import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
 import { CancelOrderModal } from './CancelOrderModal'
+import { ReturnRequestModal } from './ReturnRequestModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { ReviewModal } from '@/features/review'
 import { orderService, paymentService } from '@/services'
@@ -26,7 +28,7 @@ import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
 
-type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED'
+type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'REFUND' | 'CANCELLED'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
@@ -34,6 +36,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'PENDING', label: 'Chờ xác nhận' },
   { key: 'SHIPPING', label: 'Đang vận chuyển' },
   { key: 'COMPLETED', label: 'Đã hoàn thành' },
+  { key: 'REFUND', label: 'Trả hàng / Hoàn tiền' },
   { key: 'CANCELLED', label: 'Đã hủy' },
 ]
 
@@ -85,6 +88,11 @@ export const BuyerOrdersView: React.FC = () => {
   const [reviewModalOrderId, setReviewModalOrderId] = useState<number | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
 
+  // Return & Refund Modal State
+  const [returnModalItem, setReturnModalItem] = useState<OrderItem | null>(null)
+  const [returnModalOrderId, setReturnModalOrderId] = useState<number | null>(null)
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+
   const fetchOrders = async () => {
     setIsLoading(true)
     try {
@@ -97,6 +105,8 @@ export const BuyerOrdersView: React.FC = () => {
         statuses = ['CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP']
       } else if (currentTab === 'COMPLETED') {
         statuses = ['DELIVERED', 'COMPLETED']
+      } else if (currentTab === 'REFUND') {
+        statuses = ['REFUND_REQUESTED', 'REFUNDED']
       } else if (currentTab === 'CANCELLED') {
         statuses = ['CANCELLED', 'FAILED']
       }
@@ -534,25 +544,46 @@ export const BuyerOrdersView: React.FC = () => {
                           <p className="text-sm font-bold text-emerald-700">
                             {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
                           </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
-                            it.isReviewed ? (
-                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                ✓ Đã đánh giá
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReviewModalItem(it)
-                                  setReviewModalOrderId(orderId)
-                                  setIsReviewModalOpen(true)
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
-                              >
-                                <Star size={12} className="fill-white" />
-                                <span>Đánh giá</span>
-                              </button>
-                            )
+                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                              {it.isRequestedReturn ? (
+                                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                  ↺ Đang yêu cầu trả hàng
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReturnModalItem(it)
+                                    setReturnModalOrderId(orderId)
+                                    setIsReturnModalOpen(true)
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw size={11} />
+                                  <span>Trả hàng</span>
+                                </button>
+                              )}
+
+                              {it.isReviewed ? (
+                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  ✓ Đã đánh giá
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviewModalItem(it)
+                                    setReviewModalOrderId(orderId)
+                                    setIsReviewModalOpen(true)
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                                >
+                                  <Star size={12} className="fill-white" />
+                                  <span>Đánh giá</span>
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -719,6 +750,21 @@ export const BuyerOrdersView: React.FC = () => {
           setIsReviewModalOpen(false)
           setReviewModalItem(null)
           setReviewModalOrderId(null)
+        }}
+        onSuccess={() => {
+          fetchOrders()
+        }}
+      />
+
+      {/* Modal Yêu cầu Trả hàng / Hoàn tiền */}
+      <ReturnRequestModal
+        isOpen={isReturnModalOpen}
+        item={returnModalItem}
+        orderId={returnModalOrderId ?? 0}
+        onClose={() => {
+          setIsReturnModalOpen(false)
+          setReturnModalItem(null)
+          setReturnModalOrderId(null)
         }}
         onSuccess={() => {
           fetchOrders()

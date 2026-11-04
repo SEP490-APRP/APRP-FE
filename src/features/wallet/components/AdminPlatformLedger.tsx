@@ -84,19 +84,19 @@ export function AdminPlatformLedger() {
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <Undo2 className="size-5 text-red-500" />
-            <h3 className="text-base font-bold text-gray-900">Đơn cần hoàn tiền cho khách</h3>
+            <Undo2 className="size-5 text-amber-600" />
+            <h3 className="text-base font-bold text-gray-900">Lịch sử đơn đã hoàn tiền cho khách</h3>
             {refunds.data && refunds.data.length > 0 && (
-              <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{refunds.data.length}</span>
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">{refunds.data.length} đơn</span>
             )}
           </div>
           <p className="text-xs text-gray-500">
-            Đơn đã thanh toán online rồi bị huỷ, giao thất bại hoặc khách trả trùng. Sàn chuyển khoản hoàn tiền thủ công.
+            Các đơn hàng có phát sinh hoàn tiền (trả hàng, huỷ đơn). Tiền đã được hoàn trả trực tiếp vào ví người mua.
           </p>
           {refunds.isLoading ? (
             <p className="text-xs text-gray-400">Đang tải...</p>
           ) : (refunds.data ?? []).length === 0 ? (
-            <p className="text-xs text-gray-400 py-3 text-center">Không có đơn nào cần hoàn tiền.</p>
+            <p className="text-xs text-gray-400 py-3 text-center">Chưa có đơn nào phát sinh hoàn tiền.</p>
           ) : (
             <div className="divide-y divide-gray-100">
               {(refunds.data ?? []).map((r) => (
@@ -112,7 +112,12 @@ export function AdminPlatformLedger() {
                       {r.orderStatus} · {r.paymentMethod} · {formatBackendDate(r.createdAt)}
                     </p>
                   </div>
-                  <span className="text-sm font-black text-red-600 shrink-0">{formatVnd(r.refundAmount)}</span>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-gray-900">{formatVnd(r.refundAmount)}</span>
+                    <span className="block text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5">
+                      Đã cộng ví
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

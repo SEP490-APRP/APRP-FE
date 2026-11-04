@@ -11,7 +11,7 @@ import {
 import { PageResponse } from '../../types';
 import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
-  Bell, MapPin, Wallet, Navigation, Zap, Clock, Bike, Package,
+  Bell, MapPin, RotateCcw, Wallet, Navigation, Zap, Clock, Bike, Package,
   ArrowRight, User, LogOut, Truck, CheckCircle2, X, Info,
   RefreshCw, Loader2, Radio, StopCircle, WifiOff, Store, MessageSquare, Camera, ImagePlus, Home,
   Route
@@ -24,6 +24,7 @@ import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../serv
 import { globalShowAlert } from '@/components/common/Popup';
 import logoIcon from '@/assets/logo-icon.png';
 import { CapNongLoading } from '@/components/ui/Loading';
+import { ShipperReturnOrders } from './ShipperReturnOrders';
 import { ShipperWalletPanel } from '@/features/wallet';
 
 interface ShipperDashboardProps {
@@ -997,12 +998,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             {[
               { id: 'Đơn hàng mới', label: 'Đơn hàng mới', count: availableOrders.length },
               { id: 'Đơn đang giao', label: 'Đơn đang giao', count: myOrders.length },
+              { id: 'Đơn hoàn hàng', label: 'Đơn hoàn hàng' },
               { id: 'Hồ sơ cá nhân', label: 'Hồ sơ cá nhân' },
             ].map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab.id ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
                 {tab.id === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab.id ? 'fill-primary' : ''}`} />}
                 {tab.id === 'Đơn đang giao' && <Truck className="size-4" />}
+                {tab.id === 'Đơn hoàn hàng' && <RotateCcw className="size-4" />}
                 {tab.id === 'Hồ sơ cá nhân' && <User className="size-4" />}
                 <span>{tab.label}</span>
                 {typeof tab.count === 'number' && (
@@ -1128,6 +1131,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         )}
 
         {activeTab === 'Đơn đang giao' && renderMyOrders()}
+
+        {activeTab === 'Đơn hoàn hàng' && <ShipperReturnOrders />}
 
         {activeTab === 'Hồ sơ cá nhân' && (
           <div className="bg-white rounded-[48px] border border-gray-100 shadow-sm p-10 flex items-center gap-10">
