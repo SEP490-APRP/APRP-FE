@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2, Sparkles, Percent, Truck } from 'lucide-react'
+import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2, Sparkles, Percent, Truck, Calculator, AlertTriangle, Info } from 'lucide-react'
 import {
   voucherService,
   type VoucherResponse,
@@ -42,6 +42,45 @@ export default function Vouchers({ onInfo }: VouchersProps) {
     return d.toISOString().slice(0, 16)
   })
   const [isPublic, setIsPublic] = useState(true)
+
+  // Dự toán thực nhận của Shop (không tính hoa hồng sàn)
+  const shopRevenueEstimate = useMemo(() => {
+    const minOrder = Number(minOrderValue) || 0
+    let discount = 0
+
+    if (voucherType === 'PERCENTAGE') {
+      const pct = (Number(discountValue) || 0) / 100
+      const rawDisc = minOrder * pct
+      if (maxDiscount && maxDiscount > 0) {
+        discount = Math.min(rawDisc, Number(maxDiscount))
+      } else {
+        discount = rawDisc
+      }
+    } else {
+      discount = Number(discountValue) || 0
+    }
+
+    const appliedDiscount = minOrder > 0 ? Math.min(minOrder, discount) : discount
+    const shopReceive = Math.max(0, minOrder - appliedDiscount)
+    const receivePercent = minOrder > 0 ? (shopReceive / minOrder) * 100 : 0
+
+    let status: 'NORMAL' | 'HIGH_DISCOUNT' | 'ZERO' = 'NORMAL'
+    if (minOrder > 0 && discount >= minOrder) {
+      status = 'ZERO'
+    } else if (minOrder > 0 && appliedDiscount / minOrder >= 0.5) {
+      status = 'HIGH_DISCOUNT'
+    }
+
+    return {
+      minOrder,
+      discount,
+      appliedDiscount,
+      shopReceive,
+      receivePercent,
+      status,
+    }
+  }, [minOrderValue, voucherType, discountValue, maxDiscount])
+
 
   const loadVouchers = async () => {
     setLoading(true)
@@ -155,16 +194,32 @@ export default function Vouchers({ onInfo }: VouchersProps) {
 
         <button
           type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 rounded-full bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+          onClick={() => setShowCreateModal((prev) => !prev)}
+          className={`px-5 py-2.5 rounded-full font-extrabold text-xs uppercase shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all ${
+            showCreateModal
+              ? 'bg-stone-200 hover:bg-stone-300 text-stone-700'
+              : 'bg-[#326318] hover:bg-[#254b12] text-white'
+          }`}
         >
-          <Plus size={15} />
-          <span>Tạo Voucher Mới</span>
+          {showCreateModal ? (
+            <>
+              <X size={15} />
+              <span>Đóng khung tạo</span>
+            </>
+          ) : (
+            <>
+              <Plus size={15} />
+              <span>Tạo Voucher Mới</span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* Danh sách Voucher */}
-      {loading ? (
+      {/* Main Layout: Danh sách voucher bên trái, Khung tạo voucher bên phải */}
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        {/* Cột Trái: Danh sách Voucher (tự động dồn qua trái khi mở khung tạo) */}
+        <div className={`w-full transition-all duration-300 ${showCreateModal ? 'lg:flex-1 min-w-0' : 'w-full'}`}>
+          {loading ? (
         <CapNongLoading
           className="!min-h-[300px]"
           message="Đang tải danh sách voucher của shop..."
@@ -188,7 +243,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid gap-4 ${showCreateModal ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {vouchers.map((vc) => {
             const isPercent = vc.voucherType === 'PERCENTAGE'
             const discountLabel = isPercent
@@ -304,20 +359,11 @@ export default function Vouchers({ onInfo }: VouchersProps) {
           })}
         </div>
       )}
+        </div>
 
-      {/* Modal Tạo Voucher Mới (Sử dụng createPortal để gắn trực tiếp vào body, không bị header/sidebar che khuất) */}
-      {showCreateModal &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-voucher-title"
-            className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !isSubmitting) setShowCreateModal(false)
-            }}
-          >
-            <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full border border-stone-200/90 flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden animate-scaleUp relative">
+        {/* Cột Phải: Khung Tạo Voucher Mới (Hiện trực tiếp trong trang, không có popup che) */}
+        {showCreateModal && (
+          <div className="w-full lg:w-[480px] xl:w-[520px] shrink-0 bg-white rounded-3xl border border-stone-200 shadow-lg flex flex-col overflow-hidden animate-fadeIn sticky top-4">
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4.5 border-b border-stone-100 bg-[#fafcf9]">
                 <div className="flex items-center gap-3">
@@ -345,7 +391,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
               </div>
 
               {/* Form Body (Scrollable) */}
-              <form onSubmit={handleCreateVoucher} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+              <form onSubmit={handleCreateVoucher} className="p-5 sm:p-6 overflow-y-auto space-y-5 max-h-[calc(100vh-120px)]">
                 {/* 1. Thẻ xem trước Voucher trực tiếp (Live Preview Ticket) */}
                 <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-4 shadow-xs relative overflow-hidden">
                   <div className="absolute top-2 right-2 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -592,6 +638,114 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   </div>
                 </div>
 
+                {/* Hộp Cảnh Báo & Dự Toán Thực Nhận Của Shop (Không tính hoa hồng sàn) */}
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs space-y-2.5 transition-all ${
+                    shopRevenueEstimate.status === 'ZERO'
+                      ? 'bg-rose-50/80 border-rose-200 text-rose-950'
+                      : shopRevenueEstimate.status === 'HIGH_DISCOUNT'
+                      ? 'bg-amber-50/70 border-amber-200/80 text-amber-950'
+                      : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <Calculator
+                        size={14}
+                        className={
+                          shopRevenueEstimate.status === 'ZERO'
+                            ? 'text-rose-600'
+                            : shopRevenueEstimate.status === 'HIGH_DISCOUNT'
+                            ? 'text-amber-600'
+                            : 'text-emerald-600'
+                        }
+                      />
+                      <span>Dự toán Doanh thu Shop thực nhận (Chưa tính hoa hồng sàn)</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        shopRevenueEstimate.status === 'ZERO'
+                          ? 'bg-rose-600 text-white'
+                          : shopRevenueEstimate.status === 'HIGH_DISCOUNT'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-emerald-600 text-white'
+                      }`}
+                    >
+                      {shopRevenueEstimate.status === 'ZERO'
+                        ? 'Thực nhận 0đ'
+                        : shopRevenueEstimate.status === 'HIGH_DISCOUNT'
+                        ? 'Giảm sâu > 50%'
+                        : 'Mức giảm an toàn'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 py-2 px-2.5 bg-white/80 rounded-xl border border-stone-200/60 text-[11px]">
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Đơn tối thiểu:</span>
+                      <span className="font-bold text-stone-900">
+                        {shopRevenueEstimate.minOrder > 0
+                          ? `${shopRevenueEstimate.minOrder.toLocaleString('vi-VN')} đ`
+                          : 'Mọi giá trị'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Shop tự giảm:</span>
+                      <span className="font-bold text-rose-600">
+                        -{shopRevenueEstimate.appliedDiscount.toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500 block text-[10px]">Shop thực nhận:</span>
+                      <span
+                        className={`font-black ${
+                          shopRevenueEstimate.shopReceive > 0
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}
+                      >
+                        +{shopRevenueEstimate.shopReceive.toLocaleString('vi-VN')} đ
+                        {shopRevenueEstimate.minOrder > 0 && (
+                          <span className="text-[10px] font-normal block text-stone-500">
+                            (Còn {shopRevenueEstimate.receivePercent.toFixed(0)}% tiền hàng)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {shopRevenueEstimate.status === 'ZERO' && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-rose-700 leading-tight">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Cảnh báo:</strong> Mức giảm giá bằng hoặc lớn hơn giá trị đơn tối thiểu. Với các đơn hàng bằng mức tối thiểu, Shop sẽ <strong>thực nhận 0đ</strong> (tặng miễn phí nông sản). Hệ thống không ngăn cản bạn tạo voucher này nếu đây là chương trình quà tặng tri ân đặc biệt của shop.
+                      </span>
+                    </div>
+                  )}
+
+                  {shopRevenueEstimate.status === 'HIGH_DISCOUNT' && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-amber-800 leading-tight">
+                      <Info size={13} className="shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Lưu ý:</strong> Voucher này giảm hơn 50% giá trị đơn hàng tối thiểu. Hãy cân nhắc tỷ suất lợi nhuận sau chi phí canh tác và đóng gói.
+                      </span>
+                    </div>
+                  )}
+
+                  {shopRevenueEstimate.status === 'NORMAL' && (
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-medium">
+                      <Check size={13} className="text-emerald-600 shrink-0" />
+                      <span>
+                        Mức giảm hợp lý. Shop sẽ thực nhận <strong>{shopRevenueEstimate.shopReceive.toLocaleString('vi-VN')} đ</strong> trên mỗi đơn hàng đạt điều kiện tối thiểu (chưa tính phí hoa hồng sàn).
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-stone-400 italic">
+                    * Lưu ý: Con số trên là doanh thu bán hàng thực nhận của Shop trước khi trừ 10% phí hoa hồng dịch vụ sàn.
+                  </p>
+                </div>
+
+
                 {/* 6. Số lượng phát hành & Lượt dùng mỗi khách */}
                 <div className="grid grid-cols-2 gap-3.5">
                   <div>
@@ -739,10 +893,9 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   </Button>
                 </div>
               </form>
-            </div>
-          </div>,
-          document.body,
+          </div>
         )}
+      </div>
     </div>
   )
 }
