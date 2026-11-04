@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Wallet as WalletIcon, Building2, History, TrendingUp, RefreshCw } from 'lucide-react'
-import { useMyWallet, useMyWalletTransactions, WalletTransactionList } from '@/features/wallet'
+import { MyWithdrawalList, useMyWallet, useMyWalletTransactions, WalletTransactionList } from '@/features/wallet'
 import { useShopProfile } from '@/features/shop'
 import { formatVnd } from '@/services/wallet.service'
 
@@ -107,6 +107,14 @@ export default function Wallet({ onOpenWithdraw }: WalletProps) {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-2">
+        <div className="flex items-center gap-2 pb-2 border-b border-[#f1f4ed]">
+          <Building2 size={18} className="text-[#326318]" />
+          <h4 className="text-base font-black text-[#1c2216]">Lệnh Rút Tiền Gần Đây</h4>
+        </div>
+        <MyWithdrawalList />
       </div>
 
       {/* Transactions History */}

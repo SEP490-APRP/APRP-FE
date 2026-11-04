@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { walletApi, walletService } from '@/services'
+import type { OverviewPeriod, WithdrawCreateRequest } from '@/services/wallet.types'
 
 export const walletKeys = {
   all: ['wallet'] as const,
@@ -9,6 +10,8 @@ export const walletKeys = {
   platformTransactions: (page: number, size: number) => [...walletKeys.all, 'platform', 'tx', page, size] as const,
   settlement: (orderId: number) => [...walletKeys.all, 'settlement', orderId] as const,
   refunds: () => [...walletKeys.all, 'refunds'] as const,
+  overview: (period: string) => [...walletKeys.all, 'platform', 'overview', period] as const,
+  myWithdrawals: () => [...walletKeys.all, 'me', 'withdrawals'] as const,
 }
 
 /** Ví của người đang đăng nhập (Shop / Shipper; Admin nhận ví sàn) */
@@ -92,6 +95,25 @@ export function useRejectWithdraw() {
   return useMutation({
     mutationFn: ({ requestId, note, files }: { requestId: number; note: string; files?: File[] }) =>
       walletService.rejectWithdraw(requestId, note, files),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: walletKeys.all }),
+  })
+}
+
+/** Số liệu tổng hợp màn Ví Sàn (Admin) */
+export function usePlatformOverview(period: OverviewPeriod) {
+  return useQuery({ queryKey: walletKeys.overview(period), queryFn: () => walletApi.getPlatformOverview(period) })
+}
+
+/** Lệnh rút tiền của người đang đăng nhập */
+export function useMyWithdrawals(enabled = true) {
+  return useQuery({ queryKey: walletKeys.myWithdrawals(), queryFn: walletApi.getMyWithdrawals, enabled })
+}
+
+/** Gửi lệnh rút tiền; xong thì tải lại ví, lịch sử và danh sách lệnh rút */
+export function useRequestWithdraw() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: WithdrawCreateRequest) => walletApi.requestWithdraw(body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: walletKeys.all }),
   })
 }

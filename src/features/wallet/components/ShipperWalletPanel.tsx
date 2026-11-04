@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Wallet as WalletIcon, Banknote, TrendingUp, RefreshCw, Clock } from 'lucide-react'
 import { formatVnd } from '@/services/wallet.service'
 import { useMyWallet, useMyWalletTransactions } from '../hooks/useWalletQueries'
 import { WalletTransactionList } from './WalletTransactionList'
+import { WithdrawDialog } from './WithdrawDialog'
+import { MyWithdrawalList } from './MyWithdrawalList'
 
 /** Ví Shipper: số dư (có thể âm khi đang giữ tiền COD), tiền COD chưa nộp, thu nhập, lịch sử */
 export function ShipperWalletPanel() {
@@ -9,6 +12,8 @@ export function ShipperWalletPanel() {
   const txQuery = useMyWalletTransactions(0, 15)
   const w = walletQuery.data
   const negative = (w?.balance ?? 0) < 0
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   return (
     <div className="bg-white rounded-[48px] border border-gray-100 shadow-sm p-10 space-y-6">
@@ -19,18 +24,31 @@ export function ShipperWalletPanel() {
             Cước giao về ví khi khách xác nhận đã nhận hàng (trừ phí dịch vụ 3%). Đơn COD: tiền mặt đang giữ bị trừ khỏi ví cho tới khi nộp về sàn.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void walletQuery.refetch()
-            void txQuery.refetch()
-          }}
-          className="size-11 rounded-2xl bg-gray-50 text-gray-500 hover:bg-gray-100 flex items-center justify-center"
-          title="Tải lại"
-        >
-          <RefreshCw className={`size-5 ${walletQuery.isFetching ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              void walletQuery.refetch()
+              void txQuery.refetch()
+            }}
+            className="size-11 rounded-2xl bg-gray-50 text-gray-500 hover:bg-gray-100 flex items-center justify-center"
+            title="Tải lại"
+          >
+            <RefreshCw className={`size-5 ${walletQuery.isFetching ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWithdrawOpen(true)}
+            className="h-11 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider"
+          >
+            Rút tiền
+          </button>
+        </div>
       </div>
+
+      {notice && (
+        <div className="rounded-2xl bg-emerald-50 text-emerald-700 text-xs font-bold p-3">{notice}</div>
+      )}
 
       {walletQuery.error ? (
         <p className="text-sm font-bold text-red-600">
@@ -72,6 +90,11 @@ export function ShipperWalletPanel() {
       )}
 
       <div>
+        <h4 className="text-sm font-black text-gray-900 mb-1">Lệnh rút tiền gần đây</h4>
+        <MyWithdrawalList />
+      </div>
+
+      <div>
         <h4 className="text-sm font-black text-gray-900 mb-2">Lịch sử biến động ví</h4>
         <WalletTransactionList
           items={txQuery.data?.content ?? []}
@@ -79,6 +102,8 @@ export function ShipperWalletPanel() {
           emptyText="Chưa có giao dịch nào."
         />
       </div>
+
+      <WithdrawDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} onSuccess={setNotice} />
     </div>
   )
 }
