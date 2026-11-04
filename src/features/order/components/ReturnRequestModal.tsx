@@ -40,7 +40,6 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
 }) => {
   const [selectedReason, setSelectedReason] = useState<string>(RETURN_REASONS[0])
   const [customReason, setCustomReason] = useState<string>('')
-  const [isReturnGoods, setIsReturnGoods] = useState<boolean>(true)
   const [refundAmount, setRefundAmount] = useState<number>(0)
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState<boolean>(false)
@@ -59,7 +58,6 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
     if (isOpen && item) {
       setSelectedReason(RETURN_REASONS[0])
       setCustomReason('')
-      setIsReturnGoods(true)
       setRefundAmount(maxRefundAmount)
       setEvidenceUrls([])
       setErrorMessage(null)
@@ -136,7 +134,6 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
         orderDetailId,
         reason: reasonText,
         refundAmount,
-        isReturnGoods,
         evidenceUrls,
       })
 
@@ -254,24 +251,12 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
             )}
           </div>
 
-          {/* Cờ có trả hàng hay không */}
-          <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="is-return-goods-check"
-              checked={isReturnGoods}
-              onChange={(e) => setIsReturnGoods(e.target.checked)}
-              disabled={createReturnMutation.isPending}
-              className="mt-0.5 size-4 rounded accent-emerald-600 cursor-pointer"
-            />
-            <label htmlFor="is-return-goods-check" className="text-xs cursor-pointer select-none">
-              <span className="font-bold text-stone-800">Yêu cầu trả lại hàng vật lý cho shop</span>
-              <p className="text-[11px] text-stone-500 mt-0.5 leading-normal">
-                {isReturnGoods
-                  ? 'Shipper sẽ đến nhận lại món hàng từ bạn để giao về cho shop.'
-                  : 'Hoàn tiền không cần trả hàng (dành cho rau củ quả đã thối hỏng hoàn toàn không thể tái sử dụng).'}
-              </p>
-            </label>
+                    {/* Ghi chú: Shop là bên quyết định có lấy hàng về hay không */}
+          <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+            <span className="font-bold text-amber-700 shrink-0">💡 Lưu ý:</span>
+            <span>
+              Phương án thu hồi hàng (Shipper đến lấy lại hàng hay hoàn tiền ngay không cần trả lại hàng) sẽ do <strong>Shop quyết định</strong> sau khi kiểm tra lý do và bằng chứng của bạn.
+            </span>
           </div>
 
           {/* Số tiền yêu cầu hoàn */}
