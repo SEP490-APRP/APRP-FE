@@ -34,6 +34,7 @@ const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'))
 const BuyerOrdersPage = lazy(() => import('@/pages/BuyerOrdersPage'))
 const MyVouchersPage = lazy(() => import('@/pages/MyVouchersPage/MyVouchersPage'))
+const MyWalletPage = lazy(() => import('@/pages/MyWalletPage/MyWalletPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
@@ -117,6 +118,21 @@ export function MyVouchersRoute() {
     <RequireRole roles={['buyer']} audience="khách mua hàng">
       <div className="pt-6">
         <MyVouchersPage />
+      </div>
+    </RequireRole>
+  )
+}
+
+/** Ví giới thiệu của Khách Mua. Shop / Shipper / Admin có trang ví riêng. */
+export function MyWalletRoute() {
+  const { user } = useAuth()
+  if (user?.role === 'shop') return <Navigate to="/shop?tab=wallet" replace />
+  if (user?.role === 'admin') return <Navigate to="/admin/wallet" replace />
+  if (user?.role === 'shipper') return <Navigate to="/shipper" replace />
+  return (
+    <RequireRole roles={['buyer']} audience="khách mua hàng">
+      <div className="pt-6">
+        <MyWalletPage />
       </div>
     </RequireRole>
   )

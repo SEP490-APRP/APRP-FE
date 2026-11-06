@@ -16,9 +16,12 @@ export type OrderStatus =
   | 'COMPLETED'         // Hoàn thành
   | 'CANCELLED'         // Đã hủy
   | 'FAILED'            // Giao thất bại
+  | 'REFUND_REQUESTED'  // Đang yêu cầu trả hàng / hoàn tiền
+  | 'REFUNDED'          // Đã hoàn tiền
 
 /** Một sản phẩm trong đơn hàng */
 export interface OrderItem {
+  id?: number
   orderDetailId?: number
   productId?: number
   mysteryBoxId?: number
@@ -34,6 +37,7 @@ export interface OrderItem {
   imageUrl?: string
   itemType?: 'PRODUCT' | 'MYSTERY_BOX' | 'BUILD_COMBO' | string
   isReviewed?: boolean
+  isRequestedReturn?: boolean
 }
 
 /** Thông tin shop gắn trong đơn hàng */
@@ -60,6 +64,7 @@ export interface OrderResponse {
   totalAmount: number
   shippingFee?: number
   voucherDiscountAmount?: number
+  refundAmount?: number
   shippingLatitude?: number
   shippingLongitude?: number
   shopLatitude?: number

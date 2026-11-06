@@ -1,4 +1,4 @@
-﻿import { PlayCircle, ShoppingBasket } from 'lucide-react'
+import { PlayCircle, ShoppingBasket } from 'lucide-react'
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
 
 export default function Hero() {
@@ -24,6 +24,14 @@ export default function Hero() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-12 sm:py-16 lg:py-20">
         <div className="max-w-2xl flex flex-col gap-4 sm:gap-6 text-surface-bright">
+
+          {/* AI Verification Pill Badge */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-white/25 bg-white/10 backdrop-blur-md w-fit shadow-sm">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#dca858] shrink-0 shadow-[0_0_8px_rgba(220,168,88,0.6)]" aria-hidden="true" />
+            <span className="text-xs sm:text-[13px] font-bold tracking-wider text-[#ecd4a6] uppercase">
+              Nền tảng nông sản Việt Nam
+            </span>
+          </div>
 
           {/* Headline */}
           <h1

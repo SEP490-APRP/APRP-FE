@@ -4,7 +4,6 @@ import {
   Leaf,
   MapPin,
   RotateCcw,
-  Search,
   SlidersHorizontal,
   Sparkles,
   Truck,
@@ -244,55 +243,10 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
           </aside>
 
           <section aria-labelledby="fresh-results" className="flex min-w-0 flex-col gap-4 sm:gap-6">
-            {/* Toolbar: dính đầu trang trên mobile để luôn lọc/tìm được */}
-            <div className="sticky top-16 z-20 -mx-4 flex flex-col gap-3 border-b border-line bg-paper/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-panel sm:border sm:bg-white sm:p-3 sm:shadow-card lg:static">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <label htmlFor="fresh-search" className="sr-only">
-                    Tìm nông sản
-                  </label>
-                  <Search
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle"
-                    aria-hidden
-                  />
-                  <input
-                    id="fresh-search"
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Tìm theo tên, nhà vườn, vùng trồng…"
-                    className="h-11 w-full rounded-xl border border-line bg-white pl-9 pr-10 text-sm text-ink placeholder:text-ink-subtle focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/30"
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      aria-label="Xóa từ khóa"
-                      className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-subtle hover:bg-paper hover:text-ink"
-                    >
-                      <X size={16} aria-hidden />
-                    </button>
-                  )}
-                </div>
-                <Button
-                  variant="secondary"
-                  className="lg:hidden"
-                  onClick={() => setFiltersOpen(true)}
-                  leftIcon={<SlidersHorizontal size={16} aria-hidden />}
-                  aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
-                >
-                  <span className="hidden sm:inline">Bộ lọc</span>
-                  {activeCount > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-leaf-700 px-1 text-caption text-white">
-                      {activeCount}
-                    </span>
-                  )}
-                </Button>
-              </div>
-
+            {/* Toolbar: bộ lọc và sắp xếp */}
+            <div className="sticky top-16 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white sm:p-3 sm:shadow-card lg:static">
               <div
-                className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]"
+                className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none]"
                 role="group"
                 aria-label="Sắp xếp"
               >
@@ -306,7 +260,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
                     className={cn(
                       'h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-caption font-bold transition-colors',
                       sort === s.id
-                        ? 'border-leaf-700 bg-leaf-700 text-white'
+                        ? 'border-leaf-700 bg-leaf-700 text-white shadow-xs'
                         : 'border-line bg-white text-ink-muted hover:border-leaf-600 hover:text-leaf-700',
                     )}
                   >
@@ -314,6 +268,22 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
                   </button>
                 ))}
               </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 lg:hidden"
+                onClick={() => setFiltersOpen(true)}
+                leftIcon={<SlidersHorizontal size={15} aria-hidden />}
+                aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
+              >
+                <span>Bộ lọc</span>
+                {activeCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-leaf-700 px-1 text-caption text-white">
+                    {activeCount}
+                  </span>
+                )}
+              </Button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

@@ -40,6 +40,7 @@ import { useUser } from '@/features/user'
 import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
 import { globalShowAlert } from '@/components/common/Popup'
 import { absoluteUrl, getErrorMessage } from '@/utils'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 const Facebook = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -257,13 +258,10 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] bg-paper flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-3xl border border-line shadow-card max-w-sm w-full mx-4">
-          <Loader2 className="size-10 animate-spin text-leaf-700 mx-auto mb-3" />
-          <h3 className="font-bold text-ink text-base mb-1">Đang tải gian hàng</h3>
-          <p className="text-xs text-ink-muted">Đang kết nối dữ liệu nhà vườn và nông sản...</p>
-        </div>
-      </div>
+      <CapNongLoading
+        message="Đang tải thông tin gian hàng..."
+        subMessage="CapNong · Kết nối trực tiếp nhà vườn uy tín"
+      />
     )
   }
 

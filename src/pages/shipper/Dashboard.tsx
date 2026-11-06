@@ -11,7 +11,7 @@ import {
 import { PageResponse } from '../../types';
 import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
-  Bell, MapPin, Wallet, Navigation, Zap, Clock, Bike, Package,
+  Bell, MapPin, RotateCcw, Wallet, Navigation, Zap, Clock, Bike, Package,
   ArrowRight, User, LogOut, Truck, CheckCircle2, X, Info,
   RefreshCw, Loader2, Radio, StopCircle, WifiOff, Store, MessageSquare, Camera, ImagePlus, Home,
   Route
@@ -23,6 +23,9 @@ import type { UserResponse } from '../../services/auth.service';
 import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../services/codSettlement.service';
 import { globalShowAlert } from '@/components/common/Popup';
 import logoIcon from '@/assets/logo-icon.png';
+import { CapNongLoading } from '@/components/ui/Loading';
+import { ShipperReturnOrders } from './ShipperReturnOrders';
+import { ShipperWalletPanel } from '@/features/wallet';
 
 interface ShipperDashboardProps {
   onLogout?: () => void;
@@ -569,7 +572,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   // ===================== RENDER: ĐƠN ĐANG GIAO =====================
   const renderMyOrders = () => {
-    if (loadingMyOrders) return <div className="flex justify-center py-20"><Loader2 className="size-8 text-primary animate-spin" /></div>;
+    if (loadingMyOrders) return (
+      <CapNongLoading
+        className="!min-h-[300px]"
+        message="Đang tải danh sách đơn đang giao..."
+        subMessage="Cổng vận chuyển CapNong Shipper"
+        size="md"
+      />
+    );
     if (myOrders.length === 0) return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Truck className="size-12" /></div>
@@ -733,17 +743,28 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
           {ordersToShow.length === 0 ? (
-            <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
-              <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
-              <p className="text-lg font-black text-gray-400 uppercase">
-                Không có đơn nào
-              </p>
-              <p className="text-xs text-gray-400">Thử tải lại</p>
-              <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
-                className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
-                <RefreshCw className="size-4" /> Tải lại
-              </button>
-            </div>
+            loadingOrders ? (
+              <div className="col-span-3">
+                <CapNongLoading
+                  className="!min-h-[300px]"
+                  message="Đang quét đơn hàng mới quanh bạn..."
+                  subMessage="Hệ thống tự động tìm đơn đã sẵn sàng giao"
+                  size="md"
+                />
+              </div>
+            ) : (
+              <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
+                <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
+                <p className="text-lg font-black text-gray-400 uppercase">
+                  Không có đơn nào
+                </p>
+                <p className="text-xs text-gray-400">Thử tải lại</p>
+                <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
+                  className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
+                  <RefreshCw className="size-4" /> Tải lại
+                </button>
+              </div>
+            )
           ) : ordersToShow.map((order) => {
             const codOrder = (order.paymentMethod ?? '').toUpperCase() === 'COD';
             const prepaidAmount = getCodPrepaidAmount(order);
@@ -977,12 +998,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             {[
               { id: 'Đơn hàng mới', label: 'Đơn hàng mới', count: availableOrders.length },
               { id: 'Đơn đang giao', label: 'Đơn đang giao', count: myOrders.length },
+              { id: 'Đơn hoàn hàng', label: 'Đơn hoàn hàng' },
               { id: 'Hồ sơ cá nhân', label: 'Hồ sơ cá nhân' },
             ].map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab.id ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
                 {tab.id === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab.id ? 'fill-primary' : ''}`} />}
                 {tab.id === 'Đơn đang giao' && <Truck className="size-4" />}
+                {tab.id === 'Đơn hoàn hàng' && <RotateCcw className="size-4" />}
                 {tab.id === 'Hồ sơ cá nhân' && <User className="size-4" />}
                 <span>{tab.label}</span>
                 {typeof tab.count === 'number' && (
@@ -1109,6 +1132,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
         {activeTab === 'Đơn đang giao' && renderMyOrders()}
 
+        {activeTab === 'Đơn hoàn hàng' && <ShipperReturnOrders />}
+
         {activeTab === 'Hồ sơ cá nhân' && (
           <div className="bg-white rounded-[48px] border border-gray-100 shadow-sm p-10 flex items-center gap-10">
             <div className="size-32 rounded-[40px] overflow-hidden border-4 border-white shadow-xl bg-blue-100">
@@ -1138,6 +1163,12 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 <p className="text-xs text-gray-400">{myProfile.address}</p>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'Hồ sơ cá nhân' && (
+          <div className="mt-8">
+            <ShipperWalletPanel />
           </div>
         )}
       </div>
@@ -1305,4 +1336,4 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   );
 };
 
-export default ShipperDashboard;
+export default ShipperDashboard;

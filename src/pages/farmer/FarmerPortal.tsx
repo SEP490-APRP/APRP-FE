@@ -40,6 +40,7 @@ import Vouchers from './Vouchers'
 import Notifications from './Notifications'
 import Profile from './Profile'
 import WalletComponent from './Wallet'
+import { WithdrawDialog } from '@/features/wallet'
 import AddProduct from './AddProduct'
 import BlindBoxTool from './BlindBoxTool'
 import ComboBuilder from './ComboBuilder'
@@ -754,6 +755,17 @@ export default function FarmerPortal({
           </div>
         </div>
       </main>
+
+      <WithdrawDialog
+        open={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        defaults={{
+          bankName: (shopProfile as any)?.bankName,
+          bankAccountNumber: (shopProfile as any)?.bankAccountNumber || (shopProfile as any)?.bankAccount,
+          bankAccountHolder: (shopProfile as any)?.bankAccountHolder || (shopProfile as any)?.bankAccountName,
+        }}
+        onSuccess={(msg) => handleInfo(msg, 'success')}
+      />
 
       {/* ========================================================================= */}
       {/* ONBOARDING TOUR FOR NEW FARMERS                                           */}

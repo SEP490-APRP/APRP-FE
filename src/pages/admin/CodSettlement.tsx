@@ -39,6 +39,8 @@ const COD_PAYMENT_STATUS_LABELS: Record<string, string> = {
   PAID: 'Đã ứng tiền',
   REFUND_PENDING: 'Chờ hoàn tiền shipper',
   REFUNDED: 'Đã hoàn tiền shipper',
+  CONFIRMED: 'Shipper đang giữ tiền mặt',
+  SETTLED: 'Đã nộp về sàn',
 }
 
 const COD_PAYMENT_OPTION_LABELS: Record<string, string> = {

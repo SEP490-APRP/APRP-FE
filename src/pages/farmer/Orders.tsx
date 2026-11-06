@@ -19,6 +19,7 @@ import {
   Gift,
   Boxes,
   Navigation,
+  RotateCcw,
 } from 'lucide-react'
 import {
   useShopOrders,
@@ -29,6 +30,8 @@ import {
 import { exportService } from '@/services/export.service'
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { OrderSettlementCard } from '@/features/wallet'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 interface OrdersProps {
   onOpenOrderPrep?: (orderId: string) => void
@@ -37,7 +40,7 @@ interface OrdersProps {
 
 /** Danh sách toàn bộ trạng thái hợp lệ của Shop (Loại bỏ hoàn toàn AWAITING_PAYMENT) */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUND_REQUESTED', 'REFUNDED'
 ]
 
 /** Định nghĩa tabs theo tiêu chuẩn sàn TMĐT lớn (Shopee / TikTok Shop Seller Center) */
@@ -226,6 +229,18 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
             <XCircle size={12} /> Đã hủy
           </span>
         )
+      case 'REFUND_REQUESTED':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Yêu cầu hoàn trả
+          </span>
+        )
+      case 'REFUNDED':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Đã hoàn tiền
+          </span>
+        )
       case 'FAILED':
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-black bg-red-50 text-red-700 border border-red-200 flex items-center gap-1.5">
@@ -326,12 +341,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
       {/* 4. Orders List Body */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-3xl border border-[#e8ece3]">
-          <Loader2 className="size-8 text-[#326318] animate-spin" />
-          <p className="text-xs text-[#7e8779] font-bold uppercase tracking-widest">
-            Đang tải dữ liệu đơn hàng từ hệ thống...
-          </p>
-        </div>
+        <CapNongLoading
+          className="!min-h-[360px]"
+          message="Đang tải dữ liệu đơn hàng..."
+          subMessage="Kênh quản lý đơn hàng nhà vườn CapNong"
+          size="md"
+        />
       ) : isError ? (
         <div className="bg-red-50 border border-red-200 rounded-3xl p-8 text-center space-y-3">
           <AlertCircle className="size-8 text-red-500 mx-auto" />
@@ -482,7 +497,14 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-[#1c2216] truncate">{name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-bold text-[#1c2216] truncate">{name}</p>
+                                  {item.isRequestedReturn && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                      <RotateCcw size={10} /> Đang yêu cầu trả hàng
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[11px] text-[#717b6d]">
                                   Số lượng: <strong className="text-[#1c2216]">{item.quantity}</strong>{' '}
                                   × {(item.unitPrice || 0).toLocaleString('vi-VN')} đ
@@ -690,6 +712,41 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                         </div>
                       )}
 
+                      {/* FLOW G: REFUND_REQUESTED */}
+                      {ord.status === 'REFUND_REQUESTED' && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <RotateCcw size={18} className="text-rose-600 shrink-0" />
+                            <span>
+                              <strong>Khách hàng đang yêu cầu hoàn trả / khiếu nại!</strong> Vui lòng vào mục "Khiếu nại &amp; Trợ giúp" để xem chi tiết bằng chứng và phản hồi.
+                            </span>
+                          </div>
+                          <a
+                            href="/shop?tab=disputes"
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                          >
+                            Xem khiếu nại
+                          </a>
+                        </div>
+                      )}
+
+                      {/* FLOW H: REFUNDED */}
+                      {ord.status === 'REFUNDED' && (
+                        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <CheckCircle2 size={18} className="text-amber-600 shrink-0" />
+                            <span>
+                              <strong>Đơn hàng đã hoàn tiền:</strong> Đã xử lý hoàn tiền thành công cho người mua.
+                            </span>
+                          </div>
+                          {ord.refundAmount && ord.refundAmount > 0 && (
+                            <span className="font-bold text-rose-700 text-xs">
+                              Đã hoàn: -{Number(ord.refundAmount).toLocaleString('vi-VN')} đ
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* FLOW F: CANCELLED */}
                       {ord.status === 'CANCELLED' && (
                         <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
@@ -805,6 +862,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                   {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ
                 </strong>
               </div>
+              {(selectedOrder.orderId ?? selectedOrder.id) &&
+                !['CANCELLED', 'FAILED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
+                  <div className="p-4 rounded-2xl bg-white border border-[#e8ece3]">
+                    <OrderSettlementCard orderId={(selectedOrder.orderId ?? selectedOrder.id) as number} viewer="SHOP" />
+                  </div>
+                )}
               {selectedOrder.status === 'SHIPPING' && (
                 <div className="pt-2">
                   <button

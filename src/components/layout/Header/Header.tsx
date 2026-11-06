@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Ticket,
+  Wallet,
   Lock,
   MessageSquare,
   HeartPulse,
@@ -370,15 +371,16 @@ export default function Header({
               </button>
             ) : (
               <>
-                {/* Desktop: Explicit "Đăng nhập" and "Đăng ký" buttons */}
+                {/* Desktop: Explicit "Đăng nhập" and "Đăng ký" buttons with Hero colors & compact size */}
                 <div className="hidden sm:flex items-center gap-1.5">
                   <a
                     href="/dang-nhap"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-nhap') || route.startsWith('/login')
-                        ? 'bg-[#326318] text-white border-[#326318] shadow-sm'
-                        : 'border-[#d6dccf] text-[#326318] hover:bg-[#326318]/10 hover:border-[#326318]'
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
+                      route.startsWith('/dang-nhap') || route.startsWith('/login')
+                        ? 'bg-primary-container text-white border-primary-container shadow-sm'
+                        : 'border-[#4a7c2f]/40 hover:border-[#326318] bg-white/80 hover:bg-[#4a7c2f]/10 text-[#2b591b]'
+                    }`}
                   >
                     <UserRound size={14} />
                     <span>Đăng nhập</span>
@@ -387,10 +389,11 @@ export default function Header({
                   <a
                     href="/dang-ky"
                     onClick={closeDropdown}
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${route.startsWith('/dang-ky') || route.startsWith('/register')
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all border ${
+                      route.startsWith('/dang-ky') || route.startsWith('/register')
                         ? 'bg-[#254b12] text-white border-[#254b12] shadow-sm'
-                        : 'bg-[#326318] hover:bg-[#254b12] text-white border-[#326318] shadow-sm hover:shadow'
-                      }`}
+                        : 'bg-primary-container hover:bg-primary text-white border-transparent shadow-sm shadow-primary-container/25'
+                    }`}
                   >
                     <span>Đăng ký</span>
                   </a>
@@ -504,6 +507,17 @@ export default function Header({
                               <Ticket size={16} />
                             </span>
                             <span>Kho Voucher Của Tôi</span>
+                          </a>
+
+                          <a
+                            href="/my-wallet"
+                            onClick={closeDropdown}
+                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                          >
+                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                              <Wallet size={16} />
+                            </span>
+                            <span>Ví Của Tôi</span>
                           </a>
 
                           <a
@@ -1349,6 +1363,17 @@ export default function Header({
                   >
                     <ShoppingBag size={14} className="text-emerald-700" />
                     <span>Đơn Hàng Của Tôi</span>
+                  </a>
+                )}
+
+                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
+                  <a
+                    href="/my-wallet"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
+                  >
+                    <Wallet size={14} />
+                    <span>Ví Của Tôi</span>
                   </a>
                 )}
 

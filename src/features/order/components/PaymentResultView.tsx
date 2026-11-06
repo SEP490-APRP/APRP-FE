@@ -9,6 +9,7 @@ import type { PaymentResponse } from '@/types/payment.types'
 
 import { useQueryClient } from '@tanstack/react-query'
 import { paymentService } from '@/services'
+import { CapNongLoading } from '@/components/ui/Loading'
 
 export const PaymentResultView: React.FC = () => {
   const [searchParams] = useSearchParams()
@@ -66,13 +67,10 @@ export const PaymentResultView: React.FC = () => {
 
   if (isVerifying) {
     return (
-      <div className="max-w-md mx-auto px-4 py-24 text-center">
-        <Loader2 size={48} className="animate-spin text-emerald-600 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-ink mb-2">Đang xác thực giao dịch...</h2>
-        <p className="text-sm text-ink-muted">
-          Hệ thống đang kết nối với cổng thanh toán PayOS để cập nhật trạng thái đơn hàng của bạn.
-        </p>
-      </div>
+      <CapNongLoading
+        message="Đang xác thực giao dịch qua cổng PayOS..."
+        subMessage="Hệ thống đang đồng bộ kết quả thanh toán với ngân hàng. Vui lòng đợi trong giây lát!"
+      />
     )
   }
 

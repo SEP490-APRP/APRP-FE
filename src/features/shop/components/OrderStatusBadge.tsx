@@ -21,6 +21,8 @@ const STATUS_CONFIG: Record<
   COMPLETED: { label: 'Hoàn thành',          className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   CANCELLED: { label: 'Đã hủy',               className: 'bg-red-50 text-red-600 border-red-200' },
   FAILED:    { label: 'Giao thất bại',        className: 'bg-red-100 text-red-700 border-red-300' },
+  REFUND_REQUESTED: { label: 'Yêu cầu trả hàng', className: 'bg-amber-50 text-amber-700 border-amber-300' },
+  REFUNDED:  { label: 'Đã hoàn tiền',         className: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
 }
 
 interface OrderStatusBadgeProps {
