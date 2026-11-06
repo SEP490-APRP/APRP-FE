@@ -7,6 +7,7 @@ import {
   type AiNavigationAction,
   type AiResponseType,
   type BudgetComboDto,
+  type ChatbotMessageResponse,
   type HumanHandoverDto,
   type MysteryBoxQaDto,
   type OrderCancelDto,
@@ -28,6 +29,7 @@ import {
 } from '@/services/chatbot.service'
 import { queryClient } from '@/app/providers/queryClient'
 import { cartKeys } from '@/features/cart/hooks/useCartQueries'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 export interface ChatbotMessage {
   id: string
@@ -76,9 +78,13 @@ interface ChatbotState {
   clearUnread: () => void
   sendMessage: (text: string) => Promise<void>
   selectOption: (item: AiItemOption, quantity?: number) => Promise<void>
-  addMultipleToCart: (items: AiItemOption[]) => Promise<void>
+  /** Trả về số món thực sự vào giỏ để thẻ gọi không báo thành công sai. */
+  addMultipleToCart: (items: AiItemOption[]) => Promise<number>
   loadHistory: () => Promise<void>
+  /** Ném lỗi khi API thất bại và giữ nguyên hội thoại để nơi gọi báo cho người dùng. */
   clearHistory: () => Promise<void>
+  /** Đưa về hội thoại mới khi đổi tài khoản, không gọi API. */
+  reset: () => void
 }
 
 const INITIAL_WELCOME: ChatbotMessage = {
@@ -90,6 +96,9 @@ const INITIAL_WELCOME: ChatbotMessage = {
   status: 'sent',
   responseType: 'TEXT',
 }
+
+/** Tăng mỗi khi hội thoại bị thay thế để bỏ các phản hồi về muộn của hội thoại cũ. */
+let conversationVersion = 0
 
 export const useChatbotStore = create<ChatbotState>((set, get) => ({
   isOpen: false,
@@ -114,9 +123,16 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
 
   clearUnread: () => set({ unreadCount: 0 }),
 
+  reset: () => {
+    conversationVersion += 1
+    set({ isOpen: false, isLoading: false, unreadCount: 0, messages: [INITIAL_WELCOME] })
+  },
+
   loadHistory: async () => {
+    const version = conversationVersion
     try {
       const history = await chatbotService.getChatHistory()
+      if (version !== conversationVersion) return
       if (history && history.length > 0) {
         const mapped: ChatbotMessage[] = history.map((item) => ({
           id: `hist-${item.id}`,
@@ -137,6 +153,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
     const trimmed = text.trim()
     if (!trimmed || get().isLoading) return
 
+    const version = conversationVersion
     const userMsgId = `usr-${Date.now()}`
     const userMsg: ChatbotMessage = {
       id: userMsgId,
@@ -153,6 +170,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
 
     try {
       const res = await chatbotService.sendMessage({ message: trimmed })
+      if (version !== conversationVersion) return
 
       const botMsgId = `bot-${Date.now()}`
       const botMsg: ChatbotMessage = {
@@ -198,6 +216,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
         unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
       }))
     } catch (err: unknown) {
+      if (version !== conversationVersion) return
       const errorMsg = err instanceof Error ? err.message : 'Đã có lỗi xảy ra. Vui lòng thử lại!'
       const botErrorMsg: ChatbotMessage = {
         id: `err-${Date.now()}`,
@@ -218,6 +237,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
   selectOption: async (item: AiItemOption, quantity: number = 1) => {
     if (get().isLoading) return
 
+    const version = conversationVersion
     const userChoiceMsg: ChatbotMessage = {
       id: `usr-choice-${Date.now()}`,
       sender: 'user',
@@ -237,6 +257,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
         selectedOptionType: item.itemType,
         selectedQuantity: quantity,
       })
+      if (version !== conversationVersion) return
 
       const botMsg: ChatbotMessage = {
         id: `bot-opt-${Date.now()}`,
@@ -280,6 +301,7 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
         isLoading: false,
       }))
     } catch (err: unknown) {
+      if (version !== conversationVersion) return
       const errorMsg = err instanceof Error ? err.message : 'Không thể chọn sản phẩm này.'
       set((state) => ({
         messages: [
@@ -300,47 +322,76 @@ export const useChatbotStore = create<ChatbotState>((set, get) => ({
 
   addMultipleToCart: async (items: AiItemOption[]) => {
     const validItems = (items || []).filter((i) => !i.isOutOfStock)
-    if (validItems.length === 0 || get().isLoading) return
+    if (validItems.length === 0 || get().isLoading) return 0
 
+    const version = conversationVersion
+    set({ isLoading: true })
+
+    const failedNames: string[] = []
+    // BE báo thêm giỏ thất bại bằng type ERROR/NAVIGATION với HTTP 200, nên không chỉ dựa vào exception.
+    let rejection: ChatbotMessageResponse | undefined
     for (const item of validItems) {
       try {
-        await chatbotService.sendMessage({
+        const res = await chatbotService.sendMessage({
           selectedOptionId: item.itemId,
           selectedOptionType: item.itemType,
           selectedQuantity: item.orderQuantity || 1,
         })
-      } catch (err) {
-        console.error('Failed to add item', item.name, err)
+        if (res.type !== 'CART_UPDATED') {
+          failedNames.push(item.name)
+          rejection ??= res
+        }
+      } catch {
+        failedNames.push(item.name)
       }
+      if (version !== conversationVersion) return 0
     }
 
-    queryClient.invalidateQueries({ queryKey: cartKeys.all })
-
-    const successMsg: ChatbotMessage = {
-      id: `bot-bulk-${Date.now()}`,
-      sender: 'assistant',
-      content: `🎉 Đã thêm ${validItems.length} món nông sản vào giỏ hàng của bạn thành công!`,
-      timestamp: new Date(),
-      status: 'sent',
-      responseType: 'NAVIGATION',
-      navigation: {
-        url: '/cart',
-        label: 'Mở giỏ hàng ngay',
-      },
+    const addedCount = validItems.length - failedNames.length
+    if (addedCount > 0) {
+      queryClient.invalidateQueries({ queryKey: cartKeys.all })
     }
+
+    const summaryMsg: ChatbotMessage =
+      addedCount > 0
+        ? {
+            id: `bot-bulk-${Date.now()}`,
+            sender: 'assistant',
+            content:
+              failedNames.length === 0
+                ? `🎉 Đã thêm ${addedCount} món nông sản vào giỏ hàng của bạn thành công!`
+                : `Đã thêm ${addedCount}/${validItems.length} món vào giỏ hàng. Chưa thêm được: ${failedNames.join(', ')}.`,
+            timestamp: new Date(),
+            status: 'sent',
+            responseType: 'NAVIGATION',
+            navigation: {
+              url: '/cart',
+              label: 'Mở giỏ hàng ngay',
+            },
+          }
+        : {
+            id: `bot-bulk-${Date.now()}`,
+            sender: 'assistant',
+            content: rejection?.message || 'Chưa thêm được món nào vào giỏ hàng. Vui lòng thử lại!',
+            timestamp: new Date(),
+            status: rejection?.navigation ? 'sent' : 'error',
+            responseType: rejection?.type ?? 'ERROR',
+            navigation: rejection?.navigation,
+          }
 
     set((state) => ({
-      messages: [...state.messages, successMsg],
+      messages: [...state.messages, summaryMsg],
       isLoading: false,
     }))
+    return addedCount
   },
 
   clearHistory: async () => {
-    try {
+    // Khách chưa đăng nhập không có lịch sử trên server; gọi API sẽ nhận 401 và phát event đăng xuất.
+    if (useAuthStore.getState().user) {
       await chatbotService.clearChatHistory()
-    } catch {
-      // Ignored
     }
-    set({ messages: [INITIAL_WELCOME] })
+    conversationVersion += 1
+    set({ isLoading: false, messages: [INITIAL_WELCOME] })
   },
 }))

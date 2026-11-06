@@ -157,9 +157,10 @@ export interface PreservationTipDto {
 }
 
 export interface HumanHandoverDto {
-  hotline: string
-  zaloUrl: string
-  email: string
+  /** Chưa cấu hình trên BE thì không có, thẻ phải ẩn kênh đó. */
+  hotline?: string
+  zaloUrl?: string
+  email?: string
   triggerP2pChat: boolean
   note?: string
 }
@@ -188,7 +189,6 @@ export interface FlashRescueDto {
   title: string
   description: string
   discountRate: number
-  hoursRemaining: number
   items: AiItemOption[]
 }
 
@@ -255,8 +255,6 @@ export interface PaymentAssistanceDto {
 export interface WalletInfoDto {
   walletStatus: string
   loyaltyPoints: number
-  pointsValueVnd: number
-  isWalletFeatureReady: boolean
   linkedBankName?: string
   linkedBankAccount?: string
   message: string
@@ -285,6 +283,8 @@ export interface ChatbotMessageRequest {
   selectedOptionId?: number
   selectedOptionType?: AiItemType
   selectedQuantity?: number
+  /** BE dùng để bỏ nút tới tính năng mà ứng dụng chưa có; web không cần gửi. */
+  client?: 'WEB' | 'MOBILE'
 }
 
 export interface ChatbotMessageResponse {

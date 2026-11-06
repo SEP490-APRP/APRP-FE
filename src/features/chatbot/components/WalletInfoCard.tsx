@@ -11,11 +11,6 @@ interface WalletInfoCardProps {
 export const WalletInfoCard: React.FC<WalletInfoCardProps> = ({ wallet }) => {
   const toggleOpen = useChatbotStore((s) => s.toggleOpen)
 
-  const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
-  }
-
   return (
     <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-br from-violet-50/90 via-purple-50/60 to-indigo-50 border border-purple-200 shadow-xs space-y-3">
       {/* Header */}
@@ -34,20 +29,12 @@ export const WalletInfoCard: React.FC<WalletInfoCardProps> = ({ wallet }) => {
       </div>
 
       {/* Points & Value Grid */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-2 rounded-lg bg-white/95 border border-purple-100 text-center shadow-2xs">
-          <div className="flex items-center justify-center gap-1 text-xs font-black text-purple-800">
-            <Coins className="w-3.5 h-3.5 text-amber-500" />
-            <span>{wallet.loyaltyPoints}</span>
-          </div>
-          <div className="text-[9px] text-soil-500 font-medium">Điểm CapNong Xu</div>
+      <div className="p-2 rounded-lg bg-white/95 border border-purple-100 text-center shadow-2xs">
+        <div className="flex items-center justify-center gap-1 text-xs font-black text-purple-800">
+          <Coins className="w-3.5 h-3.5 text-amber-500" />
+          <span>{wallet.loyaltyPoints}</span>
         </div>
-        <div className="p-2 rounded-lg bg-white/95 border border-purple-100 text-center shadow-2xs">
-          <div className="text-xs font-black text-emerald-700">
-            {formatPrice(wallet.pointsValueVnd)}
-          </div>
-          <div className="text-[9px] text-soil-500 font-medium">Quy đổi mua hàng</div>
-        </div>
+        <div className="text-[9px] text-soil-500 font-medium">Điểm tích lũy</div>
       </div>
 
       {/* Linked bank info if available */}
@@ -71,11 +58,11 @@ export const WalletInfoCard: React.FC<WalletInfoCardProps> = ({ wallet }) => {
 
       {/* Navigation button */}
       <Link
-        to={wallet.navigationUrl || '/profile?tab=wallet'}
+        to={wallet.navigationUrl || '/tai-khoan'}
         onClick={() => toggleOpen()}
         className="w-full py-2 px-3 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all"
       >
-        <span>{wallet.navigationLabel || 'Xem Hồ Sơ & Thiết Lập Tài Khoản'}</span>
+        <span>{wallet.navigationLabel || 'Xem tài khoản'}</span>
         <ArrowRight className="w-3.5 h-3.5" />
       </Link>
     </div>
