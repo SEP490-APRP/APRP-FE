@@ -3,6 +3,7 @@ import type {
   AiDescriptionSuggestionRequest,
   AiDescriptionSuggestionResponse,
   GetMyProductsParams,
+  ImageSearchResponse,
   ProductCreationRequest,
   ProductImageCreationRequest,
   ProductImageResponse,
@@ -430,6 +431,18 @@ export const productService = {
     const res = await axiosInstance.post<ApiResponse<AiDescriptionSuggestionResponse>>(
       '/products/ai-suggest-description',
       request,
+    )
+    return res.data
+  },
+
+  /** Tìm kiếm nông sản bằng hình ảnh AI (Google Cloud Vision) */
+  async searchByImage(file: File): Promise<ApiResponse<ImageSearchResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await axiosInstance.post<ApiResponse<ImageSearchResponse>>(
+      '/products/search-by-image',
+      formData,
     )
     return res.data
   },
