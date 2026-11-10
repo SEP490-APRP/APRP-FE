@@ -6,10 +6,7 @@ import {
   X,
   Loader2,
   AlertCircle,
-  Sprout,
-  ArrowRight,
   RotateCcw,
-  CheckCircle2,
   HelpCircle,
   Search,
   ScanSearch,
@@ -23,7 +20,7 @@ interface ImageSearchModalProps {
   onSelectKeyword: (keyword: string) => void
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
 
 const QUICK_SUGGESTIONS = [
@@ -49,11 +46,9 @@ export default function ImageSearchModal({
   const [result, setResult] = useState<ImageSearchResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isCooldown, setIsCooldown] = useState(false)
-  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
-  const timerRef = useRef<number | null>(null)
   const [dynamicSuggestions, setDynamicSuggestions] = useState<{ label: string; keyword: string }[]>([])
 
   // Lấy động danh sách nông sản thực tế từ CSDL để hiển thị gợi ý (không dùng dữ liệu tĩnh)
@@ -109,13 +104,6 @@ export default function ImageSearchModal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Hủy countdown timer khi unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [])
-
   // Hỗ trợ Paste ảnh từ Clipboard (Ctrl + V)
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
@@ -133,10 +121,6 @@ export default function ImageSearchModal({
   }, [])
 
   const handleReset = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
     }
@@ -145,17 +129,11 @@ export default function ImageSearchModal({
     setIsAnalyzing(false)
     setResult(null)
     setErrorMessage(null)
-    setRedirectCountdown(null)
   }
 
   const processFile = (file: File) => {
     setErrorMessage(null)
     setResult(null)
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    setRedirectCountdown(null)
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       setErrorMessage('Định dạng ảnh không hỗ trợ. Vui lòng chọn ảnh JPG, PNG hoặc WEBP.')
@@ -163,7 +141,7 @@ export default function ImageSearchModal({
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setErrorMessage('Dung lượng ảnh vượt quá 5MB. Vui lòng nén hoặc chọn ảnh nhỏ hơn.')
+      setErrorMessage('Dung lượng ảnh vượt quá 10MB. Vui lòng nén hoặc chọn ảnh nhỏ hơn.')
       return
     }
 
@@ -213,31 +191,24 @@ export default function ImageSearchModal({
     try {
       const response = await productService.searchByImage(selectedFile)
       if (response.result) {
-        setResult(response.result)
-
-        // Nếu nhận diện thành công nông sản VÀ có sản phẩm khớp trong kho -> Bắt đầu đếm lùi 3s tự chuyển hướng
         const isAgri = Boolean(response.result.isAgricultural ?? (response.result as any).agricultural)
-        if (isAgri && response.result.searchKeyword && response.result.totalMatches > 0) {
-          const targetKeyword = response.result.searchKeyword
-          setRedirectCountdown(3)
 
-          timerRef.current = window.setInterval(() => {
-            setRedirectCountdown((prev) => {
-              if (prev === null || prev <= 1) {
-                if (timerRef.current) clearInterval(timerRef.current)
-                onSelectKeyword(targetKeyword)
-                onClose()
-                return null
-              }
-              return prev - 1
-            })
-          }, 1000)
+        // Nếu nhận diện là nông sản: Chuyển ngay sang trang kết quả tìm kiếm sản phẩm và đóng modal
+        if (isAgri && response.result.searchKeyword) {
+          onSelectKeyword(response.result.searchKeyword)
+          onClose()
+          return
         }
+
+        // Nếu không phải ảnh nông sản (người, xe, đồ vật...): Hiển thị card cảnh báo trong modal
+        setResult(response.result)
       } else {
         setErrorMessage('Không nhận được phản hồi từ hệ thống AI. Vui lòng thử lại.')
       }
     } catch (err: any) {
-      if (err?.status === 429 || err?.data?.code === 3026) {
+      if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+        setErrorMessage('Thời gian xử lý ảnh quá lâu do ảnh dung lượng lớn hoặc đường truyền chậm. Vui lòng thử lại.')
+      } else if (err?.status === 429 || err?.data?.code === 3026) {
         setErrorMessage('Bạn đang tìm kiếm ảnh quá nhanh! Vui lòng chờ 1 phút trước khi thử lại.')
       } else {
         setErrorMessage(
@@ -247,25 +218,6 @@ export default function ImageSearchModal({
     } finally {
       setIsAnalyzing(false)
     }
-  }
-
-  const handleManualRedirect = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    if (result?.searchKeyword) {
-      onSelectKeyword(result.searchKeyword)
-      onClose()
-    }
-  }
-
-  const handleCancelAutoRedirect = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    setRedirectCountdown(null)
   }
 
   if (!isOpen || typeof document === 'undefined') return null
@@ -361,7 +313,7 @@ export default function ImageSearchModal({
                   Kéo thả hoặc tải ảnh nông sản lên đây
                 </h4>
                 <p className="text-xs text-[#6e7766] max-w-xs mx-auto mb-3.5 leading-relaxed">
-                  Hỗ trợ định dạng JPG, PNG, WEBP (tối đa 5MB) &bull; Có thể dán ảnh từ clipboard (Ctrl + V)
+                  Hỗ trợ định dạng JPG, PNG, WEBP (tối đa 10MB) &bull; Có thể dán ảnh từ clipboard (Ctrl + V)
                 </p>
 
                 <div
@@ -415,6 +367,9 @@ export default function ImageSearchModal({
                 <p className="text-[11px] text-[#75806e] mt-2 leading-relaxed pt-2 border-t border-[#ede5d4]">
                   <strong>Mẹo:</strong> Chụp cận cảnh 1 loại củ, quả hoặc rau tươi với đủ ánh sáng để hệ thống nhận diện nhanh và chuẩn xác nhất.
                 </p>
+                <p className="text-[11px] text-[#717a6c] text-center italic pt-1">
+                  * Kết quả tìm kiếm bằng AI mang tính chất tham khảo và có thể có sai sót.
+                </p>
               </div>
             </div>
           ) : (
@@ -467,162 +422,96 @@ export default function ImageSearchModal({
                 )}
               </div>
 
-              {/* KẾT QUẢ NHẬN DIỆN */}
-              {result && (() => {
-                const isAgri = Boolean(result.isAgricultural ?? (result as any).agricultural)
-                return (
-                  <div className="animate-fadeIn">
-                    {isAgri ? (
-                      /* KẾT QUẢ THÀNH CÔNG: XANH MÁT, TINH TẾ */
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-[#f2f7ed] to-[#e8f2e1] border border-[#cfe2c4] shadow-sm space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[#326318]">
-                            <CheckCircle2 size={18} />
-                            <span className="text-xs font-black uppercase tracking-wider">
-                              Nhận diện thành công
-                            </span>
-                          </div>
-                          {result.confidence !== null && result.confidence !== undefined && (
-                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-[#326318] text-white shadow-xs">
-                              Khớp {Math.round(result.confidence * 100)}%
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="bg-white/80 rounded-lg p-3 border border-[#d6e5cd]">
-                          <p className="text-[11px] text-[#6e7766] font-medium">Nông sản phát hiện:</p>
-                          <h4 className="text-lg font-black text-[#1c2e17] mt-0.5 flex items-center gap-1.5">
-                            <Sprout size={18} className="text-[#326318]" />
-                            <span>{result.identifiedProduce}</span>
-                          </h4>
-                          <div className="flex items-center justify-between text-xs text-[#52604b] mt-2 pt-2 border-t border-stone-100">
-                            <span>
-                              {result.totalMatches > 0 ? (
-                                <>Tìm thấy <strong>{result.totalMatches}</strong> sản phẩm đang bán khớp với từ khóa</>
-                              ) : (
-                                <>Hiện kho chưa có sẵn loại này &bull; Tìm các nông sản tương tự</>
-                              )}
-                            </span>
-                            <span className="text-[11px] font-semibold text-[#326318] bg-[#326318]/10 px-2 py-0.5 rounded-md">
-                              Từ khóa: “{result.searchKeyword}”
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Thanh chuyển hướng tự động */}
-                        <div className="flex items-center justify-between gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleManualRedirect}
-                            className="flex-1 py-2.5 px-4 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <span>
-                              {result.totalMatches > 0
-                                ? `Xem ngay ${result.totalMatches} sản phẩm`
-                                : `Khám phá kho nông sản liên quan`}
-                            </span>
-                            <ArrowRight size={15} />
-                          </button>
-                          {redirectCountdown !== null && (
-                            <button
-                              type="button"
-                              onClick={handleCancelAutoRedirect}
-                              className="px-3 py-2.5 rounded-lg border border-[#d6cfbe] bg-white text-stone-600 hover:text-stone-900 text-xs font-semibold transition-colors"
-                              title="Hủy tự động chuyển trang"
-                            >
-                              Dừng ({redirectCountdown}s)
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      /* KẾT QUẢ KHÔNG PHẢI NÔNG SẢN: CARD CẢNH BÁO THÂN THIỆN, HỮU ÍCH */
-                      <div className="p-4 rounded-xl bg-[#fff9f2] border border-[#f5dfc6] text-[#7c4412] space-y-3 animate-fadeIn">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-[#fdecdb] text-[#c05621] flex items-center justify-center shrink-0 mt-0.5">
-                            <AlertCircle size={18} />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-sm font-extrabold text-[#7c4412]">
-                              Chưa nhận diện được nông sản
-                            </h4>
-                            <p className="text-xs text-[#8c5a2b] mt-1 leading-relaxed">
-                              Hệ thống nhận thấy bức ảnh này có thể là người, đồ vật, thú cưng hoặc phong cảnh thay vì nông sản hoặc rau củ quả tươi.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Hướng dẫn chụp ảnh đúng cách */}
-                        <div className="p-3 rounded-lg bg-white/80 border border-[#f5dfc6] text-[11px] text-[#6d4c2b] space-y-1.5">
-                          <p className="font-bold flex items-center gap-1 text-[#7c4412]">
-                            <HelpCircle size={12} className="text-[#c05621]" />
-                            <span>Để tìm được sản phẩm chính xác, bạn hãy thử:</span>
-                          </p>
-                          <p className="pl-4 leading-relaxed">
-                            &bull; Chụp cận cảnh 1 loại rau, củ hoặc trái cây cụ thể.
-                          </p>
-                          <p className="pl-4 leading-relaxed">
-                            &bull; Đảm bảo đủ ánh sáng, góc chụp thẳng và rõ nét.
-                          </p>
-                        </div>
-
-                        {/* Các nút hành động */}
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleReset}
-                            className="flex-1 py-2.5 px-4 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <RotateCcw size={14} />
-                            <span>Thử lại với ảnh rau củ khác</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onSelectKeyword('')
-                              onClose()
-                            }}
-                            className="px-3.5 py-2.5 rounded-lg border border-[#d6cfbe] bg-white text-[#2a3520] hover:bg-[#f6f2e8] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Search size={14} />
-                            <span>Xem toàn bộ kho</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+              {/* KẾT QUẢ KHI ẢNH KHÔNG PHẢI NÔNG SẢN */}
+              {result && !Boolean(result.isAgricultural ?? (result as any).agricultural) && (
+                <div className="p-4 rounded-xl bg-[#fff9f2] border border-[#f5dfc6] text-[#7c4412] space-y-3 animate-fadeIn">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#fdecdb] text-[#c05621] flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertCircle size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-extrabold text-[#7c4412]">
+                        Chưa nhận diện được nông sản
+                      </h4>
+                      <p className="text-xs text-[#8c5a2b] mt-1 leading-relaxed">
+                        Hệ thống nhận thấy bức ảnh này có thể là người, đồ vật, thú cưng hoặc phong cảnh thay vì nông sản hoặc rau củ quả tươi.
+                      </p>
+                    </div>
                   </div>
-                )
-              })()}
+
+                  {/* Hướng dẫn chụp ảnh đúng cách */}
+                  <div className="p-3 rounded-lg bg-white/80 border border-[#f5dfc6] text-[11px] text-[#6d4c2b] space-y-1.5">
+                    <p className="font-bold flex items-center gap-1 text-[#7c4412]">
+                      <HelpCircle size={12} className="text-[#c05621]" />
+                      <span>Để tìm được sản phẩm chính xác, bạn hãy thử:</span>
+                    </p>
+                    <p className="pl-4 leading-relaxed">
+                      &bull; Chụp cận cảnh 1 loại rau, củ hoặc trái cây cụ thể.
+                    </p>
+                    <p className="pl-4 leading-relaxed">
+                      &bull; Đảm bảo đủ ánh sáng, góc chụp thẳng và rõ nét.
+                    </p>
+                  </div>
+
+                  {/* Các nút hành động */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="flex-1 py-2.5 px-4 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw size={14} />
+                      <span>Thử lại với ảnh rau củ khác</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectKeyword('')
+                        onClose()
+                      }}
+                      className="px-3.5 py-2.5 rounded-lg border border-[#d6cfbe] bg-white text-[#2a3520] hover:bg-[#f6f2e8] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Search size={14} />
+                      <span>Xem toàn bộ kho</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Nút hành động khi chưa bấm nhận diện */}
               {!result && (
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSearch}
-                    disabled={isAnalyzing || isCooldown}
-                    className="flex-1 py-2.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 size={15} className="animate-spin" />
-                        <span>Đang phân tích hình ảnh...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ScanSearch size={15} />
-                        <span>Tìm sản phẩm tương đồng</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    disabled={isAnalyzing}
-                    className="px-4 py-2.5 rounded-lg border border-[#d6cfbe] bg-white hover:bg-[#f6f2e8] text-[#2a3520] text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Hủy
-                  </button>
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSearch}
+                      disabled={isAnalyzing || isCooldown}
+                      className="flex-1 py-2.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Đang phân tích hình ảnh...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ScanSearch size={15} />
+                          <span>Tìm sản phẩm tương đồng</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      disabled={isAnalyzing}
+                      className="px-4 py-2.5 rounded-lg border border-[#d6cfbe] bg-white hover:bg-[#f6f2e8] text-[#2a3520] text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#717a6c] text-center italic">
+                    * Kết quả tìm kiếm bằng AI mang tính chất tham khảo và có thể có sai sót.
+                  </p>
                 </div>
               )}
             </div>

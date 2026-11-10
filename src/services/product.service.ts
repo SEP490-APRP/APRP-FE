@@ -443,6 +443,9 @@ export const productService = {
     const res = await axiosInstance.post<ApiResponse<ImageSearchResponse>>(
       '/products/search-by-image',
       formData,
+      {
+        timeout: 60_000, // Cho phép 60s đối với upload và xử lý ảnh AI độ phân giải cao (tới 10MB)
+      }
     )
     return res.data
   },
