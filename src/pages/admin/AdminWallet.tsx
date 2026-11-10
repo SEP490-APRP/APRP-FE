@@ -523,9 +523,9 @@ const AdminWallet: React.FC = () => {
                     <td className="px-6 py-4 text-xs font-medium text-gray-600">
                       {getWithdrawOwnerLabel(tx)}
                     </td>
-                    <td className="px-6 py-4 text-right text-xs font-bold text-gray-900">
+                    <td className="px-6 py-4 text-right text-xs font-bold text-gray-900 whitespace-nowrap">
                       {tx.status === 'SUCCESS' ? '-' : ''}
-                      {(tx.amount || 0).toLocaleString('vi-VN')} đ
+                      {(tx.amount || 0).toLocaleString('vi-VN')}&nbsp;đ
                     </td>
                     <td className="px-6 py-4 text-xs text-gray-400">
                       {tx.processedAt || tx.createdAt
@@ -534,13 +534,12 @@ const AdminWallet: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          tx.status === 'SUCCESS'
+                        className={`px-2 py-1 rounded-full text-xs font-bold ${tx.status === 'SUCCESS'
                             ? 'bg-green-50 text-green-600'
                             : tx.status === 'REJECTED'
                               ? 'bg-red-50 text-red-600'
                               : 'bg-gray-100 text-gray-500'
-                        }`}
+                          }`}
                       >
                         {tx.status === 'SUCCESS'
                           ? 'THÀNH CÔNG'
@@ -605,7 +604,7 @@ const AdminWallet: React.FC = () => {
                 </p>
                 <p className="text-sm text-gray-700">
                   <span className="font-bold">Số tiền:</span>{' '}
-                  {(qrRequest.receiveAmount ?? qrRequest.amount).toLocaleString('vi-VN')} đ
+                  <span className="font-bold whitespace-nowrap">{(qrRequest.receiveAmount ?? qrRequest.amount).toLocaleString('vi-VN')}&nbsp;đ</span>
                 </p>
                 <p className="text-sm text-gray-700">
                   <span className="font-bold">Tài khoản:</span> {qrRequest.bankAccountNumber}

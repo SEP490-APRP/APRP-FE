@@ -526,9 +526,9 @@ export function CartModal() {
 
                     {/* Subtotal riêng của shop */}
                     {shopSubtotal > 0 && (
-                      <div className="bg-[#fcfbf7] px-3.5 py-1.5 border-t border-[#f1ebe0] flex justify-between items-center text-[11px]">
-                        <span className="text-[#6e6656]">Tạm tính shop:</span>
-                        <strong className="text-[#326318] font-bold">{money(shopSubtotal)}</strong>
+                      <div className="bg-[#fcfbf7] px-3.5 py-1.5 border-t border-[#f1ebe0] flex justify-between items-center text-[11px] gap-2">
+                        <span className="text-[#6e6656] whitespace-nowrap">Tạm tính shop:</span>
+                        <strong className="text-[#326318] font-bold whitespace-nowrap shrink-0">{money(shopSubtotal)}</strong>
                       </div>
                     )}
                   </div>
@@ -615,16 +615,16 @@ export function CartModal() {
         {/* ==================================================== */}
         {(!user ? localCount > 0 : totalAllCount > 0) && (
           <div className="shrink-0 bg-white border-t border-[#e9e3d5] p-4 sm:p-5 shadow-[0_-8px_24px_rgba(0,0,0,0.05)]">
-            <div className="flex items-end justify-between mb-2">
+            <div className="flex items-end justify-between mb-2 gap-2">
               <div>
-                <span className="text-[11px] text-[#6e7766] block">
+                <span className="text-[11px] text-[#6e7766] block whitespace-nowrap">
                   {!user
                     ? `Tổng cộng ${localCount} món`
                     : `Đã chọn ${totalSelectedCount} / ${totalAllCount} món`}
                 </span>
-                <span className="font-bold text-sm text-[#1a2315]">Tổng tạm tính</span>
+                <span className="font-bold text-sm text-[#1a2315] whitespace-nowrap">Tổng tạm tính</span>
               </div>
-              <strong className="text-xl font-extrabold text-[#326318] tracking-tight">
+              <strong className="text-xl font-extrabold text-[#326318] tracking-tight whitespace-nowrap shrink-0">
                 {money(!user ? localTotal : totalAmount)}
               </strong>
             </div>

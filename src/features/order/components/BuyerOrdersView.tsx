@@ -276,7 +276,7 @@ export const BuyerOrdersView: React.FC = () => {
     const target =
       typeof orderOrId === 'number'
         ? orders.find((o) => (o.orderId || o.id) === orderOrId) ||
-          ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
+        ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
         : orderOrId
     setCancelModalState({
       isOpen: true,
@@ -394,11 +394,10 @@ export const BuyerOrdersView: React.FC = () => {
             onClick={() => {
               setSearchParams(tab.key === 'ALL' ? {} : { tab: tab.key })
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              currentTab === tab.key
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${currentTab === tab.key
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -482,11 +481,10 @@ export const BuyerOrdersView: React.FC = () => {
             return (
               <div
                 key={`single-${orderId}`}
-                className={`bg-white rounded-3xl border transition-all overflow-hidden ${
-                  isUnpaid
+                className={`bg-white rounded-3xl border transition-all overflow-hidden ${isUnpaid
                     ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
                     : 'border-line hover:border-neutral-300 shadow-sm'
-                }`}
+                  }`}
               >
                 {/* Header đơn: Shop & Trạng thái */}
                 <div className="px-6 py-4 bg-neutral-50/70 border-b border-line flex flex-wrap items-center justify-between gap-3">
@@ -541,8 +539,8 @@ export const BuyerOrdersView: React.FC = () => {
                           </p>
                         </div>
                         <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
-                          <p className="text-sm font-bold text-emerald-700">
-                            {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
+                          <p className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                            {Number(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                           </p>
                           {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
                             <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -602,14 +600,14 @@ export const BuyerOrdersView: React.FC = () => {
                       Phương thức: <span className="font-bold text-ink">{order.paymentMethod || 'COD'}</span>
                     </div>
                     {order.shippingFee !== undefined && (
-                      <div>
-                        Phí ship: <span className="font-bold text-ink">{Number(order.shippingFee).toLocaleString('vi-VN')} đ</span>
+                      <div className="whitespace-nowrap">
+                        Phí ship: <span className="font-bold text-ink whitespace-nowrap shrink-0">{Number(order.shippingFee).toLocaleString('vi-VN')}&nbsp;đ</span>
                       </div>
                     )}
-                    <div className="text-sm">
-                      Tổng thanh toán:{' '}
-                      <span className="font-black text-emerald-700 text-base">
-                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')} đ
+                    <div className="text-sm whitespace-nowrap flex items-center gap-1">
+                      <span>Tổng thanh toán:</span>{' '}
+                      <span className="font-black text-emerald-700 text-base whitespace-nowrap shrink-0">
+                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
                   </div>

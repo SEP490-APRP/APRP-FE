@@ -21,8 +21,8 @@ export const BudgetComboCard: React.FC<BudgetComboCardProps> = ({ combo }) => {
     combo.items.some((it) => it.itemType === 'COMBO' || it.itemType === 'BUILD_COMBO')
 
   const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+    if (!val) return '0\u00A0đ'
+    return new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
   }
 
   const handleViewDetail = (e: React.MouseEvent, item: AiItemOption) => {
