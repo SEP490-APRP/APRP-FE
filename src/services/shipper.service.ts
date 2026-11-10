@@ -95,7 +95,8 @@ function toShipperOrder(o: any): ShipperOrderResponse {
     distanceKm: o.distanceKm,
     distanceToShopKm: o.distanceToShopKm,
     totalAmount: o.totalAmount,
-    codAmount: o.paymentMethod === 'COD' ? (o.codAmount ?? o.totalAmount) : 0,
+    // codAmount = 0 (chưa thu tiền) thì lấy tổng tiền đơn
+    codAmount: o.paymentMethod === 'COD' ? o.codAmount || o.totalAmount || 0 : 0,
     codPrepaidAmount: 0,
     codReservedAmount: o.codReservedAmount,
     shippingFee: o.shippingFee,
@@ -249,6 +250,8 @@ export function shipperErrorMessage(err: unknown, fallback: string): string {
     case 16014:
       return 'Ví đang âm do còn tiền COD chưa nộp về sàn. Nạp ví hoặc nộp tiền COD trước khi nhận đơn.'
   }
+  // 9999 = lỗi chưa phân loại ở BE ("Uncategorized Error"): dùng câu dự phòng tiếng Việt
+  if (data?.code === 9999) return fallback
   return data?.message?.trim() || fallback
 }
 
