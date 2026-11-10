@@ -7,6 +7,8 @@ import {
   CombosRoute,
   AiRoute,
   StoriesRoute,
+  CampaignsRoute,
+  CampaignDetailRoute,
   PrivacyRoute,
   ProductRoute,
   ShopRoute,
@@ -81,6 +83,9 @@ export const router = createBrowserRouter([
           { path: 'meal-plan/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'meal-planner/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'cong-nghe-ai/*', element: <AiRoute />, handle: title('Công nghệ AI Tiên phong') },
+          { path: 'chien-dich', element: <CampaignsRoute />, handle: title('Chiến dịch giải cứu · CapNong') },
+          { path: 'chien-dich/:campaignId', element: <CampaignDetailRoute />, handle: title('Chiến dịch giải cứu · CapNong') },
+          { path: 'campaigns/*', element: <Navigate replace to="/chien-dich" /> },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
 

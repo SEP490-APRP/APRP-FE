@@ -41,6 +41,7 @@ import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
 import { globalShowAlert } from '@/components/common/Popup'
 import { absoluteUrl, getErrorMessage } from '@/utils'
 import { CapNongLoading } from '@/components/ui/Loading'
+import logoIcon from '@/assets/logo-icon.png'
 
 const Facebook = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -941,7 +942,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               /* Warm Natural Empty State */
               <div className="bg-white rounded-3xl border border-dashed border-line p-10 md:p-16 text-center max-w-2xl mx-auto shadow-xs">
                 <div className="size-16 rounded-full bg-leaf-50 flex items-center justify-center text-leaf-700 mx-auto mb-4 border border-leaf-200">
-                  <Leaf className="size-8 text-leaf-600 animate-pulse" />
+                  <img src={logoIcon} alt="" className="size-10 object-contain" />
                 </div>
                 <h3 className="text-lg font-black text-ink mb-2">
                   Nhà vườn đang chuẩn bị vụ mùa mới

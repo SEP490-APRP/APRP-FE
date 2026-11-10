@@ -682,6 +682,48 @@
   font-weight: 800 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
+/* Mục "Chiến dịch": cùng kiểu .nav-pill, thêm icon lửa vàng lay nhẹ + bong bóng số chiến dịch đang mở */
+.nav-pill-campaign {
+  position: relative;
+}
+.nav-pill-campaign-icon {
+  color: #ffba41;
+  transform-origin: 50% 90%;
+  animation: capnong-flame 2.4s ease-in-out infinite;
+}
+.nav-pill-campaign.is-active .nav-pill-campaign-icon {
+  color: #e8590c;
+}
+.nav-pill-campaign-count {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #ffba41;
+  color: #3d2a00;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #4a7c2f;
+}
+@keyframes capnong-flame {
+  0%,
+  100% {
+    transform: rotate(-6deg) scale(1);
+  }
+  50% {
+    transform: rotate(6deg) scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill-campaign-icon {
+    animation: none;
+  }
+}
 .mobile-toggle {
   display: none;
 }
