@@ -200,9 +200,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   }
 
   const getCategoryName = (p: any): string => {
-    if (!p?.category) return ''
+    if (!p) return ''
     if (typeof p.category === 'string') return p.category
-    return p.category.name || ''
+    return p.category?.name || p.categoryName || p.category?.categoryName || ''
   }
 
   // Filter and sort products
@@ -847,7 +847,8 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                     >
                       {/* Image */}
                       <div
-                        className={`relative overflow-hidden bg-paper-warm ${
+                        onClick={() => navigate(`/san-pham/${product.id}`)}
+                        className={`relative overflow-hidden bg-paper-warm cursor-pointer ${
                           viewMode === 'list'
                             ? 'w-full sm:w-40 aspect-square sm:aspect-auto sm:h-36 rounded-xl'
                             : 'aspect-square w-full'
