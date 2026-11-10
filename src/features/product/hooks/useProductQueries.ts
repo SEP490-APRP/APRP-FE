@@ -49,9 +49,28 @@ const fetchForBuyer = async () => (await productService.getForBuyer()).result ??
 /** Sản phẩm đang bán của một shop. */
 export function useShopProducts(shopId: number) {
   return useQuery({
-    queryKey: productKeys.forBuyer(),
-    queryFn: fetchForBuyer,
-    select: (products) => products.filter((p) => p.shopOwnerId === shopId || p.shopId === shopId),
+    queryKey: ['products', 'shop', shopId],
+    queryFn: async () => {
+      // 1. Thử gọi API có param shopId
+      try {
+        const res = await productService.getAll({ shopId, size: 100 } as any)
+        const directList = (res.result ?? []).filter((p) => {
+          const sId = Number(p.shopId ?? p.shopOwnerId ?? (p as any).shop?.id)
+          return sId === shopId
+        })
+        if (directList.length > 0) return directList
+      } catch (e) {
+        console.warn('Failed to fetch products with shopId filter:', e)
+      }
+
+      // 2. Fallback: Lấy toàn bộ sản phẩm và lọc theo shopId
+      const all = (await productService.getAll({ size: 100 })).result ?? []
+      return all.filter((p) => {
+        const sId = Number(p.shopId ?? p.shopOwnerId ?? (p as any).shop?.id)
+        return sId === shopId
+      })
+    },
+    enabled: Boolean(shopId) && !isNaN(shopId),
   })
 }
 
