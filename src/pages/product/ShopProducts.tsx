@@ -333,90 +333,88 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       </div>
 
       {/* 2. Farm Cover Banner */}
-      <div className="relative w-full h-52 sm:h-64 md:h-72 overflow-hidden bg-leaf-900">
+      <div className="relative w-full h-32 sm:h-36 md:h-40 overflow-hidden bg-leaf-900">
         <img
           src={freshFarmerBanner}
           alt={`Cảnh quan nông trại của ${shopName}`}
           className="w-full h-full object-cover object-center scale-105"
         />
         <div
-          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20"
+          className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20"
           aria-hidden
         />
-        <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-white/90 text-xs font-semibold border border-white/20">
-          <Leaf className="size-3.5 text-sun-300" />
+        <div className="absolute top-3 right-4 hidden md:flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full text-white/90 text-[11px] font-semibold border border-white/20">
+          <Leaf className="size-3 text-sun-300" />
           <span>Nông Trại Canh Tác Hữu Cơ CapNong</span>
         </div>
       </div>
 
       {/* 3. Floating Farm Profile Identity Card */}
-      <div className="max-w-7xl mx-auto px-4 -mt-16 sm:-mt-20 relative z-20">
-        <div className="bg-white rounded-3xl border border-line p-5 sm:p-7 shadow-card">
-          <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+      <div className="max-w-7xl mx-auto px-4 -mt-10 sm:-mt-12 relative z-20">
+        <div className="bg-white rounded-2xl border border-line p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 items-start justify-between">
             {/* Avatar & Main Info */}
-            <div className="flex flex-col sm:flex-row gap-5 items-start">
-              <div className="size-24 sm:size-28 rounded-2xl overflow-hidden bg-paper-warm border-4 border-white shadow-md shrink-0 relative group">
+            <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start flex-1 min-w-0">
+              <div className="size-16 sm:size-18 rounded-xl overflow-hidden bg-paper-warm border-2 border-white shadow-xs shrink-0 relative group">
                 <img
                   src={shopAvatar}
                   alt={shopName}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute bottom-1 right-1 size-5 bg-leaf-700 text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs">
-                  <ShieldCheck className="size-3" />
+                <div className="absolute bottom-0.5 right-0.5 size-4.5 bg-leaf-700 text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+                  <ShieldCheck className="size-2.5" />
                 </div>
               </div>
 
-              <div className="pt-1">
+              <div className="pt-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h1 className="text-xl sm:text-2xl font-black text-ink tracking-tight">
+                  <h1 className="text-lg sm:text-xl font-bold text-ink tracking-tight truncate">
                     {shopName}
                   </h1>
                   {shopInfo?.status === 'ACTIVE' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-leaf-50 text-leaf-700 border border-leaf-200">
-                      <ShieldCheck className="size-3.5" />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-leaf-50 text-leaf-700 border border-leaf-200">
+                      <ShieldCheck className="size-3" />
                       Đã xác thực
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sun-100 text-soil-700 border border-sun-300/40">
-                    <Award className="size-3.5" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-sun-100 text-soil-700 border border-sun-300/40">
+                    <Award className="size-3" />
                     Chuẩn VietGAP
                   </span>
                 </div>
 
                 {/* Chi tiết liên hệ & địa chỉ */}
-                <div className="flex flex-col gap-1 my-2 text-xs text-ink-muted">
+                <div className="flex items-center gap-3 text-xs text-ink-muted mt-1 flex-wrap">
                   {shopInfo?.address && (
-                    <p className="flex items-center gap-1.5 font-medium">
-                      <MapPin className="size-3.5 text-soil-600 shrink-0" />
-                      <span>{shopInfo.address}</span>
+                    <p className="flex items-center gap-1.5 font-medium max-w-md truncate">
+                      <MapPin className="size-3 text-soil-600 shrink-0" />
+                      <span className="truncate">{shopInfo.address}</span>
                     </p>
                   )}
-                  <div className="flex items-center gap-4 flex-wrap">
-                    {(shopInfo?.phoneNumber || shopInfo?.phone) && (
-                      <p className="flex items-center gap-1.5 font-medium">
-                        <Phone className="size-3.5 text-leaf-700 shrink-0" />
-                        <span>Hotline: <strong className="text-ink font-semibold">{shopInfo.phoneNumber || shopInfo.phone}</strong></span>
-                      </p>
-                    )}
-                    {shopInfo?.email && (
-                      <p className="flex items-center gap-1.5 font-medium">
-                        <Mail className="size-3.5 text-leaf-700 shrink-0" />
-                        <span>{shopInfo.email}</span>
-                      </p>
-                    )}
-                    <p className="flex items-center gap-1.5 font-semibold text-leaf-700">
-                      <Clock className="size-3.5 text-leaf-600 shrink-0" />
-                      <span>{shopInfo?.status === 'ACTIVE' ? 'Đang mở cửa · Sẵn sàng giao nông sản' : 'Tạm nghỉ'}</span>
+                  {(shopInfo?.phoneNumber || shopInfo?.phone) && (
+                    <p className="flex items-center gap-1 font-medium">
+                      <Phone className="size-3 text-leaf-700 shrink-0" />
+                      <span>Hotline: <strong className="text-ink font-semibold">{shopInfo.phoneNumber || shopInfo.phone}</strong></span>
                     </p>
-                  </div>
+                  )}
+                  {shopInfo?.email && (
+                    <p className="flex items-center gap-1 font-medium">
+                      <Mail className="size-3 text-leaf-700 shrink-0" />
+                      <span>{shopInfo.email}</span>
+                    </p>
+                  )}
+                  <p className="flex items-center gap-1 font-medium text-leaf-700">
+                    <Clock className="size-3 text-leaf-600 shrink-0" />
+                    <span>{shopInfo?.status === 'ACTIVE' ? 'Đang mở cửa đón khách' : 'Tạm nghỉ'}</span>
+                  </p>
                 </div>
 
                 {shopInfo?.description ? (
-                  <p className="text-xs text-ink-muted leading-relaxed max-w-2xl italic bg-paper-warm/70 px-3.5 py-2.5 rounded-xl border border-line mt-2">
+                  <p className="text-xs text-ink-muted leading-relaxed max-w-2xl italic bg-paper-warm/70 px-3 py-1.5 rounded-lg border border-line mt-2 line-clamp-2">
                     "{shopInfo.description}"
                   </p>
                 ) : (
-                  <p className="text-xs text-ink-muted italic mt-1">
+                  <p className="text-xs text-ink-muted italic mt-1.5">
                     Chuyên cung cấp rau củ quả, trái cây tươi sạch trực tiếp từ vườn thu hoạch trong ngày.
                   </p>
                 )}
@@ -424,25 +422,25 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             </div>
 
             {/* Quick Actions */}
-            <div className="flex items-center gap-2.5 w-full lg:w-auto pt-2 lg:pt-1">
+            <div className="flex items-center gap-2 w-full lg:w-auto pt-1 lg:pt-0 shrink-0">
               <button
                 onClick={handleChatNow}
-                className="flex-1 lg:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-leaf-700 hover:bg-leaf-800 text-white font-bold text-xs rounded-xl shadow-md shadow-leaf-700/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                className="flex-1 lg:flex-initial inline-flex items-center justify-center gap-1.5 h-8 px-3.5 bg-leaf-700 hover:bg-leaf-800 text-white font-bold text-xs rounded-lg shadow-2xs transition-all cursor-pointer whitespace-nowrap"
               >
-                <MessageCircle className="size-4" />
+                <MessageCircle className="size-3.5" />
                 <span>Nhắn tin</span>
               </button>
 
               <button
                 onClick={handleToggleFollow}
-                className={`flex-1 lg:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 font-bold text-xs rounded-xl border transition-all cursor-pointer ${
+                className={`flex-1 lg:flex-initial inline-flex items-center justify-center gap-1 h-8 px-3 font-bold text-xs rounded-lg border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
                   isFollowing
-                    ? 'bg-leaf-50 text-leaf-700 border-leaf-200 shadow-xs'
+                    ? 'bg-leaf-50 text-leaf-700 border-leaf-300'
                     : 'bg-white hover:bg-paper-warm text-ink border-line'
                 }`}
               >
                 <Heart
-                  className={`size-4 ${isFollowing ? 'fill-leaf-700 text-leaf-700' : 'text-ink-muted'}`}
+                  className={`size-3.5 ${isFollowing ? 'fill-leaf-700 text-leaf-700' : 'text-ink-muted'}`}
                 />
                 <span>{isFollowing ? 'Đang theo dõi' : 'Theo dõi'}</span>
               </button>
@@ -450,15 +448,15 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
               <div className="relative">
                 <button
                   onClick={() => setShowShareMenu((v) => !v)}
-                  className="p-2.5 bg-white hover:bg-paper-warm text-ink font-bold text-xs rounded-xl border border-line transition-colors cursor-pointer"
+                  className="h-8 px-2.5 bg-white hover:bg-paper-warm text-ink font-semibold text-xs rounded-lg border border-line transition-colors cursor-pointer shadow-2xs flex items-center justify-center"
                   title="Chia sẻ gian hàng"
                 >
-                  <Share2 className="size-4" />
+                  <Share2 className="size-3.5" />
                 </button>
 
                 {showShareMenu && (
-                  <div className="absolute right-0 top-12 z-40 bg-white rounded-2xl shadow-xl border border-line p-3 w-56 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-line">
+                  <div className="absolute right-0 top-10 z-40 bg-white rounded-xl shadow-lg border border-line p-2.5 w-52 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-1.5 pb-1.5 border-b border-line">
                       <p className="text-[10px] font-black text-ink-muted uppercase tracking-widest">
                         Chia sẻ gian hàng
                       </p>
@@ -477,7 +475,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                           setCopied(true)
                           setTimeout(() => setCopied(false), 2000)
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-paper text-xs font-bold text-ink transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-paper text-xs font-semibold text-ink transition-colors cursor-pointer"
                       >
                         {copied ? (
                           <Check className="size-3.5 text-leaf-700" />
@@ -497,7 +495,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                             'width=600,height=400',
                           )
                         }
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-blue-50 text-xs font-bold text-blue-600 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 text-xs font-semibold text-blue-600 transition-colors cursor-pointer"
                       >
                         <Facebook className="size-3.5" />
                         <span>Chia sẻ Facebook</span>
@@ -518,7 +516,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                             )
                           }
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-sky-50 text-xs font-bold text-sky-600 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-sky-50 text-xs font-semibold text-sky-600 transition-colors cursor-pointer"
                       >
                         <span className="size-3.5 rounded-full bg-sky-500 text-white text-[7px] font-black flex items-center justify-center shrink-0">
                           Z
@@ -532,56 +530,56 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             </div>
           </div>
 
-          {/* 4 Key Metrics Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-line">
-            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
-              <div className="size-9 rounded-xl bg-leaf-50 flex items-center justify-center text-leaf-700 shrink-0">
-                <Package className="size-4" />
+          {/* 4 Key Metrics Ribbon Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-paper-warm/80 rounded-xl p-2.5 border border-line mt-3.5">
+            <div className="flex items-center gap-2.5 px-2">
+              <div className="size-7 rounded-lg bg-white border border-line flex items-center justify-center text-leaf-700 shrink-0 shadow-2xs">
+                <Package className="size-3.5" />
               </div>
-              <div>
-                <p className="text-base font-black text-ink leading-tight">{products.length}</p>
-                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink leading-tight">{products.length}</p>
+                <p className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider truncate">
                   Nông sản
                 </p>
               </div>
             </div>
 
-            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
-              <div className="size-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 shrink-0">
-                <TrendingUp className="size-4" />
+            <div className="flex items-center gap-2.5 px-2 border-l border-line/60 sm:border-line">
+              <div className="size-7 rounded-lg bg-white border border-line flex items-center justify-center text-emerald-700 shrink-0 shadow-2xs">
+                <TrendingUp className="size-3.5" />
               </div>
-              <div>
-                <p className="text-base font-black text-ink leading-tight">{activeProducts}</p>
-                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink leading-tight">{activeProducts}</p>
+                <p className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider truncate">
                   Đang thu hoạch
                 </p>
               </div>
             </div>
 
-            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
-              <div className="size-9 rounded-xl bg-sun-100 flex items-center justify-center text-soil-700 shrink-0">
-                <Star className="size-4 fill-sun-500 text-sun-500" />
+            <div className="flex items-center gap-2.5 px-2 border-t sm:border-t-0 sm:border-l border-line/60 sm:border-line pt-2 sm:pt-0">
+              <div className="size-7 rounded-lg bg-white border border-line flex items-center justify-center text-sun-500 shrink-0 shadow-2xs">
+                <Star className="size-3.5 fill-sun-500 text-sun-500" />
               </div>
-              <div>
-                <p className="text-base font-black text-ink leading-tight">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink leading-tight">
                   {reviews.length > 0 ? averageRating : '5.0'}
-                  <span className="text-xs text-ink-muted font-normal ml-1">
+                  <span className="text-[11px] text-ink-muted font-normal ml-1">
                     ({reviews.length})
                   </span>
                 </p>
-                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+                <p className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider truncate">
                   Đánh giá uy tín
                 </p>
               </div>
             </div>
 
-            <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
-              <div className="size-9 rounded-xl bg-leaf-100/60 flex items-center justify-center text-leaf-700 shrink-0">
-                <Clock className="size-4" />
+            <div className="flex items-center gap-2.5 px-2 border-t sm:border-t-0 border-l border-line/60 sm:border-line pt-2 sm:pt-0">
+              <div className="size-7 rounded-lg bg-white border border-line flex items-center justify-center text-leaf-700 shrink-0 shadow-2xs">
+                <Clock className="size-3.5" />
               </div>
-              <div>
-                <p className="text-base font-black text-leaf-700 leading-tight">100%</p>
-                <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-leaf-700 leading-tight">100%</p>
+                <p className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider truncate">
                   Phản hồi chat
                 </p>
               </div>
@@ -591,15 +589,15 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       </div>
 
       {/* 4. Voucher Tickets Carousel */}
-      <div className="max-w-7xl mx-auto px-4 mt-6">
-        <div className="bg-paper-warm rounded-3xl border border-line p-5 sm:p-6 shadow-xs">
-          <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="max-w-7xl mx-auto px-4 mt-4">
+        <div className="bg-paper-warm/80 rounded-2xl border border-line p-4 sm:p-4.5 shadow-xs">
+          <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
-              <div className="size-8 rounded-xl bg-leaf-100 flex items-center justify-center text-leaf-700">
-                <Gift className="size-4" />
+              <div className="size-7 rounded-lg bg-leaf-100 flex items-center justify-center text-leaf-700">
+                <Gift className="size-3.5" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-black text-ink">
+                <h3 className="text-sm font-bold text-ink">
                   Voucher Ưu Đãi Nhà Vườn
                 </h3>
                 <p className="text-[11px] text-ink-muted">
@@ -610,7 +608,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
             <button
               onClick={() => navigate(`/cua-hang/${shopId}/voucher`)}
-              className="text-xs font-bold text-leaf-700 hover:text-leaf-800 transition-colors cursor-pointer flex items-center gap-1"
+              className="text-xs font-semibold text-leaf-700 hover:text-leaf-800 transition-colors cursor-pointer flex items-center gap-0.5"
             >
               <span>Xem tất cả</span>
               <ChevronRight className="size-3.5" />
@@ -651,23 +649,23 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                 return (
                   <div
                     key={voucher.voucherCode}
-                    className="rounded-2xl border border-dashed border-leaf-300 bg-white p-3.5 flex flex-col justify-between gap-3 shadow-xs hover:border-leaf-600 transition-colors"
+                    className="rounded-xl border border-dashed border-leaf-300 bg-white p-3 flex flex-col justify-between gap-2.5 shadow-2xs hover:border-leaf-600 transition-colors"
                   >
                     <div>
-                      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                        <span className="font-mono text-[11px] font-black uppercase text-leaf-800 bg-leaf-100 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <span className="font-mono text-[10px] font-bold uppercase text-leaf-800 bg-leaf-100 px-1.5 py-0.5 rounded">
                           {voucher.voucherCode}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-soil-50 text-soil-700 border border-soil-100">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-soil-50 text-soil-700 border border-soil-100">
                           {scopeLabel}
                         </span>
                         {isFreeShip && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700">
                             Freeship
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-black text-ink">{discountLabel}</p>
+                      <p className="text-xs sm:text-sm font-bold text-ink">{discountLabel}</p>
                       <p className="text-[11px] text-ink-muted font-medium mt-0.5">
                         {voucher.maxDiscount
                           ? `Tối đa ${Number(voucher.maxDiscount).toLocaleString('vi-VN')}đ · `
@@ -681,7 +679,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                       disabled={
                         receivingVoucher === voucher.voucherCode || (isAuthenticated && !canReceive)
                       }
-                      className="w-full rounded-xl bg-leaf-700 px-3 py-2 text-xs font-bold text-white hover:bg-leaf-800 transition-colors disabled:bg-line disabled:text-ink-muted cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                      className="w-full rounded-lg bg-leaf-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-leaf-800 transition-colors disabled:bg-line disabled:text-ink-muted cursor-pointer disabled:cursor-not-allowed shadow-2xs"
                     >
                       {receivingVoucher === voucher.voucherCode
                         ? 'Đang lưu...'
@@ -698,13 +696,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
       </div>
 
       {/* 5. Navigation Tab Bar */}
-      <div className="max-w-7xl mx-auto px-4 mt-8">
-        <div className="flex items-center gap-2 border-b border-line pb-3 overflow-x-auto">
+      <div className="max-w-7xl mx-auto px-4 mt-5">
+        <div className="flex items-center gap-1.5 border-b border-line pb-2.5 overflow-x-auto">
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'products'
-                ? 'bg-leaf-700 text-white shadow-sm'
+                ? 'bg-leaf-700 text-white shadow-2xs'
                 : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
             }`}
           >
@@ -723,9 +721,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
           <button
             onClick={() => setActiveTab('mystery-boxes')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'mystery-boxes'
-                ? 'bg-leaf-700 text-white shadow-sm'
+                ? 'bg-leaf-700 text-white shadow-2xs'
                 : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
             }`}
           >
@@ -744,9 +742,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
           <button
             onClick={() => setActiveTab('reviews')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'reviews'
-                ? 'bg-leaf-700 text-white shadow-sm'
+                ? 'bg-leaf-700 text-white shadow-2xs'
                 : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
             }`}
           >
@@ -763,9 +761,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
           <button
             onClick={() => setActiveTab('about')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'about'
-                ? 'bg-leaf-700 text-white shadow-sm'
+                ? 'bg-leaf-700 text-white shadow-2xs'
                 : 'text-ink-muted hover:text-ink hover:bg-paper-warm'
             }`}
           >
