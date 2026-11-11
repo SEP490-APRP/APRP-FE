@@ -29,6 +29,8 @@ import {
   CheckCircle2,
   Award,
   Filter,
+  Phone,
+  Mail,
 } from 'lucide-react'
 
 import freshFarmerBanner from '@/assets/fresh-farmer-banner.jpg'
@@ -39,6 +41,7 @@ import { useReactToReview, useShopReviews } from '@/features/review'
 import { useUser } from '@/features/user'
 import { useReceiveVoucher, useShopVouchers } from '@/features/voucher'
 import { globalShowAlert } from '@/components/common/Popup'
+import { useChatStore } from '@/stores/useChatStore'
 import { absoluteUrl, getErrorMessage } from '@/utils'
 import { CapNongLoading } from '@/components/ui/Loading'
 
@@ -71,7 +74,10 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [isFollowing, setIsFollowing] = useState(false)
+  const followStorageKey = `capnong_follow_shop_${shopId}`
+  const [isFollowing, setIsFollowing] = useState<boolean>(() => {
+    return localStorage.getItem(followStorageKey) === 'true'
+  })
 
   const productsQuery = useShopProducts(shopId)
   const shopQuery = useUser(shopId)
@@ -171,6 +177,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     }
     setIsFollowing((prev) => {
       const next = !prev
+      localStorage.setItem(followStorageKey, String(next))
       globalShowAlert(
         next ? `Đã theo dõi ${shopName}!` : `Đã hủy theo dõi ${shopName}.`,
         'Thông báo',
@@ -186,16 +193,17 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
     (products.length > 0 ? products[0].shopName : null) ||
     'Nhà Vườn Nông Sản'
 
-  const handleChatNow = () => {
+  const handleChatNow = async () => {
     if (!isAuthenticated) {
       onOpenLogin()
       return
     }
-    window.dispatchEvent(
-      new CustomEvent('open-chat-with-user', {
-        detail: { userId: shopId, userName: shopName },
-      }),
-    )
+    try {
+      const conv = await useChatStore.getState().startChatWithUser(shopId)
+      navigate(`/tin-nhan?chatId=${conv.id}`)
+    } catch {
+      navigate(`/tin-nhan?chatId=${shopId}`)
+    }
   }
 
   const getCategoryName = (p: any): string => {
@@ -375,21 +383,41 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                   </span>
                 </div>
 
-                {shopInfo?.address && (
-                  <p className="flex items-center gap-1 text-xs text-ink-muted font-medium mb-3">
-                    <MapPin className="size-3.5 text-soil-600 shrink-0" />
-                    <span>{shopInfo.address}</span>
-                  </p>
-                )}
+                {/* Chi tiết liên hệ & địa chỉ */}
+                <div className="flex flex-col gap-1 my-2 text-xs text-ink-muted">
+                  {shopInfo?.address && (
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <MapPin className="size-3.5 text-soil-600 shrink-0" />
+                      <span>{shopInfo.address}</span>
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {(shopInfo?.phoneNumber || shopInfo?.phone) && (
+                      <p className="flex items-center gap-1.5 font-medium">
+                        <Phone className="size-3.5 text-leaf-700 shrink-0" />
+                        <span>Hotline: <strong className="text-ink font-semibold">{shopInfo.phoneNumber || shopInfo.phone}</strong></span>
+                      </p>
+                    )}
+                    {shopInfo?.email && (
+                      <p className="flex items-center gap-1.5 font-medium">
+                        <Mail className="size-3.5 text-leaf-700 shrink-0" />
+                        <span>{shopInfo.email}</span>
+                      </p>
+                    )}
+                    <p className="flex items-center gap-1.5 font-semibold text-leaf-700">
+                      <Clock className="size-3.5 text-leaf-600 shrink-0" />
+                      <span>{shopInfo?.status === 'ACTIVE' ? 'Đang mở cửa · Sẵn sàng giao nông sản' : 'Tạm nghỉ'}</span>
+                    </p>
+                  </div>
+                </div>
 
                 {shopInfo?.description ? (
-                  <p className="text-xs text-ink-muted leading-relaxed line-clamp-2 max-w-2xl bg-paper-warm/80 px-3 py-2 rounded-xl border border-line">
-                    {shopInfo.description}
+                  <p className="text-xs text-ink-muted leading-relaxed max-w-2xl italic bg-paper-warm/70 px-3.5 py-2.5 rounded-xl border border-line mt-2">
+                    "{shopInfo.description}"
                   </p>
                 ) : (
-                  <p className="text-xs text-ink-muted italic">
-                    Chuyên cung cấp rau củ quả, trái cây tươi sạch trực tiếp từ vườn thu hoạch trong
-                    ngày.
+                  <p className="text-xs text-ink-muted italic mt-1">
+                    Chuyên cung cấp rau củ quả, trái cây tươi sạch trực tiếp từ vườn thu hoạch trong ngày.
                   </p>
                 )}
               </div>
@@ -504,13 +532,6 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
             </div>
           </div>
 
-          {/* Description */}
-          {shopInfo?.description && (
-            <div className="mt-4 p-4 bg-paper rounded-2xl border border-line">
-              <p className="text-sm text-ink-muted font-medium">{shopInfo.description}</p>
-            </div>
-          )}
-
           {/* 4 Key Metrics Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-line">
             <div className="bg-paper rounded-2xl p-3 border border-line flex items-center gap-3">
@@ -559,9 +580,9 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                 <Clock className="size-4" />
               </div>
               <div>
-                <p className="text-base font-black text-leaf-700 leading-tight">Sẵn sàng</p>
+                <p className="text-base font-black text-leaf-700 leading-tight">100%</p>
                 <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">
-                  Trạng thái vườn
+                  Phản hồi chat
                 </p>
               </div>
             </div>

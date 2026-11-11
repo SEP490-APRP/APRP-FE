@@ -18,6 +18,7 @@ import { useProductReviews, useReactToReview, useShopReviews } from '@/features/
 import { useUser } from '@/features/user'
 import { globalShowAlert } from '@/components/common/Popup'
 import { useAuth } from '@/stores'
+import { useChatStore } from '@/stores/useChatStore'
 import { absoluteUrl } from '@/utils'
 import { CapNongLoading } from '@/components/ui/Loading'
 import ShopProducts from './ShopProducts'
@@ -193,20 +194,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     }
   }
 
-  const handleStartChat = () => {
+  const handleStartChat = async () => {
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
     if (resolvedShopId) {
-      window.dispatchEvent(
-        new CustomEvent('open-chat-with-user', {
-          detail: {
-            userId: resolvedShopId,
-            userName: farmName || 'Chủ shop',
-          },
-        }),
-      )
+      try {
+        const conv = await useChatStore.getState().startChatWithUser(resolvedShopId)
+        navigate(`/tin-nhan?chatId=${conv.id}`)
+      } catch {
+        navigate(`/tin-nhan?chatId=${resolvedShopId}`)
+      }
     }
   }
 
