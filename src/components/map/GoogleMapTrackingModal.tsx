@@ -42,6 +42,9 @@ interface ShipperLocationPayload {
   distanceKm?: number;
   /** Số phút dự kiến tới nơi (BE tính) */
   estimatedMinutes?: number;
+  paymentMethod?: string;
+  codAmount?: number;
+  totalAmount?: number;
 }
 
 interface GoogleMapTrackingModalProps {
@@ -1891,6 +1894,12 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           result={resultModal}
           recipientName={locationData?.recipientName ?? undefined}
           recipientPhone={locationData?.recipientPhone ?? undefined}
+          codAmount={
+            locationData?.codAmount != null
+              ? Number(locationData.codAmount)
+              : (locationData?.paymentMethod?.toUpperCase() === 'COD' ? Number(locationData?.totalAmount ?? 0) : 0)
+          }
+          paymentMethod={locationData?.paymentMethod ?? undefined}
           onClose={() => setResultModal(null)}
           onDone={applyCompletedOnMap}
         />
