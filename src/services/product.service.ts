@@ -24,6 +24,8 @@ function normalizeProduct(p: any): ProductResponse {
   const primaryImg = p.images?.find((img: any) => img.isPrimary)?.imageUrl
   const firstImg = p.images?.[0]?.imageUrl
   const imageUrl = primaryImg ?? firstImg ?? p.imageUrl ?? p.image ?? ''
+  const shopId = Number(p.shop?.id ?? p.shopId ?? p.shopOwnerId ?? 0)
+  const shopName = p.shop?.shopName ?? p.shop?.fullName ?? p.shopName ?? ''
 
   return {
     ...p,
@@ -38,6 +40,9 @@ function normalizeProduct(p: any): ProductResponse {
     imageUrl,
     image: imageUrl,
     primaryImageUrl: primaryImg ?? imageUrl,
+    shopId,
+    shopOwnerId: shopId,
+    shopName,
   }
 }
 
@@ -45,10 +50,10 @@ function normalizeProduct(p: any): ProductResponse {
 let localFarmerProducts: ProductResponse[] = [...mockBuyerProducts]
 
 export const productService = {
-  async getAll(params?: { categoryId?: number; keyword?: string; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
+  async getAll(params?: { categoryId?: number; keyword?: string; shopId?: number; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
     try {
       const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products', {
-        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 50, ...params },
+        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 100, ...params },
       })
       const items = (res.data.result?.content ?? []).map(normalizeProduct)
       if (items.length > 0) {
@@ -62,6 +67,9 @@ export const productService = {
     let list = [...localFarmerProducts]
     if (params?.categoryId) {
       list = list.filter((p: any) => p.categoryId === params.categoryId || p.category?.categoryId === params.categoryId)
+    }
+    if (params?.shopId) {
+      list = list.filter((p: any) => Number(p.shopId ?? p.shopOwnerId ?? p.shop?.id) === params.shopId)
     }
     if (params?.keyword) {
       const kw = params.keyword.toLowerCase()
