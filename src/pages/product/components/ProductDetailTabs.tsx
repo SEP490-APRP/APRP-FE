@@ -1,16 +1,23 @@
 import React, { forwardRef, useState } from 'react'
 import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Droplets,
   Leaf,
   Loader2,
   MessageSquare,
   Package,
   ShieldCheck,
+  Sparkles,
   Star,
+  Thermometer,
   ThumbsDown,
   ThumbsUp,
   Truck,
 } from 'lucide-react'
 import type { ProductResponse, ReviewResponse } from '@/services'
+import Pagination from '@/components/ui/Pagination'
 
 interface ProductDetailTabsProps {
   product: ProductResponse
@@ -39,6 +46,14 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
   ) => {
     const [internalTab, setInternalTab] = useState('Mô tả chi tiết')
     const activeTab = controlledTab ?? internalTab
+
+    const [reviewPage, setReviewPage] = useState(0)
+    const REVIEW_PAGE_SIZE = 5
+    const totalReviewPages = Math.ceil(reviews.length / REVIEW_PAGE_SIZE)
+    const pagedReviews = reviews.slice(
+      reviewPage * REVIEW_PAGE_SIZE,
+      (reviewPage + 1) * REVIEW_PAGE_SIZE,
+    )
 
     const handleSelectTab = (tab: string) => {
       if (onTabChange) {
@@ -75,9 +90,9 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
       <div
         ref={ref}
         id="product-detail-section"
-        className="max-w-6xl mx-auto px-4 mb-6 scroll-mt-24"
+        className="w-full scroll-mt-24"
       >
-        <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
+        <div className="bg-white rounded-xl border border-line shadow-2xs overflow-hidden">
           {/* Tabs bar */}
           <div className="flex border-b border-line overflow-x-auto">
             {['Mô tả chi tiết', 'Chứng nhận', 'Đánh giá'].map((tab) => (
@@ -85,7 +100,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                 key={tab}
                 type="button"
                 onClick={() => handleSelectTab(tab)}
-                className={`flex-1 min-w-[120px] px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px cursor-pointer ${
+                className={`flex-1 min-w-[110px] px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px cursor-pointer ${
                   activeTab === tab
                     ? 'border-leaf-700 text-leaf-700 bg-leaf-50/50'
                     : 'border-transparent text-ink-muted hover:text-ink hover:bg-paper-warm'
@@ -102,43 +117,233 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
           </div>
 
           {/* Tab contents */}
-          <div className="p-4 sm:p-6">
+          <div className="p-5 sm:p-6">
             {activeTab === 'Mô tả chi tiết' && (
-              <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-ink mb-3">Thông tin sản phẩm</h3>
-                <div className="text-ink-muted text-xs sm:text-sm leading-relaxed whitespace-pre-wrap bg-paper-warm/70 p-4 sm:p-5 rounded-xl border border-line">
-                  {product.description ||
-                    'Nông sản sạch tận vườn, được thu hoạch và đóng gói cẩn thận trước khi giao đến bạn.'}
+              <div className="space-y-6">
+                {/* 1. Đặc điểm & Nguồn gốc */}
+                <div>
+                  <h3 className="text-base font-bold text-ink mb-2">Đặc điểm & Nguồn gốc</h3>
+                  <p className="text-ink-muted text-sm leading-relaxed whitespace-pre-wrap">
+                    {product.description ||
+                      'Nông sản sạch tận vườn, được canh tác tự nhiên, thu hoạch và đóng gói cẩn thận trước khi giao đến bạn.'}
+                  </p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3 mt-4">
-                  <div className="rounded-xl border border-line p-3 sm:p-3.5 bg-paper">
-                    <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider mb-0.5">
-                      Đơn vị
-                    </p>
-                    <p className="font-bold text-ink text-sm">{product.unit || 'kg'}</p>
+
+                {/* 2. Thông số nông sản */}
+                <div className="border-t border-line/60 pt-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3">
+                    Thông số nông sản
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-4 text-xs">
+                    <div>
+                      <span className="text-ink-muted">Quy cách bán:</span>
+                      <span className="font-bold text-ink ml-1.5">{product.unit || 'kg'}</span>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Nhà vườn:</span>
+                      <span className="font-bold text-ink ml-1.5">{farmName}</span>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Hạn sử dụng:</span>
+                      <span className="font-bold text-ink ml-1.5">
+                        {product.expiryDate
+                          ? new Date(product.expiryDate).toLocaleDateString('vi-VN')
+                          : 'Dùng tươi 3-5 ngày'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-line p-3 sm:p-3.5 bg-paper">
-                    <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider mb-0.5">
-                      Cửa hàng
-                    </p>
-                    <p className="font-bold text-ink text-sm">{farmName}</p>
+                </div>
+
+                {/* 3. Thông tin thu hoạch / Mùa vụ */}
+                <div className="border-t border-line/60 pt-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3 flex items-center gap-1.5">
+                    <Calendar className="size-3.5 text-leaf-700" />
+                    <span>Thông tin thu hoạch &amp; Mùa vụ</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
+                      <Clock className="size-4 text-leaf-700 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-ink">Thời điểm thu hái tươi</p>
+                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
+                          Hái vào sáng sớm 5h00 - 7h00 trong ngày, đóng thùng ngay để giữ nguyên độ giòn ngọt tự nhiên.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
+                      <Sparkles className="size-4 text-sun-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-ink">Chất lượng chính vụ</p>
+                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
+                          Nông sản đang trong độ chín tối ưu, hàm lượng vitamin và khoáng chất đạt mức cao nhất.
+                        </p>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* 4. Hướng dẫn bảo quản & Sơ chế */}
+                <div className="border-t border-line/60 pt-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3 flex items-center gap-1.5">
+                    <Droplets className="size-3.5 text-sky-600" />
+                    <span>Hướng dẫn bảo quản &amp; Sơ chế đúng cách</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
+                      <Thermometer className="size-4 text-sky-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-ink">Nhiệt độ &amp; Môi trường</p>
+                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
+                          Bảo quản ngăn mát tủ lạnh (4°C - 8°C). Để nông sản thoáng khí, không rửa nước trước khi cất tủ lạnh.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
+                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-ink">Cách sơ chế an toàn</p>
+                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
+                          Rửa sạch nhẹ nhàng dưới vòi nước chảy, ngâm nước muối loãng 3-5 phút trước khi chế biến hoặc dùng tươi.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Khối Đánh giá từ khách hàng hiển thị trực tiếp bên dưới */}
+                <div className="border-t border-line pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                      <Star className="size-4 text-sun-500 fill-sun-500" />
+                      <span>Đánh giá từ khách hàng</span>
+                      <span className="text-xs font-semibold text-ink-muted">({reviews.length})</span>
+                    </h3>
+                  </div>
+
+                  {isReviewsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="animate-spin text-leaf-700 size-6" />
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    <div className="space-y-3.5">
+                      {reviews.slice(0, 3).map((review) => {
+                        const isLiked = review.currentUserReaction === 'LIKE'
+                        const isDisliked = review.currentUserReaction === 'DISLIKE'
+                        const isReacting = reactingReviewId === review.id
+
+                        return (
+                          <div
+                            key={review.id}
+                            className="bg-paper-warm/60 p-4 rounded-lg border border-line"
+                          >
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="size-8 rounded-full bg-leaf-100 font-bold text-leaf-800 text-xs flex items-center justify-center shrink-0">
+                                  {review.fullName
+                                    ? review.fullName.charAt(0).toUpperCase()
+                                    : review.buyerId}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-ink text-xs sm:text-sm">
+                                    {review.fullName || `Người dùng #${review.buyerId}`}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 text-sun-500 mt-0.5">
+                                    <div className="flex">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`size-3 ${
+                                            i < review.ratingStar
+                                              ? 'fill-sun-500 text-sun-500'
+                                              : 'text-line-strong'
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                    <span className="text-[10px] text-ink-muted">
+                                      {review.createAt
+                                        ? new Date(review.createAt).toLocaleDateString('vi-VN')
+                                        : 'Gần đây'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => onReact(review.id, 'LIKE')}
+                                  disabled={isReacting}
+                                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                                    isLiked
+                                      ? 'bg-leaf-700 text-white border-leaf-700'
+                                      : 'bg-white text-ink-muted border-line hover:border-leaf-300'
+                                  }`}
+                                >
+                                  <ThumbsUp className="size-3" />
+                                  <span>{review.likeCount ?? 0}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onReact(review.id, 'DISLIKE')}
+                                  disabled={isReacting}
+                                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                                    isDisliked
+                                      ? 'bg-sale text-white border-sale'
+                                      : 'bg-white text-ink-muted border-line hover:border-sale'
+                                  }`}
+                                >
+                                  <ThumbsDown className="size-3" />
+                                  <span>{review.dislikeCount ?? 0}</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-ink text-xs sm:text-sm leading-relaxed mb-2">
+                              {review.comment}
+                            </p>
+
+                            {review.replyFromShop && (
+                              <div className="bg-white p-3 rounded-lg border border-line text-xs">
+                                <p className="font-bold text-leaf-700 mb-0.5">Phản hồi từ Nhà vườn:</p>
+                                <p className="text-ink-muted italic">{review.replyFromShop}</p>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {reviews.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTab('Đánh giá')}
+                          className="w-full py-2 text-center text-xs font-bold text-leaf-700 hover:text-leaf-800 hover:underline cursor-pointer"
+                        >
+                          Xem tất cả {reviews.length} đánh giá →
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-paper-warm/60 rounded-lg border border-dashed border-line text-xs text-ink-muted">
+                      Chưa có đánh giá nào cho nông sản này. Hãy là người đầu tiên trải nghiệm!
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {activeTab === 'Chứng nhận' && (
-              <div className="grid sm:grid-cols-2 gap-3 max-w-3xl">
+              <div className="grid sm:grid-cols-2 gap-3.5">
                 {certItems.map(({ icon: Icon, title, desc }) => (
                   <div
                     key={title}
-                    className="flex gap-3 p-3.5 sm:p-4 rounded-xl border border-line bg-paper-warm/70"
+                    className="flex gap-3 p-3.5 rounded-lg border border-line bg-paper-warm/50"
                   >
-                    <div className="size-9 rounded-lg bg-leaf-50 text-leaf-700 border border-leaf-200 flex items-center justify-center shrink-0">
+                    <div className="size-8 rounded-lg bg-leaf-50 text-leaf-700 border border-leaf-200/60 flex items-center justify-center shrink-0">
                       <Icon className="size-4" />
                     </div>
                     <div>
-                      <p className="font-semibold text-ink text-xs sm:text-sm">{title}</p>
+                      <p className="font-bold text-ink text-xs sm:text-sm">{title}</p>
                       <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">{desc}</p>
                     </div>
                   </div>
@@ -153,7 +358,8 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                     <Loader2 className="animate-spin text-leaf-700 size-8" />
                   </div>
                 ) : reviews.length > 0 ? (
-                  reviews.map((review) => {
+                  <>
+                    {pagedReviews.map((review) => {
                     const isLiked = review.currentUserReaction === 'LIKE'
                     const isDisliked = review.currentUserReaction === 'DISLIKE'
                     const isReacting = reactingReviewId === review.id
@@ -161,7 +367,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                     return (
                       <div
                         key={review.id}
-                        className="bg-paper-warm p-4 sm:p-5 rounded-xl border border-line animate-in fade-in slide-in-from-bottom-2"
+                        className="bg-paper-warm p-4 sm:p-5 rounded-lg border border-line animate-in fade-in slide-in-from-bottom-2"
                       >
                         <div className="flex justify-between items-start mb-4 gap-4">
                           <div className="flex items-center gap-3">
@@ -233,7 +439,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                             {review.imageUrls.map((url, i) => (
                               <div
                                 key={i}
-                                className="rounded-xl overflow-hidden border border-line w-24 h-24 bg-white shrink-0 hover:scale-105 transition-transform"
+                                className="rounded-lg overflow-hidden border border-line w-24 h-24 bg-white shrink-0 hover:scale-105 transition-transform"
                               >
                                 <img
                                   src={url}
@@ -244,7 +450,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                             ))}
                           </div>
                         ) : review.evidence ? (
-                          <div className="mb-4 rounded-xl overflow-hidden border border-line w-32 aspect-square bg-white">
+                          <div className="mb-4 rounded-lg overflow-hidden border border-line w-32 aspect-square bg-white">
                             <img
                               src={review.evidence}
                               alt="Bằng chứng"
@@ -254,7 +460,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                         ) : null}
 
                         {review.replyFromShop && (
-                          <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-line relative mt-3">
+                          <div className="bg-white p-3.5 sm:p-4 rounded-lg border border-line relative mt-3">
                             <div className="inline-flex items-center gap-1.5 text-leaf-700 font-bold text-xs uppercase tracking-wider mb-1">
                               <MessageSquare className="size-3.5" />
                               <span>Phản hồi từ Nhà vườn</span>
@@ -264,9 +470,20 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                         )}
                       </div>
                     )
-                  })
-                ) : (
-                  <div className="text-center py-16 bg-paper-warm rounded-2xl border border-dashed border-line">
+                  })}
+
+                  {totalReviewPages > 1 && (
+                    <div className="pt-6 border-t border-line/70 flex justify-center">
+                      <Pagination
+                        currentPage={reviewPage}
+                        totalPages={totalReviewPages}
+                        onPageChange={(page) => setReviewPage(page)}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                  <div className="text-center py-16 bg-paper-warm rounded-xl border border-dashed border-line">
                     <Star className="size-12 text-line-strong mx-auto mb-3" />
                     <p className="text-ink-muted font-bold text-xs uppercase tracking-wider">
                       Chưa có đánh giá nào cho sản phẩm này

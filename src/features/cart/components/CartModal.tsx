@@ -153,7 +153,7 @@ export function CartModal() {
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-3 px-4 py-3 bg-[#1e3e14] hover:bg-[#254b17] text-white rounded-2xl shadow-2xl border border-white/20 hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer"
+          className="flex items-center gap-3 px-4 py-3 bg-[#1e3e14] hover:bg-[#254b17] text-white rounded-xl shadow-2xl border border-white/20 hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer"
         >
           <div className="relative">
             <ShoppingBasket size={22} className="text-[#a5e075]" />
@@ -199,7 +199,7 @@ export function CartModal() {
         <div className="shrink-0 bg-white border-b border-[#e9e3d5] px-4 sm:px-5 py-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#eaf4e0] text-[#326318] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-[#eaf4e0] text-[#326318] flex items-center justify-center shrink-0">
                 <ShoppingBasket size={20} />
               </div>
               <div>
@@ -311,12 +311,12 @@ export function CartModal() {
           {!user ? (
             localCount > 0 ? (
               <>
-                <div className="bg-white rounded-2xl border border-[#e8e2d4] p-3 divide-y divide-[#f2ece0] shadow-xs">
+                <div className="bg-white rounded-xl border border-[#e8e2d4] p-3 divide-y divide-[#f2ece0] shadow-xs">
                   {allProducts
                     .filter((p) => localCart[p.id])
                     .map((p) => (
                       <div key={p.id} className="py-3 first:pt-1 last:pb-1 flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#eee8dc]">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-[#eee8dc]">
                           <LegacyProduceImage src={p.image} alt={p.name} />
                         </div>
 
@@ -368,7 +368,7 @@ export function CartModal() {
                     ))}
                 </div>
 
-                <div className="p-3.5 bg-[#f0f6eb] rounded-2xl border border-[#dce8d2] text-xs text-[#2c5b14] flex items-start gap-2.5">
+                <div className="p-3.5 bg-[#f0f6eb] rounded-xl border border-[#dce8d2] text-xs text-[#2c5b14] flex items-start gap-2.5">
                   <LogIn size={18} className="shrink-0 mt-0.5 text-[#326318]" />
                   <div>
                     <strong className="font-bold block mb-0.5">Đăng nhập tài khoản</strong>
@@ -380,7 +380,7 @@ export function CartModal() {
               </>
             ) : (
               <div className="py-16 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
+                <div className="w-16 h-16 rounded-xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
                   <ShoppingBasket size={32} />
                 </div>
                 <h3 className="font-bold text-sm text-[#1e2717]">Giỏ hàng của bạn đang trống</h3>
@@ -391,14 +391,14 @@ export function CartModal() {
                   <Link
                     to="/nong-san-tuoi"
                     onClick={closeCart}
-                    className="px-4 py-2 rounded-xl bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
+                    className="px-4 py-2 rounded-lg bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
                   >
                     Khám phá nông sản
                   </Link>
                   <Link
                     to="/dang-nhap"
                     onClick={closeCart}
-                    className="px-4 py-2 rounded-xl border border-[#d6cfbe] bg-white text-[#2a3520] font-bold text-xs hover:bg-[#f6f2e8] transition-all"
+                    className="px-4 py-2 rounded-lg border border-[#d6cfbe] bg-white text-[#2a3520] font-bold text-xs hover:bg-[#f6f2e8] transition-all"
                   >
                     Đăng nhập
                   </Link>
@@ -431,7 +431,7 @@ export function CartModal() {
                 return (
                   <div
                     key={shop.shopId}
-                    className="border border-[#e6e0d2] rounded-2xl bg-white overflow-hidden shadow-xs"
+                    className="border border-[#e6e0d2] rounded-xl bg-white overflow-hidden shadow-xs"
                   >
                     {/* Header Nhà Vườn */}
                     <div className="bg-[#f7f5ed] px-3.5 py-2.5 flex items-center justify-between gap-2 border-b border-[#e9e3d5]">
@@ -551,10 +551,10 @@ export function CartModal() {
                       return (
                         <div
                           key={p.id}
-                          className="p-2 rounded-xl bg-white border border-[#e8e2d4] hover:border-[#326318]/40 transition-all flex flex-col justify-between shadow-2xs"
+                          className="p-2 rounded-lg bg-white border border-[#e8e2d4] hover:border-[#326318]/40 transition-all flex flex-col justify-between shadow-2xs"
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-[#eee8dc]">
+                            <div className="w-10 h-10 rounded-md overflow-hidden bg-stone-100 shrink-0 border border-[#eee8dc]">
                               <LegacyProduceImage src={p.image} alt={p.name} />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -590,7 +590,7 @@ export function CartModal() {
           ) : (
             /* 4. Empty state cho user đã đăng nhập */
             <div className="py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
+              <div className="w-16 h-16 rounded-xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
                 <ShoppingBasket size={32} />
               </div>
               <h3 className="font-bold text-sm text-[#1e2717]">Giỏ nông sản của bạn đang trống</h3>
@@ -601,7 +601,7 @@ export function CartModal() {
                 <Link
                   to="/nong-san-tuoi"
                   onClick={closeCart}
-                  className="inline-block px-5 py-2.5 rounded-xl bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
+                  className="inline-block px-5 py-2.5 rounded-lg bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
                 >
                   Khám phá nông sản
                 </Link>
@@ -640,7 +640,7 @@ export function CartModal() {
                   closeCart()
                   navigate('/dang-nhap')
                 }}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <LogIn size={16} />
                 <span>Đăng nhập để thanh toán</span>
@@ -650,7 +650,7 @@ export function CartModal() {
                 type="button"
                 disabled={selectedItemIds.size === 0 || isUpdating || isRemoving}
                 onClick={handleProceedToCheckout}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span>Tiến hành thanh toán ({money(totalAmount)})</span>
                 <ArrowRight size={16} />

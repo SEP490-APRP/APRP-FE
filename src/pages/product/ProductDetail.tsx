@@ -26,8 +26,8 @@ import ShopProducts from './ShopProducts'
 import { ProductHeroSection } from './components/ProductHeroSection'
 import { ProductShopCard } from './components/ProductShopCard'
 import { ProductDetailTabs } from './components/ProductDetailTabs'
-import { RelatedProductsSection } from './components/RelatedProductsSection'
 import { ProductSharePopover } from './components/ProductSharePopover'
+import { clImg, getProduceFallback, resolveProductImage } from './components/productDetail.utils'
 
 interface ProductDetailProps {
   productId?: string
@@ -241,13 +241,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   if (error || !product) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] gap-4 w-full px-4">
-        <div className="bg-red-50 border border-red-100 p-8 rounded-3xl flex flex-col items-center gap-4 text-red-600 font-bold max-w-lg text-center">
+        <div className="bg-red-50 border border-red-100 p-8 rounded-xl flex flex-col items-center gap-4 text-red-600 font-bold max-w-lg text-center">
           <AlertCircle className="size-10" />
           <p>{error || 'Sản phẩm không khả dụng'}</p>
           <button
             type="button"
             onClick={handleBack}
-            className="mt-4 px-6 py-2 bg-white text-red-600 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            className="mt-4 px-6 py-2 bg-white text-red-600 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
           >
             Quay lại trang chủ
           </button>
@@ -375,39 +375,98 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
         highlights={highlights}
       />
 
-      {/* Seller Farm Card */}
-      <ProductShopCard
-        farmName={farmName}
-        shopOwner={shopOwner}
-        resolvedShopId={resolvedShopId}
-        shopReviews={shopReviews}
-        shopUrl={shopUrl}
-        isAuthenticated={isAuthenticated}
-        onNavigateToShop={handleNavigateToShop}
-        onStartChat={handleStartChat}
-      />
+      {/* Main Asymmetric 7:3 Content Layout */}
+      <div className="max-w-6xl mx-auto px-4 mt-6 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Tabs (Mô tả chi tiết, Chứng nhận, Đánh giá) - 70% (~8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
+            <ProductDetailTabs
+              ref={detailSectionRef}
+              product={product}
+              farmName={farmName}
+              reviews={reviews}
+              isReviewsLoading={isReviewsLoading}
+              reactingReviewId={reactingReviewId}
+              onReact={handleReact}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          </div>
 
-      {/* Details, Certifications, and Reviews Tabs */}
-      <ProductDetailTabs
-        ref={detailSectionRef}
-        product={product}
-        farmName={farmName}
-        reviews={reviews}
-        isReviewsLoading={isReviewsLoading}
-        reactingReviewId={reactingReviewId}
-        onReact={handleReact}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+          {/* Right Column: Shop Farm Card + Compact Related Products Widget - 30% (~4 cols) */}
+          <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+            <ProductShopCard
+              farmName={farmName}
+              shopOwner={shopOwner}
+              resolvedShopId={resolvedShopId}
+              shopReviews={shopReviews}
+              shopUrl={shopUrl}
+              isAuthenticated={isAuthenticated}
+              onNavigateToShop={handleNavigateToShop}
+              onStartChat={handleStartChat}
+            />
 
-      {/* Related Products Section */}
-      <RelatedProductsSection
-        relatedProducts={relatedProducts}
-        farmName={farmName}
-        resolvedShopId={resolvedShopId}
-        onNavigateToProduct={(rpId) => navigate(`/san-pham/${rpId}`)}
-        onNavigateToShop={handleNavigateToShop}
-      />
+            {relatedProducts && relatedProducts.length > 0 && (
+              <div className="bg-white rounded-xl border border-line p-4 sm:p-5 shadow-2xs">
+                <div className="flex items-center justify-between mb-3.5 pb-2 border-b border-line/60">
+                  <h3 className="font-bold text-ink text-sm">Sản phẩm cùng nhà vườn</h3>
+                  {resolvedShopId && (
+                    <button
+                      type="button"
+                      onClick={handleNavigateToShop}
+                      className="text-[11px] font-semibold text-leaf-700 hover:text-leaf-800 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>Xem tất cả</span>
+                      <ChevronRight className="size-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  {relatedProducts.slice(0, 4).map((rp) => {
+                    const rpPrice = rp.salePrice ?? rp.pricePerKg ?? rp.sellingPrice ?? 0
+                    const fallbackSeedImg = `https://picsum.photos/seed/${rp.id}/200/200`
+                    return (
+                      <button
+                        key={rp.id}
+                        type="button"
+                        onClick={() => navigate(`/san-pham/${rp.id}`)}
+                        className="w-full flex items-center gap-3 p-1.5 rounded-lg hover:bg-paper-warm/70 transition-colors text-left group cursor-pointer"
+                      >
+                        <div className="size-13 rounded-lg bg-paper-warm/50 border border-line/70 overflow-hidden shrink-0">
+                          <img
+                            src={
+                              resolveProductImage(rp.productName, clImg(rp.imageUrl, 'thumb') || rp.imageUrl) ||
+                              getProduceFallback(rp.productName)
+                            }
+                            alt={rp.productName}
+                            onError={(e) => {
+                              ;(e.currentTarget as HTMLImageElement).src = getProduceFallback(rp.productName)
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-xs text-ink line-clamp-1 group-hover:text-leaf-700 transition-colors">
+                            {rp.productName}
+                          </p>
+                          <p className="text-xs font-bold text-leaf-700 mt-0.5">
+                            {rpPrice.toLocaleString('vi-VN')}đ
+                            <span className="text-[10px] text-ink-muted font-normal ml-0.5">/kg</span>
+                          </p>
+                          <p className="text-[10px] text-ink-muted">
+                            {rp.stockKg && rp.stockKg > 0 ? `Còn ${rp.stockKg} kg` : 'Sẵn sàng giao'}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

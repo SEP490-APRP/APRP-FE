@@ -13,6 +13,7 @@ import { filterProducts, type Cart } from '@/mocks/catalog'
 import freshFarmerBanner from '../assets/fresh-farmer-banner.jpg'
 import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
+import Pagination from '@/components/ui/Pagination'
 import {
   AI_SCORES,
   CATEGORIES,
@@ -28,12 +29,13 @@ import {
 } from '@/features/product'
 import { cn } from '@/utils'
 
+const PAGE_SIZE = 16
+
 const SORT_OPTIONS = [
-  { id: 'featured', label: 'Nổi bật' },
-  { id: 'best-selling', label: 'Bán chạy' },
-  { id: 'price-asc', label: 'Giá tăng dần' },
-  { id: 'price-desc', label: 'Giá giảm dần' },
-  { id: 'name-asc', label: 'Tên A-Z' },
+  { id: 'featured', label: 'Phổ biến nhất' },
+  { id: 'harvested', label: 'Mới thu hoạch' },
+  { id: 'price-asc', label: 'Giá: Thấp đến Cao' },
+  { id: 'price-desc', label: 'Giá: Cao đến Thấp' },
 ] as const
 type SortId = (typeof SORT_OPTIONS)[number]['id']
 
@@ -79,8 +81,14 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     return () => window.removeEventListener('hashchange', sync)
   }, [])
   const [sort, setSort] = useState<SortId>('featured')
+  const [currentPage, setCurrentPage] = useState(0)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const { data: apiProducts, isLoading: isProductsLoading } = useAllProducts()
+
+  // Tự động quay về trang 1 khi thay đổi bộ lọc, từ khóa tìm kiếm hoặc kiểu sắp xếp
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [filters, sort, query])
 
   const items = useMemo(() => {
     const range = PRICE_RANGES.find((r) => r.id === filters.price)
@@ -128,19 +136,30 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
 
       if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
       else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
-      else if (sort === 'name-asc') filtered.sort((a, b) => a.name.localeCompare(b.name))
+      else if (sort === 'harvested') filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      else if (sort === 'featured') filtered.sort((a, b) => (b.rescued ?? 0) - (a.rescued ?? 0))
 
       return filtered
     }
 
-    return filterProducts(query, filters.category, sort).filter(
+    const fallbackList = filterProducts(query, filters.category, sort).filter(
       (p) =>
         p.price >= min &&
         p.price <= max &&
         (filters.region === 'all' || p.region.includes(filters.region)) &&
         p.score >= filters.minScore,
     )
+    if (sort === 'harvested') fallbackList.sort((a, b) => b.score - a.score)
+    else if (sort === 'featured') fallbackList.sort((a, b) => b.rescued - a.rescued)
+
+    return fallbackList
   }, [query, filters, sort, apiProducts])
+
+  const totalPages = Math.ceil(items.length / PAGE_SIZE)
+  const pagedItems = useMemo(() => {
+    const start = currentPage * PAGE_SIZE
+    return items.slice(start, start + PAGE_SIZE)
+  }, [items, currentPage])
 
   const category =
     CATEGORIES.find((c) => c.id === filters.category) ?? {
@@ -155,6 +174,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     setFilters(DEFAULT_FILTERS)
     setSort('featured')
     setQuery('')
+    setCurrentPage(0)
   }
 
   // Chip cho từng bộ lọc đang bật, bấm để gỡ riêng lẻ
@@ -224,7 +244,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
         <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8">
           {/* Sidebar chỉ hiện từ lg trở lên; mobile/tablet dùng Drawer */}
           <aside aria-label="Bộ lọc sản phẩm" className="hidden lg:block">
-            <div className="sticky top-24 rounded-panel border border-line bg-white p-5 shadow-card">
+            <div className="sticky top-[88px] max-h-[calc(100vh-104px)] overflow-y-auto rounded-xl border border-line bg-white p-5 shadow-card">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-ink">Bộ lọc</h2>
                 {activeCount > 0 && (
@@ -242,73 +262,99 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
             </div>
           </aside>
 
-          <section aria-labelledby="fresh-results" className="flex min-w-0 flex-col gap-4 sm:gap-6">
-            {/* Toolbar: bộ lọc và sắp xếp */}
-            <div className="sticky top-16 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white sm:p-3 sm:shadow-card lg:static">
-              <div
-                className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none]"
-                role="group"
-                aria-label="Sắp xếp"
-              >
-                <ArrowUpDown size={15} className="shrink-0 text-leaf-600" aria-hidden />
-                {SORT_OPTIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-pressed={sort === s.id}
-                    onClick={() => setSort(s.id)}
-                    className={cn(
-                      'h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-caption font-bold transition-colors',
-                      sort === s.id
-                        ? 'border-leaf-700 bg-leaf-700 text-white shadow-xs'
-                        : 'border-line bg-white text-ink-muted hover:border-leaf-600 hover:text-leaf-700',
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+          <section id="fresh-results-section" aria-labelledby="fresh-results" className="flex min-w-0 flex-col gap-4 sm:gap-6">
+            {/* Toolbar trên lưới sản phẩm: Bên trái là Số lượng + Chips; Bên phải là Dropdown Sắp xếp theo */}
+            <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+              {/* Bên trái: Số lượng kết quả + Tag bộ lọc đang áp dụng + Nút xóa tất cả */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div id="fresh-results" className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <span>Tìm thấy</span>
+                  <strong className="text-base font-extrabold text-[#326318]">{items.length}</strong>
+                  <span>nông sản phù hợp</span>
+                </div>
+
+                {chips.length > 0 && (
+                  <>
+                    <div className="hidden h-4 w-px bg-line/80 sm:block mx-0.5" aria-hidden />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {chips.map((chip) => (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          onClick={() =>
+                            setFilters((f) => ({ ...f, [chip.key]: DEFAULT_FILTERS[chip.key] }))
+                          }
+                          className="inline-flex h-7 items-center gap-1 rounded-full border border-leaf-200 bg-leaf-50 pl-2.5 pr-1.5 text-[11px] font-bold text-leaf-800 transition-colors hover:bg-leaf-100"
+                          aria-label={`Bỏ lọc ${chip.label}`}
+                        >
+                          {chip.label}
+                          <X size={12} aria-hidden />
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={resetAll}
+                        className="ml-1 cursor-pointer text-[11px] font-semibold text-ink-muted underline hover:text-[#326318]"
+                      >
+                        Xóa tất cả
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <Button
-                variant="secondary"
-                size="sm"
-                className="shrink-0 lg:hidden"
-                onClick={() => setFiltersOpen(true)}
-                leftIcon={<SlidersHorizontal size={15} aria-hidden />}
-                aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
-              >
-                <span>Bộ lọc</span>
-                {activeCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-leaf-700 px-1 text-caption text-white">
-                    {activeCount}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="fresh-results" className="mr-auto text-sm text-ink-muted" aria-live="polite">
-                <strong className="text-ink">{items.length}</strong> nông sản phù hợp
-              </h2>
-              {chips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() =>
-                    setFilters((f) => ({ ...f, [chip.key]: DEFAULT_FILTERS[chip.key] }))
-                  }
-                  className="inline-flex h-8 items-center gap-1 rounded-full border border-leaf-200 bg-leaf-50 pl-3 pr-2 text-caption font-bold text-leaf-800 hover:bg-leaf-100"
-                  aria-label={`Bỏ lọc ${chip.label}`}
+              {/* Bên phải: Nút mở bộ lọc mobile & Dropdown Sắp xếp theo */}
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 lg:hidden"
+                  onClick={() => setFiltersOpen(true)}
+                  leftIcon={<SlidersHorizontal size={14} aria-hidden />}
+                  aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
                 >
-                  {chip.label}
-                  <X size={13} aria-hidden />
-                </button>
-              ))}
+                  <span>Bộ lọc</span>
+                  {activeCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-leaf-700 px-1 text-[10px] text-white">
+                      {activeCount}
+                    </span>
+                  )}
+                </Button>
+
+                <div className="ml-auto flex items-center gap-2 sm:ml-0">
+                  <label
+                    htmlFor="sort-select"
+                    className="hidden whitespace-nowrap text-xs font-medium text-ink-muted sm:inline-block"
+                  >
+                    Sắp xếp theo:
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="sort-select"
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortId)}
+                      className="h-9 cursor-pointer appearance-none rounded-lg border border-line bg-white pl-3.5 pr-8 text-xs font-bold text-ink shadow-2xs hover:border-leaf-600 focus:border-leaf-600 focus:outline-none focus:ring-1 focus:ring-leaf-600"
+                    >
+                      {SORT_OPTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ArrowUpDown
+                      size={13}
+                      className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <ProductGrid
-              products={items}
+              products={pagedItems}
               onAdd={onAdd}
+              columns="wide"
               status={isProductsLoading ? 'loading' : 'success'}
               cart={cart}
               priorityCount={4}
@@ -325,7 +371,34 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               }}
             />
 
-            <aside className="relative mt-4 flex flex-col items-center justify-between gap-5 overflow-hidden rounded-panel bg-gradient-to-r from-leaf-800 to-leaf-900 p-6 text-center text-white shadow-card sm:flex-row sm:p-8 sm:text-left">
+            {/* Phân trang: Giới hạn 16 sản phẩm/trang (lưới 4x4) */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-line bg-white p-4 shadow-xs sm:flex-row">
+                <p className="text-xs text-ink-muted sm:text-sm">
+                  Hiển thị{' '}
+                  <strong className="font-bold text-ink">
+                    {currentPage * PAGE_SIZE + 1}–
+                    {Math.min((currentPage + 1) * PAGE_SIZE, items.length)}
+                  </strong>{' '}
+                  trong tổng số <strong className="font-bold text-ink">{items.length}</strong> nông sản
+                </p>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => {
+                    setCurrentPage(page)
+                    const el = document.getElementById('fresh-results-section')
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    } else {
+                      window.scrollTo({ top: 380, behavior: 'smooth' })
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            <aside className="relative mt-4 flex flex-col items-center justify-between gap-5 overflow-hidden rounded-xl bg-gradient-to-r from-leaf-800 to-leaf-900 p-6 text-center text-white shadow-card sm:flex-row sm:p-8 sm:text-left">
               <div className="flex flex-col gap-1.5">
                 <span className="mx-auto inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-caption font-bold text-sun-300 sm:mx-0">
                   <Sparkles size={13} aria-hidden /> Trợ lý thực đơn AI
@@ -351,11 +424,11 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
                 <li
                   key={title}
-                  className="flex items-start gap-3 rounded-card border border-line bg-white p-4 shadow-card"
+                  className="flex items-start gap-3 rounded-xl border border-line bg-white p-4 shadow-card"
                 >
                   <span
                     className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
                       tone,
                     )}
                     aria-hidden
