@@ -6,6 +6,7 @@ import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
+import { useReferralClaim } from '@/features/referral'
 import { cartCount, useAuth, useCartStore, useUiStore, useChatStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
@@ -38,6 +39,9 @@ export default function StorefrontLayout() {
   const navigate = useNavigate()
   const { user, token, logout, setUser } = useAuth()
   const { initRealtime, loadConversations, loadUnreadCount } = useChatStore()
+
+  // Tự động claim mã tiếp thị liên kết đang chờ (pending) sau khi đăng nhập
+  useReferralClaim()
 
   // Đồng bộ kết nối WebSocket và tin nhắn chưa đọc cho người dùng trên Storefront
   useEffect(() => {

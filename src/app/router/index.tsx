@@ -26,6 +26,7 @@ import {
   BuyerOrdersRoute,
   MyVouchersRoute,
   MyWalletRoute,
+  ReferralRedirectRoute,
   MealPlanRoute,
   ProfileRoute,
   BuyerMessagesRoute,
@@ -89,6 +90,9 @@ export const router = createBrowserRouter([
           { path: 'cong-nghe-ai/*', element: <AiRoute />, handle: title('Công nghệ AI Tiên phong') },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
+
+          // Tiếp thị liên kết (Referral / Affiliate)
+          { path: 'ref/:referralCode', element: <ReferralRedirectRoute />, handle: title('Tiếp thị liên kết · CapNong') },
 
           // Sản phẩm & Gian hàng
           { path: 'san-pham', element: <Navigate replace to="/nong-san-tuoi" /> },

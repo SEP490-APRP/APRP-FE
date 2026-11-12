@@ -39,6 +39,7 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
 const BuyerMessagesPage = lazy(() => import('@/pages/chat/BuyerMessagesPage'))
+const ReferralRedirectPage = lazy(() => import('@/pages/ReferralRedirectPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -135,6 +136,15 @@ export function MyWalletRoute() {
         <MyWalletPage />
       </div>
     </RequireRole>
+  )
+}
+
+/** Chuyển hướng & Phân giải link tiếp thị CapNong */
+export function ReferralRedirectRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <ReferralRedirectPage />
+    </Suspense>
   )
 }
 
