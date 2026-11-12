@@ -61,9 +61,6 @@ export const BudgetComboCard: React.FC<BudgetComboCardProps> = ({ combo }) => {
           <span className="text-xs font-black text-[#326318]">
             {isComboList ? 'Đóng gói sẵn' : formatPrice(combo.actualTotal)}
           </span>
-          <div className="text-[9px] text-[#5f6b57]">
-            {isComboList ? 'Tiết kiệm tới 30%' : 'Tiết kiệm 25%'}
-          </div>
         </div>
       </div>
 

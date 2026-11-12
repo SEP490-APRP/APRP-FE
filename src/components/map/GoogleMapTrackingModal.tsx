@@ -7,8 +7,11 @@ import {
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '@/services/api/axiosInstance';
-import { shipperService } from '@/services/shipper.service';
-import { globalShowAlert } from '@/components/common/Popup';
+import { shipperService, shipperErrorMessage } from '@/services/shipper.service';
+import { DeliveryResultModal } from '@/features/shipper/components/DeliveryResultModal';
+import { formatEta } from '@/utils/eta';
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup';
+import { pickupCode } from '@/utils/orderCode';
 import { getWebSocketUrl, TOKEN_KEY } from '@/services/api.config';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -35,6 +38,10 @@ interface ShipperLocationPayload {
   isFake?: boolean;
   gpsOff?: boolean;
   deliveryPhase?: string;
+  /** Quãng đường còn lại tới điểm của chặng hiện tại (km, BE tính) */
+  distanceKm?: number;
+  /** Số phút dự kiến tới nơi (BE tính) */
+  estimatedMinutes?: number;
 }
 
 interface GoogleMapTrackingModalProps {
@@ -168,7 +175,7 @@ function findClosestRouteIndex(points: RoutePoint[], curLat: number, curLng: num
 }
 
 // Google Maps script loader
-function loadGoogleMapsScript(apiKey: string): Promise<void> {
+export function loadGoogleMapsScript(apiKey: string): Promise<void> {
   if (window.google && window.google.maps) {
     return Promise.resolve();
   }
@@ -1228,6 +1235,11 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
 
   // Checkpoint Action: Xác nhận đã lấy hàng tại Shop ngay trên Map Modal
   const handleConfirmPickupOnMap = async () => {
+    const ok = await globalShowConfirm(
+      `Đối soát mã đơn ${pickupCode(orderId)}`,
+      `Kiểm tra mã trên túi hàng trùng ${pickupCode(orderId)} rồi mới xác nhận đã lấy hàng.`,
+    );
+    if (!ok) return;
     try {
       setIsActionLoading(true);
       await shipperService.pickupOrder(orderId);
@@ -1287,10 +1299,14 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
   };
 
   // Checkpoint Action: Xác nhận giao hàng thành công hoặc báo thất bại ngay trên Map
-  const handleCompleteOrderOnMap = async (status: 'DELIVERED' | 'FAILED') => {
+  // Giao thành công / thất bại cần ảnh bằng chứng và lý do: mở modal, BE ghi nhận xong mới cập nhật bản đồ
+  const [resultModal, setResultModal] = useState<'DELIVERED' | 'FAILED' | null>(null);
+  const handleCompleteOrderOnMap = (status: 'DELIVERED' | 'FAILED') => setResultModal(status);
+
+  const applyCompletedOnMap = (status: 'DELIVERED' | 'FAILED') => {
+    setResultModal(null);
     try {
       setIsActionLoading(true);
-      await shipperService.updateOrderStatus(orderId, { status });
 
       setLocationData((prev) => ({
         ...prev,
@@ -1327,9 +1343,9 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
       } catch (errCb) {
         console.warn('onOrderUpdated callback error:', errCb);
       }
-    } catch (err: any) {
-      console.error('handleCompleteOrderOnMap error:', err);
-      globalShowAlert(err?.data?.message || err?.message || 'Không thể cập nhật trạng thái đơn hàng', 'Lỗi', 'error');
+    } catch (err) {
+      console.error('applyCompletedOnMap error:', err);
+      globalShowAlert(shipperErrorMessage(err, 'Không thể cập nhật trạng thái đơn hàng'), 'Lỗi', 'error');
     } finally {
       setIsActionLoading(false);
     }
@@ -1420,6 +1436,11 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
                   {getJourneyStatus()}
                 </p>
               </div>
+              {formatEta(locationData?.distanceKm, locationData?.estimatedMinutes) && (
+                <p className="text-sm font-extrabold text-leaf-700 mt-0.5">
+                  {formatEta(locationData?.distanceKm, locationData?.estimatedMinutes)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1864,6 +1885,16 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           </button>
         </div>
       </div>
+      {resultModal && (
+        <DeliveryResultModal
+          orderId={orderId}
+          result={resultModal}
+          recipientName={locationData?.recipientName ?? undefined}
+          recipientPhone={locationData?.recipientPhone ?? undefined}
+          onClose={() => setResultModal(null)}
+          onDone={applyCompletedOnMap}
+        />
+      )}
     </div>
   );
 };

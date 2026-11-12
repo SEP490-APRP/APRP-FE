@@ -55,6 +55,10 @@ export interface OrderResponse {
   shopId?: number
   buyerName?: string
   shopName?: string
+  shopAddress?: string
+  shopPhone?: string
+  shipperId?: number
+  shipperName?: string
   status: OrderStatus
   recipientName: string
   recipientPhone: string

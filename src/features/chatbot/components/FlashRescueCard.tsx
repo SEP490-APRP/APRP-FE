@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Flame, Clock, ShoppingCart, Check, Zap } from 'lucide-react'
+import { Flame, ShoppingCart, Check, Zap } from 'lucide-react'
 import type { FlashRescueDto } from '@/services/chatbot.service'
 import { useChatbotStore } from '../stores/useChatbotStore'
 
@@ -22,8 +22,9 @@ export const FlashRescueCard: React.FC<FlashRescueCardProps> = ({ rescue }) => {
   const handleAddAll = async () => {
     if (!rescue.items || rescue.items.length === 0) return
     setIsAddingAll(true)
-    await addMultipleToCart(rescue.items)
+    const addedCount = await addMultipleToCart(rescue.items)
     setIsAddingAll(false)
+    if (addedCount === 0) return
     setAddedAllSuccess(true)
     setTimeout(() => setAddedAllSuccess(false), 3000)
   }
@@ -38,12 +39,6 @@ export const FlashRescueCard: React.FC<FlashRescueCardProps> = ({ rescue }) => {
           </div>
           <div>
             <h4 className="text-xs font-bold text-soil-900">{rescue.title}</h4>
-            <div className="flex items-center gap-2 text-[10px] text-rose-700 font-semibold">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-rose-600" />
-                Còn {rescue.hoursRemaining}h kết thúc
-              </span>
-            </div>
           </div>
         </div>
         <div className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center gap-0.5 shadow-2xs">

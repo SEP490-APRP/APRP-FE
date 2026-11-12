@@ -31,7 +31,8 @@ export const MealPlanBridgeCard: React.FC<MealPlanBridgeCardProps> = ({ bridge }
 
   const handleViewDetail = (e: React.MouseEvent, item: AiItemOption) => {
     e.stopPropagation()
-    if (item.itemType === 'MYSTERY_BOX' || item.itemType === 'BUILD_COMBO') {
+    toggleOpen()
+    if (item.itemType === 'MYSTERY_BOX' || item.itemType === 'BUILD_COMBO' || item.itemType === 'COMBO') {
       navigate('/combo-tui-mu')
     } else {
       navigate(`/san-pham/${item.itemId}`)
@@ -52,7 +53,7 @@ export const MealPlanBridgeCard: React.FC<MealPlanBridgeCardProps> = ({ bridge }
             </h4>
             <span className="text-[10px] text-[#326318] font-semibold flex items-center gap-1 mt-0.5">
               <Sparkles className="w-3 h-3 text-[#ffba41]" />
-              Bác sĩ Dinh dưỡng AI CapNong
+              Trợ lý dinh dưỡng AI CapNong
             </span>
           </div>
         </div>
@@ -70,6 +71,10 @@ export const MealPlanBridgeCard: React.FC<MealPlanBridgeCardProps> = ({ bridge }
           </p>
         </div>
       )}
+
+      <p className="text-[11px] text-ink-muted leading-relaxed">
+        Nội dung chỉ mang tính tham khảo, không thay thế tư vấn y khoa. Nếu bạn đang điều trị bệnh, hãy hỏi ý kiến bác sĩ trước khi thay đổi chế độ ăn.
+      </p>
 
       {/* 3. Gợi ý thực đơn mẫu trong ngày */}
       {sampleMeals.length > 0 && (

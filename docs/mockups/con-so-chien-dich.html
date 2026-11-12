@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Mẫu khung Con số chiến dịch</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px; background: #fcf9f1; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #1c1c18; width: 860px; }
+  .label { display: inline-block; margin: 0 0 12px; padding: 4px 12px; border-radius: 999px; background: #1c1c18; color: #fff; font-size: 13px; font-weight: 700; }
+  .card { background: #fff; border: 1px solid #e4ddcc; border-radius: 24px; padding: 28px; box-shadow: 0 1px 2px rgba(0,0,0,.04); margin-bottom: 40px; }
+  .muted { color: #6b7363; }
+  .kicker { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #4a7c2f; margin: 0 0 16px; }
+  .tile { background: #f5f1e6; border-radius: 16px; padding: 12px 14px; }
+  .tile .t { font-size: 12px; color: #6b7363; }
+  .tile .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e4ddcc; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; background: #fff; }
+  .warn { background: #fff1cc; color: #6b4e00; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; }
+  .ico { width: 16px; height: 16px; display: inline-block; border-radius: 4px; background: #4a7c2f; }
+</style>
+</head>
+<body>
+
+<div class="label">Mẫu A · Vòng tròn tiến độ</div>
+<div class="card">
+  <p class="kicker">Con số của chiến dịch</p>
+  <div style="display:grid;grid-template-columns:180px 1fr;gap:28px;align-items:center">
+    <div style="position:relative;width:180px;height:180px">
+      <svg viewBox="0 0 120 120" width="180" height="180">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#ede8df" stroke-width="11"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#4a7c2f" stroke-width="11" stroke-linecap="round" stroke-dasharray="70.7 314" transform="rotate(-90 60 60)"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#c27c00" stroke-width="14" stroke-dasharray="2.5 312" stroke-dashoffset="-125.6" transform="rotate(-90 60 60)"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <span style="font-size:34px;font-weight:900">23%</span>
+        <span class="muted" style="font-size:12px">450 / 2.000 kg</span>
+      </div>
+    </div>
+    <div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="tile"><div class="t">Giá giải cứu</div><div class="v">12.000đ/kg</div></div>
+        <div class="tile"><div class="t">Nhà vườn tham gia</div><div class="v">1 <span class="muted" style="font-size:13px;font-weight:500">· 2 lô</span></div></div>
+        <div class="tile"><div class="t">Cọc trước</div><div class="v">30%</div></div>
+        <div class="tile"><div class="t">Chốt đơn</div><div class="v">19/11 <span style="font-size:12px;color:#c27c00;font-weight:700">còn 6 ngày</span></div></div>
+      </div>
+      <p class="muted" style="font-size:13px;margin:14px 0 0">Vạch cam trên vòng là ngưỡng 800 kg. Cần thêm <b style="color:#1c1c18">350 kg</b> để chắc chắn được giao.</p>
+    </div>
+  </div>
+</div>
+
+<div class="label">Mẫu B · Thanh mốc ngưỡng & mục tiêu</div>
+<div class="card">
+  <p class="kicker">Con số của chiến dịch</p>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div><span style="font-size:40px;font-weight:900">450 kg</span> <span class="muted" style="font-size:14px">đã được đặt trước</span></div>
+    <span class="warn">Cần thêm 350 kg để đủ ngưỡng</span>
+  </div>
+  <div style="position:relative;margin:26px 0 44px">
+    <div style="height:16px;border-radius:999px;background:#ede8df"></div>
+    <div style="position:absolute;top:0;left:0;height:16px;width:22.5%;border-radius:999px;background:linear-gradient(90deg,#4a7c2f,#9ed67d)"></div>
+    <div style="position:absolute;top:-8px;left:40%;width:3px;height:32px;border-radius:2px;background:#c27c00"></div>
+    <div style="position:absolute;top:30px;left:40%;transform:translateX(-50%);font-size:12px;font-weight:700;color:#c27c00;white-space:nowrap">Ngưỡng 800 kg</div>
+    <div class="muted" style="position:absolute;top:30px;left:0;font-size:12px">0 kg</div>
+    <div class="muted" style="position:absolute;top:30px;right:0;font-size:12px;font-weight:600">Mục tiêu 2.000 kg</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">
+    <span class="chip"><span class="ico"></span> 12.000đ/kg</span>
+    <span class="chip"><span class="ico"></span> 1 nhà vườn · 2 lô</span>
+    <span class="chip"><span class="ico"></span> Cọc 30%</span>
+    <span class="chip"><span class="ico" style="background:#c27c00"></span> Chốt 19/11 · còn 6 ngày</span>
+  </div>
+</div>
+
+<div class="label">Mẫu C · Ô thống kê lớn</div>
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="padding:22px 28px;display:flex;align-items:center;gap:18px;border-bottom:1px solid #ede8df">
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;font-size:14px"><b>Tiến độ đặt trước</b><span class="muted">450 / 2.000 kg · 23%</span></div>
+      <div style="margin-top:10px;height:8px;border-radius:999px;background:#ede8df;position:relative">
+        <div style="height:8px;width:22.5%;border-radius:999px;background:#4a7c2f"></div>
+        <div style="position:absolute;top:-5px;left:40%;width:3px;height:18px;border-radius:2px;background:#c27c00"></div>
+      </div>
+    </div>
+    <span class="warn">⏱ Còn 6 ngày</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr)">
+    <div style="padding:22px 24px;border-right:1px solid #ede8df"><div style="width:36px;height:36px;border-radius:12px;background:#f2f9ed;display:flex;align-items:center;justify-content:center;color:#4a7c2f;font-weight:900">₫</div><div style="font-size:24px;font-weight:900;margin-top:10px">12.000đ</div><div class="muted" style="font-size:13px">giá mỗi kg</div></div>
+    <div style="padding:22px 24px;border-right:1px solid #ede8df"><div style="width:36px;height:36px;border-radius:12px;background:#f2f9ed;display:flex;align-items:center;justify-content:center;color:#4a7c2f;font-weight:900">🌱</div><div style="font-size:24px;font-weight:900;margin-top:10px">1</div><div class="muted" style="font-size:13px">nhà vườn · 2 lô</div></div>
+    <div style="padding:22px 24px;border-right:1px solid #ede8df"><div style="width:36px;height:36px;border-radius:12px;background:#f2f9ed;display:flex;align-items:center;justify-content:center;color:#4a7c2f;font-weight:900">%</div><div style="font-size:24px;font-weight:900;margin-top:10px">30%</div><div class="muted" style="font-size:13px">cọc trước</div></div>
+    <div style="padding:22px 24px"><div style="width:36px;height:36px;border-radius:12px;background:#f2f9ed;display:flex;align-items:center;justify-content:center;color:#4a7c2f;font-weight:900">📅</div><div style="font-size:24px;font-weight:900;margin-top:10px">19/11</div><div class="muted" style="font-size:13px">chốt đơn</div></div>
+  </div>
+</div>
+
+</body>
+</html>

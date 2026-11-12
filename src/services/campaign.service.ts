@@ -1,5 +1,6 @@
 import axiosInstance from '@/services/api/axiosInstance'
-import { unwrap } from '@/services/api/apiUtils'
+import type { AxiosResponse } from 'axios'
+import { unwrap as unwrapRaw } from '@/services/api/apiUtils'
 import type {
   CampaignPhase,
   FarmRegistrationRequest,
@@ -9,6 +10,30 @@ import type {
   CampaignIntakeRequest, CampaignUpsertRequest } from './campaign.types'
 
 export type * from './campaign.types'
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * BE (ObjectMapper tự khai báo) trả LocalDate/LocalDateTime dạng mảng [yyyy, M, d, H, m, s, nano].
+ * Chuẩn hoá về chuỗi ISO local để `new Date()` / `Date.parse()` ở mọi màn chiến dịch hiểu đúng.
+ */
+function normalizeDates<T>(v: T): T {
+  if (Array.isArray(v)) return v.map(normalizeDates) as T
+  if (!v || typeof v !== 'object') return v
+  const out: Record<string, unknown> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (/(At|Date)$/.test(k) && Array.isArray(val) && val.length >= 3 && val.every((x) => typeof x === 'number')) {
+      const [y, mo, d, h, mi, se = 0] = val as number[]
+      out[k] = h == null ? `${y}-${pad(mo)}-${pad(d)}` : `${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi ?? 0)}:${pad(se)}`
+    } else {
+      out[k] = normalizeDates(val)
+    }
+  }
+  return out as T
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const unwrap = <T,>(res: AxiosResponse<any>): T => normalizeDates(unwrapRaw<T>(res))
 
 export const campaignService = {
   /** Chiến dịch đang mở bán (công khai, không cần đăng nhập) */

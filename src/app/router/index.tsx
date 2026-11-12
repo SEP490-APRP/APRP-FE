@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom'
 import RootLayout from '@/app/layouts/RootLayout'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
@@ -34,6 +34,12 @@ import {
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
+
+/** Giữ query (?tab=...) khi chuyển đường dẫn cũ sang /tai-khoan. */
+function ProfileRedirect() {
+  const { search } = useLocation()
+  return <Navigate replace to={`/tai-khoan${search}`} />
+}
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
@@ -120,7 +126,7 @@ export const router = createBrowserRouter([
 
           // Xác thực & Tài khoản
           { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
-          { path: 'profile/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'profile/*', element: <ProfileRedirect /> },
           { path: 'thong-bao/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
           { path: 'notifications/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
           { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },

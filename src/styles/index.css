@@ -1649,3 +1649,50 @@
   animation: bell-ring 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   transform-origin: top center;
 }
+
+/* ───── CKEditor (form tạo chiến dịch) ───── */
+.capnong-ck .ck.ck-editor__main > .ck-editor__editable {
+  min-height: var(--ck-min-h, 220px);
+  max-height: 480px;
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+}
+.capnong-ck .ck.ck-toolbar {
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  background: #f8faf6;
+}
+.capnong-ck .ck.ck-editor__editable.ck-focused:not(.ck-editor__nested-editable) {
+  border-color: #326318;
+  box-shadow: 0 0 0 2px rgb(50 99 24 / 0.15);
+}
+.capnong-ck .ck-content h2, .capnong-rich h2 { font-size: 1.4em; font-weight: 800; margin: 1em 0 0.4em; }
+.capnong-ck .ck-content h3, .capnong-rich h3 { font-size: 1.2em; font-weight: 800; margin: 0.9em 0 0.3em; }
+.capnong-ck .ck-content ul, .capnong-rich ul { list-style: disc; padding-left: 1.5em; }
+.capnong-ck .ck-content ol, .capnong-rich ol { list-style: decimal; padding-left: 1.5em; }
+
+/* ───── Bài viết HTML hiển thị cho người mua (dùng kèm ckeditor5-content.css) ───── */
+.capnong-rich.ck-content { font-family: inherit; font-size: 18px; line-height: 1.8; color: #2b3127; word-break: break-word; }
+.capnong-rich > :first-child { margin-top: 0; }
+.capnong-rich p { margin: 0 0 1.1em; }
+.capnong-rich > p:first-of-type::first-letter {
+  float: left; margin: 0.08em 0.12em 0 0; font-size: 3.6em; line-height: 0.85; font-weight: 900; color: #4a7c2f;
+}
+.capnong-rich h2 { font-size: 1.6em; line-height: 1.25; font-weight: 900; color: #1c1c18; margin: 1.6em 0 0.6em; letter-spacing: -0.01em; }
+.capnong-rich h3 { font-size: 1.25em; line-height: 1.3; font-weight: 800; color: #1c1c18; margin: 1.4em 0 0.5em; }
+.capnong-rich ul, .capnong-rich ol { margin: 0 0 1.1em; }
+.capnong-rich li { margin: 0.25em 0; }
+.capnong-rich a { color: #2b5619; text-decoration: underline; text-underline-offset: 2px; }
+.capnong-rich blockquote {
+  margin: 1.5em 0; border-left: 4px solid #4a7c2f; background: #f2f9ed; padding: 0.9em 1.2em;
+  border-radius: 0 0.75rem 0.75rem 0; color: #2b3a24; font-style: italic;
+}
+.capnong-rich blockquote p:last-child { margin-bottom: 0; }
+.capnong-rich img { border-radius: 0.875rem; }
+/* Tailwind preflight ép img thành block: trả lại ảnh nằm cùng dòng (inline) như trong CKEditor */
+.capnong-rich p img, .capnong-rich .image-inline img, .capnong-rich li img { display: inline-block; vertical-align: bottom; max-width: 100%; }
+.capnong-rich .image-inline { display: inline-flex; max-width: 100%; }
+.capnong-rich figure.image { margin-top: 1.6em; margin-bottom: 1.6em; }
+.capnong-rich figure.image > figcaption { background: transparent; color: #6b7363; font-size: 0.8em; font-style: italic; }
+.capnong-rich figure.table table { font-size: 0.9em; }
+.capnong-rich figure.table td, .capnong-rich figure.table th { border-color: #e4ddcc; }

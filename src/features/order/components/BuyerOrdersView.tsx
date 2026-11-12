@@ -21,9 +21,10 @@ import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
 import { CancelOrderModal } from './CancelOrderModal'
 import { ReturnRequestModal } from './ReturnRequestModal'
+import { BuyerOrderDetailModal } from './BuyerOrderDetailModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { ReviewModal } from '@/features/review'
-import { orderService, paymentService, campaignService } from '@/services'
+import { orderService, paymentService, campaignService, productService } from '@/services'
 import type { PreOrderResponse } from '@/services'
 import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
@@ -103,7 +104,53 @@ export const BuyerOrdersView: React.FC = () => {
   // Return & Refund Modal State
   const [returnModalItem, setReturnModalItem] = useState<OrderItem | null>(null)
   const [returnModalOrderId, setReturnModalOrderId] = useState<number | null>(null)
+  const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<number | null>(null)
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+
+  const handleProductClick = async (it: OrderItem, shopId?: number) => {
+    if (it.productId) {
+      navigate(`/san-pham/${it.productId}`)
+      return
+    }
+
+    if (it.itemType === 'MYSTERY_BOX' || it.mysteryBoxId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    if (it.itemType === 'BUILD_COMBO' || it.buildComboId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    const name = it.itemName || it.productName
+    if (name) {
+      try {
+        const res = await productService.getAll({ keyword: name })
+        const products = res.result || []
+        const matched =
+          products.find(
+            (p) =>
+              (p.productName || p.name || '').trim().toLowerCase() === name.trim().toLowerCase() ||
+              (p.productName || p.name || '').toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes((p.productName || p.name || '').toLowerCase())
+          ) || products[0]
+
+        if (matched?.id || matched?.productId) {
+          navigate(`/san-pham/${matched.id || matched.productId}`)
+          return
+        }
+      } catch (err) {
+        console.warn('Fallback tìm kiếm sản phẩm thất bại:', err)
+      }
+    }
+
+    if (shopId) {
+      navigate(`/cua-hang/${shopId}`)
+    } else {
+      navigate(`/nong-san-tuoi${name ? `?search=${encodeURIComponent(name)}` : ''}`)
+    }
+  }
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -583,24 +630,39 @@ export const BuyerOrdersView: React.FC = () => {
                 </div>
 
                 {/* Danh sách items */}
-                <div className="p-6 divide-y divide-line/60">
+                <div className="p-6 divide-line/60 divide-y">
                   {order.items && order.items.length > 0 ? (
-                    order.items.map((it, idx) => (
-                      <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center gap-4">
-                        <img
-                          src={it.imageUrl || '/images/default-produce.png'}
-                          alt={it.productName || 'Sản phẩm'}
-                          className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-ink truncate">
-                            {it.productName || it.mysteryBoxType || 'Sản phẩm nông sản'}
-                          </h4>
-                          <p className="text-xs text-ink-muted mt-0.5">
-                            Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                    order.items.map((it, idx) => {
+                      const name = it.productName || it.itemName || it.mysteryBoxType || 'Sản phẩm nông sản'
+                      return (
+                        <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleProductClick(it, order.shopId)}
+                            className="flex items-center gap-4 flex-1 min-w-0 group cursor-pointer select-none"
+                            title="Nhấn để xem chi tiết sản phẩm"
+                          >
+                            <img
+                              src={it.imageUrl || '/images/default-produce.png'}
+                              alt={name}
+                              className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50 transition-all duration-200 group-hover:scale-105 group-hover:border-emerald-400 group-hover:shadow-xs"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-semibold text-sm text-ink truncate group-hover:text-emerald-700 transition-colors">
+                                  {name}
+                                </h4>
+                                <span className="text-[10px] text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity font-semibold shrink-0">
+                                  Xem chi tiết &rarr;
+                                </span>
+                              </div>
+                              <p className="text-xs text-ink-muted mt-0.5">
+                                Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                           <p className="text-sm font-bold text-emerald-700">
                             {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
                           </p>
@@ -647,8 +709,8 @@ export const BuyerOrdersView: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    ))
-                  ) : (
+                    )
+                  })) : (
                     <div className="py-2 text-xs text-ink-muted italic">
                       Chi tiết sản phẩm đang được cập nhật
                     </div>
@@ -728,12 +790,13 @@ export const BuyerOrdersView: React.FC = () => {
                     )}
 
                     {/* Xem chi tiết kết quả */}
-                    <Link
-                      to={`/payment/result?orderId=${orderId}&method=${order.paymentMethod}`}
-                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailOrderId(orderId)}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors cursor-pointer"
                     >
                       Chi tiết
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -780,6 +843,26 @@ export const BuyerOrdersView: React.FC = () => {
           onClose={() => setTrackingModalOrder(null)}
         />
       )}
+
+      {/* Modal Chi Tiết Đơn Hàng Chuẩn TMĐT (100% Real API, Không Mock Data) */}
+      <BuyerOrderDetailModal
+        isOpen={selectedDetailOrderId !== null}
+        orderId={selectedDetailOrderId}
+        onClose={() => setSelectedDetailOrderId(null)}
+        onPayNow={(ord) => handlePayNow(ord)}
+        onCancelOrder={(ord) => handleOpenCancelModal(ord)}
+        onCompleteOrder={(ord) => handleCompleteOrder(ord)}
+        onReviewItem={(it, ordId) => {
+          setReviewModalItem(it)
+          setReviewModalOrderId(ordId)
+          setIsReviewModalOpen(true)
+        }}
+        onReturnItem={(it, ordId) => {
+          setReturnModalItem(it)
+          setReturnModalOrderId(ordId)
+          setIsReturnModalOpen(true)
+        }}
+      />
 
       {/* Modal Xác Nhận Hủy Đơn Hàng (Đơn lẻ & Toàn bộ Checkout) */}
       <CancelOrderModal

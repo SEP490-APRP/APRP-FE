@@ -25,6 +25,8 @@ export interface CampaignResponse {
   deliveryDate?: string | null
   collectionSiteName?: string | null
   collectionSiteAddress?: string | null
+  collectionSiteLatitude?: number | null
+  collectionSiteLongitude?: number | null
   status: CampaignStatus
   bookedVolumeKg: number
   remainingVolumeKg: number
@@ -32,6 +34,8 @@ export interface CampaignResponse {
   progressPercent: number
   approvedSurplusKg: number
   approvedFarmCount: number
+  /** Số lô đã duyệt (một nhà vườn có thể góp nhiều lô) */
+  approvedLotCount?: number
   pendingFarmCount: number
   /** Cung - cầu khi gom hàng (có từ THRESHOLD_MET) */
   soldVolumeKg?: number | null
@@ -186,6 +190,8 @@ export interface CampaignUpsertRequest {
   deliveryDate?: string
   collectionSiteName?: string
   collectionSiteAddress?: string
+  collectionSiteLatitude?: number
+  collectionSiteLongitude?: number
 }
 
 export interface CampaignIntakeRequest {

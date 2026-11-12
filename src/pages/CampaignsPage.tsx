@@ -17,6 +17,7 @@ import { useCampaignsByPhase } from '@/features/campaign/hooks/useCampaignQuerie
 import { formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
 import type { CampaignPhase, CampaignResponse } from '@/services'
 import logoIcon from '@/assets/logo-icon.png'
+import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
 type PhaseKey = 'dang-dien-ra' | 'sap-mo' | 'dang-giao' | 'da-hoan-thanh'
 
@@ -236,7 +237,7 @@ function view(c: CampaignResponse) {
       : 0
     : progressOf(c)
   const excerpt =
-    (c.description ?? '').split(/\r?\n/).map((p) => p.trim()).find(Boolean) ||
+    htmlToPlainText(c.description).split(/\r?\n/).map((p) => p.trim()).find(Boolean) ||
     `${c.approvedFarmCount || 'Nhiều'} nhà vườn cần tìm người mua cho ${formatKg(c.targetVolumeKg)} ${(c.categoryName || 'nông sản').toLowerCase()} với giá giải cứu ${formatVnd(c.rescuePricePerKg)}/kg.`
   const date = c.publishedAt ?? c.callPostedAt ?? c.createdAt
   const place = c.collectionSiteAddress || c.collectionSiteName || 'Toàn quốc'

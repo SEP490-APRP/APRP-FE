@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -11,6 +11,7 @@ import {
   ImagePlus,
   Loader2,
   Megaphone,
+  Eye,
   PackageCheck,
   Plus,
   Scale,
@@ -28,6 +29,11 @@ import {
   type PreOrderResponse,
 } from '@/services'
 import { formatKg, formatVnd } from '@/features/campaign/utils'
+import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
+import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
+
+// CKEditor khá nặng: chỉ tải khi mở form tạo chiến dịch
+const RichTextEditor = lazy(() => import('@/components/common/RichTextEditor/RichTextEditor'))
 import { getErrorMessage } from '@/utils'
 
 /**
@@ -36,7 +42,7 @@ import { getErrorMessage } from '@/utils'
  */
 
 const STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
-  DRAFT: { label: 'Nháp / gom nhà vườn', tone: 'bg-gray-100 text-gray-700' },
+  DRAFT: { label: 'Nháp', tone: 'bg-gray-100 text-gray-700' },
   ACTIVE: { label: 'Đang mở đặt trước', tone: 'bg-amber-100 text-amber-800' },
   THRESHOLD_MET: { label: 'Đủ ngưỡng', tone: 'bg-sky-100 text-sky-800' },
   FULFILLING: { label: 'Đang gom hàng', tone: 'bg-emerald-100 text-emerald-800' },
@@ -45,7 +51,7 @@ const STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
 }
 const FILTERS: { id: string; label: string }[] = [
   { id: '', label: 'Tất cả' },
-  { id: 'DRAFT', label: 'Nháp' },
+  { id: 'DRAFT', label: 'Nháp / gom nhà vườn' },
   { id: 'ACTIVE', label: 'Đang mở' },
   { id: 'THRESHOLD_MET', label: 'Đủ ngưỡng' },
   { id: 'FULFILLING', label: 'Đang gom hàng' },
@@ -141,7 +147,7 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
                     <p className="truncate font-bold text-gray-900">{c.title}</p>
                     <p className="text-xs text-gray-500">{c.code} · {c.collectionSiteName || 'Chưa có điểm tập kết'}</p>
                   </td>
-                  <td className="px-4 py-3"><StatusChip s={c.status} /></td>
+                  <td className="px-4 py-3"><StatusChip s={c.status} called={!!c.callPostedAt} /></td>
                   <td className="px-4 py-3 text-right tabular-nums">{kg(c.bookedVolumeKg)} / {kg(c.targetVolumeKg)}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {c.approvedFarmCount}
@@ -213,7 +219,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusChip s={c.status} />
+            <StatusChip s={c.status} called={!!c.callPostedAt} />
             <span className="text-xs font-semibold text-gray-400">{c.code}</span>
           </div>
           <h2 className="mt-2 text-xl font-black text-gray-900 sm:text-2xl">{c.title}</h2>
@@ -225,6 +231,14 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <a
+            href={`/chien-dich/${c.campaignId}?xem-truoc=1`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50"
+          >
+            <Eye size={16} /> Xem bài viết
+          </a>
           {c.status === 'DRAFT' && !c.callPostedAt && button('call', 'Đăng lời kêu gọi nhà vườn', 'Đã gửi lời kêu gọi tới các nhà vườn.', <Megaphone size={16} />)}
           {c.status === 'DRAFT' && button('publish', 'Mở bán đặt trước', 'Chiến dịch đã mở đặt trước.', <Flame size={16} />)}
           {c.status === 'THRESHOLD_MET' && button('start-fulfilling', 'Bắt đầu gom hàng', 'Đã báo nhà vườn mang hàng tới điểm tập kết.', <Truck size={16} />)}
@@ -319,6 +333,7 @@ function FarmTable({
   onError: (t: string) => void
 }) {
   const [prices, setPrices] = useState<Record<number, string>>({})
+  const [viewing, setViewing] = useState<FarmRegistrationResponse | null>(null)
   const review = useMutation({
     mutationFn: ({ r, ok }: { r: FarmRegistrationResponse; ok: boolean }) =>
       ok ? adminCampaignService.approve(r.registrationId, prices[r.registrationId] ? Number(prices[r.registrationId]) : undefined)
@@ -335,7 +350,12 @@ function FarmTable({
         const intaken = !!r.intakeAt
         return (
           <article key={r.registrationId} className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={() => setViewing(r)}
+              title="Xem chi tiết đơn góp hàng"
+              className="-m-2 flex items-start gap-3 rounded-xl p-2 text-left transition hover:bg-gray-50"
+            >
               {r.productImageUrls[0] ? (
                 <img src={r.productImageUrls[0]} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
               ) : <div className="h-16 w-16 shrink-0 rounded-xl bg-gray-100" />}
@@ -346,11 +366,12 @@ function FarmTable({
                   Đề xuất {r.proposedPricePerKg ? formatVnd(r.proposedPricePerKg) : '—'}/kg
                   {r.agreedPricePerKg != null && <> · chốt <b className="text-gray-800">{formatVnd(r.agreedPricePerKg)}/kg</b></>}
                 </p>
+                <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#326318]"><Eye size={12} /> Xem đơn & ảnh lô hàng</span>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : r.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
                 {r.status === 'APPROVED' ? 'Đã duyệt' : r.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
               </span>
-            </div>
+            </button>
 
             {r.status === 'PENDING' && canReview && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 p-3">
@@ -397,6 +418,7 @@ function FarmTable({
           </article>
         )
       })}
+      {viewing && <RegistrationDetailDialog r={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }
@@ -577,17 +599,20 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const local = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString()
   const [f, setF] = useState({
     title: '', description: '', season: '', target: '', min: '', price: '', deposit: '30',
-    cutoff: local(inDays(7)).slice(0, 16), delivery: local(inDays(9)).slice(0, 10), site: '', address: '',
+    cutoff: local(inDays(7)).slice(0, 16), delivery: local(inDays(9)).slice(0, 10), site: '',
   })
+  const [address, setAddress] = useState<AddressValue>(EMPTY_ADDRESS)
+  const [formError, setFormError] = useState<string | null>(null)
   useEscape(onClose)
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }))
   const create = useMutation({
     mutationFn: () => {
       const body: CampaignUpsertRequest = {
-        title: f.title.trim(), description: f.description.trim() || undefined, season: f.season.trim() || undefined,
+        title: f.title.trim(), description: htmlToPlainText(f.description).trim() ? f.description : undefined, season: f.season.trim() || undefined,
         targetVolumeKg: Number(f.target), minThresholdKg: Number(f.min), rescuePricePerKg: Number(f.price),
         depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, deliveryDate: f.delivery || undefined,
-        collectionSiteName: f.site.trim() || undefined, collectionSiteAddress: f.address.trim() || undefined,
+        collectionSiteName: f.site.trim() || undefined, collectionSiteAddress: composeAddress(address) || undefined,
+        collectionSiteLatitude: address.lat, collectionSiteLongitude: address.lng,
       }
       return adminCampaignService.create(body)
     },
@@ -600,12 +625,22 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
           <h3 id="tao-cd-title" className="text-lg font-black text-gray-900">Tạo chiến dịch giải cứu</h3>
           <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <form className="grid gap-3 overflow-y-auto p-5 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
+        <form className="grid gap-3 overflow-y-auto p-5 sm:grid-cols-2" onSubmit={(e) => {
+          e.preventDefault()
+          if (address.provinceCode && (!address.wardCode || !address.detail.trim())) {
+            setFormError('Vui lòng chọn đủ Phường/Xã và nhập địa chỉ cụ thể của điểm tập kết.')
+            return
+          }
+          setFormError(null)
+          create.mutate()
+        }}>
           <TextField id="cd-title" label="Tên chiến dịch (hiện đúng như vậy cho người mua)" value={f.title} onChange={set('title')} wide required />
-          <label className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
-            Bài viết giới thiệu (mỗi đoạn một dòng)
-            <textarea id="cd-desc" rows={4} value={f.description} onChange={(e) => set('description')(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal" />
-          </label>
+          <div className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
+            Bài viết giới thiệu
+            <Suspense fallback={<div className="flex h-56 items-center justify-center rounded-xl border border-gray-200 text-xs font-normal text-gray-500"><Loader2 size={16} className="mr-2 animate-spin" /> Đang tải trình soạn thảo…</div>}>
+              <RichTextEditor value={f.description} onChange={set('description')} placeholder="Kể câu chuyện của vườn, vì sao cần giải cứu…" />
+            </Suspense>
+          </div>
           <NumField id="cd-target" label="Mục tiêu (kg)" value={f.target} onChange={set('target')} />
           <NumField id="cd-min" label="Ngưỡng tối thiểu (kg)" value={f.min} onChange={set('min')} />
           <NumField id="cd-price" label="Giá giải cứu (đ/kg)" value={f.price} onChange={set('price')} />
@@ -614,7 +649,11 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
           <TextField id="cd-delivery" label="Ngày giao dự kiến" type="date" value={f.delivery} onChange={set('delivery')} />
           <TextField id="cd-site" label="Điểm tập kết" value={f.site} onChange={set('site')} />
           <TextField id="cd-season" label="Mùa vụ" value={f.season} onChange={set('season')} />
-          <TextField id="cd-address" label="Địa chỉ điểm tập kết" value={f.address} onChange={set('address')} wide />
+          <div className="flex flex-col gap-2.5 sm:col-span-2">
+            <p className="text-sm font-bold text-gray-700">Địa chỉ điểm tập kết</p>
+            <AddressPicker value={address} onChange={setAddress} />
+          </div>
+          {formError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{formError}</p>}
           {create.isError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{getErrorMessage(create.error, 'Không tạo được chiến dịch.')}</p>}
           <button type="submit" disabled={create.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 sm:col-span-2">
             {create.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Tạo chiến dịch (nháp)
@@ -623,6 +662,149 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
       </div>
     </div>,
     document.body,
+  )
+}
+
+/* ─────────────────────────── Chi tiết đơn đăng ký của nhà vườn ─────────────────────────── */
+
+const SHELF_LABEL: Record<string, string> = { DAYS_1_2: '1 – 2 ngày', DAYS_3_4: '3 – 4 ngày', DAYS_5_6: '5 – 6 ngày' }
+const REG_STATUS: Record<string, { label: string; tone: string }> = {
+  PENDING: { label: 'Chờ duyệt', tone: 'bg-amber-100 text-amber-800' },
+  APPROVED: { label: 'Đã duyệt', tone: 'bg-emerald-100 text-emerald-800' },
+  REJECTED: { label: 'Từ chối', tone: 'bg-red-100 text-red-700' },
+}
+const fmtDay = (v?: string | null) => (v ? new Date(v).toLocaleDateString('vi-VN') : '—')
+const fmtDateTime = (v?: string | null) => (v ? new Date(v).toLocaleString('vi-VN') : '—')
+
+function RegistrationDetailDialog({ r, onClose }: { r: FarmRegistrationResponse; onClose: () => void }) {
+  useEscape(onClose)
+  const [zoom, setZoom] = useState<string | null>(null)
+  const st = REG_STATUS[r.status] ?? { label: r.status, tone: 'bg-gray-100 text-gray-700' }
+  const photos = r.productImageUrls ?? []
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dk-chi-tiet-title"
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#326318]">Đơn góp hàng #{r.registrationId}</p>
+            <h3 id="dk-chi-tiet-title" className="mt-0.5 text-lg font-black text-gray-900">{r.shopName || `Shop #${r.shopId}`}</h3>
+            <p className="mt-0.5 text-xs text-gray-500">Nộp lúc {fmtDateTime(r.createdAt)}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${st.tone}`}>{st.label}</span>
+            <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-5 overflow-y-auto p-6">
+          {/* Ảnh lô hàng shop chụp */}
+          <section>
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">Ảnh lô hàng ({photos.length})</h4>
+            {photos.length ? (
+              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {photos.map((u) => (
+                  <button key={u} type="button" onClick={() => setZoom(u)} className="group overflow-hidden rounded-xl border border-gray-100">
+                    <img src={u} alt="" className="aspect-square w-full object-cover transition group-hover:scale-105" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-400">Shop không gửi ảnh.</p>
+            )}
+          </section>
+
+          {/* Thông tin lô hàng */}
+          <section className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-2xl bg-gray-50 p-4 sm:grid-cols-3">
+            <Info label="Nông sản" value={r.productName || '—'} />
+            <Info label="Khối lượng khai" value={kg(r.surplusVolumeKg)} />
+            <Info label="Ngày thu hoạch" value={fmtDay(r.harvestDate)} />
+            <Info label="Độ bền sau thu hoạch" value={r.shelfLifeTier ? SHELF_LABEL[r.shelfLifeTier] ?? r.shelfLifeTier : '—'} />
+            <Info label="Giá đề xuất" value={r.proposedPricePerKg ? `${formatVnd(r.proposedPricePerKg)}/kg` : '—'} />
+            <Info label="Giá chốt" value={r.agreedPricePerKg != null ? `${formatVnd(r.agreedPricePerKg)}/kg` : 'Chưa chốt'} />
+            <Info label="Cam kết giá" value={r.priceCommitted ? 'Đồng ý giá chiến dịch' : 'Muốn thương lượng'} />
+            {r.allocatedVolumeKg != null && <Info label="Được phân bổ" value={kg(r.allocatedVolumeKg)} />}
+            {r.payoutAmount != null && <Info label="Đã chi trả" value={formatVnd(r.payoutAmount)} />}
+          </section>
+
+          {/* Lời nhắn của shop */}
+          <section>
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">Mô tả / ghi chú của shop</h4>
+            <p className="mt-2 whitespace-pre-line rounded-2xl border border-gray-100 p-4 text-sm leading-relaxed text-gray-800">
+              {r.note?.trim() || <span className="text-gray-400">Shop không để lại ghi chú.</span>}
+            </p>
+          </section>
+
+          {/* Liên hệ */}
+          <section className="flex flex-wrap items-center gap-3 text-sm">
+            {r.shopPhone && (
+              <a href={`tel:${r.shopPhone}`} className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 font-bold text-gray-800 hover:bg-gray-50">
+                Gọi {r.shopPhone}
+              </a>
+            )}
+            <a
+              href={`/cua-hang/${r.shopId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 font-bold text-gray-800 hover:bg-gray-50"
+            >
+              <Eye size={14} /> Xem gian hàng
+            </a>
+          </section>
+
+          {(r.reviewNote || r.reviewedAt) && (
+            <section className="rounded-2xl border-l-4 border-gray-300 bg-gray-50 p-4 text-sm text-gray-700">
+              <p className="font-bold">Ghi chú duyệt {r.reviewedAt ? `· ${fmtDateTime(r.reviewedAt)}` : ''}</p>
+              {r.reviewNote && <p className="mt-1">{r.reviewNote}</p>}
+            </section>
+          )}
+
+          {r.intakeAt && (
+            <section className="rounded-2xl bg-[#f7faf4] p-4">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#326318]">Nhận hàng tại điểm tập kết · {fmtDateTime(r.intakeAt)}</h4>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                <Mini label="Cân thực tế" value={kg(r.receivedWeightKg)} />
+                <Mini label="Hư / loại" value={kg(r.rejectedWeightKg)} />
+                <Mini label="Đạt chuẩn" value={kg(r.acceptedWeightKg)} tone="text-[#326318]" />
+                <Mini label="Tính tiền" value={kg(r.countedWeightKg)} />
+              </div>
+              {r.intakeNote && <p className="mt-3 text-sm text-gray-700">{r.intakeNote}</p>}
+              {!!r.intakePhotoUrls?.length && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {r.intakePhotoUrls.map((u) => (
+                    <button key={u} type="button" onClick={() => setZoom(u)}>
+                      <img src={u} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      </div>
+
+      {zoom && (
+        <div className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/80 p-4" onClick={(e) => { e.stopPropagation(); setZoom(null) }}>
+          <img src={zoom} alt="" className="max-h-[90vh] max-w-full rounded-xl object-contain" />
+          <button type="button" aria-label="Đóng ảnh" className="absolute right-4 top-4 rounded-full bg-white/90 p-2"><X size={18} /></button>
+        </div>
+      )}
+    </div>,
+    document.body,
+  )
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-0.5 text-sm font-bold text-gray-900">{value}</p>
+    </div>
   )
 }
 
@@ -636,8 +818,11 @@ function useEscape(onClose: () => void) {
   }, [onClose])
 }
 
-function StatusChip({ s }: { s: CampaignStatus }) {
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS[s].tone}`}>{STATUS[s].label}</span>
+/** DRAFT đã đăng lời kêu gọi = bài đã công khai, đang gom hàng từ nhà vườn (chưa mở bán) */
+function StatusChip({ s, called }: { s: CampaignStatus; called?: boolean }) {
+  const { label, tone } =
+    s === 'DRAFT' && called ? { label: 'Đã đăng · gom nhà vườn', tone: 'bg-lime-100 text-lime-800' } : STATUS[s]
+  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tone}`}>{label}</span>
 }
 
 function Stat({ label, value, tone = 'text-gray-900' }: { label: string; value: string; tone?: string }) {

@@ -2,6 +2,8 @@ import React, { useEffect } from 'react'
 import { Sparkles, Trash2, X } from 'lucide-react'
 import { useAuth } from '@/stores'
 import { authService } from '@/services'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
+import { getErrorMessage } from '@/utils'
 import { useChatbotStore } from '../stores/useChatbotStore'
 import { ChatbotMessageList } from './ChatbotMessageList'
 import { ChatbotSuggestionPills } from './ChatbotSuggestionPills'
@@ -12,11 +14,15 @@ export const ChatbotWindow: React.FC = () => {
   const toggleOpen = useChatbotStore((s) => s.toggleOpen)
   const clearHistory = useChatbotStore((s) => s.clearHistory)
   const loadHistory = useChatbotStore((s) => s.loadHistory)
+  const reset = useChatbotStore((s) => s.reset)
   const { user, setUser } = useAuth()
+  const userId = user?.id
 
+  // Mỗi tài khoản một hội thoại riêng. Khách không có lịch sử trên server nên không gọi API (tránh 401).
   useEffect(() => {
-    loadHistory()
-  }, [loadHistory])
+    reset()
+    if (userId) void loadHistory()
+  }, [userId, reset, loadHistory])
 
   // Đồng bộ ảnh đại diện của user (Buyer, Shop, Shipper) nếu session chưa nạp avatar
   useEffect(() => {
@@ -32,6 +38,20 @@ export const ChatbotWindow: React.FC = () => {
         .catch(() => {})
     }
   }, [user?.id])
+
+  const handleClear = async () => {
+    const confirmed = await globalShowConfirm(
+      'Xóa đoạn hội thoại?',
+      'Toàn bộ cuộc trò chuyện sẽ bị xóa và không thể khôi phục.',
+      { confirmText: 'Xóa', cancelText: 'Hủy', isDestructive: true },
+    )
+    if (!confirmed) return
+    try {
+      await clearHistory()
+    } catch (err) {
+      void globalShowAlert(getErrorMessage(err, 'Không thể xóa đoạn hội thoại. Vui lòng thử lại.'), 'Lỗi', 'error')
+    }
+  }
 
   if (!isOpen) return null
 
@@ -73,7 +93,7 @@ export const ChatbotWindow: React.FC = () => {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={clearHistory}
+            onClick={handleClear}
             className="p-1.5 rounded-lg text-[#e3f1da] hover:text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
             title="Xóa đoạn hội thoại"
           >

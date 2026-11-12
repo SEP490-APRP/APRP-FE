@@ -1,12 +1,14 @@
 import axiosInstance from '@/services/api/axiosInstance'
+import { unwrap } from '@/services/api/apiUtils'
+import { uploadService } from '@/services/upload.service'
 import type { ApiResponse, PageResponse } from '@/types'
-import { freshResponses } from '@/mocks/fresh'
 
 export interface AvailableOrderResponse {
   orderId: number
   orderCode?: string
   shopName?: string
   shopAddress?: string
+  shopPhone?: string
   shopLatitude?: number
   shopLongitude?: number
   recipientName?: string
@@ -14,12 +16,14 @@ export interface AvailableOrderResponse {
   shippingAddress?: string
   shippingLatitude?: number
   shippingLongitude?: number
+  /** Quãng đường nhà vườn → khách (km) */
   distanceKm?: number
-  shipToShopKm?: number
-  shopToBuyerKm?: number
-  totalKm?: number
+  /** Quãng đường từ vị trí shipper tới nhà vườn (km), chỉ có ở danh sách đơn mới */
+  distanceToShopKm?: number | null
   totalAmount?: number
+  /** Tiền mặt thu của khách (đơn COD) */
   codAmount?: number
+  /** @deprecated Mô hình cũ "ứng COD". Giữ để tương thích UI cũ, luôn 0 */
   codPrepaidAmount?: number
   shippingFee?: number
   paymentMethod?: string
@@ -33,9 +37,14 @@ export interface AvailableOrderResponse {
   }>
 }
 
+export type ShipperOrderStatus = 'SHIPPING' | 'PICKED_UP' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'COMPLETED'
+
 export interface ShipperOrderResponse extends AvailableOrderResponse {
-  status: 'ASSIGNED' | 'SHIPPING' | 'PICKED_UP' | 'DELIVERED' | 'FAILED' | 'CANCELLED'
+  status: ShipperOrderStatus
+  /** @deprecated Bỏ lựa chọn trả tiền mặt; COD luôn ký quỹ bằng ví */
   codPaymentOption?: 'CASH' | 'WALLET'
+  /** Số tiền COD đã ký quỹ trong ví khi nhận đơn */
+  codReservedAmount?: number | null
   shippingDiscountAmount?: number
   refundAmount?: number
   refundReason?: string
@@ -50,386 +59,203 @@ export interface ShipperStatusResponse {
   updatedAt?: string
 }
 
-const mockAvailableOrders: AvailableOrderResponse[] = [
-  {
-    orderId: 501,
-    orderCode: 'CN-SHP-501',
-    shopName: 'Nông Trại Hữu Cơ Cầu Đất',
-    shopAddress: '128 Đường Xuân Thọ, Đà Lạt, Lâm Đồng',
-    shopLatitude: 10.8456,
-    shopLongitude: 106.7758,
-    recipientName: 'Nguyễn Văn Minh',
-    recipientPhone: '0912 345 678',
-    shippingAddress: '45 Lê Văn Việt, Tăng Nhơn Phú A, TP. Thủ Đức',
-    shippingLatitude: 10.8485,
-    shippingLongitude: 106.7725,
-    distanceKm: 2.3,
-    totalAmount: 285000,
-    codAmount: 285000,
-    codPrepaidAmount: 228000,
-    shippingFee: 25000,
-    paymentMethod: 'COD',
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    items: [
-      { productName: 'Cà chua bi hữu cơ 1kg', quantity: 2, unit: 'kg', price: 65000 },
-      { productName: 'Khoai tây Đà Lạt túi 2kg', quantity: 1, unit: 'túi', price: 80000 },
-    ],
-  },
-  {
-    orderId: 502,
-    orderCode: 'CN-SHP-502',
-    shopName: 'Vườn Cam Hữu Cơ Cao Phong',
-    shopAddress: 'Khu công nghệ cao, TP. Thủ Đức',
-    shopLatitude: 10.852,
-    shopLongitude: 106.785,
-    recipientName: 'Trần Thị Thu Thảo',
-    recipientPhone: '0988 234 567',
-    shippingAddress: '88 Man Thiện, Hiệp Phú, TP. Thủ Đức',
-    shippingLatitude: 10.849,
-    shippingLongitude: 106.78,
-    distanceKm: 1.1,
-    totalAmount: 195000,
-    codAmount: 0,
-    codPrepaidAmount: 0,
-    shippingFee: 20000,
-    paymentMethod: 'ONLINE_VNPAY',
-    createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    items: [
-      { productName: 'Cam sành hữu cơ loại 2 (5kg)', quantity: 1, unit: 'thùng', price: 175000 },
-    ],
-  },
-  {
-    orderId: 503,
-    orderCode: 'CN-SHP-503',
-    shopName: 'HTX Rau Quả Bảo Lộc',
-    shopAddress: 'Xa lộ Hà Nội, Phước Long B, TP. Thủ Đức',
-    shopLatitude: 10.838,
-    shopLongitude: 106.765,
-    recipientName: 'Phạm Hoàng Nam',
-    recipientPhone: '0903 888 999',
-    shippingAddress: '12 Đỗ Xuân Hợp, Phước Long B, TP. Thủ Đức',
-    shippingLatitude: 10.835,
-    shippingLongitude: 106.762,
-    distanceKm: 3.5,
-    totalAmount: 420000,
-    codAmount: 420000,
-    codPrepaidAmount: 336000,
-    shippingFee: 30000,
-    paymentMethod: 'COD',
-    createdAt: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-    items: [
-      { productName: 'Combo Túi Mù 5 Bữa Nấu', quantity: 1, unit: 'combo', price: 199000 },
-      { productName: 'Dưa lưới VietGAP ruột cam', quantity: 2, unit: 'quả', price: 95000 },
-    ],
-  },
-]
+/** Lý do giao thất bại, khớp enum DeliveryFailReason ở BE */
+export type DeliveryFailReason = 'KHONG_LIEN_LAC_DUOC' | 'SAI_DIA_CHI' | 'KHACH_TU_CHOI' | 'KHAC'
 
-let myMockShippingOrders: ShipperOrderResponse[] = [
-  {
-    orderId: 499,
-    orderCode: 'CN-SHP-499',
-    status: 'SHIPPING',
-    shopName: 'Nông Trại Cầu Đất Farm',
-    shopAddress: '128 Đường Xuân Thọ, Đà Lạt',
-    shopLatitude: 10.845,
-    shopLongitude: 106.775,
-    recipientName: 'Đặng Ngọc Hương',
-    recipientPhone: '0918 777 666',
-    shippingAddress: '23 Đình Phong Phú, Tăng Nhơn Phú B, TP. Thủ Đức',
-    shippingLatitude: 10.839,
-    shippingLongitude: 106.771,
-    distanceKm: 1.8,
-    totalAmount: 310000,
-    codAmount: 310000,
-    codPrepaidAmount: 248000,
-    codPaymentOption: 'WALLET',
-    shippingFee: 25000,
-    paymentMethod: 'COD',
-    createdAt: new Date(Date.now() - 1000 * 60 * 80).toISOString(),
-    items: [
-      { productName: 'Thùng rau quả dinh dưỡng 5kg', quantity: 1, unit: 'thùng', price: 285000 },
-    ],
-  },
-]
-
-
-function unwrap<T>(res: unknown): T {
-  if (res && typeof res === 'object') {
-    if ('data' in res && (res as { data: unknown }).data && typeof (res as { data: unknown }).data === 'object' && 'result' in (res as { data: { result: unknown } }).data) {
-      return ((res as { data: ApiResponse<T> }).data).result as T
-    }
-    if ('result' in res) {
-      return (res as ApiResponse<T>).result as T
-    }
-  }
-  return res as T
+export interface FailOrderRequest {
+  reason: DeliveryFailReason
+  note?: string
+  callAttempts?: number
+  proofImageUrls: string[]
 }
 
-export const shipperService = freshResponses({
-  async getAvailableOrders(page = 0, size = 10): Promise<ApiResponse<PageResponse<AvailableOrderResponse>>> {
-    try {
-      const res = await axiosInstance.get('/orders/ready', { params: { page, size } })
-      const data = unwrap<any>(res)
-      if (data && data.content) {
-        const content: AvailableOrderResponse[] = data.content.map((o: any) => ({
-          orderId: o.orderId,
-          orderCode: `ORDER-${o.orderId}`,
-          shopName: o.shopName,
-          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
-          shopLatitude: o.shopLatitude ?? 10.845,
-          shopLongitude: o.shopLongitude ?? 106.775,
-          recipientName: o.recipientName,
-          recipientPhone: o.recipientPhone,
-          shippingAddress: o.shippingAddress,
-          shippingLatitude: o.shippingLatitude ?? 10.848,
-          shippingLongitude: o.shippingLongitude ?? 106.772,
-          distanceKm: o.distanceKm,
-          totalAmount: o.totalAmount,
-          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
-          codPrepaidAmount: o.codPrepaidAmount ?? 0,
-          shippingFee: o.shippingFee,
-          paymentMethod: o.paymentMethod,
-          note: o.note,
-          createdAt: o.createdAt,
-          items: (o.items || []).map((it: any) => ({
-            productName: it.itemName,
-            quantity: it.quantity,
-            price: it.unitPrice,
-          })),
-        }))
-        return {
-          code: 200,
-          result: {
-            page: data.number ?? page,
-            size: data.size ?? size,
-            totalElements: data.totalElements ?? content.length,
-            totalPages: data.totalPages ?? 1,
-            first: data.first ?? true,
-            last: data.last ?? true,
-            content,
-          },
-        }
-      }
-    } catch (err) {
-      console.warn('Backend /orders/ready unreachable, fallback to mock data:', err)
-    }
+/** Số cuộc gọi tối thiểu trước khi được báo "không liên lạc được" */
+export const MIN_FAIL_CALL_ATTEMPTS = 3
 
-    const totalElements = mockAvailableOrders.length
-    const totalPages = Math.ceil(totalElements / size) || 1
-    const content = mockAvailableOrders.slice(page * size, (page + 1) * size)
-    return {
-      code: 200,
-      result: {
-        page,
-        size,
-        totalElements,
-        totalPages,
-        first: page === 0,
-        last: page >= totalPages - 1,
-        content,
-      },
-    }
+/** Số ảnh bằng chứng tối đa mỗi lần xác nhận */
+export const MAX_PROOF_IMAGES = 5
+
+/** Đơn backend (OrderResponse) → dạng dùng ở màn shipper */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toShipperOrder(o: any): ShipperOrderResponse {
+  return {
+    orderId: o.orderId,
+    orderCode: `ORDER-${o.orderId}`,
+    status: o.status,
+    shopName: o.shopName,
+    shopAddress: o.shopAddress,
+    shopPhone: o.shopPhone,
+    shopLatitude: o.shopLatitude,
+    shopLongitude: o.shopLongitude,
+    recipientName: o.recipientName,
+    recipientPhone: o.recipientPhone,
+    shippingAddress: o.shippingAddress,
+    shippingLatitude: o.shippingLatitude,
+    shippingLongitude: o.shippingLongitude,
+    distanceKm: o.distanceKm,
+    distanceToShopKm: o.distanceToShopKm,
+    totalAmount: o.totalAmount,
+    // codAmount = 0 (chưa thu tiền) thì lấy tổng tiền đơn
+    codAmount: o.paymentMethod === 'COD' ? o.codAmount || o.totalAmount || 0 : 0,
+    codPrepaidAmount: 0,
+    codReservedAmount: o.codReservedAmount,
+    shippingFee: o.shippingFee,
+    paymentMethod: o.paymentMethod,
+    note: o.note,
+    createdAt: o.createdAt,
+    pickedUpAt: o.pickedUpAt,
+    deliveredAt: o.deliveredAt,
+    refundAmount: o.refundAmount,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    items: (o.items || []).map((it: any) => ({
+      productName: it.itemName,
+      quantity: it.quantity,
+      price: it.unitPrice,
+    })),
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toPage<T>(data: any, map: (o: unknown) => T, page: number, size: number): PageResponse<T> {
+  const content = (data?.content ?? []).map(map)
+  return {
+    page: data?.number ?? page,
+    size: data?.size ?? size,
+    totalElements: data?.totalElements ?? content.length,
+    totalPages: data?.totalPages ?? 1,
+    first: data?.first ?? true,
+    last: data?.last ?? true,
+    content,
+  }
+}
+
+/**
+ * Luồng giao hàng của Shipper. Mọi lỗi API được ném ra nguyên vẹn (ApiError có data.code)
+ * để màn hình báo đúng lý do; không còn dữ liệu mock.
+ */
+export const shipperService = {
+  /**
+   * Đơn READY chưa có người nhận trong bán kính quanh shipper, gần nhất trước.
+   * Bắt buộc đang trực tuyến (BE trả 7006 nếu chưa).
+   */
+  async getAvailableOrders(
+    page = 0,
+    size = 10,
+    coords?: { lat: number; lng: number } | null,
+  ): Promise<ApiResponse<PageResponse<AvailableOrderResponse>>> {
+    const res = await axiosInstance.get('/orders/ready', {
+      params: { page, size, ...(coords ? { lat: coords.lat, lng: coords.lng } : {}) },
+    })
+    return { code: 1000, result: toPage(unwrap(res), toShipperOrder, page, size) }
   },
 
-  async getNearbyOrders(_lat: number, _lng: number): Promise<ApiResponse<AvailableOrderResponse[]>> {
-    try {
-      const res = await axiosInstance.get('/orders/ready', { params: { page: 0, size: 20 } })
-      const data = unwrap<any>(res)
-      if (data && data.content && data.content.length > 0) {
-        const content: AvailableOrderResponse[] = data.content.map((o: any) => ({
-          orderId: o.orderId,
-          orderCode: `ORDER-${o.orderId}`,
-          shopName: o.shopName,
-          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
-          shopLatitude: o.shopLatitude ?? 10.845,
-          shopLongitude: o.shopLongitude ?? 106.775,
-          recipientName: o.recipientName,
-          recipientPhone: o.recipientPhone,
-          shippingAddress: o.shippingAddress,
-          shippingLatitude: o.shippingLatitude ?? 10.848,
-          shippingLongitude: o.shippingLongitude ?? 106.772,
-          distanceKm: o.distanceKm,
-          totalAmount: o.totalAmount,
-          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
-          shippingFee: o.shippingFee,
-          paymentMethod: o.paymentMethod,
-          createdAt: o.createdAt,
-          items: (o.items || []).map((it: any) => ({
-            productName: it.itemName,
-            quantity: it.quantity,
-            price: it.unitPrice,
-          })),
-        }))
-        return { code: 200, result: content }
-      }
-    } catch (err) {
-      console.warn('Fallback to mock nearby orders:', err)
-    }
-    return { code: 200, result: [...mockAvailableOrders] }
+  async getNearbyOrders(lat: number, lng: number): Promise<ApiResponse<AvailableOrderResponse[]>> {
+    const res = await shipperService.getAvailableOrders(0, 20, { lat, lng })
+    return { code: 1000, result: res.result?.content ?? [] }
   },
 
+  /** Đơn đang giao của tôi (SHIPPING, PICKED_UP) */
   async getMyOrders(): Promise<ApiResponse<ShipperOrderResponse[]>> {
-    try {
-      const res = await axiosInstance.get('/orders/shipper/my')
-      const data = unwrap<any>(res)
-      const list = data?.content ?? (Array.isArray(data) ? data : null)
-      if (list) {
-        const result: ShipperOrderResponse[] = list.map((o: any) => ({
-          orderId: o.orderId,
-          orderCode: `ORDER-${o.orderId}`,
-          status: o.status,
-          shopName: o.shopName,
-          shopAddress: o.shopAddress || 'Khu công nghệ cao, TP. Thủ Đức',
-          shopLatitude: o.shopLatitude ?? 10.845,
-          shopLongitude: o.shopLongitude ?? 106.775,
-          recipientName: o.recipientName,
-          recipientPhone: o.recipientPhone,
-          shippingAddress: o.shippingAddress,
-          shippingLatitude: o.shippingLatitude ?? 10.848,
-          shippingLongitude: o.shippingLongitude ?? 106.772,
-          distanceKm: o.distanceKm,
-          totalAmount: o.totalAmount,
-          codAmount: o.codAmount ?? (o.paymentMethod === 'COD' ? o.totalAmount : 0),
-          shippingFee: o.shippingFee,
-          paymentMethod: o.paymentMethod,
-          note: o.note,
-          createdAt: o.createdAt,
-          pickedUpAt: o.pickedUpAt,
-          items: (o.items || []).map((it: any) => ({
-            productName: it.itemName,
-            quantity: it.quantity,
-            price: it.unitPrice,
-          })),
-        }))
-        return { code: 200, result }
-      }
-    } catch (err) {
-      console.warn('Backend /orders/shipper/my unreachable, fallback to mock:', err)
-    }
-    return { code: 200, result: [...myMockShippingOrders] }
+    const res = await axiosInstance.get('/orders/shipper/my', {
+      params: { page: 0, size: 10, statuses: 'SHIPPING,PICKED_UP' },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = unwrap<any>(res)
+    const list = data?.content ?? (Array.isArray(data) ? data : [])
+    return { code: 1000, result: list.map(toShipperOrder) }
   },
 
-  async acceptOrder(orderId: number, codPaymentOption?: 'CASH' | 'WALLET'): Promise<ApiResponse<boolean>> {
-    try {
-      await axiosInstance.put(`/orders/${orderId}/ship`)
-      return { code: 200, result: true, message: 'Nhận đơn thành công' }
-    } catch (err) {
-      console.warn('Backend /orders/:id/ship failed, using local update:', err)
-    }
-    const idx = mockAvailableOrders.findIndex((o) => o.orderId === orderId)
-    if (idx !== -1) {
-      const order = mockAvailableOrders[idx]
-      mockAvailableOrders.splice(idx, 1)
-      myMockShippingOrders.unshift({
-        ...order,
-        status: 'SHIPPING',
-        codPaymentOption: codPaymentOption ?? 'WALLET',
-      })
-    }
-    return { code: 200, result: true, message: 'Nhận đơn thành công' }
+  /**
+   * Nhận đơn: READY → SHIPPING. Đơn COD giữ chỗ đủ tổng tiền trong ví.
+   * Lỗi thường gặp: 7004, 7005, 7006, 16013 (result có required/available/missing), 16014.
+   */
+  async acceptOrder(orderId: number): Promise<ShipperOrderResponse> {
+    return toShipperOrder(unwrap(await axiosInstance.put(`/orders/${orderId}/ship`)))
   },
 
-  async pickupOrder(orderId: number): Promise<ApiResponse<boolean>> {
-    try {
-      await axiosInstance.put(`/orders/${orderId}/pickup`)
-      return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
-    } catch (err) {
-      console.warn('Backend /orders/:id/pickup failed, using local update:', err)
-    }
-    const target = myMockShippingOrders.find((o) => o.orderId === orderId)
-    if (target) {
-      target.status = 'PICKED_UP'
-      target.pickedUpAt = new Date().toISOString()
-    }
-    return { code: 200, result: true, message: 'Đã xác nhận lấy hàng tại shop' }
+  /** Đã lấy hàng tại nhà vườn: SHIPPING → PICKED_UP */
+  async pickupOrder(orderId: number): Promise<ShipperOrderResponse> {
+    return toShipperOrder(unwrap(await axiosInstance.put(`/orders/${orderId}/pickup`)))
   },
 
-  async updateOrderStatus(
-    orderId: number,
-    payload: { status: 'DELIVERED' | 'FAILED'; note?: string },
-    _files?: File[],
-  ): Promise<ApiResponse<boolean>> {
-    try {
-      if (payload.status === 'DELIVERED') {
-        await axiosInstance.put(`/orders/${orderId}/deliver`)
-      } else if (payload.status === 'FAILED') {
-        await axiosInstance.put(`/orders/${orderId}/fail`)
-      }
-      return { code: 200, result: true, message: 'Cập nhật đơn hàng thành công' }
-    } catch (err) {
-      console.warn('Backend deliver/fail failed, using local update:', err)
-    }
-    const target = myMockShippingOrders.find((o) => o.orderId === orderId)
-    if (target) {
-      target.status = payload.status
-      if (payload.note) target.note = payload.note
-    }
-    return { code: 200, result: true, message: 'Cập nhật đơn hàng thành công' }
+  /** Giao thành công, bắt buộc ít nhất 1 ảnh bằng chứng (đã upload) */
+  async deliverOrder(orderId: number, proofImageUrls: string[]): Promise<ShipperOrderResponse> {
+    return toShipperOrder(unwrap(await axiosInstance.put(`/orders/${orderId}/deliver`, { proofImageUrls })))
   },
 
+  /** Báo giao thất bại: lý do, số cuộc gọi, ảnh bằng chứng */
+  async failOrder(orderId: number, body: FailOrderRequest): Promise<ShipperOrderResponse> {
+    return toShipperOrder(unwrap(await axiosInstance.put(`/orders/${orderId}/fail`, body)))
+  },
+
+  /** Upload ảnh bằng chứng giao hàng, trả về danh sách URL */
+  async uploadProofImages(files: File[]): Promise<string[]> {
+    const urls: string[] = []
+    for (const file of files.slice(0, MAX_PROOF_IMAGES)) {
+      const res = await uploadService.uploadImage(file, 'delivery-proofs')
+      if (res.result?.url) urls.push(res.result.url)
+    }
+    return urls
+  },
+
+  /** Bật trực tuyến, cũng là heartbeat: gọi lại mỗi ~60s khi đang trực tuyến */
   async goOnline(coords: { latitude: number; longitude: number }): Promise<ApiResponse<void>> {
-    try {
-      await axiosInstance.post('/shippers/status/online', coords)
-      try {
-        localStorage.setItem('shipper_is_online', 'true')
-        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
-      } catch {}
-      return { code: 200, message: 'Đã bật trực tuyến thành công' }
-    } catch (err) {
-      console.warn('Backend goOnline failed, using local status:', err)
-      try {
-        localStorage.setItem('shipper_is_online', 'true')
-        localStorage.setItem('shipper_last_coords', JSON.stringify(coords))
-      } catch {}
-      return { code: 200, message: 'Đã bật trực tuyến' }
-    }
+    await axiosInstance.post('/shippers/status/online', coords)
+    return { code: 1000, message: 'Đã bật trực tuyến' }
   },
 
   async goOffline(): Promise<ApiResponse<void>> {
-    try {
-      await axiosInstance.post('/shippers/status/offline')
-      try {
-        localStorage.removeItem('shipper_is_online')
-      } catch {}
-      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
-    } catch (err) {
-      console.warn('Backend goOffline failed, using local status:', err)
-      try {
-        localStorage.removeItem('shipper_is_online')
-      } catch {}
-      return { code: 200, message: 'Đã chuyển sang ngoại tuyến' }
-    }
+    await axiosInstance.post('/shippers/status/offline')
+    return { code: 1000, message: 'Đã chuyển sang ngoại tuyến' }
   },
 
   async getOnlineStatus(): Promise<ApiResponse<ShipperStatusResponse>> {
-    try {
-      const res = await axiosInstance.get('/shippers/status')
-      const data = unwrap<ShipperStatusResponse>(res)
-      if (data) {
-        if (data.isOnline) {
-          localStorage.setItem('shipper_is_online', 'true')
-        } else {
-          localStorage.removeItem('shipper_is_online')
-        }
-        return { code: 200, result: data }
-      }
-    } catch (err) {
-      console.warn('Backend getOnlineStatus failed, fallback to local storage:', err)
-    }
-    const isOnline = localStorage.getItem('shipper_is_online') === 'true'
-    let coords: { latitude?: number; longitude?: number } = {}
-    try {
-      const stored = localStorage.getItem('shipper_last_coords')
-      if (stored) coords = JSON.parse(stored)
-    } catch {}
-    return {
-      code: 200,
-      result: {
-        isOnline,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      },
-    }
+    return { code: 1000, result: unwrap<ShipperStatusResponse>(await axiosInstance.get('/shippers/status')) }
   },
-})
+}
 
+/** Khoảng cách gửi heartbeat khi đang trực tuyến (BE tự chuyển offline sau 5 phút không có tín hiệu) */
+export const SHIPPER_HEARTBEAT_MS = 60_000
+
+function errorData(err: unknown): { code?: number; message?: string; result?: unknown } | undefined {
+  if (err && typeof err === 'object' && 'data' in err) {
+    const data = (err as { data?: unknown }).data
+    if (data && typeof data === 'object') return data as { code?: number; message?: string; result?: unknown }
+  }
+  return undefined
+}
+
+const vnd = (n: unknown) => new Intl.NumberFormat('vi-VN').format(Number(n) || 0) + 'đ'
+
+/** Mã lỗi của luồng giao hàng → câu dễ hiểu cho tài xế */
+export function shipperErrorMessage(err: unknown, fallback: string): string {
+  const data = errorData(err)
+  switch (data?.code) {
+    case 7002:
+      return 'Đơn này vừa đổi trạng thái. Tải lại danh sách nhé.'
+    case 7004:
+      return 'Bạn đang có đơn chưa giao xong. Hoàn tất đơn đó rồi nhận thêm nhé.'
+    case 7005:
+      return 'Đơn này đã được tài xế khác nhận.'
+    case 7006:
+      return 'Bạn cần bật trực tuyến để xem và nhận đơn.'
+    case 7007:
+      return 'Cần chụp ít nhất 1 ảnh bằng chứng.'
+    case 7009:
+      return `Cần gọi khách tối thiểu ${MIN_FAIL_CALL_ATTEMPTS} cuộc trước khi báo không liên lạc được.`
+    case 16013: {
+      const r = (data.result ?? {}) as { required?: number; available?: number; missing?: number }
+      return `Đơn COD cần ký quỹ ${vnd(r.required)} nhưng ví chỉ còn ${vnd(r.available)} khả dụng. Nạp thêm ${vnd(r.missing)} để nhận đơn.`
+    }
+    case 16014:
+      return 'Ví đang âm do còn tiền COD chưa nộp về sàn. Nạp ví hoặc nộp tiền COD trước khi nhận đơn.'
+  }
+  // 9999 = lỗi chưa phân loại ở BE ("Uncategorized Error"): dùng câu dự phòng tiếng Việt
+  if (data?.code === 9999) return fallback
+  return data?.message?.trim() || fallback
+}
+
+/** Mã lỗi BE (nếu có) */
+export function shipperErrorCode(err: unknown): number | undefined {
+  return errorData(err)?.code
+}

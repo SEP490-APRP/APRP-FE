@@ -11,6 +11,7 @@ import {
   ImagePlus,
   Loader2,
   MapPin,
+  Navigation,
   Package,
   ShieldCheck,
   Sprout,
@@ -53,10 +54,12 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
   const [registering, setRegistering] = useState<CampaignResponse | null>(null)
   const calls = useQuery({ queryKey: keys.calls, queryFn: () => campaignService.getOpenFarmCalls(), retry: 1 })
   const mine = useQuery({ queryKey: keys.mine, queryFn: () => campaignService.getMyRegistrations(), retry: 1 })
-  const myByCampaign = useMemo(
-    () => new Map((mine.data ?? []).map((r) => [r.campaignId, r])),
-    [mine.data],
-  )
+  // Một shop có thể góp nhiều lô vào cùng chiến dịch
+  const myByCampaign = useMemo(() => {
+    const m = new Map<number, FarmRegistrationResponse[]>()
+    for (const r of [...(mine.data ?? [])].reverse()) m.set(r.campaignId, [...(m.get(r.campaignId) ?? []), r])
+    return m
+  }, [mine.data])
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -98,9 +101,9 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
         ) : !calls.data?.length ? (
           <Empty text="Hiện chưa có chiến dịch nào kêu gọi nhà vườn. CapNong sẽ gửi thông báo khi có chiến dịch mới." />
         ) : (
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="mx-auto grid max-w-4xl gap-6">
             {calls.data.map((c) => (
-              <CallCard key={c.campaignId} c={c} mine={myByCampaign.get(c.campaignId)} onRegister={() => setRegistering(c)} />
+              <CallCard key={c.campaignId} c={c} mine={myByCampaign.get(c.campaignId) ?? []} onRegister={() => setRegistering(c)} />
             ))}
           </div>
         )
@@ -133,71 +136,107 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
 
 /* ─────────────────────────── Thẻ lời kêu gọi ─────────────────────────── */
 
-function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine?: FarmRegistrationResponse; onRegister: () => void }) {
+function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegistrationResponse[]; onRegister: () => void }) {
   const gathered = Number(c.approvedSurplusKg ?? 0)
   const pct = c.targetVolumeKg > 0 ? Math.min(100, (gathered / c.targetVolumeKg) * 100) : 0
+  const remaining = Math.max(0, c.targetVolumeKg - gathered)
+  const myKg = mine.reduce((s, r) => s + Number(r.surplusVolumeKg ?? 0), 0)
   return (
-    <article className="flex flex-col rounded-3xl border border-[#e4ede0] bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#4a7c2f]">
-            {[c.categoryName, c.season].filter(Boolean).join(' · ') || 'Chiến dịch'}
-          </p>
-          <h4 className="mt-1 text-lg font-black leading-snug text-[#1c2216]">{c.title}</h4>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#fff3d6] px-2.5 py-1 text-[11px] font-extrabold text-[#8a5a00]">
-          {timeLeftLabel(c.cutoffAt)}
-        </span>
-      </div>
-
-      <div className="mt-4 rounded-2xl bg-[#f4f7f1] p-3.5 text-sm">
-        <p className="flex items-start gap-2 font-bold text-[#1c2216]">
-          <MapPin size={16} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
-          <span>
-            Điểm gom: {c.collectionSiteName || 'Đang cập nhật'}
-            {c.collectionSiteAddress && <span className="block text-xs font-medium text-[#5d6657]">{c.collectionSiteAddress}</span>}
-          </span>
-        </p>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <Mini label="Giá tham khảo" value={`${formatVnd(c.rescuePricePerKg)}/kg`} />
-          <Mini label="Cần gom" value={formatKg(c.targetVolumeKg)} />
-          <Mini label="Hạn đăng ký" value={fmtDate(c.cutoffAt)} />
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex justify-between text-xs text-[#5d6657]">
-          <span>{c.approvedFarmCount} nhà vườn đã được duyệt</span>
-          <span className="font-bold">{formatKg(gathered)}</span>
-        </div>
-        <div className="mt-1.5 h-1.5 rounded-full bg-[#e9efe4]">
-          <div className="h-full rounded-full bg-[#4a7c2f]" style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <a href={`/chien-dich/${c.campaignId}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#326318] hover:underline">
-          Xem bài chiến dịch
-        </a>
-        {mine ? (
-          <StatusChip status={mine.status} />
-        ) : (
-          <button
-            type="button"
-            onClick={onRegister}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#326318] px-5 py-2.5 text-xs font-extrabold uppercase text-white shadow-sm transition hover:bg-[#244a10] active:scale-95"
-          >
-            <Sprout size={15} /> Đăng ký góp hàng
-          </button>
+    <article className="overflow-hidden rounded-3xl border border-[#e4ede0] bg-white shadow-sm">
+      {/* Đầu thẻ: ảnh bìa + tiêu đề */}
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:p-6">
+        {c.coverImageUrl && (
+          <img src={c.coverImageUrl} alt="" className="h-36 w-full shrink-0 rounded-2xl object-cover sm:h-28 sm:w-40" />
         )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#e7f3de] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-[#2b5619]">
+              {[c.categoryName, c.season].filter(Boolean).join(' · ') || 'Chiến dịch'}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3d6] px-2.5 py-0.5 text-[11px] font-extrabold text-[#8a5a00]">
+              <Clock size={12} /> {timeLeftLabel(c.cutoffAt)}
+            </span>
+          </div>
+          <h4 className="mt-2 text-xl font-black leading-snug text-[#1c2216]">{c.title}</h4>
+          <a
+            href={`/chien-dich/${c.campaignId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-sm font-bold text-[#326318] hover:underline"
+          >
+            Đọc bài chiến dịch →
+          </a>
+        </div>
+      </div>
+
+      {/* 3 con số chính */}
+      <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
+        <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
+        <BigStat label="Còn cần gom" value={formatKg(remaining)} unit={`/ ${formatKg(c.targetVolumeKg)}`} />
+        <BigStat label="Hạn đăng ký" value={fmtDate(c.cutoffAt)} />
+      </dl>
+
+      <div className="flex flex-col gap-5 p-5 sm:p-6">
+        {/* Tiến độ gom */}
+        <div>
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="font-bold text-[#1c2216]">Đã gom {formatKg(gathered)}</span>
+            <span className="text-[#5d6657]">{c.approvedFarmCount ?? 0} nhà vườn được duyệt · {Math.round(pct)}%</span>
+          </div>
+          <div className="mt-2 h-2.5 rounded-full bg-[#e9efe4]">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#4a7c2f] to-[#8bc56b]" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+
+        {/* Điểm gom + bản đồ */}
+        <SiteLocation c={c} label="Điểm gom hàng" compact />
+
+        {/* Các lô mình đã đăng ký */}
+        {mine.length > 0 && (
+          <div className="rounded-2xl border border-[#e4ede0] p-4">
+            <p className="text-xs font-extrabold uppercase tracking-wider text-[#5d6657]">
+              Lô bạn đã đăng ký · {mine.length} lô · {formatKg(myKg)}
+            </p>
+            <ul className="mt-3 flex flex-col gap-2">
+              {mine.map((r, i) => (
+                <li key={r.registrationId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 text-[#1c2216]">
+                    <b>Lô {i + 1}</b> · {r.productName || 'Nông sản'} · {formatKg(r.surplusVolumeKg)}
+                  </span>
+                  <StatusChip status={r.status} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onRegister}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#326318] px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#244a10] active:scale-[0.99] sm:w-auto sm:self-end"
+        >
+          <Sprout size={16} /> {mine.length ? 'Đăng ký thêm lô hàng' : 'Đăng ký góp hàng'}
+        </button>
       </div>
     </article>
   )
 }
 
+function BigStat({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <div className="min-w-0 px-4 py-3 sm:px-6">
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-[#7e8779]">{label}</dt>
+      <dd className="mt-0.5 truncate text-lg font-black text-[#1c2216] sm:text-xl">
+        {value}
+        {unit && <span className="ml-1 text-xs font-semibold text-[#7e8779]">{unit}</span>}
+      </dd>
+    </div>
+  )
+}
+
 /* ─────────────────────────── Form đăng ký lô hàng ─────────────────────────── */
 
-function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: () => void; onDone: () => void }) {
+export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: () => void; onDone: () => void }) {
   const qc = useQueryClient()
   const { data: myProducts } = useMyProducts({ size: 100 })
   const products = (myProducts?.content ?? []).map((p) => ({
@@ -314,13 +353,10 @@ function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: 
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="dk-title">
       <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
         <header className="flex items-start justify-between gap-4 border-b border-[#eef2ea] px-6 py-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#4a7c2f]">Đăng ký góp hàng</p>
-            <h4 id="dk-title" className="text-lg font-black text-[#1c2216]">{c.title}</h4>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#5d6657]">
-              <MapPin size={13} /> Mang hàng tới: <strong>{c.collectionSiteName || 'điểm gom sẽ được thông báo'}</strong>
-              {c.collectionSiteAddress ? ` · ${c.collectionSiteAddress}` : ''}
-            </p>
+            <h4 id="dk-title" className="mt-1 text-lg font-black leading-snug text-[#1c2216] sm:text-xl">{c.title}</h4>
+            <SiteLocation c={c} />
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-full p-2 text-[#5d6657] hover:bg-[#f4f7f1]">
             <X size={18} />
@@ -395,9 +431,43 @@ function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: 
                   onChange={(e) => setHarvestDate(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
                 />
+                <span className="mt-1 block text-[11px] font-medium text-[#7e8779]">
+                  Chọn từ hôm nay{deliveryDate ? ` đến ${fmtDate(deliveryDate)}` : ''}
+                </span>
                 {err('harvest')}
               </label>
             </div>
+
+            {/* Mốc thời gian để shop chọn ngày thu hoạch phù hợp */}
+            <ol className="mt-4 grid gap-2 rounded-2xl border border-[#e3ecd9] bg-[#f6faf2] p-3.5 text-xs sm:grid-cols-3">
+              <li className="flex gap-2">
+                <CalendarClock size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+                <span>
+                  <span className="block font-bold text-[#1c2216]">Hạn đăng ký</span>
+                  <span className="text-[#5d6657]">{fmtDate(c.cutoffAt)}</span>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <MapPin size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+                <span>
+                  <span className="block font-bold text-[#1c2216]">Mang hàng tới điểm tập kết</span>
+                  <span className="text-[#5d6657]">
+                    Sau khi được duyệt, {deliveryDate ? `chậm nhất trước ngày ${fmtDate(deliveryDate)}` : 'CapNong sẽ hẹn ngày'}
+                  </span>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <Package size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+                <span>
+                  <span className="block font-bold text-[#1c2216]">Giao tới người mua</span>
+                  <span className="text-[#5d6657]">{deliveryDate ? `Dự kiến ${fmtDate(deliveryDate)}` : 'Sẽ thông báo sau'}</span>
+                </span>
+              </li>
+            </ol>
+            <p className="mt-2 text-[11px] leading-relaxed text-[#7e8779]">
+              Ngày thu hoạch không được sau ngày giao{deliveryDate ? ` ${fmtDate(deliveryDate)}` : ''}, và hàng phải còn tươi tới ngày giao
+              (theo thời gian bảo quản bạn chọn ở bước sau). Nên thu hoạch sát ngày mang hàng tới điểm tập kết.
+            </p>
           </Step>
 
           {/* 3. Ảnh */}
@@ -534,6 +604,57 @@ function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: 
 }
 
 /* ─────────────────────────── Đăng ký của tôi ─────────────────────────── */
+
+/* ─────────────────────────── Điểm tập kết: chỉ đường + bản đồ ─────────────────────────── */
+
+function SiteLocation({ c, label = 'Mang hàng tới', compact }: { c: CampaignResponse; label?: string; compact?: boolean }) {
+  const [showMap, setShowMap] = useState(false)
+  const hasCoord = c.collectionSiteLatitude != null && c.collectionSiteLongitude != null
+  const q = hasCoord ? `${c.collectionSiteLatitude},${c.collectionSiteLongitude}` : (c.collectionSiteAddress ?? '')
+  return (
+    <div className={`${compact ? '' : 'mt-3 '}overflow-hidden rounded-2xl border border-[#e3ecd9] bg-[#f6faf2]`}>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#4a7c2f] shadow-sm">
+          <MapPin size={16} />
+        </span>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#7e8779]">{label}</p>
+          <p className="text-sm font-bold text-[#1c2216]">{c.collectionSiteName || 'Điểm gom sẽ được thông báo'}</p>
+          {c.collectionSiteAddress && <p className="text-xs leading-relaxed text-[#5d6657]">{c.collectionSiteAddress}</p>}
+          {q && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowMap((v) => !v)}
+                aria-expanded={showMap}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#2b5619] shadow-sm ring-1 ring-[#d6e6c8] hover:bg-[#eef6e7]"
+              >
+                <MapPin size={13} /> {showMap ? 'Ẩn bản đồ' : 'Xem bản đồ'}
+              </button>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#4a7c2f] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#2b5619]"
+              >
+                <Navigation size={13} /> Chỉ đường
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+      {showMap && q && (
+        <iframe
+          title="Bản đồ điểm tập kết"
+          src={`https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=16&hl=vi&output=embed`}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="block h-56 w-full border-0 sm:h-64"
+        />
+      )}
+    </div>
+  )
+}
 
 function RegistrationRow({ r }: { r: FarmRegistrationResponse }) {
   const steps = [

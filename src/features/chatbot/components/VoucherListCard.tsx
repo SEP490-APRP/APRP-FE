@@ -14,10 +14,17 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import type { VoucherItemDto } from '@/services/chatbot.types'
+import type { ApiError } from '@/types'
 import { voucherService } from '@/services/voucher.service'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useUiStore } from '@/stores/useUiStore'
+import { getErrorMessage } from '@/utils'
 import { useChatbotStore } from '../stores/useChatbotStore'
+
+/** Mã lỗi BE khi lưu voucher (ErrorCode 90xx). */
+const VOUCHER_INVALID = 9003
+const VOUCHER_OUT_OF_STOCK = 9004
+const VOUCHER_LIMIT_REACHED = 9005
 
 interface VoucherListCardProps {
   vouchers: VoucherItemDto[]
@@ -84,13 +91,17 @@ export const VoucherListCard: React.FC<VoucherListCardProps> = ({ vouchers }) =>
       }
       setClaimedMap((prev) => ({ ...prev, [voucher.code]: true }))
       showToast(`✓ Đã lưu voucher [${voucher.code}] vào kho voucher của bạn!`, 'success')
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || ''
-      if (msg.includes('đã') || msg.includes('limit') || msg.includes('collected')) {
+    } catch (err) {
+      const code = (err as ApiError).data?.code
+      if (code === VOUCHER_LIMIT_REACHED) {
         setClaimedMap((prev) => ({ ...prev, [voucher.code]: true }))
         showToast(`Bạn đã có voucher [${voucher.code}] trong ví rồi!`, 'info')
+      } else if (code === VOUCHER_OUT_OF_STOCK) {
+        showToast(`Voucher [${voucher.code}] đã hết lượt lưu.`, 'error')
+      } else if (code === VOUCHER_INVALID) {
+        showToast(`Voucher [${voucher.code}] đã hết hạn hoặc tạm ngừng.`, 'error')
       } else {
-        showToast(msg || 'Không thể lưu mã lúc này, bạn vui lòng thử lại sau nhé!', 'error')
+        showToast(getErrorMessage(err, 'Không thể lưu mã lúc này, bạn vui lòng thử lại sau nhé!'), 'error')
       }
     } finally {
       setLoadingCode(null)
