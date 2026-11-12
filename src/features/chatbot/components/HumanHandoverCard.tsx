@@ -26,40 +26,44 @@ export const HumanHandoverCard: React.FC<HumanHandoverCardProps> = ({ handover }
       </div>
 
       <p className="text-xs text-soil-700 leading-relaxed">
-        {handover.note || 'Bạn có thể liên hệ trực tiếp với chuyên viên CSKH hoặc gửi tin nhắn cho chủ nhà vườn:'}
+        {handover.note || 'Bạn có thể gửi tin nhắn trực tiếp cho chủ nhà vườn:'}
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-        {/* Hotline */}
-        <a
-          href={`tel:${handover.hotline}`}
-          className="flex items-center gap-2 p-2 rounded-lg bg-white border border-sky-100 hover:border-sky-300 text-xs font-semibold text-soil-800 transition-colors shadow-2xs"
-        >
-          <div className="p-1.5 rounded-md bg-emerald-100 text-emerald-700">
-            <Phone className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <div className="text-[10px] text-soil-400">Tổng đài hỗ trợ</div>
-            <span className="text-emerald-700">{handover.hotline}</span>
-          </div>
-        </a>
+      {(handover.hotline || handover.zaloUrl) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          {handover.hotline && (
+            <a
+              href={`tel:${handover.hotline}`}
+              className="flex items-center gap-2 p-2 rounded-lg bg-white border border-sky-100 hover:border-sky-300 text-xs font-semibold text-soil-800 transition-colors shadow-2xs"
+            >
+              <div className="p-1.5 rounded-md bg-emerald-100 text-emerald-700">
+                <Phone className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <div className="text-[10px] text-soil-400">Tổng đài hỗ trợ</div>
+                <span className="text-emerald-700">{handover.hotline}</span>
+              </div>
+            </a>
+          )}
 
-        {/* Zalo */}
-        <a
-          href={handover.zaloUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 p-2 rounded-lg bg-white border border-sky-100 hover:border-sky-300 text-xs font-semibold text-soil-800 transition-colors shadow-2xs"
-        >
-          <div className="p-1.5 rounded-md bg-blue-100 text-blue-600">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <div className="text-[10px] text-soil-400">Zalo CSKH 24/7</div>
-            <span className="text-blue-600">Zalo CapNong</span>
-          </div>
-        </a>
-      </div>
+          {handover.zaloUrl && (
+            <a
+              href={handover.zaloUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 p-2 rounded-lg bg-white border border-sky-100 hover:border-sky-300 text-xs font-semibold text-soil-800 transition-colors shadow-2xs"
+            >
+              <div className="p-1.5 rounded-md bg-blue-100 text-blue-600">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <div className="text-[10px] text-soil-400">Zalo hỗ trợ</div>
+                <span className="text-blue-600">Zalo CapNong</span>
+              </div>
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Trigger P2P Chat */}
       {handover.triggerP2pChat && (

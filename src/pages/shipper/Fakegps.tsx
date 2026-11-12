@@ -6,8 +6,10 @@ import {
   Navigation, Play, Square, MapPin, ChevronRight,
   Loader2, Route, Zap, Package, CheckCircle2, X
 } from 'lucide-react';
-import { shipperService } from '@/services/shipper.service';
-import { globalShowAlert } from '@/components/common/Popup';
+import { shipperService, shipperErrorMessage } from '@/services/shipper.service';
+import { DeliveryResultModal } from '@/features/shipper/components/DeliveryResultModal';
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup';
+import { pickupCode } from '@/utils/orderCode';
 
 interface FakeGPSProps {
   orderId: number;           // orderId đang giao
@@ -252,6 +254,11 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
 
   // ---- Xác nhận đã lấy hàng tại Shop ----
   const handleConfirmPickup = async () => {
+    const ok = await globalShowConfirm(
+      `Đối soát mã đơn ${pickupCode(orderId)}`,
+      `Kiểm tra mã trên túi hàng trùng ${pickupCode(orderId)} rồi mới xác nhận đã lấy hàng.`,
+    );
+    if (!ok) return;
     try {
       setActionLoading(true);
       await shipperService.pickupOrder(orderId);
@@ -281,16 +288,20 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   };
 
   // ---- Hoàn tất đơn hàng ----
-  const handleCompleteOrder = async (status: 'DELIVERED' | 'FAILED') => {
+  // Giao thành công / thất bại cần ảnh bằng chứng và lý do: mở modal, BE ghi nhận xong mới kết thúc demo
+  const [resultModal, setResultModal] = useState<'DELIVERED' | 'FAILED' | null>(null);
+  const handleCompleteOrder = (status: 'DELIVERED' | 'FAILED') => setResultModal(status);
+
+  const applyCompleted = (status: 'DELIVERED' | 'FAILED') => {
+    setResultModal(null);
     try {
       setActionLoading(true);
-      await shipperService.updateOrderStatus(orderId, { status });
       setPhase('done');
       setStepInfo(status === 'DELIVERED' ? '✅ Đã giao hàng thành công!' : '❌ Báo giao hàng thất bại');
       globalShowAlert(status === 'DELIVERED' ? 'Giao hàng thành công!' : 'Đã báo giao thất bại', 'Cập nhật', status === 'DELIVERED' ? 'success' : 'warning');
       onOrderUpdated?.();
-    } catch (err: any) {
-      globalShowAlert(err?.data?.message || 'Không thể cập nhật trạng thái', 'Lỗi', 'error');
+    } catch (err) {
+      globalShowAlert(shipperErrorMessage(err, 'Không thể cập nhật trạng thái'), 'Lỗi', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -512,6 +523,14 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
       <p className="text-[9px] text-gray-400 text-center font-medium italic">
         ⚠️ Chỉ dùng để demo — không thay thế GPS thật khi giao hàng thực tế
       </p>
+      {resultModal && (
+        <DeliveryResultModal
+          orderId={orderId}
+          result={resultModal}
+          onClose={() => setResultModal(null)}
+          onDone={applyCompleted}
+        />
+      )}
     </div>
   );
 };

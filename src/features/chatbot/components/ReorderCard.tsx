@@ -29,8 +29,9 @@ export const ReorderCard: React.FC<ReorderCardProps> = ({ reorder }) => {
   const handleReorderAvailable = async () => {
     if (availableItems.length === 0) return
     setIsReorderingAll(true)
-    await addMultipleToCart(availableItems)
+    const addedCount = await addMultipleToCart(availableItems)
     setIsReorderingAll(false)
+    if (addedCount === 0) return
     setAddedSuccess(true)
     setTimeout(() => setAddedSuccess(false), 3000)
   }

@@ -9,6 +9,8 @@ import type {
   RefundDueResponse,
   SpringPage,
   WalletResponse,
+  WalletTopupCreateRequest,
+  WalletTopupResponse,
   WalletTransactionResponse,
   WalletTransactionType,
   WithdrawCreateRequest,
@@ -58,7 +60,16 @@ export const walletApi = {
     postResult<WithdrawResponse>(`/wallets/withdrawals/${id}/approve`, { note }),
   rejectWithdraw: (id: number, note?: string) =>
     postResult<WithdrawResponse>(`/wallets/withdrawals/${id}/reject`, { note }),
+  /** Shipper / Shop tạo link PayOS nạp tiền vào ví */
+  createTopup: (body: WalletTopupCreateRequest) => postResult<WalletTopupResponse>('/wallets/topups', body),
+  getMyTopups: () => getResult<WalletTopupResponse[]>('/wallets/topups/me'),
+  /** Quay lại từ PayOS: BE hỏi PayOS và cộng ví nếu đã trả (gọi nhiều lần an toàn) */
+  confirmTopup: (orderCode: string) => postResult<WalletTopupResponse>(`/wallets/topups/${orderCode}/confirm`),
 }
+
+/** Giới hạn nạp ví (khớp capnong.wallet.min-topup / max-topup ở backend) */
+export const MIN_TOPUP_AMOUNT = 10_000
+export const MAX_TOPUP_AMOUNT = 20_000_000
 
 /** Số tiền rút tối thiểu mỗi lần (khớp capnong.wallet.min-withdraw ở backend) */
 export const MIN_WITHDRAW_AMOUNT = 50_000
@@ -163,7 +174,7 @@ export const WALLET_TX_LABEL: Record<WalletTransactionType, string> = {
   PLATFORM_SHIPPER_FEE: 'Phí dịch vụ shipper',
   PLATFORM_VOUCHER_SUBSIDY: 'Sàn bù voucher',
   PLATFORM_FREESHIP_SUBSIDY: 'Sàn bù freeship',
-  COD_CASH_COLLECTED: 'Giữ tiền mặt COD',
+  COD_CASH_COLLECTED: 'Thu tiền mặt COD',
   COD_CASH_REMITTED: 'Đã nộp tiền COD',
   SHOP_INCOME_HOLD: 'Tạm giữ tiền hàng',
   SHIPPER_INCOME_HOLD: 'Tạm giữ cước giao',
@@ -172,6 +183,14 @@ export const WALLET_TX_LABEL: Record<WalletTransactionType, string> = {
   HOLD_CANCELLED: 'Huỷ tạm giữ (đơn huỷ / thất bại)',
   WITHDRAW_REQUESTED: 'Rút tiền về ngân hàng',
   WITHDRAW_REFUNDED: 'Hoàn tiền (lệnh rút bị từ chối)',
+  COD_RESERVED: 'Ký quỹ đơn COD',
+  COD_RESERVE_RELEASED: 'Gỡ ký quỹ đơn COD',
+  TOP_UP: 'Nạp ví qua PayOS',
+  BUYER_REFUND: 'Hoàn tiền cho người mua',
+  SHOP_REFUND_DEDUCT: 'Trừ tiền do hoàn hàng',
+  PLATFORM_REFUND_DEDUCT: 'Sàn điều chỉnh do hoàn tiền',
+  SHOP_RETURN_SHIPPING_DEDUCT: 'Cước hoàn hàng',
+  SHOP_RETURN_SHIPPING_REFUND: 'Hoàn cước hoàn hàng',
 }
 
 export const walletService = freshResponses({

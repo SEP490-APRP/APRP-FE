@@ -11,6 +11,7 @@ interface ItemOptionsCardProps {
 export const ItemOptionsCard: React.FC<ItemOptionsCardProps> = ({ items }) => {
   const navigate = useNavigate()
   const selectOption = useChatbotStore((s) => s.selectOption)
+  const toggleOpen = useChatbotStore((s) => s.toggleOpen)
   const isLoading = useChatbotStore((s) => s.isLoading)
 
   if (!items || items.length === 0) return null
@@ -22,7 +23,8 @@ export const ItemOptionsCard: React.FC<ItemOptionsCardProps> = ({ items }) => {
 
   const handleViewDetail = (e: React.MouseEvent, item: AiItemOption) => {
     e.stopPropagation()
-    if (item.itemType === 'MYSTERY_BOX' || item.itemType === 'BUILD_COMBO') {
+    toggleOpen()
+    if (item.itemType === 'MYSTERY_BOX' || item.itemType === 'BUILD_COMBO' || item.itemType === 'COMBO') {
       navigate('/combo-tui-mu')
     } else {
       navigate(`/san-pham/${item.itemId}`)
@@ -105,16 +107,16 @@ export const ItemOptionsCard: React.FC<ItemOptionsCardProps> = ({ items }) => {
               <div className="flex flex-col items-end justify-center gap-1 shrink-0">
                 <button
                   type="button"
-                  disabled={isLoading}
+                  disabled={isLoading || item.isOutOfStock}
                   onClick={(e) => {
                     e.stopPropagation()
-                    selectOption(item, 1)
+                    selectOption(item, item.orderQuantity || 1)
                   }}
                   className="py-1 px-3 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-semibold flex items-center gap-1 active:scale-95 transition-all shadow-2xs cursor-pointer disabled:opacity-50 whitespace-nowrap"
                   title="Chọn mua sản phẩm này"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Chọn</span>
+                  <span>{item.isOutOfStock ? 'Hết hàng' : 'Chọn'}</span>
                 </button>
                 <button
                   type="button"

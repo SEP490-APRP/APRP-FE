@@ -32,6 +32,7 @@ import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { OrderSettlementCard } from '@/features/wallet'
 import { CapNongLoading } from '@/components/ui/Loading'
+import { needsPickupCode, pickupCode } from '@/utils/orderCode'
 
 interface OrdersProps {
   onOpenOrderPrep?: (orderId: string) => void
@@ -391,8 +392,8 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                 {/* 4.1 Card Header */}
                 <div className="px-6 py-4 bg-[#fbfdf9] border-b border-[#f1f4ed] flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-black text-sm text-[#1c2216] tracking-tight">
-                      #ORD-{orderId}
+                    <span className="font-black text-sm text-ink tracking-tight">
+                      Đơn {pickupCode(orderId)}
                     </span>
                     {renderStatusBadge(ord.status)}
                     <span
@@ -596,6 +597,17 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                               <span>Xác Nhận Đơn Hàng</span>
                             </button>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Mã đối soát: nhà vườn ghi lên túi hàng, tài xế so khớp khi lấy hàng */}
+                      {needsPickupCode(ord.status) && (
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-leaf-600 bg-leaf-50 px-4 py-3">
+                          <div>
+                            <p className="text-caption font-bold uppercase text-leaf-700">Mã dán lên túi hàng</p>
+                            <p className="text-caption text-ink-muted">Tài xế sẽ so mã này trước khi bấm "Đã lấy hàng"</p>
+                          </div>
+                          <span className="text-3xl font-extrabold tracking-wider text-leaf-800">{pickupCode(orderId)}</span>
                         </div>
                       )}
 

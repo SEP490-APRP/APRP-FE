@@ -34,9 +34,9 @@ export const PaymentAssistanceCard: React.FC<PaymentAssistanceCardProps> = ({ pa
             <h4 className="text-xs font-bold text-soil-900">
               {payment.orderId ? `Hỗ trợ thanh toán Đơn #${payment.orderId}` : 'Cổng thanh toán CapNong'}
             </h4>
-            <span className="text-[10px] text-blue-700 font-semibold">
-              Phương thức: {payment.paymentMethod}
-            </span>
+            {payment.paymentMethod && (
+              <span className="text-[10px] text-blue-700 font-semibold">Phương thức: {payment.paymentMethod}</span>
+            )}
           </div>
         </div>
         {payment.amountDue && payment.amountDue > 0 ? (
@@ -120,13 +120,15 @@ export const PaymentAssistanceCard: React.FC<PaymentAssistanceCardProps> = ({ pa
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         )}
-        <a
-          href={`tel:${payment.supportHotline || '1900636999'}`}
-          className="py-1.5 px-3 text-xs font-semibold text-blue-800 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-2xs flex items-center justify-center gap-1 transition-all"
-        >
-          <Phone className="w-3.5 h-3.5 text-blue-600" />
-          <span>Hotline hỗ trợ</span>
-        </a>
+        {payment.supportHotline && (
+          <a
+            href={`tel:${payment.supportHotline}`}
+            className="py-1.5 px-3 text-xs font-semibold text-blue-800 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-2xs flex items-center justify-center gap-1 transition-all"
+          >
+            <Phone className="w-3.5 h-3.5 text-blue-600" />
+            <span>Hotline hỗ trợ</span>
+          </a>
+        )}
       </div>
     </div>
   )
