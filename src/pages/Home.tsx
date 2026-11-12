@@ -3,7 +3,7 @@ import {
   Categories,
   CombosTeaser,
   FarmerStory,
-  Hero,
+  HeroCarousel,
   Newsletter,
   RescueProcess,
   Testimonials,
@@ -25,7 +25,7 @@ type HomeProps = {
 export default function Home({ onAdd, onInfo, cart }: HomeProps) {
   return (
     <>
-      <Hero />
+      <HeroCarousel />
       <Categories />
       <TodayRescue onAdd={onAdd} cart={cart} />
       <CombosTeaser onAdd={onAdd} />

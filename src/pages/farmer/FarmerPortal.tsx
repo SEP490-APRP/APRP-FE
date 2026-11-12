@@ -17,6 +17,7 @@ import {
   HelpCircle,
   AlertTriangle,
   BookOpen,
+  Flame,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type {
@@ -47,6 +48,7 @@ import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
 import FarmerBlogs from './FarmerBlogs'
 import FarmerMessages from './FarmerMessages'
+import FarmerCampaigns from './Campaigns'
 import OnboardingTour from './OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
@@ -110,6 +112,7 @@ export default function FarmerPortal({
     'profile',
     'wallet',
     'messages',
+    'campaigns',
   ]
   const tabParam = searchParams.get('tab')
   const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
@@ -482,6 +485,7 @@ export default function FarmerPortal({
     { name: 'Báo cáo doanh thu', icon: BarChart3, id: 'revenue-report' },
     { name: 'Sản phẩm', icon: Package, id: 'products' },
     { name: 'Đơn hàng', icon: ShoppingCart, id: 'orders' },
+    { name: 'Chiến dịch giải cứu', icon: Flame, id: 'campaigns' },
     { name: 'Khiếu nại & Trợ giúp', icon: AlertTriangle, id: 'disputes' },
     { name: 'Đánh giá', icon: MessageSquare, id: 'reviews' },
     { name: 'Bài viết & Bảng tin', icon: BookOpen, id: 'blogs' },
@@ -728,6 +732,8 @@ export default function FarmerPortal({
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
               onInfo={handleInfo}
             />
+          ) : currentTab === 'campaigns' ? (
+            <FarmerCampaigns onInfo={handleInfo} />
           ) : currentTab === 'disputes' ? (
             <FarmerDisputes />
           ) : currentTab === 'blogs' ? (

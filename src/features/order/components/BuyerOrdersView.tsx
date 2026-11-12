@@ -24,7 +24,9 @@ import { ReturnRequestModal } from './ReturnRequestModal'
 import { BuyerOrderDetailModal } from './BuyerOrderDetailModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { ReviewModal } from '@/features/review'
-import { orderService, paymentService, productService } from '@/services'
+import { orderService, paymentService, campaignService, productService } from '@/services'
+import type { PreOrderResponse } from '@/services'
+import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
@@ -44,6 +46,13 @@ const TABS: { key: TabKey; label: string }[] = [
 type OrderDisplayItem =
   | { kind: 'batch'; batchId: number; orders: OrderResponse[] }
   | { kind: 'single'; order: OrderResponse }
+  | { kind: 'pre'; preOrder: PreOrderResponse }
+
+const itemTime = (it: OrderDisplayItem): number => {
+  const raw = it.kind === 'pre' ? it.preOrder.createdAt : it.kind === 'batch' ? it.orders[0]?.createdAt : it.order.createdAt
+  const t = raw ? new Date(raw).getTime() : 0
+  return Number.isNaN(t) ? 0 : t
+}
 
 export const BuyerOrdersView: React.FC = () => {
   const { user } = useAuth()
@@ -54,6 +63,9 @@ export const BuyerOrdersView: React.FC = () => {
   const orderIdParam = searchParams.get('orderId')
   const [searchKeyword, setSearchKeyword] = useState(orderIdParam || '')
   const [orders, setOrders] = useState<OrderResponse[]>([])
+  // Đơn đặt trước của chiến dịch giải cứu: hiển thị chung danh sách, gắn mác "Chiến dịch"
+  const [preOrders, setPreOrders] = useState<PreOrderResponse[]>([])
+  const [cancellingPreOrderId, setCancellingPreOrderId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<number | null>(null)
@@ -158,15 +170,24 @@ export const BuyerOrdersView: React.FC = () => {
         statuses = ['CANCELLED', 'FAILED']
       }
 
-      const res = await orderService.fetchMyOrders({
-        page: 0,
-        size: 50,
-        statuses: statuses,
-      })
+      const [res, pre] = await Promise.all([
+        orderService.fetchMyOrders({
+          page: 0,
+          size: 50,
+          statuses: statuses,
+        }),
+        campaignService.getMyPreOrders(0, 50).catch((err) => {
+          console.error('Lỗi khi tải đơn đặt trước:', err)
+          return null
+        }),
+      ])
       setOrders(res.content || [])
+      const preStatuses = PRE_ORDER_TAB_STATUSES[currentTab]
+      setPreOrders((pre?.content ?? []).filter((p) => !preStatuses || preStatuses.includes(p.status)))
     } catch (err) {
       console.error('Lỗi khi tải danh sách đơn hàng:', err)
       setOrders([])
+      setPreOrders([])
     } finally {
       setIsLoading(false)
     }
@@ -207,6 +228,28 @@ export const BuyerOrdersView: React.FC = () => {
         (o.items && o.items.some((it) => it.productName && it.productName.toLowerCase().includes(kw))),
     )
   }, [orders, searchKeyword])
+
+  const filteredPreOrders = useMemo(() => {
+    if (!searchKeyword.trim()) return preOrders
+    const kw = searchKeyword.trim().toLowerCase()
+    return preOrders.filter(
+      (p) => p.code.toLowerCase().includes(kw) || (p.campaignTitle || '').toLowerCase().includes(kw) || 'chiến dịch'.includes(kw),
+    )
+  }, [preOrders, searchKeyword])
+
+  const handleCancelPreOrder = async (p: PreOrderResponse) => {
+    if (!window.confirm(`Hủy đơn đặt trước ${p.code}? Đơn chưa cọc nên bạn không mất tiền.`)) return
+    setCancellingPreOrderId(p.preOrderId)
+    try {
+      await campaignService.cancelPreOrder(p.preOrderId)
+      await fetchOrders()
+    } catch (err) {
+      console.error('Lỗi khi hủy đơn đặt trước:', err)
+      window.alert('Không hủy được đơn đặt trước. Vui lòng thử lại.')
+    } finally {
+      setCancellingPreOrderId(null)
+    }
+  }
 
   // Gom các đơn thuộc cùng 1 checkout batch đang chờ thanh toán (nhiều shop)
   const displayItems = useMemo<OrderDisplayItem[]>(() => {
@@ -249,8 +292,14 @@ export const BuyerOrdersView: React.FC = () => {
       result.push({ kind: 'single', order })
     }
 
+    if (filteredPreOrders.length === 0) return result
+    for (const preOrder of filteredPreOrders) result.push({ kind: 'pre', preOrder })
+    // Xen đơn đặt trước với đơn thường theo thời gian tạo, mới nhất lên đầu
     return result
-  }, [filteredOrders])
+      .map((it, i) => ({ it, i, t: itemTime(it) }))
+      .sort((a, b) => b.t - a.t || a.i - b.i)
+      .map((x) => x.it)
+  }, [filteredOrders, filteredPreOrders])
 
   // Xử lý mở modal lựa chọn thanh toán checkout (Thanh toán tất cả hoặc từng đơn)
   const handleResumeBatchPayment = async (batchId: number, triggerOrderId: number) => {
@@ -413,7 +462,7 @@ export const BuyerOrdersView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="w-full min-w-0 max-w-5xl mx-auto px-4 py-8">
       {/* Tiêu đề & Làm mới */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -515,6 +564,17 @@ export const BuyerOrdersView: React.FC = () => {
                   onCancelSingleOrder={handleOpenCancelModal}
                   isResuming={isLoadingResumeOptions}
                   isCancelling={isCancellingBatch}
+                />
+              )
+            }
+
+            if (item.kind === 'pre') {
+              return (
+                <PreOrderCard
+                  key={`pre-${item.preOrder.preOrderId}`}
+                  p={item.preOrder}
+                  onCancel={handleCancelPreOrder}
+                  cancelling={cancellingPreOrderId === item.preOrder.preOrderId}
                 />
               )
             }
