@@ -15,6 +15,37 @@ import { ENV } from '@/utils'
 
 export type * from './product.types'
 
+/** Chuẩn hóa định dạng ngày từ Backend (mảng Jackson [YYYY, MM, DD], chuỗi YYYY-MM-DD, chuỗi nén YYYYMMDD) thành YYYY-MM-DD */
+export function normalizeExpiryDate(val: any): string | undefined {
+  if (!val) return undefined
+  if (Array.isArray(val) && val.length >= 3) {
+    const y = String(val[0]).padStart(4, '0')
+    const m = String(val[1]).padStart(2, '0')
+    const d = String(val[2]).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  if (typeof val === 'number') {
+    const numStr = String(val)
+    if (numStr.length === 8 && /^\d{8}$/.test(numStr)) {
+      return `${numStr.substring(0, 4)}-${numStr.substring(4, 6)}-${numStr.substring(6, 8)}`
+    }
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (trimmed.includes(',')) {
+      const parts = trimmed.split(',')
+      if (parts.length >= 3) {
+        return `${parts[0].trim().padStart(4, '0')}-${parts[1].trim().padStart(2, '0')}-${parts[2].trim().padStart(2, '0')}`
+      }
+    }
+    if (trimmed.length === 8 && /^\d{8}$/.test(trimmed)) {
+      return `${trimmed.substring(0, 4)}-${trimmed.substring(4, 6)}-${trimmed.substring(6, 8)}`
+    }
+    return trimmed.split('T')[0]
+  }
+  return undefined
+}
+
 /** Chuẩn hóa ProductResponse từ BE để tương thích 100% với UI FE cũ và mới */
 function normalizeProduct(p: any): ProductResponse {
   const id = Number(p.productId ?? p.id)
@@ -26,6 +57,7 @@ function normalizeProduct(p: any): ProductResponse {
   const imageUrl = primaryImg ?? firstImg ?? p.imageUrl ?? p.image ?? ''
   const shopId = Number(p.shop?.id ?? p.shopId ?? p.shopOwnerId ?? 0)
   const shopName = p.shop?.shopName ?? p.shop?.fullName ?? p.shopName ?? ''
+  const expiryDate = normalizeExpiryDate(p.expiryDate)
 
   return {
     ...p,
@@ -43,6 +75,7 @@ function normalizeProduct(p: any): ProductResponse {
     shopId,
     shopOwnerId: shopId,
     shopName,
+    expiryDate,
   }
 }
 

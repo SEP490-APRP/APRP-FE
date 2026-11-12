@@ -33,6 +33,14 @@ import {
 
 import freshFarmerBanner from '@/assets/fresh-farmer-banner.jpg'
 import { useAddToCart } from '@/features/cart'
+import { CustomSelect } from '@/components/common/CustomSelect'
+
+const SORT_BY_OPTIONS = [
+  { value: 'default', label: 'Sắp xếp: Mặc định' },
+  { value: 'asc', label: 'Giá: Thấp → Cao' },
+  { value: 'desc', label: 'Giá: Cao → Thấp' },
+  { value: 'name', label: 'Tên: A → Z' },
+]
 import { useShopMysteryBoxes } from '@/features/mystery-box'
 import { useShopProducts } from '@/features/product'
 import { useReactToReview, useShopReviews } from '@/features/review'
@@ -809,16 +817,13 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
 
                 <div className="h-4 w-px bg-line" />
 
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-3 py-1.5 bg-paper border border-line rounded-xl text-xs font-bold text-ink cursor-pointer hover:border-leaf-300 transition-colors"
-                >
-                  <option value="default">Sắp xếp: Mặc định</option>
-                  <option value="asc">Giá: Thấp → Cao</option>
-                  <option value="desc">Giá: Cao → Thấp</option>
-                  <option value="name">Tên: A → Z</option>
-                </select>
+                <div className="w-44">
+                  <CustomSelect
+                    value={sortBy}
+                    onChange={(val) => setSortBy(String(val))}
+                    options={SORT_BY_OPTIONS}
+                  />
+                </div>
               </div>
             </div>
 

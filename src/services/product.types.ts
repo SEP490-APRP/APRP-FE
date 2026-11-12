@@ -33,6 +33,7 @@ export interface ModerationLabelResponse {
 export interface ModerationResultResponse {
   id: number
   isFlagged?: boolean
+  flagReason?: string
   overallConfidence?: number
   checkedAt?: string
   moderationLabels?: ModerationLabelResponse[]
