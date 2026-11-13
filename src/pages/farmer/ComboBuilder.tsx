@@ -4,6 +4,7 @@ import { useAiSuggestDescription, useMyProducts, useCreateCombo, useUpdateCombo 
 import type { FarmerProduct } from './types'
 import { comboService, uploadService, type MealType, type ProductComboItemRequest } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface ComboBuilderProps {
   initialCombo?: any
@@ -431,17 +432,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
               <label className="block font-bold text-[#353d2f] mb-1">
                 Kiểu bữa ăn (Meal Type) *
               </label>
-              <select
+              <CustomSelect
                 value={mealType}
-                onChange={(e) => setMealType(e.target.value as MealType)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none cursor-pointer"
-              >
-                {MEAL_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setMealType(val as MealType)}
+                options={MEAL_TYPE_OPTIONS}
+              />
             </div>
             <div>
               <label className="block font-bold text-[#353d2f] mb-1">Thể loại combo</label>

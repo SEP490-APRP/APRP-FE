@@ -28,6 +28,14 @@ import {
   useCancelOrder,
 } from '@/features/shop/hooks/useShopOrders'
 import { exportService } from '@/services/export.service'
+import { CustomSelect } from '@/components/common/CustomSelect'
+
+const CANCEL_REASON_OPTIONS = [
+  { value: 'Hết hàng thu hoạch đột xuất', label: 'Hết hàng thu hoạch đột xuất' },
+  { value: 'Nông sản không đạt chuẩn chất lượng tươi', label: 'Nông sản không đạt chuẩn chất lượng tươi' },
+  { value: 'Thời tiết bất khả kháng ảnh hưởng vận chuyển', label: 'Thời tiết bất khả kháng ảnh hưởng vận chuyển' },
+  { value: 'Khách yêu cầu hủy qua tin nhắn', label: 'Khách yêu cầu hủy qua tin nhắn' },
+]
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { OrderSettlementCard } from '@/features/wallet'
@@ -923,20 +931,11 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
             <div className="text-left text-xs space-y-1">
               <label className="text-[11px] font-bold text-[#454c3e]">Lý do hủy đơn:</label>
-              <select
+              <CustomSelect
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none"
-              >
-                <option value="Hết hàng thu hoạch đột xuất">Hết hàng thu hoạch đột xuất</option>
-                <option value="Nông sản không đạt chuẩn chất lượng tươi">
-                  Nông sản không đạt chuẩn chất lượng tươi
-                </option>
-                <option value="Thời tiết bất khả kháng ảnh hưởng vận chuyển">
-                  Thời tiết bất khả kháng ảnh hưởng vận chuyển
-                </option>
-                <option value="Khách yêu cầu hủy qua tin nhắn">Khách yêu cầu hủy qua tin nhắn</option>
-              </select>
+                onChange={(val) => setCancelReason(String(val))}
+                options={CANCEL_REASON_OPTIONS}
+              />
             </div>
 
             <div className="flex gap-2.5 pt-2">

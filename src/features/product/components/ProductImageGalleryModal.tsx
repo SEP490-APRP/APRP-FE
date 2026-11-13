@@ -17,6 +17,7 @@ import {
   useDeleteProductImage,
 } from '../hooks/useProductQueries'
 import { getErrorMessage } from '@/utils'
+import { globalShowConfirm } from '@/components/common/Popup'
 
 interface ProductImageGalleryModalProps {
   productId: number
@@ -77,22 +78,26 @@ export function ProductImageGalleryModal({
       onInfo?.('Tải lên ảnh nông sản thành công!')
       setTimeout(() => setUploadSuccessMsg(null), 4000)
     } catch (err: any) {
+      const code = err?.response?.data?.code ?? err?.data?.code
       const msg = getErrorMessage(err)
       if (
+        code === 3024 ||
         msg.includes('3024') ||
         msg.toLowerCase().includes('tối đa 8') ||
         msg.toLowerCase().includes('maximum of 8')
       ) {
-        setAiWarning('⚠️ Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh. Vui lòng xóa bớt ảnh cũ trước khi thêm ảnh mới.')
+        setAiWarning(' Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh. Vui lòng xóa bớt ảnh cũ trước khi thêm ảnh mới.')
       } else if (
+        code === 3022 ||
         msg.includes('3022') ||
         msg.toLowerCase().includes('nông sản') ||
         msg.toLowerCase().includes('agricultural') ||
+        msg.toLowerCase().includes('inappropriate') ||
         msg.toLowerCase().includes('cồn') ||
         msg.toLowerCase().includes('alcohol')
       ) {
         setAiWarning(
-          '⚠️ AI phát hiện hình ảnh không phù hợp: Ảnh chứa đồ uống có cồn, thức ăn nhanh chế biến sẵn, đồ vật vô tri hoặc không nhận diện được nông sản thực tế. Vui lòng chọn ảnh chụp nông sản tươi thật!',
+          ' AI phát hiện hình ảnh không phù hợp. Vui lòng chọn ảnh chụp nông sản tươi thật!',
         )
       } else {
         setAiWarning(msg || 'Lỗi khi tải ảnh lên. Vui lòng thử lại.')
@@ -115,7 +120,13 @@ export function ProductImageGalleryModal({
       ? '⚠️ Đây là bức ảnh cuối cùng của sản phẩm. Nếu bạn xóa, sản phẩm sẽ tự động chuyển sang trạng thái Tạm ngưng (INACTIVE) cho đến khi bổ sung ảnh mới. Bạn có chắc muốn xóa?'
       : 'Bạn có chắc muốn xóa ảnh này khỏi gallery sản phẩm?'
 
-    if (window.confirm(confirmMsg)) {
+    const confirmed = await globalShowConfirm(
+      isLastImage ? 'Cảnh báo xóa ảnh cuối' : 'Xác nhận xóa',
+      confirmMsg,
+      { confirmText: 'Xóa ảnh', cancelText: 'Hủy', danger: true }
+    )
+
+    if (confirmed) {
       try {
         await deleteMutation.mutateAsync({ productId, imageId })
         onInfo?.('Đã xóa ảnh khỏi gallery')
@@ -138,7 +149,7 @@ export function ProductImageGalleryModal({
         </button>
 
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-2xl bg-[#326318]/10 text-[#326318] flex items-center justify-center font-bold">
             <ImageIcon size={24} />
           </div>
@@ -153,6 +164,14 @@ export function ProductImageGalleryModal({
               Sản phẩm: <span className="font-bold text-[#1c2216]">{productName}</span>
             </p>
           </div>
+        </div>
+
+        {/* Chú thích cơ chế tự động lưu & kiểm duyệt AI */}
+        <div className="mb-4 px-3.5 py-2.5 rounded-2xl bg-[#f4f7f1] border border-[#e2e8dc] text-[11px] text-[#4d5945] flex items-center gap-2 leading-relaxed">
+          <Sparkles size={14} className="text-[#326318] shrink-0" />
+          <span>
+            <strong>Lưu ý tự động:</strong> Ảnh tải lên được AI Google Cloud Vision kiểm duyệt và tự động lưu trực tiếp vào sản phẩm ngay lập tức. Bạn có thể đóng cửa sổ bất kỳ lúc nào sau khi hoàn tất thao tác.
+          </span>
         </div>
 
         {/* AI Notice / Feedback */}
@@ -353,13 +372,17 @@ export function ProductImageGalleryModal({
         </div>
 
         {/* Footer */}
-        <div className="pt-4 mt-4 border-t border-[#f1f4ed] flex justify-end">
+        <div className="pt-4 mt-4 border-t border-[#f1f4ed] flex items-center justify-between">
+          <span className="text-[11px] text-[#7e8779] flex items-center gap-1.5">
+            <CheckCircle2 size={13} className="text-[#326318]" />
+            Mọi thay đổi hình ảnh đã được tự động lưu
+          </span>
           <button
             type="button"
             onClick={onClose}
             className="px-6 py-2.5 rounded-full bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer"
           >
-            Hoàn Tất
+            Đóng
           </button>
         </div>
       </div>
