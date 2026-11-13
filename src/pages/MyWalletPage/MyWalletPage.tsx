@@ -351,7 +351,7 @@ export default function MyWalletPage() {
                 {formatRate(d?.defaultCommissionRate)}
               </p>
               <p className="mt-1 text-[11px] text-[#6e7767]">
-                Hiệu lực 7 ngày · Max 3 đơn/người
+                Hiệu lực 7 ngày · Không giới hạn đơn
               </p>
             </div>
           </div>

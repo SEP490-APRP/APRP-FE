@@ -442,8 +442,8 @@ export const BuyerOrdersView: React.FC = () => {
               setSearchParams(tab.key === 'ALL' ? {} : { tab: tab.key })
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${currentTab === tab.key
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
               }`}
           >
             {tab.label}
@@ -529,8 +529,8 @@ export const BuyerOrdersView: React.FC = () => {
               <div
                 key={`single-${orderId}`}
                 className={`bg-white rounded-3xl border transition-all overflow-hidden ${isUnpaid
-                    ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
-                    : 'border-line hover:border-neutral-300 shadow-sm'
+                  ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
+                  : 'border-line hover:border-neutral-300 shadow-sm'
                   }`}
               >
                 {/* Header đơn: Shop & Trạng thái */}
@@ -604,51 +604,51 @@ export const BuyerOrdersView: React.FC = () => {
                             <p className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
                               {Number(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                             </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
-                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                              {it.isRequestedReturn ? (
-                                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                                  ↺ Đang yêu cầu trả hàng
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReturnModalItem(it)
-                                    setReturnModalOrderId(orderId)
-                                    setIsReturnModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
-                                >
-                                  <RotateCcw size={11} />
-                                  <span>Trả hàng</span>
-                                </button>
-                              )}
+                            {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
+                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                {it.isRequestedReturn ? (
+                                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                    ↺ Đang yêu cầu trả hàng
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReturnModalItem(it)
+                                      setReturnModalOrderId(orderId)
+                                      setIsReturnModalOpen(true)
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
+                                  >
+                                    <RotateCcw size={11} />
+                                    <span>Trả hàng</span>
+                                  </button>
+                                )}
 
-                              {it.isReviewed ? (
-                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                  ✓ Đã đánh giá
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReviewModalItem(it)
-                                    setReviewModalOrderId(orderId)
-                                    setIsReviewModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
-                                >
-                                  <Star size={12} className="fill-white" />
-                                  <span>Đánh giá</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
+                                {it.isReviewed ? (
+                                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                    ✓ Đã đánh giá
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReviewModalItem(it)
+                                      setReviewModalOrderId(orderId)
+                                      setIsReviewModalOpen(true)
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <Star size={12} className="fill-white" />
+                                    <span>Đánh giá</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })) : (
+                      )
+                    })) : (
                     <div className="py-2 text-xs text-ink-muted italic">
                       Chi tiết sản phẩm đang được cập nhật
                     </div>
