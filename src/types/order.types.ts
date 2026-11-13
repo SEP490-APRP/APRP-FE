@@ -69,6 +69,10 @@ export interface OrderResponse {
   shippingFee?: number
   voucherDiscountAmount?: number
   refundAmount?: number
+  /** Phần đã trả bằng ví người mua */
+  walletPaidAmount?: number | null
+  /** Số còn phải trả qua COD / PayOS */
+  amountDue?: number | null
   shippingLatitude?: number
   shippingLongitude?: number
   shopLatitude?: number
@@ -155,4 +159,6 @@ export interface CreateOrderRequest {
   voucherCodes?: string[]
   items: OrderItemRequest[]
   cartItemIds?: number[]
+  /** Trừ ví người mua trước, phần còn lại trả bằng paymentMethod */
+  useWallet?: boolean
 }

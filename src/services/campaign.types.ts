@@ -71,6 +71,8 @@ export interface PreOrderCreateRequest {
   shippingLatitude?: number
   shippingLongitude?: number
   note?: string
+  /** Trừ ví người mua trước cho tiền cọc, phần còn lại qua PayOS */
+  useWallet?: boolean
 }
 
 export interface PreOrderResponse {

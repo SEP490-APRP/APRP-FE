@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   MapPin,
   CreditCard,
@@ -27,6 +28,7 @@ import {
   PackageX,
   ShoppingCart,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -52,6 +54,7 @@ import {
   useCreatePayment,
 } from '../hooks/useBuyerOrder'
 import { useMyCart } from '@/features/cart/hooks/useCartQueries'
+import { useMyWallet } from '@/features/wallet/hooks/useWalletQueries'
 import { PaymentQrModal } from './PaymentQrModal'
 import type { OrderItemRequest, OrderResponse } from '@/types/order.types'
 import type { PaymentResponse } from '@/types/payment.types'
@@ -178,6 +181,10 @@ export const CheckoutView: React.FC = () => {
   const [createdOrderCode, setCreatedOrderCode] = useState<string>('')
 
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  // Ví người mua: trừ ví trước, phần còn lại trả bằng PayOS / COD
+  const [useWalletPay, setUseWalletPay] = useState(false)
+  const { data: myWallet } = useMyWallet(user?.role === 'buyer')
   const MAX_SAVED_ADDRESSES = 10
   const QUICK_LABELS = ['Nhà', 'Công ty', 'Nhà bố mẹ', 'Trường học']
 
@@ -857,9 +864,11 @@ export const CheckoutView: React.FC = () => {
         voucherCodes: selectedVoucherCodes,
         items: checkoutItems.map((i) => i.itemReq),
         cartItemIds: checkoutItems.map((i) => i.cartItemId),
+        useWallet: useWalletPay && walletBalance > 0,
       })
 
       if (!orders || orders.length === 0) return
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
 
       // Tự động tải lại sổ địa chỉ mới nhất từ Backend
       getSavedAddresses().then((list) => {
@@ -876,6 +885,12 @@ export const CheckoutView: React.FC = () => {
         totalAmount,
         paymentMethod: values.paymentMethod,
       })
+
+      // 0. Ví đã trả đủ mọi đơn -> không cần PayOS / COD
+      if (orders.every((o) => o.status === 'PAID')) {
+        navigate(`/payment/result?orderId=${firstOrder.orderId}&status=PAID&method=WALLET`)
+        return
+      }
 
       // 1. Nếu là COD: Đơn ở trạng thái PENDING -> Chuyển thẳng trang kết quả
       if (values.paymentMethod === 'COD') {
@@ -948,6 +963,10 @@ export const CheckoutView: React.FC = () => {
   const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
   const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
   const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? (goodsAmount + shippingFee - discount)
+  const walletBalance = Math.max(0, Math.floor(Number(myWallet?.balance ?? 0) - Number(myWallet?.frozenBalance ?? 0)))
+  const walletUse = useWalletPay ? Math.min(walletBalance, Math.max(0, finalTotal)) : 0
+  const amountAfterWallet = Math.max(0, finalTotal - walletUse)
+  const walletCoversAll = useWalletPay && finalTotal > 0 && amountAfterWallet === 0
   const voucherBreakdown = React.useMemo(() => {
     const entries = new Map<string, number>()
 
@@ -1336,7 +1355,46 @@ export const CheckoutView: React.FC = () => {
                 Phương thức thanh toán
               </div>
 
-              <div className="space-y-3">
+              {/* Dùng số dư ví CapNong trước */}
+              <label
+                className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all ${walletBalance > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${useWalletPay
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-line hover:border-gray-300'
+                  }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={useWalletPay}
+                  disabled={walletBalance <= 0}
+                  onChange={(e) => setUseWalletPay(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-emerald-600"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2 font-semibold text-sm text-ink">
+                    <span className="flex items-center gap-2">
+                      <Wallet size={16} className="text-emerald-600" />
+                      Dùng số dư ví CapNong
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700">
+                      Số dư {walletBalance.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                    {walletBalance <= 0
+                      ? 'Ví của bạn chưa có số dư (tiền hoàn đơn sẽ được cộng vào đây).'
+                      : useWalletPay
+                        ? walletCoversAll
+                          ? `Ví trả đủ ${walletUse.toLocaleString('vi-VN')} đ, bạn không cần trả thêm.`
+                          : `Trừ ví ${walletUse.toLocaleString('vi-VN')} đ, còn ${amountAfterWallet.toLocaleString('vi-VN')} đ trả bằng phương thức bên dưới.`
+                        : 'Trừ ví trước, nếu không đủ phần còn lại trả bằng chuyển khoản hoặc tiền mặt.'}
+                  </p>
+                </div>
+              </label>
+
+              <div className={`space-y-3 ${walletCoversAll ? 'opacity-50 pointer-events-none' : ''}`}>
+                {walletCoversAll && (
+                  <p className="text-xs font-semibold text-emerald-700">Ví đã trả đủ, không cần chọn phương thức thanh toán.</p>
+                )}
                 {/* Lựa chọn 1: PAYOS QR */}
                 <label
                   className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'PAYOS'
@@ -1703,10 +1761,24 @@ export const CheckoutView: React.FC = () => {
 
               <div className="pt-3 border-t border-line flex justify-between items-baseline">
                 <span className="font-bold text-ink">Tổng thanh toán:</span>
-                <span className="text-xl font-black text-emerald-700">
+                <span className={`font-black ${walletUse > 0 ? 'text-base text-ink' : 'text-xl text-emerald-700'}`}>
                   {finalTotal.toLocaleString('vi-VN')} đ
                 </span>
               </div>
+              {walletUse > 0 && (
+                <div className="space-y-1.5 rounded-xl bg-emerald-50/60 p-3 text-sm">
+                  <div className="flex justify-between text-emerald-700">
+                    <span className="flex items-center gap-1.5"><Wallet size={14} /> Trừ ví CapNong:</span>
+                    <span className="font-semibold">-{walletUse.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-ink">
+                      {walletCoversAll ? 'Còn phải trả:' : selectedPaymentMethod === 'PAYOS' ? 'Chuyển khoản thêm:' : 'Trả tiền mặt khi nhận:'}
+                    </span>
+                    <span className="text-xl font-black text-emerald-700">{amountAfterWallet.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                </div>
+              )}
 
               {orderSubmitError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex flex-col gap-2 animate-in fade-in">
@@ -1751,7 +1823,11 @@ export const CheckoutView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {selectedPaymentMethod === 'PAYOS' ? 'Thanh toán qua PayOS' : 'Đặt hàng (COD)'}
+                    {walletCoversAll
+                      ? 'Thanh toán bằng ví'
+                      : selectedPaymentMethod === 'PAYOS'
+                        ? walletUse > 0 ? `Trừ ví & chuyển khoản ${amountAfterWallet.toLocaleString('vi-VN')} đ` : 'Thanh toán qua PayOS'
+                        : walletUse > 0 ? 'Trừ ví & đặt hàng (COD)' : 'Đặt hàng (COD)'}
                     <ArrowRight size={16} />
                   </>
                 )}

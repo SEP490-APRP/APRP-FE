@@ -452,7 +452,16 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                 <div className="flex justify-between items-center text-[11px] text-stone-500 pt-1">
                   <span>Phương thức thanh toán:</span>
                   <span className="font-bold text-stone-800">
-                    {order.paymentMethod === 'PAYOS' ? 'Chuyển khoản VietQR (PayOS)' : 'Thanh toán tiền mặt (COD)'}
+                    {order.paymentMethod === 'WALLET'
+                      ? 'Ví CapNong'
+                      : order.paymentMethod === 'PAYOS'
+                        ? 'Chuyển khoản VietQR (PayOS)'
+                        : 'Thanh toán tiền mặt (COD)'}
+                    {Number(order.walletPaidAmount ?? 0) > 0 && order.paymentMethod !== 'WALLET' && (
+                      <span className="block text-xs font-normal text-gray-500">
+                        Ví đã trả {Number(order.walletPaidAmount).toLocaleString('vi-VN')}đ · còn {Number(order.amountDue ?? 0).toLocaleString('vi-VN')}đ
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>

@@ -145,7 +145,9 @@ export const PaymentResultView: React.FC = () => {
 
         {/* Thông điệp */}
         <p className="text-sm text-ink-muted leading-relaxed mb-6">
-          {isPaid
+          {isPaid && (methodParam || '').toUpperCase() === 'WALLET'
+            ? 'Đơn hàng đã được thanh toán đủ bằng số dư ví CapNong. Nhà vườn sẽ tiến hành kiểm tra và chuẩn bị nông sản để giao cho bạn.'
+            : isPaid
             ? 'Đơn hàng của bạn đã được thanh toán trực tuyến qua cổng PayOS. Nhà vườn sẽ tiến hành kiểm tra và chuẩn bị nông sản để giao cho bạn.'
             : 'Đơn hàng (COD) của bạn đã được tiếp nhận thành công. Nhà vườn sẽ kiểm tra đơn và gửi hàng sớm nhất.'}
         </p>

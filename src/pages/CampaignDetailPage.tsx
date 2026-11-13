@@ -27,6 +27,7 @@ import { useCampaign } from '@/features/campaign/hooks/useCampaignQueries'
 import { CRATE_SIZES, formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
 import { adminCampaignService, campaignService, type CampaignResponse, type CrateSize } from '@/services'
 import logoIcon from '@/assets/logo-icon.png'
+import { useMyWallet } from '@/features/wallet/hooks/useWalletQueries'
 import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
 import comboImg from '@/assets/combo-green.jpg'
 import farmerImg from '@/assets/hero-farmer.jpg'
@@ -653,6 +654,10 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   const overLimit = totalKg > remainingKg
 
   const [confirming, setConfirming] = useState(false)
+  // Trả cọc bằng ví trước, phần còn lại qua PayOS
+  const [payWithWallet, setPayWithWallet] = useState(false)
+  const { data: myWallet } = useMyWallet(user?.role === 'buyer')
+  const walletBalance = Math.max(0, Math.floor(Number(myWallet?.balance ?? 0) - Number(myWallet?.frozenBalance ?? 0)))
   const order = useMutation({
     mutationFn: () =>
       campaignService.createPreOrder(c.campaignId, {
@@ -664,9 +669,12 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         shippingLatitude: addr.lat,
         shippingLongitude: addr.lng,
         note: note.trim() || undefined,
+        useWallet: payWithWallet && walletBalance > 0,
       }),
     onSuccess: (res) => {
       if (res.checkoutUrl) window.location.href = res.checkoutUrl
+      // Ví trả đủ cọc: không qua PayOS, sang trang kết quả cọc luôn
+      else window.location.href = `/payment/result?type=campaign&preOrderId=${res.preOrderId}`
     },
   })
 
@@ -784,6 +792,9 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
           qty={qty}
           total={total}
           deposit={deposit}
+          walletBalance={walletBalance}
+          payWithWallet={payWithWallet}
+          onToggleWallet={setPayWithWallet}
           recipient={{ name: name.trim(), phone: phone.trim(), address, note: note.trim() }}
           pending={order.isPending || order.isSuccess}
           error={order.isError ? getErrorMessage(order.error, 'Chưa tạo được đơn đặt trước, bạn thử lại nhé.') : null}
@@ -802,6 +813,9 @@ function ConfirmPreOrder({
   qty,
   total,
   deposit,
+  walletBalance,
+  payWithWallet,
+  onToggleWallet,
   recipient,
   pending,
   error,
@@ -813,6 +827,9 @@ function ConfirmPreOrder({
   qty: number
   total: number
   deposit: number
+  walletBalance: number
+  payWithWallet: boolean
+  onToggleWallet: (v: boolean) => void
   recipient: { name: string; phone: string; address: string; note: string }
   pending: boolean
   error: string | null
@@ -820,6 +837,8 @@ function ConfirmPreOrder({
   onClose: () => void
 }) {
   const [agreed, setAgreed] = useState(false)
+  const walletUse = payWithWallet ? Math.min(walletBalance, Math.round(deposit)) : 0
+  const payosDue = Math.max(0, Math.round(deposit) - walletUse)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     const prev = document.body.style.overflow
@@ -922,14 +941,45 @@ function ConfirmPreOrder({
               <Row label="Phí giao hàng" value="Không tính thêm" />
               <div className="my-1 border-t border-dashed border-[#e4ddcc]" />
               <Row label={`Cọc ngay (${pct}%)`} value={formatVnd(deposit)} strong />
+              {walletUse > 0 && <Row label="· Trừ ví CapNong" value={`-${formatVnd(walletUse)}`} />}
+              {walletUse > 0 && <Row label="· Chuyển khoản PayOS" value={formatVnd(payosDue)} />}
               <Row label="Trả khi nhận hàng" value={formatVnd(total - deposit)} />
             </dl>
-            <div className="flex items-center gap-2.5 rounded-xl border border-[#4a7c2f] bg-[#f2f9ed] p-3 text-sm">
-              <ShieldCheck size={18} className="shrink-0 text-[#2b5619]" />
-              <span className="text-[#1c1c18]">
-                <b>PayOS</b> · chuyển khoản / quét QR ngân hàng
+
+            {/* Dùng ví trước cho tiền cọc */}
+            <label
+              className={`flex items-start gap-2.5 rounded-xl border p-3 text-sm ${walletBalance > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${payWithWallet ? 'border-[#4a7c2f] bg-[#f2f9ed]' : 'border-[#e4ddcc]'}`}
+            >
+              <input
+                type="checkbox"
+                checked={payWithWallet}
+                disabled={walletBalance <= 0 || pending}
+                onChange={(e) => onToggleWallet(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#4a7c2f]"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 font-bold text-[#1c1c18]">
+                  <Wallet size={15} className="text-[#2b5619]" /> Dùng ví CapNong
+                </span>
+                <span className="block text-xs text-[#6b7363]">
+                  Số dư {formatVnd(walletBalance)}
+                  {payWithWallet && walletUse > 0
+                    ? payosDue > 0
+                      ? ` · trừ ${formatVnd(walletUse)}, chuyển khoản thêm ${formatVnd(payosDue)}`
+                      : ' · ví trả đủ tiền cọc'
+                    : ''}
+                </span>
               </span>
-            </div>
+            </label>
+
+            {payosDue > 0 && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-[#4a7c2f] bg-[#f2f9ed] p-3 text-sm">
+                <ShieldCheck size={18} className="shrink-0 text-[#2b5619]" />
+                <span className="text-[#1c1c18]">
+                  <b>PayOS</b> · chuyển khoản / quét QR ngân hàng {formatVnd(payosDue)}
+                </span>
+              </div>
+            )}
             <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[#42493c]">
               <input
                 id="dong-y-coc"
@@ -948,7 +998,13 @@ function ConfirmPreOrder({
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4a7c2f] px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-[#4a7c2f]/30 transition hover:bg-[#2b5619] disabled:opacity-50"
             >
               {pending ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
-              {pending ? 'Đang mở PayOS...' : `Cọc ${formatVnd(deposit)} qua PayOS`}
+              {pending
+                ? payosDue > 0 ? 'Đang mở PayOS...' : 'Đang trừ ví...'
+                : payosDue <= 0
+                  ? `Cọc ${formatVnd(deposit)} bằng ví`
+                  : walletUse > 0
+                    ? `Trừ ví & chuyển khoản ${formatVnd(payosDue)}`
+                    : `Cọc ${formatVnd(deposit)} qua PayOS`}
             </button>
             <button type="button" onClick={onClose} disabled={pending} className="text-sm font-bold text-[#42493c] hover:underline disabled:opacity-50">
               Quay lại chỉnh sửa
