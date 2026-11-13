@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mysteryBoxService, comboService } from '@/services'
 import {
@@ -154,6 +155,7 @@ const SORT_OPTIONS = [
 ]
 
 export default function Combos({ onAdd, onInfo }: CombosProps) {
+  const navigate = useNavigate()
   const [category, setCategory] = useState('all')
   const [sort, setSort] = useState('featured')
   const [priceRange, setPriceRange] = useState('all')
@@ -457,58 +459,70 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
 
             {/* Combo Cards Grid (4 columns on lg, 2 on sm) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-5 sm:gap-6">
-              {filteredCombos.map((c) => (
-                <article
-                  key={c.id}
-                  className="group bg-white rounded-3xl border border-gray-200/80 hover:border-[#4a7c2f]/60 hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative"
-                >
-                  {/* Image & Badges */}
-                  <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
-                    <LegacyProduceImage
-                      src={c.image}
-                      alt={c.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+              {filteredCombos.map((c) => {
+                const isMysteryItem = c.itemType === 'MYSTERY_BOX' || c.id === 'mystery'
+                const detailUrl = isMysteryItem
+                  ? `/mystery-box/${c.realId || 1}`
+                  : `/combo/${c.realId || c.id}`
 
-                    {/* Red Discount Badge */}
-                    <div className="absolute top-3 left-3 bg-[#d92228] text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md">
-                      {c.badgeDiscount}
+                return (
+                  <article
+                    key={c.id}
+                    className="group bg-white rounded-3xl border border-gray-200/80 hover:border-[#4a7c2f]/60 hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative"
+                  >
+                    {/* Image & Badges */}
+                    <div
+                      onClick={() => navigate(detailUrl)}
+                      className="relative aspect-[16/10] overflow-hidden bg-gray-100 cursor-pointer"
+                    >
+                      <LegacyProduceImage
+                        src={c.image}
+                        alt={c.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+
+                      {/* Red Discount Badge */}
+                      <div className="absolute top-3 left-3 bg-[#d92228] text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md">
+                        {c.badgeDiscount}
+                      </div>
+
+                      {/* Weight & Highlight Pill */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        <span className="bg-black/60 backdrop-blur-md text-[#ffea79] text-xs font-bold px-2.5 py-1 rounded-lg shadow">
+                          {c.badgeWeight}
+                        </span>
+                      </div>
+
+                      {/* Highlight Badge Bottom */}
+                      <div className="absolute bottom-3 left-3">
+                        <span className="bg-white/95 backdrop-blur-md text-[#2b5619] text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                          {c.badgeHighlight}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Weight & Highlight Pill */}
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                      <span className="bg-black/60 backdrop-blur-md text-[#ffea79] text-xs font-bold px-2.5 py-1 rounded-lg shadow">
-                        {c.badgeWeight}
-                      </span>
-                    </div>
+                    {/* Card Content */}
+                    <div className="p-4 sm:p-5 flex flex-col flex-1 gap-3">
+                      {/* Portion & Category */}
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span className="font-semibold text-[#4a7c2f] bg-[#eef8ea] px-2 py-0.5 rounded-md">
+                          {c.category}
+                        </span>
+                        <span className="font-medium text-gray-600">{c.portion}</span>
+                      </div>
 
-                    {/* Highlight Badge Bottom */}
-                    <div className="absolute bottom-3 left-3">
-                      <span className="bg-white/95 backdrop-blur-md text-[#2b5619] text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
-                        {c.badgeHighlight}
-                      </span>
-                    </div>
-                  </div>
+                      {/* Name */}
+                      <h3
+                        onClick={() => navigate(detailUrl)}
+                        className="text-base sm:text-lg font-bold text-gray-900 leading-snug group-hover:text-[#2b5619] transition-colors cursor-pointer"
+                      >
+                        {c.name}
+                      </h3>
 
-                  {/* Card Content */}
-                  <div className="p-4 sm:p-5 flex flex-col flex-1 gap-3">
-                    {/* Portion & Category */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span className="font-semibold text-[#4a7c2f] bg-[#eef8ea] px-2 py-0.5 rounded-md">
-                        {c.category}
-                      </span>
-                      <span className="font-medium text-gray-600">{c.portion}</span>
-                    </div>
-
-                    {/* Name */}
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-snug group-hover:text-[#2b5619] transition-colors">
-                      {c.name}
-                    </h3>
-
-                    {/* Feature description */}
-                    <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">
-                      {c.feature}
-                    </p>
+                      {/* Feature description */}
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">
+                        {c.feature}
+                      </p>
 
                     {/* Price Row */}
                     <div className="flex items-baseline gap-2 mt-auto pt-2 border-t border-gray-100">
@@ -557,7 +571,8 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                     </button>
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
 
             {/* 3. Interactive Custom Combo Builder */}

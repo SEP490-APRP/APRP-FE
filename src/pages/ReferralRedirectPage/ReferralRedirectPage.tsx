@@ -73,7 +73,11 @@ export default function ReferralRedirectPage() {
 
   const targetUrl = resolveData?.targetType === 'PRODUCT'
     ? `/san-pham/${resolveData.targetId}`
-    : `/cua-hang/${resolveData?.targetId}`
+    : resolveData?.targetType === 'BUILD_COMBO'
+      ? `/combo/${resolveData.targetId}`
+      : resolveData?.targetType === 'MYSTERY_BOX'
+        ? `/mystery-box/${resolveData.targetId}`
+        : `/cua-hang/${resolveData?.targetId}`
 
   const handleNavigateWeb = () => {
     navigate(targetUrl)
@@ -124,7 +128,13 @@ export default function ReferralRedirectPage() {
             Liên kết giới thiệu nông sản
           </div>
           <h1 className="mt-3 text-xl font-black sm:text-2xl">
-            {resolveData.targetType === 'PRODUCT' ? 'Sản Phẩm Được Giới Thiệu' : 'Gian Hàng Được Giới Thiệu'}
+            {resolveData.targetType === 'PRODUCT'
+              ? 'Sản Phẩm Được Giới Thiệu'
+              : resolveData.targetType === 'BUILD_COMBO'
+                ? 'Combo Nông Sản Được Giới Thiệu'
+                : resolveData.targetType === 'MYSTERY_BOX'
+                  ? 'Túi Mù Nông Sản Được Giới Thiệu'
+                  : 'Gian Hàng Được Giới Thiệu'}
           </h1>
           <p className="mt-1 text-xs opacity-90">
             Người chia sẻ: <span className="font-bold underline">{resolveData.referrerName}</span>
@@ -147,7 +157,13 @@ export default function ReferralRedirectPage() {
             )}
             <div className="flex flex-1 flex-col justify-center">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#326318]">
-                {resolveData.targetType === 'PRODUCT' ? 'Nông sản an lành' : 'Gian hàng nông dân'}
+                {resolveData.targetType === 'PRODUCT'
+                  ? 'Nông sản an lành'
+                  : resolveData.targetType === 'BUILD_COMBO'
+                    ? 'Combo nông sản'
+                    : resolveData.targetType === 'MYSTERY_BOX'
+                      ? 'Túi mù may mắn'
+                      : 'Gian hàng nông dân'}
               </span>
               <h3 className="line-clamp-2 text-base font-bold text-[#1c2216]">
                 {resolveData.targetName}

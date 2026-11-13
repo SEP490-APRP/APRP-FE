@@ -5,6 +5,8 @@ import { globalShowAlert } from '@/components/common/Popup'
 import { referralService } from '@/services'
 import { useAuth } from '@/stores'
 
+import type { ReferralTargetType } from '@/services'
+
 interface ProductSharePopoverProps {
   isOpen: boolean
   onClose: () => void
@@ -12,6 +14,10 @@ interface ProductSharePopoverProps {
   shopUrl?: string | null
   productId?: number
   shopId?: number
+  comboId?: number
+  mysteryBoxId?: number
+  targetType?: ReferralTargetType
+  targetId?: number
   type?: 'product' | 'shop'
   align?: 'left' | 'right'
 }
@@ -23,6 +29,10 @@ export const ProductSharePopover: React.FC<ProductSharePopoverProps> = ({
   shopUrl,
   productId,
   shopId,
+  comboId,
+  mysteryBoxId,
+  targetType,
+  targetId,
   type = 'product',
   align = 'right',
 }) => {
@@ -46,10 +56,16 @@ export const ProductSharePopover: React.FC<ProductSharePopoverProps> = ({
 
     const fetchLinks = async () => {
       try {
-        if (productId) {
+        const resolvedTargetType: ReferralTargetType =
+          targetType ||
+          (comboId ? 'BUILD_COMBO' : mysteryBoxId ? 'MYSTERY_BOX' : 'PRODUCT')
+        const resolvedTargetId =
+          targetId || comboId || mysteryBoxId || productId
+
+        if (resolvedTargetId) {
           const res = await referralService.getOrCreateLink({
-            targetType: 'PRODUCT',
-            targetId: Number(productId),
+            targetType: resolvedTargetType,
+            targetId: Number(resolvedTargetId),
           })
           if (isMounted) setReferralProductUrl(res.shareUrl)
         }
@@ -72,7 +88,7 @@ export const ProductSharePopover: React.FC<ProductSharePopoverProps> = ({
     return () => {
       isMounted = false
     }
-  }, [isOpen, isAuthenticated, user?.role, productId, shopId])
+  }, [isOpen, isAuthenticated, user?.role, productId, shopId, comboId, mysteryBoxId, targetType, targetId])
 
   if (!isOpen) return null
 
