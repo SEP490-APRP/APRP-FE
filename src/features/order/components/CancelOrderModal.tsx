@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import type { OrderResponse } from '@/types/order.types'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface CancelOrderModalProps {
   isOpen: boolean
@@ -232,19 +233,14 @@ export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
               <span>Vui lòng chọn lý do hủy đơn:</span>
               <span className="text-[10px] text-stone-400 font-normal">Bắt buộc</span>
             </label>
-            <select
+            <CustomSelect
               id="cancel-reason-select"
               value={selectedReason}
-              onChange={(e) => setSelectedReason(e.target.value)}
+              onChange={(val) => setSelectedReason(String(val))}
               disabled={isCancelling}
-              className="w-full p-2.5 bg-stone-50 hover:bg-stone-100/80 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
-            >
-              {CANCEL_REASONS.map((r, i) => (
-                <option key={i} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              options={CANCEL_REASONS.map((r) => ({ value: r, label: r }))}
+              placeholder="Chọn lý do hủy đơn"
+            />
 
             {selectedReason === 'Lý do khác' && (
               <div className="pt-1.5 animate-fadeIn">

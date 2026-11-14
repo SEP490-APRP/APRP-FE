@@ -14,13 +14,16 @@ import {
   PauseCircle,
   ChevronDown,
   Check,
+  PlayCircle,
+  RotateCcw,
 } from 'lucide-react'
 import type { FarmerProduct } from './types'
-import { comboService, mysteryBoxService, type ProductResponse } from '@/services'
+import { comboService, mysteryBoxService, normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
 import {
   useMyProducts,
   useDeleteProduct,
+  useUpdateProduct,
   useMyCombos,
   useDeleteCombo,
 } from '@/features/product'
@@ -29,6 +32,7 @@ import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal, DeleteProductModal } from '@/features/product'
 import Pagination from '@/components/ui/Pagination/Pagination'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 interface ProductsProps {
   products?: FarmerProduct[]
@@ -44,12 +48,11 @@ export type ProductTypeFilter = 'ALL' | 'SINGLE' | 'MYSTERY_BOX' | 'COMBO'
 
 export function isBlindBoxItem(p: any): boolean {
   if (p?.isBlindBox) return true
+  if (p?.category?.categoryId === 9998) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('hộp mù') ||
@@ -58,27 +61,22 @@ export function isBlindBoxItem(p: any): boolean {
     catLower.includes('mystery') ||
     nameLower.includes('túi mù') ||
     nameLower.includes('hộp mù') ||
-    nameLower.includes('blind box') ||
-    unitLower === 'hộp'
+    nameLower.includes('blind box')
   )
 }
 
 export function isComboItem(p: any): boolean {
   if (p?.isCombo) return true
   if (isBlindBoxItem(p)) return false
+  if (p?.category?.categoryId === 9999) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('combo') ||
-    nameLower.includes('combo') ||
-    unitLower === 'combo' ||
-    unitLower === 'phần' ||
-    unitLower === 'set'
+    nameLower.includes('combo')
   )
 }
 
@@ -156,6 +154,7 @@ export default function Products({
   const { data: categories = [] } = useCategories()
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
+  const updateProductMutation = useUpdateProduct()
   const deleteComboMutation = useDeleteCombo()
   const deleteMysteryBoxMutation = useDeleteMysteryBox()
 
@@ -285,6 +284,18 @@ export default function Products({
     return true
   })
 
+  // Sắp xếp: ưu tiên thời gian cập nhật/từ chối gần nhất (updatedAt DESC), sau đó đến productId DESC
+  filtered.sort((a, b) => {
+    const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    if (timeB !== timeA) {
+      return timeB - timeA
+    }
+    const idA = Number(a.productId ?? a.id ?? 0)
+    const idB = Number(b.productId ?? b.id ?? 0)
+    return idB - idA
+  })
+
   // Phân trang: dùng filtered.length để phản ánh tổng cả Nông sản lẻ + Combo + Túi mù
   const totalPages = Math.ceil(filtered.length / pageSize) || 1
   const totalElements = filtered.length
@@ -334,6 +345,39 @@ export default function Products({
       setDeleteTarget(null)
     } catch (err: any) {
       onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
+    }
+  }
+
+  const handleResumeProduct = async (p: any) => {
+    const prodId = Number(p.id ?? p.productId)
+    const prodName = p.productName || p.name || 'Sản phẩm'
+    const isRejected = p.status?.toUpperCase() === 'REJECTED'
+
+    const confirmMsg = isRejected
+      ? `Gửi lại nông sản "${prodName}" vào hàng chờ duyệt để Admin kiểm tra lại?`
+      : `Mở bán lại nông sản "${prodName}"? (Sản phẩm sẽ được gửi Admin thẩm định duyệt lại)`
+
+    if (!(await globalShowConfirm(confirmMsg))) return
+
+    try {
+      await updateProductMutation.mutateAsync({
+        id: prodId,
+        request: {
+          productName: prodName,
+          categoryId: typeof p.category === 'object' && p.category !== null ? p.category.categoryId : (p.categoryId || 1),
+          unit: p.unit || 'kg',
+          sellingPrice: Number(p.sellingPrice ?? p.price ?? 0),
+          stockQuantity: Number(p.stockQuantity ?? p.stock ?? 0),
+          description: p.description || '',
+          expiryDate: p.expiryDate || new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
+          discountPercent: p.discountPercent || 0,
+          status: 'PENDING',
+        },
+      })
+      void globalShowAlert(`Đã gửi sản phẩm "${prodName}" vào hàng chờ duyệt!`, 'Thành công', 'success')
+      onInfo?.(`Đã gửi duyệt lại sản phẩm: ${prodName}`)
+    } catch (err: any) {
+      void globalShowAlert(getErrorMessage(err, 'Lỗi khi kích hoạt lại sản phẩm'), 'Lỗi', 'error')
     }
   }
 
@@ -706,7 +750,7 @@ export default function Products({
                         ) : isComboItem(p) ? (
                           <>Set nguyên liệu bữa ăn · Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span></>
                         ) : (
-                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${p.expiryDate}`}</>
+                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${normalizeExpiryDate(p.expiryDate) || p.expiryDate}`}</>
                         )}
                       </span>
                     </div>
@@ -760,15 +804,27 @@ export default function Products({
                         <Edit3 size={16} />
                       </button>
 
-                      {/* Nút Xóa / Tạm dừng */}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(p)}
-                        title="Tạm dừng / Gỡ sản phẩm"
-                        className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {/* Nút Khôi phục / Mở bán lại nếu đang Tạm dừng hoặc Bị từ chối */}
+                      {!isBlindBoxItem(p) && !isComboItem(p) && (p.status === 'INACTIVE' || p.status === 'REJECTED') ? (
+                        <button
+                          type="button"
+                          onClick={() => handleResumeProduct(p)}
+                          title={p.status === 'REJECTED' ? 'Gửi Admin duyệt lại' : 'Mở bán lại (gửi Admin duyệt)'}
+                          className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#326318] hover:text-[#254b12] cursor-pointer transition-colors"
+                        >
+                          {p.status === 'REJECTED' ? <RotateCcw size={16} /> : <PlayCircle size={16} />}
+                        </button>
+                      ) : (
+                        /* Nút Xóa / Tạm dừng */
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          title="Tạm dừng / Gỡ sản phẩm"
+                          className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -824,6 +880,7 @@ export default function Products({
       {/* Edit Product Modal */}
       {editModalState.product && (
         <EditProductModal
+          key={editModalState.product.id ?? editModalState.product.productId}
           product={editModalState.product}
           isOpen={editModalState.isOpen}
           onClose={() => setEditModalState({ isOpen: false, product: null })}

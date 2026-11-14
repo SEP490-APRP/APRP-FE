@@ -1,5 +1,5 @@
 import React from 'react'
-import { Bell, CheckCheck, Trash2, Clock, Inbox, RefreshCw } from 'lucide-react'
+import { Bell, CheckCheck, Trash2, Clock, Inbox, RefreshCw, CheckCircle2, XCircle, AlertCircle, ShoppingBag } from 'lucide-react'
 import { useNotificationStore } from '@/stores'
 
 function formatRelativeTime(dateStr?: string): string {
@@ -105,12 +105,22 @@ export default function Notifications() {
             >
               <div
                 className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${
-                  nt.isRead
+                  nt.type === 'PRODUCT_APPROVED'
+                    ? 'bg-emerald-100 text-emerald-700 shadow-sm'
+                    : nt.type === 'PRODUCT_REJECTED'
+                    ? 'bg-rose-100 text-rose-700 shadow-sm'
+                    : nt.isRead
                     ? 'bg-gray-100 text-gray-400'
                     : 'bg-[#326318]/15 text-[#326318] shadow-sm'
                 }`}
               >
-                <Bell size={20} />
+                {nt.type === 'PRODUCT_APPROVED' ? (
+                  <CheckCircle2 size={20} />
+                ) : nt.type === 'PRODUCT_REJECTED' ? (
+                  <XCircle size={20} />
+                ) : (
+                  <Bell size={20} />
+                )}
               </div>
 
               <div className="flex-1 min-w-0">

@@ -8,9 +8,20 @@ import {
   type ProductFormValues,
 } from '@/features/product'
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
-import { useCreateProduct, useUploadProductImage, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
+import { useCreateProduct, useUploadProductImage, useDeleteProduct, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
 import type { FarmerProduct } from './types'
 import { getErrorMessage } from '@/utils'
+import { globalShowAlert } from '@/components/common/Popup'
+import { CustomSelect } from '@/components/common/CustomSelect'
+
+const UNIT_OPTIONS = [
+  { value: 'kg', label: 'kg (Kilogram)' },
+  { value: 'hộp', label: 'hộp' },
+  { value: 'bó', label: 'bó' },
+  { value: 'túi', label: 'túi' },
+  { value: 'trái', label: 'trái / quả' },
+  { value: 'thùng', label: 'thùng' },
+]
 
 interface AddProductProps {
   onAddProduct?: (prod: FarmerProduct) => void
@@ -34,6 +45,7 @@ function FieldError({ message }: { message?: string }) {
 export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProductProps) {
   const { data: categories = [] } = useCategories()
   const createMutation = useCreateProduct()
+  const deleteMutation = useDeleteProduct()
   const uploadImageMutation = useUploadProductImage()
   const aiSuggestMutation = useAiSuggestDescription()
 
@@ -55,6 +67,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     handleSubmit,
     setValue,
     getValues,
+    watch,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -119,6 +132,11 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   }
 
   const onSubmit = async (values: ProductFormValues) => {
+    if (!selectedFile) {
+      setAiError('Vui lòng chọn hình ảnh đại diện nông sản trước khi đăng bán!')
+      return
+    }
+
     setSubmitting(true)
     setAiError(null)
 
@@ -147,16 +165,39 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             displayOrder: 0,
           })
         } catch (imgErr: any) {
-          const msg = getErrorMessage(imgErr)
-          if (msg.includes('3022') || msg.toLowerCase().includes('nông sản')) {
-            alert(
-              '⚠️ Lưu ý: Sản phẩm đã được tạo, nhưng ảnh bị AI từ chối vì không nhận diện được nông sản thực tế. Vui lòng vào mục Quản lý Ảnh để đổi ảnh khác.',
+          const code = imgErr?.response?.data?.code ?? imgErr?.data?.code
+          const rawMsg = getErrorMessage(imgErr)
+          // Tự động Rollback / Xóa sản phẩm vừa tạo ở Bước 1 để không lưu rác vào CSDL và không lọt sang Admin
+          try {
+            await deleteMutation.mutateAsync(newProductId)
+          } catch (deleteErr) {
+            console.error('Lỗi khi rollback sản phẩm chưa có ảnh hợp lệ:', deleteErr)
+          }
+
+          const isNotAgri =
+            code === 3022 ||
+            rawMsg.includes('3022') ||
+            rawMsg.toLowerCase().includes('nông sản') ||
+            rawMsg.toLowerCase().includes('agricultural') ||
+            rawMsg.toLowerCase().includes('inappropriate')
+
+          if (isNotAgri) {
+            setAiError(
+              '❌ Ảnh bị từ chối: Google Cloud Vision không nhận diện được nông sản thực tế trong hình ảnh này. Vui lòng chọn một bức ảnh chụp nông sản rõ nét hơn.'
             )
           } else {
-            alert(
-              `⚠️ Sản phẩm đã được tạo, nhưng ảnh tải lên thất bại (${msg || 'Lỗi mạng hoặc tải ảnh'}). Vui lòng vào mục Quản lý Ảnh để thêm ảnh sau.`,
-            )
+            let viMsg = 'Ảnh không đạt chuẩn hoặc lỗi kết nối'
+            if (code === 3024 || rawMsg.toLowerCase().includes('tối đa 8') || rawMsg.toLowerCase().includes('maximum of 8')) {
+              viMsg = 'Mỗi sản phẩm chỉ được tối đa 8 hình ảnh'
+            } else if (code === 4002 || rawMsg.toLowerCase().includes('size') || rawMsg.toLowerCase().includes('dung lượng')) {
+              viMsg = 'Dung lượng ảnh vượt quá 5MB'
+            } else if (rawMsg && !rawMsg.includes('Failed') && !rawMsg.includes('Error')) {
+              viMsg = rawMsg
+            }
+            setAiError(`❌ Tải ảnh lên thất bại: ${viMsg}. Vui lòng chọn lại ảnh hợp lệ và thử lại.`)
           }
+          // Dừng ngay luồng, giữ nguyên form cho nông dân sửa ảnh, KHÔNG hiển thị popup thành công và KHÔNG đóng modal
+          return
         }
       }
 
@@ -182,7 +223,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       }
 
       onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
-      alert(`Đăng bán nông sản "${values.name}" thành công! Sản phẩm đã được gửi và đang chờ Admin duyệt.`)
+      void globalShowAlert(`Đăng bán nông sản "${values.name}" thành công! Sản phẩm đã được gửi và đang chờ Admin duyệt.`, 'Thành công', 'success')
       onClose()
     } catch (err) {
       setAiError(getErrorMessage(err) || 'Không thể tạo sản phẩm. Vui lòng thử lại.')
@@ -281,17 +322,17 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               <label htmlFor="product-category" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Danh mục *
               </label>
-              <select
+              <CustomSelect
                 id="product-category"
-                {...register('categoryId', { valueAsNumber: true })}
-                className={SELECT_CLASS}
-              >
-                {categories.map((c) => (
-                  <option key={c.categoryId} value={c.categoryId}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                value={watch('categoryId') ?? (categories[0]?.categoryId || 1)}
+                onChange={(val) => setValue('categoryId', Number(val), { shouldValidate: true })}
+                options={categories.map((c) => ({
+                  value: c.categoryId,
+                  label: c.name,
+                }))}
+                placeholder="Chọn danh mục"
+                error={!!errors.categoryId}
+              />
               <FieldError message={errors.categoryId?.message} />
             </div>
 
@@ -299,14 +340,14 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               <label htmlFor="product-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <select id="product-unit" {...register('unit')} className={SELECT_CLASS}>
-                <option value="kg">kg (Kilogram)</option>
-                <option value="hộp">hộp</option>
-                <option value="bó">bó</option>
-                <option value="túi">túi</option>
-                <option value="trái">trái / quả</option>
-                <option value="thùng">thùng</option>
-              </select>
+              <CustomSelect
+                id="product-unit"
+                value={watch('unit') || 'kg'}
+                onChange={(val) => setValue('unit', String(val), { shouldValidate: true })}
+                options={UNIT_OPTIONS}
+                placeholder="Chọn đơn vị tính"
+                error={!!errors.unit}
+              />
               <FieldError message={errors.unit?.message} />
             </div>
           </div>

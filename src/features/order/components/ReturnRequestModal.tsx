@@ -14,6 +14,7 @@ import type { OrderItem } from '@/types/order.types'
 import { uploadService } from '@/services/upload.service'
 import { useCreateReturnRequest } from '@/features/order/hooks/useOrderQueries'
 import { globalShowAlert } from '@/components/common/Popup'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface ReturnRequestModalProps {
   isOpen: boolean
@@ -226,18 +227,14 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
               <span>Lý do hoàn trả:</span>
               <span className="text-[10px] text-stone-400 font-normal">Bắt buộc</span>
             </label>
-            <select
+            <CustomSelect
+              id="return-reason-select"
               value={selectedReason}
-              onChange={(e) => setSelectedReason(e.target.value)}
+              onChange={(val) => setSelectedReason(String(val))}
               disabled={createReturnMutation.isPending}
-              className="w-full p-2.5 bg-stone-50 hover:bg-stone-100/80 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer"
-            >
-              {RETURN_REASONS.map((r, i) => (
-                <option key={i} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              options={RETURN_REASONS.map((r) => ({ value: r, label: r }))}
+              placeholder="Chọn lý do hoàn trả"
+            />
 
             {selectedReason === 'Lý do khác' && (
               <textarea
