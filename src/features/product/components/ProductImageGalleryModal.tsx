@@ -123,7 +123,7 @@ export function ProductImageGalleryModal({
     const confirmed = await globalShowConfirm(
       isLastImage ? 'Cảnh báo xóa ảnh cuối' : 'Xác nhận xóa',
       confirmMsg,
-      { confirmText: 'Xóa ảnh', cancelText: 'Hủy', danger: true }
+      { confirmText: 'Xóa ảnh', cancelText: 'Hủy', isDestructive: true }
     )
 
     if (confirmed) {
