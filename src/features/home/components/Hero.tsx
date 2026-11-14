@@ -59,7 +59,7 @@ export default function Hero() {
             </a>
             <a
               className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-full bg-white/15 hover:bg-white/25 text-surface-bright border border-white/25 backdrop-blur-md font-bold text-sm sm:text-base transition-all min-h-[46px]"
-              href="/cong-nghe-ai"
+              href="#cong-nghe-ai"
             >
               <PlayCircle size={20} aria-hidden />
               <span>Xem cách hoạt động</span>

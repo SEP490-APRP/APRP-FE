@@ -5,7 +5,6 @@ import {
   HomeRoute,
   FreshRoute,
   CombosRoute,
-  AiRoute,
   StoriesRoute,
   PrivacyRoute,
   ProductRoute,
@@ -80,7 +79,7 @@ export const router = createBrowserRouter([
           { path: 'ke-hoach-an-uong/*', element: <MealPlanRoute />, handle: title('Kế Hoạch Ăn Uống · CapNong AI') },
           { path: 'meal-plan/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'meal-planner/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
-          { path: 'cong-nghe-ai/*', element: <AiRoute />, handle: title('Công nghệ AI Tiên phong') },
+          { path: 'cong-nghe-ai/*', element: <Navigate replace to="/" /> },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
 
