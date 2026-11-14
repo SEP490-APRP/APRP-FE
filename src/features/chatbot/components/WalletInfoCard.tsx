@@ -8,7 +8,7 @@ interface WalletInfoCardProps {
   wallet: WalletInfoDto
 }
 
-const formatVnd = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+const formatVnd = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
 
 const formatSigned = (val: number) => (val > 0 ? '+' : val < 0 ? '−' : '') + formatVnd(Math.abs(val))
 

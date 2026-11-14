@@ -39,8 +39,8 @@ export const MysteryBoxQaCard: React.FC<MysteryBoxQaCardProps> = ({ mysteryBox }
   }
 
   const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+    if (!val) return '0\u00A0đ'
+    return new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
   }
 
   const isRisk = mysteryBox.isAllergyRisk

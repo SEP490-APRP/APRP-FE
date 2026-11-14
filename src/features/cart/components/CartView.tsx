@@ -293,9 +293,9 @@ export const CartView: React.FC = () => {
 
                 {/* Tạm tính của từng shop */}
                 {shopSubtotal > 0 && (
-                  <div className="pt-2 border-t border-line flex justify-between items-center text-xs text-ink-muted">
-                    <span>Tạm tính nhà vườn:</span>
-                    <strong className="text-sm font-bold text-[#326318]">
+                  <div className="pt-2 border-t border-line flex justify-between items-center text-xs text-ink-muted gap-2">
+                    <span className="whitespace-nowrap">Tạm tính nhà vườn:</span>
+                    <strong className="text-sm font-bold text-[#326318] whitespace-nowrap shrink-0">
                       {money(shopSubtotal)}
                     </strong>
                   </div>
@@ -313,23 +313,23 @@ export const CartView: React.FC = () => {
             </h3>
 
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-ink-muted">
-                <span>Số lượng đã chọn:</span>
-                <span className="font-semibold text-ink">{totalSelectedCount} món</span>
+              <div className="flex justify-between items-center text-ink-muted gap-2">
+                <span className="whitespace-nowrap">Số lượng đã chọn:</span>
+                <span className="font-semibold text-ink whitespace-nowrap shrink-0">{totalSelectedCount} món</span>
               </div>
-              <div className="flex justify-between text-ink-muted">
-                <span>Tạm tính hàng:</span>
-                <span className="font-semibold text-ink">{money(totalAmount)}</span>
+              <div className="flex justify-between items-center text-ink-muted gap-2">
+                <span className="whitespace-nowrap">Tạm tính hàng:</span>
+                <span className="font-semibold text-ink whitespace-nowrap shrink-0">{money(totalAmount)}</span>
               </div>
-              <div className="flex justify-between text-ink-muted text-[11px]">
-                <span>Phí vận chuyển:</span>
-                <span className="italic text-gray-400">Tính ở bước thanh toán</span>
+              <div className="flex justify-between items-center text-ink-muted text-[11px] gap-2">
+                <span className="whitespace-nowrap">Phí vận chuyển:</span>
+                <span className="italic text-gray-400 whitespace-nowrap shrink-0">Tính ở bước thanh toán</span>
               </div>
             </div>
 
-            <div className="pt-2.5 border-t border-line flex justify-between items-baseline">
-              <span className="font-bold text-xs text-ink">Tổng ước tính:</span>
-              <span className="text-lg font-black text-[#326318]">
+            <div className="pt-2.5 border-t border-line flex justify-between items-baseline gap-2">
+              <span className="font-bold text-xs text-ink whitespace-nowrap">Tổng ước tính:</span>
+              <span className="text-lg font-black text-[#326318] whitespace-nowrap shrink-0">
                 {money(totalAmount)}
               </span>
             </div>

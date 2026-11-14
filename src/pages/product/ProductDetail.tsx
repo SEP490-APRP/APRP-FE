@@ -347,6 +347,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
             onClose={() => setShowShareMenu(false)}
             productUrl={productUrl}
             shopUrl={shopUrl}
+            productId={product?.id}
+            shopId={resolvedShopId ?? undefined}
             type="product"
             align="right"
           />

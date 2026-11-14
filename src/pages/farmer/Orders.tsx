@@ -105,12 +105,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
   // Lọc tìm kiếm theo mã đơn, người nhận, số điện thoại
   const filteredOrders = search.trim()
     ? orders.filter((o) => {
-        const id = String(o.orderId ?? o.id ?? '')
-        const name = o.recipientName?.toLowerCase() || ''
-        const phone = o.recipientPhone || ''
-        const q = search.toLowerCase().trim()
-        return id.includes(q) || name.includes(q) || phone.includes(q)
-      })
+      const id = String(o.orderId ?? o.id ?? '')
+      const name = o.recipientName?.toLowerCase() || ''
+      const phone = o.recipientPhone || ''
+      const q = search.toLowerCase().trim()
+      return id.includes(q) || name.includes(q) || phone.includes(q)
+    })
     : orders
 
   const toggleWeightAgreement = (orderId: number) => {
@@ -331,11 +331,10 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                 setActiveTabIdx(idx)
                 setPage(0)
               }}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
-                isActive
+              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${isActive
                   ? 'bg-[#326318] text-white border-[#326318] shadow-sm'
                   : 'bg-white border-[#e4ece0] text-[#646e5f] hover:bg-[#f3f7ef] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
               {isActive && data?.totalElements != null && (
@@ -405,11 +404,10 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                     </span>
                     {renderStatusBadge(ord.status)}
                     <span
-                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                        ord.paymentMethod === 'PAYOS'
+                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${ord.paymentMethod === 'PAYOS'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}
+                        }`}
                     >
                       {ord.paymentMethod === 'PAYOS' ? '💳 VietQR PayOS' : '💵 Thu COD'}
                     </span>
@@ -419,12 +417,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                     <span>
                       {ord.createdAt
                         ? new Date(ord.createdAt).toLocaleString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                          })
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
                         : 'Vừa xong'}
                     </span>
                     <button
@@ -514,17 +512,16 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[11px] text-[#717b6d]">
+                                <p className="text-[11px] text-[#717b6d] whitespace-nowrap">
                                   Số lượng: <strong className="text-[#1c2216]">{item.quantity}</strong>{' '}
-                                  × {(item.unitPrice || 0).toLocaleString('vi-VN')} đ
+                                  × {(item.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                                 </p>
                               </div>
                             </div>
                             <strong className="text-xs text-[#1c2216] whitespace-nowrap shrink-0">
                               {(
                                 item.subtotal || (item.unitPrice || 0) * (item.quantity || 1)
-                              ).toLocaleString('vi-VN')}{' '}
-                              đ
+                              ).toLocaleString('vi-VN')}&nbsp;đ
                             </strong>
                           </div>
                         )
@@ -532,18 +529,18 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                     </div>
 
                     {/* Financial Summary */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#f1f4ed] text-xs">
-                      <div className="text-[#737c6e]">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#f1f4ed] text-xs gap-2">
+                      <div className="text-[#737c6e] whitespace-nowrap">
                         {ord.shippingFee != null && (
                           <span>
-                            Phí vận chuyển: <strong>{ord.shippingFee.toLocaleString('vi-VN')} đ</strong>
+                            Phí vận chuyển: <strong className="whitespace-nowrap shrink-0">{ord.shippingFee.toLocaleString('vi-VN')}&nbsp;đ</strong>
                           </span>
                         )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-[#737c6e] block text-[11px]">Tổng tiền đơn:</span>
-                        <strong className="text-lg font-black text-[#326318]">
-                          {(ord.totalAmount || 0).toLocaleString('vi-VN')} đ
+                      <div className="text-right shrink-0">
+                        <span className="text-[#737c6e] block text-[11px] whitespace-nowrap">Tổng tiền đơn:</span>
+                        <strong className="text-lg font-black text-[#326318] whitespace-nowrap shrink-0">
+                          {(ord.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                         </strong>
                       </div>
                     </div>
@@ -760,8 +757,8 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                             </span>
                           </div>
                           {ord.refundAmount && ord.refundAmount > 0 && (
-                            <span className="font-bold text-rose-700 text-xs">
-                              Đã hoàn: -{Number(ord.refundAmount).toLocaleString('vi-VN')} đ
+                            <span className="font-bold text-rose-700 text-xs whitespace-nowrap">
+                              Đã hoàn: -{Number(ord.refundAmount).toLocaleString('vi-VN')}&nbsp;đ
                             </span>
                           )}
                         </div>
@@ -865,21 +862,21 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                       <span className="font-bold text-[#1c2216]">
                         {it.itemName || it.productName || it.mysteryBoxType}
                       </span>
-                      <span className="text-[11px] text-[#747e70] block">
-                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')} đ
+                      <span className="text-[11px] text-[#747e70] block whitespace-nowrap">
+                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
-                    <strong>
-                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')} đ
+                    <strong className="whitespace-nowrap shrink-0">
+                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')}&nbsp;đ
                     </strong>
                   </div>
                 ))}
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#f4f8f0] border border-[#dce8d6] flex justify-between items-center text-sm">
-                <span className="font-bold text-[#1c2216]">Tổng thanh toán:</span>
-                <strong className="text-lg font-black text-[#326318]">
-                  {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ
+              <div className="p-4 rounded-2xl bg-[#f4f8f0] border border-[#dce8d6] flex justify-between items-center text-sm gap-2">
+                <span className="font-bold text-[#1c2216] whitespace-nowrap">Tổng thanh toán:</span>
+                <strong className="text-lg font-black text-[#326318] whitespace-nowrap shrink-0">
+                  {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                 </strong>
               </div>
               {(selectedOrder.orderId ?? selectedOrder.id) &&

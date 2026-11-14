@@ -214,11 +214,10 @@ export default function FarmerDisputes() {
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  statusFilter === tab.key
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab.key
                     ? 'bg-[#326318] text-white shadow-xs'
                     : 'bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -315,10 +314,10 @@ export default function FarmerDisputes() {
                       </div>
                     )}
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-stone-400 block uppercase">Hoàn trả</span>
-                      <span className="text-base font-black text-rose-600">
-                        {Number(item.refundAmount || 0).toLocaleString('vi-VN')} đ
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Hoàn trả</span>
+                      <span className="text-base font-black text-rose-600 whitespace-nowrap shrink-0">
+                        {Number(item.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
 
@@ -399,16 +398,16 @@ export default function FarmerDisputes() {
                     <p className="text-[11px] text-stone-500 mt-0.5">
                       Số lượng: <strong className="text-stone-700">{selectedDispute.quantity || 1}</strong>
                     </p>
-                    <p className="text-xs font-bold text-[#326318] mt-0.5">
-                      Đơn giá: {Number(selectedDispute.unitPrice || 0).toLocaleString('vi-VN')} đ
+                    <p className="text-xs font-bold text-[#326318] mt-0.5 whitespace-nowrap">
+                      Đơn giá: {Number(selectedDispute.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-stone-400 block uppercase">Số tiền hoàn</span>
-                  <span className="text-lg font-black text-rose-600">
-                    {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')} đ
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Số tiền hoàn</span>
+                  <span className="text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
+                    {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                   </span>
                 </div>
               </div>
@@ -519,11 +518,10 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('WALLET')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
-                        shippingPaymentMethod === 'WALLET'
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'WALLET'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                      }`}
+                        }`}
                     >
                       <div className="text-[11px]">Trừ Ví sàn</div>
                       <div className="text-[10px] font-normal opacity-90">Trừ từ số dư ví ngay</div>
@@ -531,11 +529,10 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('COD')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
-                        shippingPaymentMethod === 'COD'
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'COD'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                      }`}
+                        }`}
                     >
                       <div className="text-[11px]">Tiền mặt COD</div>
                       <div className="text-[10px] font-normal opacity-90">Đưa shipper khi nhận hàng</div>

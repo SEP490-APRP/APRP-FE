@@ -6,6 +6,7 @@ import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
 import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
+import { useReferralClaim } from '@/features/referral'
 import { cartCount, useAuth, useCartStore, useUiStore, useChatStore } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
@@ -25,7 +26,7 @@ export const useStorefront = () => useOutletContext<StorefrontContext>()
 function headerRoute(pathname: string): string {
   if (/^\/cua-hang\/[^/]+\/voucher/.test(pathname)) return pathname
   if (/^\/(nong-san-tuoi|san-pham|cua-hang)/.test(pathname)) return '/nong-san-tuoi'
-  if (pathname.startsWith('/combo-tui-mu')) return '/combo-tui-mu'
+  if (pathname.startsWith('/combo-tui-mu') || pathname.startsWith('/combo') || pathname.startsWith('/mystery-box') || pathname.startsWith('/tui-mu')) return '/combo-tui-mu'
   if (pathname.startsWith('/cong-nghe-ai')) return '/cong-nghe-ai'
   if (pathname.startsWith('/ke-hoach-an-uong')) return '/ke-hoach-an-uong'
   if (pathname.startsWith('/cau-chuyen-nong-dan')) return '/cau-chuyen-nong-dan'
@@ -38,6 +39,9 @@ export default function StorefrontLayout() {
   const navigate = useNavigate()
   const { user, token, logout, setUser } = useAuth()
   const { initRealtime, loadConversations, loadUnreadCount } = useChatStore()
+
+  // Tự động claim mã tiếp thị liên kết đang chờ (pending) sau khi đăng nhập
+  useReferralClaim()
 
   // Đồng bộ kết nối WebSocket và tin nhắn chưa đọc cho người dùng trên Storefront
   useEffect(() => {

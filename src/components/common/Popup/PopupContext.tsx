@@ -16,6 +16,7 @@ export interface ConfirmCustomOptions {
   confirmText?: string
   cancelText?: string
   isDestructive?: boolean
+  danger?: boolean
 }
 
 export interface ConfirmOptions {
@@ -62,7 +63,7 @@ export const usePopupStore = create<PopupStoreState>((set) => ({
             message,
             confirmText: options?.confirmText,
             cancelText: options?.cancelText,
-            isDestructive: options?.isDestructive,
+            isDestructive: options?.isDestructive ?? options?.danger,
             resolve,
           },
         ],

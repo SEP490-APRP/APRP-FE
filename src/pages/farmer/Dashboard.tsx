@@ -220,11 +220,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('NONG_SAN')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'NONG_SAN'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'NONG_SAN'
                   ? 'border-[#326318] text-[#326318] bg-[#326318]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               Nông sản ({freshProducts.length})
             </button>
@@ -232,11 +231,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('COMBO')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'COMBO'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'COMBO'
                   ? 'border-[#195962] text-[#195962] bg-[#195962]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               Combo ({combos.length})
             </button>
@@ -244,11 +242,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('BLIND_BOX')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'BLIND_BOX'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'BLIND_BOX'
                   ? 'border-[#8a4e1d] text-[#8a4e1d] bg-[#8a4e1d]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               Túi Mù ({blindBoxes.length})
             </button>
@@ -427,11 +424,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
 
                   <div className="col-span-2 flex items-center justify-end">
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        box.isActive
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${box.isActive
                           ? 'bg-[#eaf5e1] text-[#326318] border-[#b8e19c]'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}
+                        }`}
                     >
                       <span>{box.isActive ? 'Đang mở' : 'Tạm dừng'}</span>
                     </span>
@@ -487,11 +483,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                 const statusBadge = getOrderStatusBadge(ord.status)
                 const formattedTime = ord.createdAt
                   ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }) +
-                    ' · ' +
-                    new Date(ord.createdAt).toLocaleDateString('vi-VN')
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }) +
+                  ' · ' +
+                  new Date(ord.createdAt).toLocaleDateString('vi-VN')
                   : 'Vừa xong'
 
                 return (
@@ -579,8 +575,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#6f7869] uppercase">
               Doanh Thu Đã Hoàn Thành
             </span>
-            <div className="text-2xl font-black text-[#326318] mt-1">
-              {completedRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#326318] mt-1 whitespace-nowrap">
+              {completedRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Từ {completedOrders.length} đơn hàng đã giao thành công
@@ -591,8 +587,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#8a4e1d] uppercase">
               Đang Chờ Quyết Toán
             </span>
-            <div className="text-2xl font-black text-[#8a4e1d] mt-1">
-              {pendingSettlementRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#8a4e1d] mt-1 whitespace-nowrap">
+              {pendingSettlementRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Từ {shippingOrPendingOrders.length} đơn hàng đang xử lý / vận chuyển
@@ -603,8 +599,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#2d5c99] uppercase">
               Tổng Giá Trị Đơn Hàng
             </span>
-            <div className="text-2xl font-black text-[#2d5c99] mt-1">
-              {totalSalesRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#2d5c99] mt-1 whitespace-nowrap">
+              {totalSalesRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Tổng doanh số tích lũy của gian hàng

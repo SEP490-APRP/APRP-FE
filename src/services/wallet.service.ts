@@ -111,7 +111,7 @@ export function withdrawErrorMessage(err: unknown): string {
   const e = err as { data?: { code?: number }; response?: { data?: { code?: number } }; code?: number }
   const code = e?.data?.code ?? e?.response?.data?.code ?? e?.code
   switch (code) {
-    case 16007: return `Số tiền rút tối thiểu là ${MIN_WITHDRAW_AMOUNT.toLocaleString('vi-VN')} đ`
+    case 16007: return `Số tiền rút tối thiểu là ${MIN_WITHDRAW_AMOUNT.toLocaleString('vi-VN')}\u00A0đ`
     case 16008: return 'Số dư khả dụng không đủ để rút số tiền này'
     case 16009: return 'Thông tin ngân hàng chưa hợp lệ (STK 6–20 chữ số)'
     case 16010: return 'Không tìm thấy lệnh rút tiền'
@@ -162,7 +162,7 @@ export function formatBackendDate(value: BackendDateTime): string {
 
 export function formatVnd(amount: number | null | undefined, withSign = false): string {
   const n = Number(amount ?? 0)
-  const text = `${Math.abs(n).toLocaleString('vi-VN')} đ`
+  const text = `${Math.abs(n).toLocaleString('vi-VN')}\u00A0đ`
   if (n < 0) return `-${text}`
   return withSign && n > 0 ? `+${text}` : text
 }

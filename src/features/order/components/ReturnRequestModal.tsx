@@ -126,7 +126,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
         : selectedReason
 
     if (refundAmount <= 0 || refundAmount > maxRefundAmount) {
-      setErrorMessage(`Số tiền yêu cầu hoàn phải từ 1.000 đ đến tối đa ${maxRefundAmount.toLocaleString('vi-VN')} đ`)
+      setErrorMessage(`Số tiền yêu cầu hoàn phải từ 1.000\u00A0đ đến tối đa ${maxRefundAmount.toLocaleString('vi-VN')}\u00A0đ`)
       return
     }
 
@@ -213,10 +213,10 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
               </h4>
               <p className="text-[11px] text-stone-500 mt-0.5">
                 Số lượng mua: <strong className="text-stone-700">{itemQty}</strong> • Đơn giá:{' '}
-                <strong className="text-stone-700">{itemUnitPrice.toLocaleString('vi-VN')} đ</strong>
+                <strong className="text-stone-700 whitespace-nowrap">{itemUnitPrice.toLocaleString('vi-VN')}&nbsp;đ</strong>
               </p>
-              <p className="text-xs font-bold text-emerald-700 mt-1">
-                Tổng giá trị mặt hàng: {maxRefundAmount.toLocaleString('vi-VN')} đ
+              <p className="text-xs font-bold text-emerald-700 mt-1 whitespace-nowrap">
+                Tổng giá trị mặt hàng: {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ
               </p>
             </div>
           </div>
@@ -248,7 +248,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
             )}
           </div>
 
-                    {/* Ghi chú: Shop là bên quyết định có lấy hàng về hay không */}
+          {/* Ghi chú: Shop là bên quyết định có lấy hàng về hay không */}
           <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
             <span className="font-bold text-amber-700 shrink-0">💡 Lưu ý:</span>
             <span>
@@ -260,7 +260,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#343b2e] flex items-center justify-between">
               <span>Số tiền yêu cầu hoàn lại:</span>
-              <span className="text-[10px] text-stone-400">Tối đa {maxRefundAmount.toLocaleString('vi-VN')} đ</span>
+              <span className="text-[10px] text-stone-400">Tối đa {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ</span>
             </label>
             <div className="relative">
               <input

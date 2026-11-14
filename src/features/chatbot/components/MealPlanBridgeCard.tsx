@@ -15,8 +15,8 @@ export const MealPlanBridgeCard: React.FC<MealPlanBridgeCardProps> = ({ bridge }
   const isLoading = useChatbotStore((s) => s.isLoading)
 
   const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+    if (!val) return '0\u00A0đ'
+    return new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
   }
 
   const title = bridge.conditionName || bridge.topic || 'Tư Vấn Dinh Dưỡng Theo Thể Trạng'

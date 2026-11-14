@@ -174,10 +174,10 @@ export const PaymentResultView: React.FC = () => {
             </div>
           )}
           {(paymentResult?.amount || orderDetail?.totalAmount) && (
-            <div className="flex justify-between items-center text-xs pt-1">
-              <span className="text-ink-muted">Tổng tiền:</span>
-              <span className="font-bold text-emerald-700">
-                {(paymentResult?.amount || orderDetail?.totalAmount)?.toLocaleString('vi-VN')} đ
+            <div className="flex justify-between items-center text-xs pt-1 gap-2">
+              <span className="text-ink-muted whitespace-nowrap">Tổng tiền:</span>
+              <span className="font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                {(paymentResult?.amount || orderDetail?.totalAmount)?.toLocaleString('vi-VN')}&nbsp;đ
               </span>
             </div>
           )}
