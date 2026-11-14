@@ -4,6 +4,7 @@ import { comboService, type BuildComboCreationRequest, type BuildComboUpdateRequ
 export const comboKeys = {
   all: ['combos'] as const,
   list: (params?: any) => [...comboKeys.all, 'list', params] as const,
+  shop: (shopId: number) => [...comboKeys.all, 'shop', shopId] as const,
   myShop: (params?: any) => [...comboKeys.all, 'my-shop', params] as const,
   detail: (id: number) => [...comboKeys.all, 'detail', id] as const,
 }
@@ -12,6 +13,26 @@ export function useCombos(params?: any) {
   return useQuery({
     queryKey: comboKeys.list(params),
     queryFn: async () => (await comboService.getCombos(params)).result,
+  })
+}
+
+/** Danh sách combo của một nhà vườn cụ thể */
+export function useShopCombos(shopId: number) {
+  return useQuery({
+    queryKey: comboKeys.shop(shopId),
+    queryFn: async () => {
+      const page = await comboService.getCombos({ shopId, status: 'ACTIVE', size: 50 })
+      const rawList = page?.content ?? (page as any)?.result?.content ?? []
+      return rawList.map((c: any) => ({
+        ...c,
+        id: c.comboId ?? c.id,
+        comboId: c.comboId ?? c.id,
+      }))
+    },
+    select: (combos) =>
+      combos.filter((c: any) =>
+        c.shop?.id ? c.shop.id === shopId : (c.shopId ? c.shopId === shopId : true),
+      ),
   })
 }
 

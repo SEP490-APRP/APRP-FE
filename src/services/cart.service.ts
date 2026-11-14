@@ -51,9 +51,13 @@ export async function getMyCart(): Promise<CartResponse> {
 }
 
 export async function addToCart(data: CartAddRequest): Promise<void> {
-  const itemType =
+  let itemType =
     data.itemType ||
     (data.mysteryBoxId ? 'MYSTERY_BOX' : data.buildComboId ? 'BUILD_COMBO' : 'PRODUCT')
+
+  if (itemType === 'COMBO') {
+    itemType = 'BUILD_COMBO'
+  }
 
   const itemId =
     data.itemId ?? data.productId ?? data.mysteryBoxId ?? data.buildComboId ?? 0
@@ -62,9 +66,9 @@ export async function addToCart(data: CartAddRequest): Promise<void> {
     itemType,
     itemId,
     quantity: data.quantity ?? 1,
-    productId: data.productId,
-    mysteryBoxId: data.mysteryBoxId,
-    buildComboId: data.buildComboId,
+    productId: data.productId ?? (itemType === 'PRODUCT' ? itemId : undefined),
+    mysteryBoxId: data.mysteryBoxId ?? (itemType === 'MYSTERY_BOX' ? itemId : undefined),
+    buildComboId: data.buildComboId ?? (itemType === 'BUILD_COMBO' ? itemId : undefined),
   }
 
   const res = await axiosInstance.post('/cart/add', payload)
