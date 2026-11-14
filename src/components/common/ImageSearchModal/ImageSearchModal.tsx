@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Camera,
   Upload,
   X,
   Loader2,
@@ -48,7 +47,6 @@ export default function ImageSearchModal({
   const [isCooldown, setIsCooldown] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [dynamicSuggestions, setDynamicSuggestions] = useState<{ label: string; keyword: string }[]>([])
 
   // Lấy động danh sách nông sản thực tế từ CSDL để hiển thị gợi ý (không dùng dữ liệu tĩnh)
@@ -249,7 +247,7 @@ export default function ImageSearchModal({
                 Tìm kiếm bằng hình ảnh
               </h3>
               <p className="text-xs text-[#6e7766] mt-0.5">
-                Chụp hoặc tải ảnh rau, củ, quả tươi để tìm sản phẩm tương đồng trong kho
+                Tải lên hoặc kéo thả ảnh rau, củ, quả tươi để tìm sản phẩm tương đồng trong kho
               </p>
             </div>
           </div>
@@ -296,14 +294,6 @@ export default function ImageSearchModal({
                   className="hidden"
                   onChange={handleFileChange}
                 />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
 
                 <div className="w-13 h-13 rounded-lg bg-white shadow-sm border border-[#ede5d4] text-[#326318] mx-auto flex items-center justify-center mb-3 group-hover:scale-105 group-hover:border-[#326318]/40 transition-all">
                   <ScanSearch size={24} className="text-[#326318]" />
@@ -317,24 +307,16 @@ export default function ImageSearchModal({
                 </p>
 
                 <div
-                  className="flex items-center justify-center gap-2.5 pt-1"
+                  className="flex items-center justify-center pt-1"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    className="px-5 py-2.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow flex items-center gap-2 cursor-pointer"
                   >
-                    <Upload size={15} />
-                    <span>Chọn ảnh từ máy</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="px-4 py-2 rounded-lg border border-[#d6cfbe] hover:border-[#326318] bg-white hover:bg-[#f6f2e8] text-[#2a3520] text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <Camera size={15} />
-                    <span>Chụp ảnh mới</span>
+                    <Upload size={16} />
+                    <span>Chọn ảnh từ thiết bị</span>
                   </button>
                 </div>
               </div>
@@ -365,7 +347,7 @@ export default function ImageSearchModal({
                   ))}
                 </div>
                 <p className="text-[11px] text-[#75806e] mt-2 leading-relaxed pt-2 border-t border-[#ede5d4]">
-                  <strong>Mẹo:</strong> Chụp cận cảnh 1 loại củ, quả hoặc rau tươi với đủ ánh sáng để hệ thống nhận diện nhanh và chuẩn xác nhất.
+                  <strong>Mẹo:</strong> Chọn ảnh rõ nét, chụp cận cảnh 1 loại củ, quả hoặc rau tươi với đủ ánh sáng để hệ thống nhận diện chuẩn xác nhất.
                 </p>
                 <p className="text-[11px] text-[#717a6c] text-center italic pt-1">
                   * Kết quả tìm kiếm bằng AI mang tính chất tham khảo và có thể có sai sót.
