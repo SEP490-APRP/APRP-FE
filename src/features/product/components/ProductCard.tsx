@@ -108,12 +108,6 @@ function ProductCardBase({
             -{discount}%
           </span>
         )}
-        <span
-          className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-[#ffd54f] backdrop-blur-sm"
-          title="Điểm chất lượng tươi sạch"
-        >
-          AI {p.score}%
-        </span>
         <span className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-[#5f6b57] shadow-sm">
           {p.flaw}
         </span>
