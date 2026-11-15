@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CreditCard, Flame, ChevronRight, XCircle, Clock, CheckCircle2, Truck, PackageCheck, AlertCircle } from 'lucide-react'
+import { CreditCard, Flame, ChevronRight, XCircle, Clock, CheckCircle2, Truck, PackageCheck, AlertCircle, Scale } from 'lucide-react'
+import { DamageClaimDialog } from './DamageClaimDialog'
 import { Button } from '@/components/ui/Button'
 import logoIcon from '@/assets/logo-icon.png'
 import type { PreOrderResponse } from '@/services'
@@ -22,7 +23,7 @@ const STATUS: Record<PreStatus, { label: string; cls: string; icon: React.ReactN
   PENDING: { label: 'Chờ thanh toán cọc', cls: 'bg-amber-50 text-amber-700 border-amber-300', icon: <Clock size={13} className="animate-pulse" /> },
   DEPOSIT_PAID: { label: 'Đã cọc · chờ thu hoạch', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={13} /> },
   PROCESSING: { label: 'Đã đóng thùng', cls: 'bg-sky-50 text-sky-700 border-sky-200', icon: <PackageCheck size={13} /> },
-  READY: { label: 'Đang giao', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Truck size={13} /> },
+  READY: { label: 'Tại hub · sắp giao', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Truck size={13} /> },
   DELIVERED: { label: 'Đã giao', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={13} /> },
   CANCELLED: { label: 'Đã hủy', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200', icon: <XCircle size={13} /> },
   FAILED: { label: 'Giao không thành công', cls: 'bg-rose-50 text-rose-700 border-rose-200', icon: <AlertCircle size={13} /> },
@@ -42,8 +43,17 @@ export const PreOrderCard: React.FC<{
   p: PreOrderResponse
   onCancel: (p: PreOrderResponse) => void
   cancelling: boolean
-}> = ({ p, onCancel, cancelling }) => {
-  const st = STATUS[p.status] ?? STATUS.PENDING
+  /** Sau khi gửi báo hư: tải lại danh sách và báo cho người mua */
+  onChanged?: (message: string) => void
+}> = ({ p, onCancel, cancelling, onChanged }) => {
+  const [claiming, setClaiming] = useState(false)
+  // Báo hàng hư (không hoàn hàng): trong 48h sau khi nhận, chưa có yêu cầu đang chờ duyệt
+  const claimOpen = p.status === 'DELIVERED' && !!p.damageClaimDeadline && Date.parse(p.damageClaimDeadline) > Date.now()
+    && p.damageClaimStatus !== 'PENDING'
+  const damageRefund = Number(p.damageRefundTotal ?? 0)
+  const base = STATUS[p.status] ?? STATUS.PENDING
+  // Ra hub nhưng shipper chưa lấy: "Tại hub"; shipper đã lấy hàng: "Đang giao"
+  const st = p.status === 'READY' && p.pickedUpAt ? { ...base, label: 'Đang giao' } : base
   const unpaid = p.status === 'PENDING'
   const stepIndex = STEPS.findIndex((s) => s.key.includes(p.status))
   const reduced = p.originalCrateQuantity != null && p.originalCrateQuantity > p.crateQuantity
@@ -97,7 +107,22 @@ export const PreOrderCard: React.FC<{
             {p.crateQuantity} thùng × {p.crateKg} kg
             <span className="text-ink-muted font-normal"> · tổng {p.totalKg} kg</span>
           </h4>
-          <p className="text-xs text-ink-muted mt-0.5">Đơn giá {vnd(p.unitPrice)}/kg · giao về {p.shippingAddress || 'địa chỉ của bạn'}</p>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Đơn giá {vnd(p.unitPrice)}/kg ·{' '}
+            {p.fulfillmentMethod === 'PICKUP'
+              ? `tự đến lấy tại ${p.collectionSiteName || 'điểm tập kết'}`
+              : `giao về ${p.shippingAddress || 'địa chỉ của bạn'} · phí giao ${Number(p.shippingFee ?? 0) > 0 ? vnd(p.shippingFee ?? 0) : 'miễn phí'}`}
+          </p>
+          {p.fulfillmentMethod === 'PICKUP' && p.status === 'PROCESSING' && (
+            <p className="mt-1.5 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+              Đã đóng gói xong, mời bạn tới lấy · đọc mã {p.code}
+            </p>
+          )}
+          {Number(p.shippingDiscountAmount ?? 0) > 0 && (
+            <p className="mt-1.5 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+              Gom đơn cùng phường: giảm {vnd(p.shippingDiscountAmount ?? 0)} phí giao
+            </p>
+          )}
           {reduced && (
             <p className="mt-1.5 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
               Giảm từ {p.originalCrateQuantity} thùng do nhà vườn thiếu hàng
@@ -123,6 +148,18 @@ export const PreOrderCard: React.FC<{
         </div>
       )}
 
+      {p.damageClaimStatus && (
+        <p className={`mx-6 mb-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
+          p.damageClaimStatus === 'PENDING' ? 'bg-amber-50 text-amber-800' : p.damageClaimStatus === 'APPROVED' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'}`}>
+          <Scale size={14} />
+          {p.damageClaimStatus === 'PENDING'
+            ? `Đã báo hư ${p.damageClaimKg} kg · CapNong đang xem ảnh`
+            : p.damageClaimStatus === 'APPROVED'
+              ? `Báo hư được duyệt ${p.damageClaimKg} kg · đã hoàn ${vnd(damageRefund)} vào ví`
+              : 'Báo hư gần nhất bị từ chối, xem lý do trong thông báo'}
+        </p>
+      )}
+
       {(p.cancelReason || p.failReason) && (
         <p className="mx-6 mb-4 rounded-xl bg-neutral-50 px-3 py-2 text-xs text-ink-muted">Lý do: {p.cancelReason || p.failReason}</p>
       )}
@@ -141,6 +178,16 @@ export const PreOrderCard: React.FC<{
           {refund > 0 && <p className="font-semibold text-rose-600">Đã hoàn {vnd(refund)} vào ví</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {claimOpen && (
+            <Button
+              variant="secondary"
+              onClick={() => setClaiming(true)}
+              className="gap-1 px-3 py-2 text-xs rounded-xl text-amber-700 hover:bg-amber-50 border-amber-300 cursor-pointer"
+            >
+              <Scale size={14} />
+              Báo hàng hư
+            </Button>
+          )}
           {unpaid && p.checkoutUrl && (
             <Button
               variant="primary"
@@ -170,6 +217,13 @@ export const PreOrderCard: React.FC<{
           </Link>
         </div>
       </div>
+      {claiming && (
+        <DamageClaimDialog
+          p={p}
+          onClose={() => setClaiming(false)}
+          onDone={(msg) => { setClaiming(false); onChanged?.(msg) }}
+        />
+      )}
     </div>
   )
 }

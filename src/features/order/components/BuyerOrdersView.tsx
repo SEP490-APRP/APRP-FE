@@ -575,6 +575,7 @@ export const BuyerOrdersView: React.FC = () => {
                   p={item.preOrder}
                   onCancel={handleCancelPreOrder}
                   cancelling={cancellingPreOrderId === item.preOrder.preOrderId}
+                  onChanged={(msg) => { window.alert(msg); fetchOrders() }}
                 />
               )
             }

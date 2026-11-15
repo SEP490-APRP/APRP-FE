@@ -5,7 +5,8 @@ export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'THRESHOLD_MET' | 'FULFILLING'
 /** Giai đoạn hiển thị công khai (tham số ?phase= của GET /campaigns) */
 export type CampaignPhase = 'UPCOMING' | 'ONGOING' | 'DELIVERING' | 'DONE'
 
-export type CrateSize = 'KG_10' | 'KG_20' | 'KG_50'
+export type CrateSize = 'KG_3' | 'KG_5' | 'KG_10' | 'KG_20' | 'KG_50'
+export type FulfillmentMethod = 'DELIVERY' | 'PICKUP'
 
 export interface CampaignResponse {
   campaignId: number
@@ -27,6 +28,12 @@ export interface CampaignResponse {
   collectionSiteAddress?: string | null
   collectionSiteLatitude?: number | null
   collectionSiteLongitude?: number | null
+  /** Quy tắc phí giao của chiến dịch */
+  shipHalfKg?: number | null
+  shipFreeKg?: number | null
+  shipFreeRadiusKm?: number | null
+  groupDiscountMinOrders?: number | null
+  pickupEnabled?: boolean | null
   status: CampaignStatus
   bookedVolumeKg: number
   remainingVolumeKg: number
@@ -43,6 +50,12 @@ export interface CampaignResponse {
   packedVolumeKg?: number | null
   shortfallVolumeKg?: number | null
   intakePendingCount?: number
+  /** Kêu gọi nhà vườn bổ sung hàng khi mọi lô đã giao mà vẫn thiếu */
+  topUpOpen?: boolean
+  topUpCallAt?: string | null
+  topUpClosedAt?: string | null
+  topUpKg?: number | null
+  topUpRemainingKg?: number | null
   evaluatedAt?: string | null
   completedAt?: string | null
   cancelledAt?: string | null
@@ -73,6 +86,87 @@ export interface PreOrderCreateRequest {
   note?: string
   /** Trừ ví người mua trước cho tiền cọc, phần còn lại qua PayOS */
   useWallet?: boolean
+  /** DELIVERY (giao tận nơi) | PICKUP (tự đến điểm tập kết, 0đ) */
+  fulfillmentMethod?: FulfillmentMethod
+  deliveryWard?: string
+}
+
+export type PriorityLevel = 'URGENT' | 'HIGH' | 'NORMAL'
+
+export interface DispatchZone {
+  zone: string
+  orderCount: number
+  totalKg: number
+  codTotal: number
+  topPriority: PriorityLevel
+  orders: PreOrderResponse[]
+}
+
+export interface DispatchShipper {
+  id: number
+  name: string
+  phone?: string | null
+  vehicleNumber?: string | null
+  online: boolean
+  activePreOrders: number
+}
+
+export interface DispatchBoard {
+  campaignId: number
+  campaignStatus: CampaignStatus
+  shelfLifeTier?: ShelfLifeTier | null
+  urgentCount: number
+  highCount: number
+  normalCount: number
+  waitingCount: number
+  dispatchedCount: number
+  zones: DispatchZone[]
+  shippers: DispatchShipper[]
+}
+
+export interface ShippingQuote {
+  fulfillmentMethod: FulfillmentMethod
+  totalKg: number
+  distanceKm?: number | null
+  baseFee?: number | null
+  shippingFee?: number | null
+  discountPercent: number
+  nextTierKg?: number | null
+  nextTierLabel?: string | null
+  note?: string | null
+  halfShipKg: number
+  freeShipKg: number
+  freeShipRadiusKm: number
+  groupDiscountMinOrders: number
+  pickupEnabled: boolean
+  collectionSiteName?: string | null
+  collectionSiteAddress?: string | null
+}
+
+export type DamageClaimStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+/** Báo hàng hư đơn chiến dịch: người mua cân + chụp ảnh, admin duyệt và hoàn tiền từ ví sàn */
+export interface DamageClaim {
+  claimId: number
+  preOrderId: number
+  preOrderCode: string
+  campaignId: number
+  campaignTitle?: string | null
+  buyerName?: string | null
+  buyerPhone?: string | null
+  orderKg: number
+  pricePerKg?: number | null
+  status: DamageClaimStatus
+  claimedKg: number
+  photoUrls: string[]
+  reason?: string | null
+  approvedKg?: number | null
+  refundAmount?: number | null
+  adminNote?: string | null
+  sourceShopName?: string | null
+  deliveredAt?: string | null
+  createdAt: string
+  reviewedAt?: string | null
 }
 
 export interface PreOrderResponse {
@@ -94,6 +188,37 @@ export interface PreOrderResponse {
   recipientPhone?: string | null
   shippingAddress?: string | null
   deliveryZone?: string | null
+  fulfillmentMethod?: FulfillmentMethod | null
+  deliveryWard?: string | null
+  shippingDistanceKm?: number | null
+  shippingBaseFee?: number | null
+  shippingFee?: number | null
+  shippingDiscountAmount?: number | null
+  collectionSiteName?: string | null
+  collectionSiteAddress?: string | null
+  /** Độ gấp khi giao */
+  priorityLevel?: PriorityLevel | null
+  priorityReason?: string | null
+  deliverBy?: string | null
+  shelfLifeTier?: ShelfLifeTier | null
+  retryCount?: number | null
+  /** Báo hàng hư: hạn báo (48h sau khi nhận), yêu cầu mới nhất, tổng tiền đã hoàn */
+  damageClaimDeadline?: string | null
+  damageClaimStatus?: DamageClaimStatus | null
+  damageClaimKg?: number | null
+  damageRefundTotal?: number | null
+  /** Lô nhà vườn dùng đóng thùng cho đơn */
+  sourceRegistrationId?: number | null
+  sourceShopName?: string | null
+  sourceProductName?: string | null
+  sourceHarvestDate?: string | null
+  packedAt?: string | null
+  readyAt?: string | null
+  pickedUpAt?: string | null
+  deliveredAt?: string | null
+  podImageUrl?: string | null
+  shippingLatitude?: number | null
+  shippingLongitude?: number | null
   qrCode?: string | null
   shipperName?: string | null
   cancelReason?: string | null
@@ -113,7 +238,8 @@ export interface PreOrderResponse {
 /* ─────────────── Nhà vườn (shop) đăng ký lô hàng vào chiến dịch ─────────────── */
 
 /** Thời gian bảo quản lô hàng sau thu hoạch */
-export type ShelfLifeTier = 'DAYS_1_2' | 'DAYS_3_4' | 'DAYS_5_6'
+/** Mức bảo quản: số ngày hàng còn tươi tính từ NGÀY CHỐT chiến dịch */
+export type ShelfLifeTier = 'DAYS_2_3' | 'DAYS_3_4' | 'DAYS_5_6'
 
 export type FarmRegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
@@ -194,6 +320,11 @@ export interface CampaignUpsertRequest {
   collectionSiteAddress?: string
   collectionSiteLatitude?: number
   collectionSiteLongitude?: number
+  shipHalfKg?: number
+  shipFreeKg?: number
+  shipFreeRadiusKm?: number
+  groupDiscountMinOrders?: number
+  pickupEnabled?: boolean
 }
 
 export interface CampaignIntakeRequest {

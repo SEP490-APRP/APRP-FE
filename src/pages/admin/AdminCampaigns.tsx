@@ -29,6 +29,8 @@ import {
   type PreOrderResponse,
 } from '@/services'
 import { formatKg, formatVnd } from '@/features/campaign/utils'
+import CampaignDispatchBoard from './CampaignDispatchBoard'
+import CampaignDamageClaims, { damageClaimsKey } from './CampaignDamageClaims'
 import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
 import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
@@ -176,7 +178,8 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const campaign = useQuery({ queryKey: keys.one(id), queryFn: () => adminCampaignService.get(id) })
   const regs = useQuery({ queryKey: keys.regs(id), queryFn: () => adminCampaignService.registrations(id) })
   const orders = useQuery({ queryKey: keys.orders(id), queryFn: () => adminCampaignService.preOrders(id) })
-  const [tab, setTab] = useState<'farms' | 'orders'>('farms')
+  const claims = useQuery({ queryKey: damageClaimsKey(id), queryFn: () => adminCampaignService.damageClaims(id) })
+  const [tab, setTab] = useState<'farms' | 'orders' | 'dispatch' | 'claims'>('farms')
   const [intakeFor, setIntakeFor] = useState<FarmRegistrationResponse | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -242,6 +245,8 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
           {c.status === 'DRAFT' && !c.callPostedAt && button('call', 'Đăng lời kêu gọi nhà vườn', 'Đã gửi lời kêu gọi tới các nhà vườn.', <Megaphone size={16} />)}
           {c.status === 'DRAFT' && button('publish', 'Mở bán đặt trước', 'Chiến dịch đã mở đặt trước.', <Flame size={16} />)}
           {c.status === 'THRESHOLD_MET' && button('start-fulfilling', 'Bắt đầu gom hàng', 'Đã báo nhà vườn mang hàng tới điểm tập kết.', <Truck size={16} />)}
+          {fulfilling && pendingIntake === 0 && !c.topUpOpen && Number(c.topUpRemainingKg ?? 0) > 0 && button('top-up-call', `Kêu gọi bổ sung ${kg(c.topUpRemainingKg)}`, 'Đã gửi kêu gọi bổ sung tới các nhà vườn.', <Megaphone size={16} />)}
+          {fulfilling && c.topUpOpen && button('top-up-call/close', 'Đóng kêu gọi bổ sung', 'Đã đóng kêu gọi bổ sung.', <X size={16} />, 'danger')}
           {fulfilling && shortfall > 0 && pendingIntake === 0 && button('resolve-shortfall', 'Xử lý thiếu hàng', 'Đã xử lý thiếu hàng: đơn bị giảm thùng hoặc huỷ đã được hoàn cọc.', <AlertTriangle size={16} />, 'warn')}
           {fulfilling && button('dispatch-to-hub', 'Đưa đơn đã đóng gói tới hub', 'Các đơn đã đóng gói đã chuyển sang Tại hub.', <Truck size={16} />)}
           {fulfilling && button('complete', 'Hoàn tất & chi trả', 'Đã hoàn tất: giải ngân cọc và chi trả nhà vườn.', <CheckCircle2 size={16} />)}
@@ -259,7 +264,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
       {['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) && <SupplyPanel c={c} />}
 
       <div className="flex gap-1 border-b border-gray-200" role="tablist">
-        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`]] as const).map(([k, label]) => (
+        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['dispatch', 'Chia đơn giao'], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`]] as const).map(([k, label]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
             className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-bold ${tab === k ? 'border-[#326318] text-[#326318]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
             {label}
@@ -267,7 +272,11 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
         ))}
       </div>
 
-      {tab === 'farms' ? (
+      {tab === 'claims' ? (
+        <CampaignDamageClaims campaignId={id} onNotice={(n) => { setNotice(n); refresh() }} />
+      ) : tab === 'dispatch' ? (
+        <CampaignDispatchBoard c={c} allOrders={orders.data ?? []} onNotice={(n) => { setNotice(n); refresh() }} />
+      ) : tab === 'farms' ? (
         <FarmTable c={c} rows={regs.data ?? []} loading={regs.isPending} onIntake={setIntakeFor} onChanged={refresh} onError={(t) => setNotice({ ok: false, text: t })} />
       ) : (
         <OrderTable c={c} rows={orders.data ?? []} loading={orders.isPending} onChanged={refresh} onError={(t) => setNotice({ ok: false, text: t })} />
@@ -304,13 +313,23 @@ function SupplyPanel({ c }: { c: CampaignResponse }) {
       <div className="mt-4 h-2 rounded-full bg-gray-100">
         <div className={`h-full rounded-full ${shortfall > 0 ? 'bg-amber-500' : 'bg-[#326318]'}`} style={{ width: `${pct}%` }} />
       </div>
+      {c.topUpOpen && (
+        <div className="mt-3 flex gap-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
+          <Megaphone size={18} className="mt-0.5 shrink-0" />
+          <p>
+            Đang kêu gọi bổ sung từ {c.topUpCallAt ? new Date(c.topUpCallAt).toLocaleString('vi-VN') : '—'}: cần <b>{kg(c.topUpKg)}</b>,
+            còn <b>{kg(c.topUpRemainingKg)}</b> chưa có nhà vườn nhận. Duyệt lô bổ sung ở tab Nhà vườn, mỗi lô chỉ được chia tối đa phần còn thiếu.
+            Chia đủ thì kêu gọi tự đóng.
+          </p>
+        </div>
+      )}
       {pending > 0 ? (
-        <p className="mt-3 text-sm text-gray-600">Còn <b>{pending}</b> nhà vườn chưa cân nhận hàng. Cân xong hết mới biết chính xác có thiếu hay không.</p>
+        <p className="mt-3 text-sm text-gray-600">Còn <b>{pending}</b> lô chưa cân nhận hàng. Cân xong hết mới biết chính xác có thiếu hay không, khi đó mới được kêu gọi bổ sung.</p>
       ) : shortfall > 0 && c.status === 'FULFILLING' ? (
         <div className="mt-3 flex gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <p>
-            Thiếu <b>{kg(shortfall)}</b> so với số người mua đã cọc. Bấm <b>Xử lý thiếu hàng</b>: đơn cọc trước được giữ đủ hàng,
+            Thiếu <b>{kg(shortfall)}</b> so với số người mua đã cọc. {c.topUpOpen ? 'Đang chờ nhà vườn đăng ký bổ sung.' : <>Mọi nhà vườn đã giao xong, bạn có thể bấm <b>Kêu gọi bổ sung</b> để nhà vườn đăng ký thêm lô cho phần thiếu.</>} Nếu không kịp, bấm <b>Xử lý thiếu hàng</b>: đơn cọc trước được giữ đủ hàng,
             đơn cọc sau bị giảm số thùng hoặc huỷ nếu không còn đủ một thùng, phần cọc tương ứng tự hoàn vào ví người mua và họ nhận
             thông báo. Trước khi xử lý, hệ thống không cho đóng gói vượt số kg đạt chuẩn.
           </p>
@@ -343,7 +362,7 @@ function FarmTable({
   })
   if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />
   if (rows.length === 0) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">Chưa có nhà vườn nào đăng ký.</div>
-  const canReview = c.status === 'DRAFT' || c.status === 'ACTIVE'
+  const canReview = c.status === 'DRAFT' || c.status === 'ACTIVE' || !!c.topUpOpen
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       {rows.map((r) => {
@@ -431,6 +450,11 @@ function OrderTable({
     onSuccess: onChanged,
     onError: (e) => onError(getErrorMessage(e, 'Không đóng gói được đơn.')),
   })
+  const pickedUp = useMutation({
+    mutationFn: (p: PreOrderResponse) => adminCampaignService.confirmPickup(p.preOrderId),
+    onSuccess: onChanged,
+    onError: (e) => onError(getErrorMessage(e, 'Không xác nhận được khách đã lấy hàng.')),
+  })
   if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />
   if (rows.length === 0) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">Chưa có đơn đặt trước.</div>
   return (
@@ -442,6 +466,7 @@ function OrderTable({
             <th className="px-4 py-3">Người nhận</th>
             <th className="px-4 py-3">Thùng</th>
             <th className="px-4 py-3 text-right">Cọc</th>
+            <th className="px-4 py-3 text-right">Phí giao</th>
             <th className="px-4 py-3">Trạng thái</th>
             <th className="px-4 py-3" />
           </tr>
@@ -452,7 +477,11 @@ function OrderTable({
               <td className="px-4 py-3 font-bold text-gray-900">{p.code}</td>
               <td className="px-4 py-3">
                 <p className="font-semibold text-gray-800">{p.recipientName || p.buyerName}</p>
-                <p className="max-w-[220px] truncate text-xs text-gray-500">{p.shippingAddress}</p>
+                {p.fulfillmentMethod === 'PICKUP' ? (
+                  <span className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Tự đến lấy</span>
+                ) : (
+                  <p className="max-w-[220px] truncate text-xs text-gray-500">{p.shippingAddress}</p>
+                )}
               </td>
               <td className="px-4 py-3 tabular-nums">
                 {p.crateQuantity} × {p.crateKg} kg
@@ -464,6 +493,11 @@ function OrderTable({
                 {formatVnd(p.depositAmount)}
                 {Number(p.shortfallRefundAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-red-600">đã hoàn {formatVnd(p.shortfallRefundAmount)}</p>}
               </td>
+              <td className="px-4 py-3 text-right tabular-nums">
+                {p.fulfillmentMethod === 'PICKUP' ? '0đ' : formatVnd(p.shippingFee ?? 0)}
+                {p.shippingDistanceKm != null && <p className="text-[11px] text-gray-500">{p.shippingDistanceKm} km</p>}
+                {Number(p.shippingDiscountAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-emerald-700">gom đơn -{formatVnd(p.shippingDiscountAmount)}</p>}
+              </td>
               <td className="px-4 py-3">
                 <span className="text-xs font-bold text-gray-700">{PRE_ORDER_STATUS[p.status]}</span>
                 {p.cancelReason && <p className="max-w-[220px] text-[11px] text-gray-500">{p.cancelReason}</p>}
@@ -472,6 +506,11 @@ function OrderTable({
                 {p.status === 'DEPOSIT_PAID' && c.status === 'FULFILLING' && (
                   <button type="button" disabled={pack.isPending} onClick={() => pack.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
                     <PackageCheck size={14} /> Đóng gói
+                  </button>
+                )}
+                {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
+                  <button type="button" disabled={pickedUp.isPending} onClick={() => pickedUp.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+                    <Check size={14} /> Khách đã lấy · thu {formatVnd(p.remainingAmount)}
                   </button>
                 )}
               </td>
@@ -499,7 +538,9 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
   const rej = allFailed ? rec : Number(rejected || 0)
   const accepted = Math.max(0, rec - rej)
   const allocated = Number(r.allocatedVolumeKg ?? 0)
-  const invalid = !(rec >= 0) || received === '' || rej < 0 || rej > rec
+  // Không nhận vượt phần được chia: nhà vườn mang dư thì mang về, thiếu thì chiến dịch kêu gọi bổ sung sau
+  const over = r.allocatedVolumeKg != null && rec > allocated
+  const invalid = !(rec >= 0) || received === '' || rej < 0 || rej > rec || over
   const save = useMutation({
     mutationFn: () => adminCampaignService.intake(r.registrationId, {
       receivedWeightKg: rec,
@@ -551,10 +592,10 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
             </div>
             <p className="mt-1 text-xs text-gray-600">
               {rec > 0 && `${formatKg(rec)} cân − ${formatKg(rej)} hư = ${formatKg(accepted)} đạt chuẩn. `}
-              {accepted < allocated
-                ? <b className="text-red-600">Thiếu {formatKg(allocated - accepted)} so với phân bổ {formatKg(allocated)}; nhà vườn chỉ được trả cho {formatKg(accepted)}.</b>
-                : accepted > allocated
-                  ? `Dư ${formatKg(accepted - allocated)}: chỉ tính tiền ${formatKg(allocated)} theo phân bổ.`
+              {over
+                ? <b className="text-red-600">Vượt {formatKg(rec - allocated)} so với phân bổ {formatKg(allocated)}. Chỉ nhận tối đa {formatKg(allocated)}, phần dư nhà vườn mang về.</b>
+                : accepted < allocated
+                  ? <b className="text-red-600">Thiếu {formatKg(allocated - accepted)} so với phân bổ {formatKg(allocated)}; nhà vườn chỉ được trả cho {formatKg(accepted)}.</b>
                   : 'Đủ đúng phần phân bổ.'}
             </p>
           </div>
@@ -580,7 +621,7 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
             Ghi chú
             <textarea id="ghi-chu-can" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Vd: 20 kg dập úng do mưa, đã chụp ảnh" className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal" />
           </label>
-          {invalid && received !== '' && <p className="text-sm font-semibold text-red-600">Số kg hư không được lớn hơn số kg cân.</p>}
+          {invalid && received !== '' && <p className="text-sm font-semibold text-red-600">{over ? `Không nhận quá ${formatKg(allocated)} được chia cho lô này.` : 'Số kg hư không được lớn hơn số kg cân.'}</p>}
           {save.isError && <p className="text-sm font-semibold text-red-600">{getErrorMessage(save.error, 'Không lưu được số cân.')}</p>}
           <button type="submit" disabled={invalid || save.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
             {save.isPending ? <Loader2 size={16} className="animate-spin" /> : <Scale size={16} />} Lưu số cân
@@ -600,7 +641,9 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [f, setF] = useState({
     title: '', description: '', season: '', target: '', min: '', price: '', deposit: '30',
     cutoff: local(inDays(7)).slice(0, 16), delivery: local(inDays(9)).slice(0, 10), site: '',
+    halfKg: '10', freeKg: '20', freeRadius: '10', groupMin: '5',
   })
+  const [pickupEnabled, setPickupEnabled] = useState(true)
   const [address, setAddress] = useState<AddressValue>(EMPTY_ADDRESS)
   const [formError, setFormError] = useState<string | null>(null)
   useEscape(onClose)
@@ -613,6 +656,9 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
         depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, deliveryDate: f.delivery || undefined,
         collectionSiteName: f.site.trim() || undefined, collectionSiteAddress: composeAddress(address) || undefined,
         collectionSiteLatitude: address.lat, collectionSiteLongitude: address.lng,
+        shipHalfKg: Number(f.halfKg) || undefined, shipFreeKg: Number(f.freeKg) || undefined,
+        shipFreeRadiusKm: Number(f.freeRadius) || undefined, groupDiscountMinOrders: Number(f.groupMin) || undefined,
+        pickupEnabled,
       }
       return adminCampaignService.create(body)
     },
@@ -653,6 +699,20 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
             <p className="text-sm font-bold text-gray-700">Địa chỉ điểm tập kết</p>
             <AddressPicker value={address} onChange={setAddress} />
           </div>
+          <fieldset className="grid gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:col-span-2 sm:grid-cols-2">
+            <legend className="px-1 text-sm font-bold text-gray-700">Phí giao hàng</legend>
+            <p className="text-xs text-gray-500 sm:col-span-2">
+              Phí gốc theo km từ điểm tập kết: dưới 5km 15k · 5–10km 20k · 10–20km 30k · trên 20km +3k/km. Các mốc dưới đây áp cho riêng chiến dịch này.
+            </p>
+            <NumField id="cd-half" label="Từ bao nhiêu kg giảm 50%" value={f.halfKg} onChange={set('halfKg')} />
+            <NumField id="cd-free" label="Từ bao nhiêu kg miễn phí" value={f.freeKg} onChange={set('freeKg')} />
+            <NumField id="cd-radius" label="Bán kính miễn phí (km)" value={f.freeRadius} onChange={set('freeRadius')} />
+            <NumField id="cd-group" label="Số đơn cùng phường để giảm thêm 50%" value={f.groupMin} onChange={set('groupMin')} />
+            <label className="flex items-center gap-2 text-sm font-bold text-gray-700 sm:col-span-2">
+              <input type="checkbox" checked={pickupEnabled} onChange={(e) => setPickupEnabled(e.target.checked)} className="h-4 w-4 accent-[#326318]" />
+              Cho phép người mua tự đến điểm tập kết lấy hàng (0đ)
+            </label>
+          </fieldset>
           {formError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{formError}</p>}
           {create.isError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{getErrorMessage(create.error, 'Không tạo được chiến dịch.')}</p>}
           <button type="submit" disabled={create.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 sm:col-span-2">
@@ -667,7 +727,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
 /* ─────────────────────────── Chi tiết đơn đăng ký của nhà vườn ─────────────────────────── */
 
-const SHELF_LABEL: Record<string, string> = { DAYS_1_2: '1 – 2 ngày', DAYS_3_4: '3 – 4 ngày', DAYS_5_6: '5 – 6 ngày' }
+const SHELF_LABEL: Record<string, string> = { DAYS_2_3: 'Mức 1 · 2 – 3 ngày sau chốt', DAYS_3_4: 'Mức 2 · 3 – 4 ngày sau chốt', DAYS_5_6: 'Mức 3 · 5 – 6 ngày sau chốt' }
 const REG_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: 'Chờ duyệt', tone: 'bg-amber-100 text-amber-800' },
   APPROVED: { label: 'Đã duyệt', tone: 'bg-emerald-100 text-emerald-800' },

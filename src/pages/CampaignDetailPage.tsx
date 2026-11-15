@@ -12,6 +12,7 @@ import {
   Navigation,
   ShoppingBasket,
   Sprout,
+  PackageCheck,
   Pencil,
   Wallet,
   X,
@@ -214,6 +215,9 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
               </InfoCard>
             </div>
 
+            {/* Cách tính phí giao */}
+            <ShippingRulesCard c={c} />
+
             {/* Vị trí điểm tập kết: chốt cuối bài */}
             {hasLocation && <LocationSection c={c} />}
 
@@ -361,6 +365,102 @@ function Chip({ icon: Icon, warn, children }: { icon: typeof Wallet; warn?: bool
       <Icon size={15} className={warn ? 'text-[#c27c00]' : 'text-[#4a7c2f]'} />
       {children}
     </span>
+  )
+}
+
+/* ─────────────────────────── Cách tính phí giao ─────────────────────────── */
+
+function ShippingRulesCard({ c }: { c: CampaignResponse }) {
+  const half = Number(c.shipHalfKg ?? 10)
+  const free = Number(c.shipFreeKg ?? 20)
+  const radius = Number(c.shipFreeRadiusKm ?? 10)
+  const group = Number(c.groupDiscountMinOrders ?? 5)
+  // Bậc thang ưu đãi: cột càng cao = mua càng nhiều, ship càng rẻ
+  const steps = [
+    { kg: `Dưới ${formatKg(half)}`, fee: 'Phí gốc', sub: 'theo khoảng cách', h: 'h-16', tone: 'bg-white/15 text-white', badge: null },
+    { kg: `Từ ${formatKg(half)}`, fee: '-50%', sub: 'phí giao', h: 'h-28', tone: 'bg-[#9ed67d] text-[#1f3d10]', badge: null },
+    { kg: `Từ ${formatKg(free)}`, fee: '0đ', sub: `trong ${radius} km`, h: 'h-40', tone: 'bg-[#ffea79] text-[#3d2a00]', badge: 'Freeship' },
+  ]
+  const tiers = [
+    ['< 5 km', '15k'],
+    ['5–10 km', '20k'],
+    ['10–20 km', '30k'],
+    ['> 20 km', '30k + 3k/km'],
+  ]
+  return (
+    <section className="mt-6 overflow-hidden rounded-3xl shadow-sm">
+      {/* Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#2b5619] via-[#326318] to-[#4a7c2f] px-6 pb-6 pt-7 text-white sm:px-8">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-16 left-1/3 h-40 w-40 rounded-full bg-[#ffea79]/15" aria-hidden />
+        <div className="relative grid items-end gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#ffea79]">
+              <Truck size={13} /> Phí giao hàng
+            </span>
+            <h3 className="mt-3 text-[28px] font-black leading-[1.1] sm:text-[34px]">
+              Mua càng nhiều
+              <br />
+              <span className="text-[#ffea79]">ship càng rẻ</span>
+            </h3>
+            <p className="mt-2 text-sm text-white/80">
+              Cộng dồn mọi thùng trong đơn (2 thùng 5 kg = 10 kg). Phí biết trước khi đặt, chỉ có thể giảm chứ không tăng.
+            </p>
+          </div>
+
+          {/* Bậc thang */}
+          <div className="flex items-end gap-2.5" aria-label="Bậc ưu đãi phí giao theo tổng kg">
+            {steps.map((s) => (
+              <div key={s.kg} className="flex min-w-0 flex-1 flex-col items-center">
+                <span className={`${s.badge ? 'mb-4' : 'mb-1.5'} text-center text-xs font-bold text-white/90`}>{s.kg}</span>
+                <div className={`relative flex w-full flex-col items-center justify-center rounded-2xl ${s.h} ${s.tone}`}>
+                  {s.badge && (
+                    <span className="absolute -top-2.5 rounded-full bg-[#c2410c] px-2 py-0.5 text-[10px] font-extrabold uppercase text-white shadow">
+                      {s.badge}
+                    </span>
+                  )}
+                  <span className="text-2xl font-black leading-none">{s.fee}</span>
+                  <span className="mt-1 text-[11px] font-semibold opacity-80">{s.sub}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Phí gốc + ưu đãi khác */}
+      <div className="border-x border-b border-[#e4ddcc] bg-white px-6 py-5 sm:px-8">
+        <p className="text-xs font-extrabold uppercase tracking-wider text-[#6b7363]">
+          Phí gốc theo khoảng cách từ {c.collectionSiteName || 'điểm tập kết'}
+        </p>
+        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {tiers.map(([km, fee]) => (
+            <div key={km} className="rounded-xl border border-[#ede8df] bg-[#fcf9f1] px-3 py-2 text-center">
+              <p className="text-xs text-[#6b7363]">{km}</p>
+              <p className="text-base font-black text-[#1c1c18]">{fee}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-[#6b7363]">Từ {formatKg(free)} mà ở xa hơn {radius} km: vẫn được giảm 50%.</p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="flex gap-3 rounded-2xl bg-[#f6fbf1] p-3.5 text-sm">
+            <MapPin size={18} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+            <span>
+              <b className="text-[#1c1c18]">Tự đến điểm tập kết: 0đ.</b>{' '}
+              <span className="text-[#42493c]">CapNong báo khi bắt đầu nhận hàng và khi đơn đóng gói xong.</span>
+            </span>
+          </div>
+          <div className="flex gap-3 rounded-2xl bg-[#fff8e6] p-3.5 text-sm">
+            <Sprout size={18} className="mt-0.5 shrink-0 text-[#c27c00]" />
+            <span>
+              <b className="text-[#1c1c18]">Rủ hàng xóm cùng đặt.</b>{' '}
+              <span className="text-[#42493c]">Phường có từ {group} đơn trở lên được giảm thêm 50% phí giao khi chốt.</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -634,11 +734,14 @@ function FarmJoinBox({ c, open }: { c: CampaignResponse; open: boolean }) {
 
 /* ─────────────────────────── Khung đặt trước ở cuối bài ─────────────────────────── */
 
-const CRATE_ENUM: Record<(typeof CRATE_SIZES)[number], CrateSize> = { 10: 'KG_10', 20: 'KG_20', 50: 'KG_50' }
+const CRATE_ENUM: Record<(typeof CRATE_SIZES)[number], CrateSize> = { 3: 'KG_3', 5: 'KG_5', 10: 'KG_10', 20: 'KG_20' }
 
 function PreOrderBox({ c }: { c: CampaignResponse }) {
   const { user } = useAuth()
-  const [crate, setCrate] = useState<(typeof CRATE_SIZES)[number]>(20)
+  const [crate, setCrate] = useState<(typeof CRATE_SIZES)[number]>(5)
+  // Cách nhận hàng: giao tận nơi (tính phí theo km + tổng kg) hoặc tự đến điểm tập kết (0đ)
+  const pickupAllowed = c.pickupEnabled !== false
+  const [method, setMethod] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY')
   const [qty, setQty] = useState(1)
   const [name, setName] = useState(user?.fullName || user?.name || '')
   const [phone, setPhone] = useState(user?.phoneNumber || user?.phone || '')
@@ -653,6 +756,24 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   const remainingKg = Math.max(0, Number(c.remainingVolumeKg ?? c.targetVolumeKg - c.bookedVolumeKg))
   const overLimit = totalKg > remainingKg
 
+  // Báo giá phí giao từ server (khoảng cách thật tới điểm tập kết + tổng kg)
+  const quoteReady = method === 'PICKUP' || (addr.lat != null && addr.lng != null)
+  const quote = useQuery({
+    queryKey: ['campaign-ship-quote', c.campaignId, totalKg, method, addr.lat, addr.lng],
+    queryFn: () =>
+      campaignService.quoteShipping(c.campaignId, {
+        totalKg,
+        method,
+        lat: addr.lat,
+        lng: addr.lng,
+        address: address || undefined,
+      }),
+    enabled: quoteReady,
+    staleTime: 60_000,
+  })
+  const shipFee = method === 'PICKUP' ? 0 : quote.data?.shippingFee ?? null
+  const payOnReceive = total - deposit + (shipFee ?? 0)
+
   const [confirming, setConfirming] = useState(false)
   // Trả cọc bằng ví trước, phần còn lại qua PayOS
   const [payWithWallet, setPayWithWallet] = useState(false)
@@ -665,11 +786,13 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         crateQuantity: qty,
         recipientName: name.trim(),
         recipientPhone: phone.trim(),
-        shippingAddress: address,
-        shippingLatitude: addr.lat,
-        shippingLongitude: addr.lng,
+        shippingAddress: method === 'PICKUP' ? '' : address,
+        shippingLatitude: method === 'PICKUP' ? undefined : addr.lat,
+        shippingLongitude: method === 'PICKUP' ? undefined : addr.lng,
         note: note.trim() || undefined,
         useWallet: payWithWallet && walletBalance > 0,
+        fulfillmentMethod: method,
+        deliveryWard: method === 'PICKUP' ? undefined : addr.wardName || undefined,
       }),
     onSuccess: (res) => {
       if (res.checkoutUrl) window.location.href = res.checkoutUrl
@@ -681,7 +804,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   // Bước 1 chỉ kiểm tra form rồi mở bước xác nhận; tạo đơn và sang PayOS ở bước 2
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!addr.wardCode || !addr.detail.trim()) {
+    if (method === 'DELIVERY' && (!addr.wardCode || !addr.detail.trim())) {
       setAddrError('Chọn Tỉnh/Thành phố, Phường/Xã và nhập địa chỉ cụ thể để giao hàng.')
       return
     }
@@ -718,7 +841,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
           <fieldset>
             <legend className="text-sm font-bold text-[#1c1c18]">Cỡ thùng</legend>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {CRATE_SIZES.map((kg) => (
                 <button
                   key={kg}
@@ -751,14 +874,67 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Người nhận" value={name} onChange={setName} autoComplete="name" />
             <Field label="Số điện thoại" value={phone} onChange={setPhone} autoComplete="tel" inputMode="tel" />
-            <div className="flex flex-col gap-2.5 sm:col-span-2">
-              <span className="text-sm font-bold text-[#1c1c18]">Địa chỉ giao hàng</span>
-              <AddressPicker value={addr} onChange={setAddr} required />
-              {user?.address && !addr.provinceCode && (
-                <p className="text-xs text-[#6b7363]">Địa chỉ trong hồ sơ: {user.address}</p>
+            <fieldset className="flex flex-col gap-2.5 sm:col-span-2">
+              <legend className="mb-2 text-sm font-bold text-[#1c1c18]">Cách nhận hàng</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  aria-pressed={method === 'DELIVERY'}
+                  onClick={() => setMethod('DELIVERY')}
+                  className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${method === 'DELIVERY' ? 'border-[#4a7c2f] bg-[#f2f9ed] ring-2 ring-[#4a7c2f]/30' : 'border-[#e4ddcc] hover:border-[#9ed67d]'}`}
+                >
+                  <Truck size={18} className="mt-0.5 shrink-0 text-[#2b5619]" />
+                  <span>
+                    <span className="block text-sm font-black text-[#1c1c18]">Giao tận nơi</span>
+                    <span className="block text-xs text-[#6b7363]">Phí theo khoảng cách, giảm khi mua nhiều kg</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={method === 'PICKUP'}
+                  disabled={!pickupAllowed}
+                  onClick={() => setMethod('PICKUP')}
+                  className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${method === 'PICKUP' ? 'border-[#4a7c2f] bg-[#f2f9ed] ring-2 ring-[#4a7c2f]/30' : 'border-[#e4ddcc] hover:border-[#9ed67d]'}`}
+                >
+                  <MapPin size={18} className="mt-0.5 shrink-0 text-[#2b5619]" />
+                  <span>
+                    <span className="block text-sm font-black text-[#1c1c18]">Tự đến điểm tập kết · 0đ</span>
+                    <span className="block text-xs text-[#6b7363]">{pickupAllowed ? 'Nhận thông báo khi đơn đóng gói xong' : 'Chiến dịch này không nhận tự đến lấy'}</span>
+                  </span>
+                </button>
+              </div>
+
+              {method === 'PICKUP' ? (
+                <div className="rounded-2xl border border-[#d6e6c8] bg-[#f6fbf1] p-4 text-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#6b7363]">Bạn sẽ tới lấy tại</p>
+                  <p className="mt-1 font-black text-[#1c1c18]">{c.collectionSiteName || 'Điểm tập kết của chiến dịch'}</p>
+                  {c.collectionSiteAddress && <p className="text-[#42493c]">{c.collectionSiteAddress}</p>}
+                  {c.collectionSiteAddress && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.collectionSiteLatitude != null ? `${c.collectionSiteLatitude},${c.collectionSiteLongitude}` : c.collectionSiteAddress)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#2b5619] underline"
+                    >
+                      <Navigation size={13} /> Chỉ đường
+                    </a>
+                  )}
+                  <ul className="mt-3 flex flex-col gap-1.5 text-xs text-[#42493c]">
+                    <li className="flex gap-1.5"><Check size={14} className="shrink-0 text-[#4a7c2f]" /> Báo cho bạn khi CapNong bắt đầu nhận hàng từ nhà vườn.</li>
+                    <li className="flex gap-1.5"><Check size={14} className="shrink-0 text-[#4a7c2f]" /> Báo lần nữa khi đơn đóng gói xong, kèm mã đơn để bạn tới lấy.</li>
+                    <li className="flex gap-1.5"><Check size={14} className="shrink-0 text-[#4a7c2f]" /> Trả phần còn lại {formatVnd(total - deposit)} khi nhận, không mất phí giao.</li>
+                  </ul>
+                </div>
+              ) : (
+                <>
+                  <AddressPicker value={addr} onChange={setAddr} required />
+                  {user?.address && !addr.provinceCode && (
+                    <p className="text-xs text-[#6b7363]">Địa chỉ trong hồ sơ: {user.address}</p>
+                  )}
+                </>
               )}
               {addrError && <p className="text-sm font-semibold text-[#b3261e]">{addrError}</p>}
-            </div>
+            </fieldset>
             <div className="sm:col-span-2">
               <Field label="Ghi chú (không bắt buộc)" value={note} onChange={setNote} required={false} />
             </div>
@@ -768,8 +944,38 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
             <Row label={`${qty} thùng × ${crate} kg`} value={formatKg(totalKg)} />
             <Row label="Tạm tính" value={formatVnd(total)} />
             <Row label={`Cọc ngay (${Math.round(Number(c.depositPercent) * 100)}%)`} value={formatVnd(deposit)} strong />
-            <Row label="Trả khi nhận hàng" value={formatVnd(total - deposit)} />
+            <Row
+              label={method === 'PICKUP' ? 'Phí giao (tự đến lấy)' : quote.data?.distanceKm != null ? `Phí giao (${quote.data.distanceKm} km)` : 'Phí giao'}
+              value={
+                method === 'PICKUP'
+                  ? '0đ'
+                  : !quoteReady
+                    ? 'Chọn địa chỉ để tính'
+                    : quote.isFetching && shipFee == null
+                      ? 'Đang tính…'
+                      : shipFee === 0
+                        ? 'Miễn phí'
+                        : shipFee != null
+                          ? formatVnd(shipFee)
+                          : '—'
+              }
+            />
+            <Row label="Trả khi nhận hàng" value={formatVnd(payOnReceive)} />
           </dl>
+          {method === 'DELIVERY' && quote.data && (
+            <div className="-mt-2 flex flex-col gap-1 text-xs">
+              {quote.data.discountPercent > 0 && quote.data.baseFee != null && (
+                <p className="font-semibold text-[#2b5619]">
+                  Phí gốc {formatVnd(quote.data.baseFee)} · {quote.data.note}
+                </p>
+              )}
+              {quote.data.nextTierKg != null && quote.data.nextTierKg > 0 && (
+                <p className="rounded-xl bg-[#fff8e6] px-3 py-2 font-semibold text-[#6b4e00]">
+                  Mua thêm {formatKg(quote.data.nextTierKg)} để được {quote.data.nextTierLabel}.
+                </p>
+              )}
+            </div>
+          )}
 
           {overLimit && (
             <p className="text-sm font-semibold text-[#b3261e]">Chiến dịch chỉ còn {formatKg(remainingKg)}, bạn giảm số thùng nhé.</p>
@@ -792,10 +998,21 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
           qty={qty}
           total={total}
           deposit={deposit}
+          shipFee={shipFee ?? 0}
+          method={method}
+          distanceKm={method === 'PICKUP' ? null : quote.data?.distanceKm ?? null}
           walletBalance={walletBalance}
           payWithWallet={payWithWallet}
           onToggleWallet={setPayWithWallet}
-          recipient={{ name: name.trim(), phone: phone.trim(), address, note: note.trim() }}
+          recipient={{
+            name: name.trim(),
+            phone: phone.trim(),
+            address:
+              method === 'PICKUP'
+                ? `${c.collectionSiteName || 'Điểm tập kết'}${c.collectionSiteAddress ? ` · ${c.collectionSiteAddress}` : ''}`
+                : address,
+            note: note.trim(),
+          }}
           pending={order.isPending || order.isSuccess}
           error={order.isError ? getErrorMessage(order.error, 'Chưa tạo được đơn đặt trước, bạn thử lại nhé.') : null}
           onPay={() => order.mutate()}
@@ -813,6 +1030,9 @@ function ConfirmPreOrder({
   qty,
   total,
   deposit,
+  shipFee,
+  method,
+  distanceKm,
   walletBalance,
   payWithWallet,
   onToggleWallet,
@@ -827,6 +1047,9 @@ function ConfirmPreOrder({
   qty: number
   total: number
   deposit: number
+  shipFee: number
+  method: 'DELIVERY' | 'PICKUP'
+  distanceKm: number | null
   walletBalance: number
   payWithWallet: boolean
   onToggleWallet: (v: boolean) => void
@@ -903,7 +1126,7 @@ function ConfirmPreOrder({
             <section className="rounded-2xl border border-[#e4ddcc] bg-white p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[#6b7363]">
-                  <MapPin size={14} /> Giao tới
+                  <MapPin size={14} /> {method === 'PICKUP' ? 'Tự đến lấy tại' : 'Giao tới'}
                 </h3>
                 <button type="button" onClick={onClose} className="inline-flex items-center gap-1 text-xs font-bold text-[#2b5619] hover:underline">
                   <Pencil size={12} /> Sửa
@@ -926,9 +1149,15 @@ function ConfirmPreOrder({
                 <TimelineItem icon={CalendarClock} title={`Chốt đơn ${fmtDate(c.cutoffAt) ?? ''}`}>
                   Đủ {formatKg(c.minThresholdKg)} thì nhà vườn thu hoạch. Không đủ thì chiến dịch tự huỷ và hoàn cọc vào ví CapNong của bạn.
                 </TimelineItem>
-                <TimelineItem icon={Truck} title={c.deliveryDate ? `Giao dự kiến từ ${fmtDate(c.deliveryDate)}` : 'Giao sau khi gom hàng'}>
-                  Shipper giao tận nơi, bạn trả {formatVnd(total - deposit)} còn lại khi nhận.
-                </TimelineItem>
+                {method === 'PICKUP' ? (
+                  <TimelineItem icon={PackageCheck} title="Đóng gói xong: CapNong báo bạn tới lấy">
+                    Bạn nhận 2 thông báo: khi bắt đầu nhận hàng từ nhà vườn và khi đơn đóng gói xong. Tới lấy và trả {formatVnd(total - deposit)} còn lại.
+                  </TimelineItem>
+                ) : (
+                  <TimelineItem icon={Truck} title={c.deliveryDate ? `Giao dự kiến từ ${fmtDate(c.deliveryDate)}` : 'Giao sau khi gom hàng'}>
+                    Shipper giao tận nơi, bạn trả {formatVnd(total - deposit + shipFee)} còn lại (gồm phí giao) khi nhận.
+                  </TimelineItem>
+                )}
               </ol>
             </section>
           </div>
@@ -938,12 +1167,15 @@ function ConfirmPreOrder({
             <h3 className="text-base font-black text-[#1c1c18]">Thanh toán</h3>
             <dl className="flex flex-col gap-2 text-sm">
               <Row label="Tạm tính" value={formatVnd(total)} />
-              <Row label="Phí giao hàng" value="Không tính thêm" />
+              <Row
+                label={method === 'PICKUP' ? 'Phí giao (tự đến lấy)' : distanceKm != null ? `Phí giao (${distanceKm} km)` : 'Phí giao hàng'}
+                value={shipFee === 0 ? (method === 'PICKUP' ? '0đ' : 'Miễn phí') : formatVnd(shipFee)}
+              />
               <div className="my-1 border-t border-dashed border-[#e4ddcc]" />
               <Row label={`Cọc ngay (${pct}%)`} value={formatVnd(deposit)} strong />
               {walletUse > 0 && <Row label="· Trừ ví CapNong" value={`-${formatVnd(walletUse)}`} />}
               {walletUse > 0 && <Row label="· Chuyển khoản PayOS" value={formatVnd(payosDue)} />}
-              <Row label="Trả khi nhận hàng" value={formatVnd(total - deposit)} />
+              <Row label="Trả khi nhận hàng" value={formatVnd(total - deposit + shipFee)} />
             </dl>
 
             {/* Dùng ví trước cho tiền cọc */}

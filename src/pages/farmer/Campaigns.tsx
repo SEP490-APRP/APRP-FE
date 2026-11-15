@@ -32,14 +32,16 @@ import logoIcon from '@/assets/logo-icon.png'
 
 const FARMER_KEEP_RATE = 0.9 // nhà vườn nhận 90% sau phí dịch vụ 10% (khớp capnong.wallet.farmer-fee-rate)
 
-export const SHELF_LIFE: { id: ShelfLifeTier; label: string; hint: string; tone: string }[] = [
-  { id: 'DAYS_1_2', label: '1 – 2 ngày', hint: 'Rau ăn lá, quả chín mềm: cần giao ngay sau thu hoạch', tone: 'text-[#b3261e] bg-[#fdecea]' },
-  { id: 'DAYS_3_4', label: '3 – 4 ngày', hint: 'Cà chua, dưa leo, bắp: giữ được vài ngày ở nơi mát', tone: 'text-[#8a5a00] bg-[#fff3d6]' },
-  { id: 'DAYS_5_6', label: '5 – 6 ngày', hint: 'Củ, quả vỏ dày (bí, khoai, dưa hấu): bảo quản lâu', tone: 'text-[#2b5619] bg-[#e7f3de]' },
+// 3 mức bảo quản, số ngày tính từ NGÀY CHỐT chiến dịch (vd chốt ngày 20: mức 1 tươi tới 22–23, mức 2 tới 23–24, mức 3 tới 25–26)
+export const SHELF_LIFE: { id: ShelfLifeTier; level: number; min: number; max: number; label: string; hint: string; tone: string }[] = [
+  { id: 'DAYS_2_3', level: 1, min: 2, max: 3, label: 'Mức 1 · 2 – 3 ngày', hint: 'Rau ăn lá, quả chín mềm: dễ dập héo, giao gấp', tone: 'text-[#b3261e] bg-[#fdecea]' },
+  { id: 'DAYS_3_4', level: 2, min: 3, max: 4, label: 'Mức 2 · 3 – 4 ngày', hint: 'Cà chua, dưa leo, bắp: giữ được vài ngày ở nơi mát', tone: 'text-[#8a5a00] bg-[#fff3d6]' },
+  { id: 'DAYS_5_6', level: 3, min: 5, max: 6, label: 'Mức 3 · 5 – 6 ngày', hint: 'Củ, quả vỏ dày (bí, khoai, dưa hấu): bảo quản lâu', tone: 'text-[#2b5619] bg-[#e7f3de]' },
 ]
-const SHELF_MAX_DAYS: Record<ShelfLifeTier, number> = { DAYS_1_2: 2, DAYS_3_4: 4, DAYS_5_6: 6 } // khớp ShelfLifeTier.maxDays ở BE
+const SHELF_MAX_DAYS: Record<ShelfLifeTier, number> = { DAYS_2_3: 3, DAYS_3_4: 4, DAYS_5_6: 6 } // khớp ShelfLifeTier.maxDays ở BE
+const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return localIsoDate(d) }
 const localIsoDate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86400000)
+const fmtDay = (iso: string) => iso.slice(8, 10) // 'YYYY-MM-DD' -> 'DD'
 const shelfLabel = (t?: ShelfLifeTier | null) => SHELF_LIFE.find((s) => s.id === t)?.label ?? '—'
 const fmtDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString('vi-VN') : '—')
 
@@ -141,6 +143,9 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
   const pct = c.targetVolumeKg > 0 ? Math.min(100, (gathered / c.targetVolumeKg) * 100) : 0
   const remaining = Math.max(0, c.targetVolumeKg - gathered)
   const myKg = mine.reduce((s, r) => s + Number(r.surplusVolumeKg ?? 0), 0)
+  // Kêu gọi bổ sung: mọi nhà vườn đã giao xong mà vẫn thiếu hàng cho người mua
+  const topUp = !!c.topUpOpen
+  const need = Number(c.topUpRemainingKg ?? 0)
   return (
     <article className="overflow-hidden rounded-3xl border border-[#e4ede0] bg-white shadow-sm">
       {/* Đầu thẻ: ảnh bìa + tiêu đề */}
@@ -153,9 +158,15 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
             <span className="rounded-full bg-[#e7f3de] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-[#2b5619]">
               {[c.categoryName, c.season].filter(Boolean).join(' · ') || 'Chiến dịch'}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3d6] px-2.5 py-0.5 text-[11px] font-extrabold text-[#8a5a00]">
-              <Clock size={12} /> {timeLeftLabel(c.cutoffAt)}
-            </span>
+            {topUp ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fdecea] px-2.5 py-0.5 text-[11px] font-extrabold text-[#b3261e]">
+                <Clock size={12} /> Cần bổ sung gấp
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3d6] px-2.5 py-0.5 text-[11px] font-extrabold text-[#8a5a00]">
+                <Clock size={12} /> {timeLeftLabel(c.cutoffAt)}
+              </span>
+            )}
           </div>
           <h4 className="mt-2 text-xl font-black leading-snug text-[#1c2216]">{c.title}</h4>
           <a
@@ -170,15 +181,30 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
       </div>
 
       {/* 3 con số chính */}
-      <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
-        <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
-        <BigStat label="Còn cần gom" value={formatKg(remaining)} unit={`/ ${formatKg(c.targetVolumeKg)}`} />
-        <BigStat label="Hạn đăng ký" value={fmtDate(c.cutoffAt)} />
-      </dl>
+      {topUp ? (
+        <dl className="grid grid-cols-3 divide-x divide-[#f6d9d5] border-y border-[#f6d9d5] bg-[#fff7f5]">
+          <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
+          <BigStat label="Còn cần bổ sung" value={formatKg(need)} unit={`/ ${formatKg(c.topUpKg)}`} />
+          <BigStat label="Mở bổ sung" value={c.topUpCallAt ? fmtDate(c.topUpCallAt) : '—'} />
+        </dl>
+      ) : (
+        <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
+          <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
+          <BigStat label="Còn cần gom" value={formatKg(remaining)} unit={`/ ${formatKg(c.targetVolumeKg)}`} />
+          <BigStat label="Hạn đăng ký" value={fmtDate(c.cutoffAt)} />
+        </dl>
+      )}
 
       <div className="flex flex-col gap-5 p-5 sm:p-6">
+        {topUp && (
+          <p className="rounded-2xl bg-[#fdecea] px-4 py-3 text-sm text-[#7a1d16]">
+            Các nhà vườn đã giao hết phần được chia nhưng hàng đạt chuẩn vẫn thiếu <b>{formatKg(need)}</b> để giao cho người mua.
+            Bạn có thể đăng ký thêm lô, tối đa {formatKg(need)}. Được duyệt thì mang đúng số kg được chia tới điểm gom, không nhận phần dư.
+          </p>
+        )}
+
         {/* Tiến độ gom */}
-        <div>
+        <div className={topUp ? 'hidden' : undefined}>
           <div className="flex items-baseline justify-between text-sm">
             <span className="font-bold text-[#1c2216]">Đã gom {formatKg(gathered)}</span>
             <span className="text-[#5d6657]">{c.approvedFarmCount ?? 0} nhà vườn được duyệt · {Math.round(pct)}%</span>
@@ -215,7 +241,7 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
           onClick={onRegister}
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#326318] px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#244a10] active:scale-[0.99] sm:w-auto sm:self-end"
         >
-          <Sprout size={16} /> {mine.length ? 'Đăng ký thêm lô hàng' : 'Đăng ký góp hàng'}
+          <Sprout size={16} /> {topUp ? 'Đăng ký lô bổ sung' : mine.length ? 'Đăng ký thêm lô hàng' : 'Đăng ký góp hàng'}
         </button>
       </div>
     </article>
@@ -264,22 +290,32 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
   const payPrice = c.rescuePricePerKg > 0 ? Math.min(priceNum, c.rescuePricePerKg) : priceNum
   const estimate = kgNum > 0 && priceNum > 0 ? kgNum * payPrice * FARMER_KEEP_RATE : 0
   const today = localIsoDate(new Date())
-  const deliveryDate = c.deliveryDate ? c.deliveryDate.slice(0, 10) : null
+  // Kêu gọi bổ sung: giới hạn số kg còn thiếu; ngày giao dự kiến đã qua thì tính từ ngày mai
+  const topUp = !!c.topUpOpen
+  const topUpMax = Number(c.topUpRemainingKg ?? 0)
+  const tomorrow = localIsoDate(new Date(Date.now() + 86400e3))
+  const baseDelivery = c.deliveryDate ? c.deliveryDate.slice(0, 10) : null
+  const deliveryDate = topUp && (!baseDelivery || baseDelivery < tomorrow) ? tomorrow : baseDelivery
   const priceDiff = c.rescuePricePerKg > 0 && priceNum > 0 ? (priceNum - c.rescuePricePerKg) / c.rescuePricePerKg : 0
 
+  // Mốc tính bảo quản = ngày chốt (lô bổ sung thu hoạch sau ngày chốt thì tính từ ngày thu hoạch)
+  const cutoffDate = localIsoDate(new Date(c.cutoffAt))
+  const harvestMax = topUp ? addDays(today, 2) : cutoffDate
+  const anchor = harvestDate && harvestDate > cutoffDate ? harvestDate : cutoffDate
+  const freshUntil = (t: ShelfLifeTier) => addDays(anchor, SHELF_MAX_DAYS[t])
   const errors = {
     product: !productName.trim() ? 'Nhập tên sản phẩm' : null,
-    kg: !(kgNum > 0) ? 'Nhập số kg lớn hơn 0' : null,
-    harvest: !harvestDate || harvestDate < today
-      ? 'Chọn ngày thu hoạch từ hôm nay'
-      : deliveryDate && harvestDate > deliveryDate
-        ? `Ngày thu hoạch không được sau ngày giao ${fmtDate(deliveryDate)}`
+    kg: !(kgNum > 0) ? 'Nhập số kg lớn hơn 0' : topUp && kgNum > topUpMax ? `Chiến dịch chỉ còn cần bổ sung ${formatKg(topUpMax)}` : null,
+    harvest: !harvestDate
+      ? 'Chọn ngày thu hoạch'
+      : harvestDate > harvestMax
+        ? topUp ? `Lô bổ sung thu hoạch chậm nhất ${fmtDate(harvestMax)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(harvestMax)}`
         : null,
     images: images.length === 0 ? 'Thêm ít nhất 1 ảnh lô hàng' : null,
     shelf: !shelf
       ? 'Chọn thời gian bảo quản'
-      : deliveryDate && harvestDate && daysBetween(harvestDate, deliveryDate) > SHELF_MAX_DAYS[shelf]
-        ? `Hàng chỉ giữ ${shelfLabel(shelf)} nhưng từ ngày thu hoạch tới ngày giao (${fmtDate(deliveryDate)}) là ${daysBetween(harvestDate, deliveryDate)} ngày. Hãy lùi ngày thu hoạch.`
+      : deliveryDate && deliveryDate > freshUntil(shelf)
+        ? `${shelfLabel(shelf)} chỉ giữ tươi tới ${fmtDate(freshUntil(shelf))}, nhưng ngày giao là ${fmtDate(deliveryDate)}. Chọn mức bảo quản cao hơn.`
         : null,
     price: !(priceNum > 0) ? 'Nhập giá đề xuất' : null,
     commit: !committed ? 'Bạn cần tick cam kết' : null,
@@ -419,20 +455,20 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#7e8779]">kg</span>
                 </div>
+                {topUp && <span className="mt-1 block font-medium text-[#b3261e]">Bổ sung tối đa {formatKg(topUpMax)}</span>}
                 {err('kg')}
               </label>
               <label className="text-xs font-bold text-[#1c2216]">
                 Ngày thu hoạch dự kiến
                 <input
                   type="date"
-                  min={today}
-                  max={deliveryDate ?? undefined}
+                  max={harvestMax}
                   value={harvestDate}
                   onChange={(e) => setHarvestDate(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
                 />
                 <span className="mt-1 block text-[11px] font-medium text-[#7e8779]">
-                  Chọn từ hôm nay{deliveryDate ? ` đến ${fmtDate(deliveryDate)}` : ''}
+                  Ngày nào cũng được, chậm nhất {fmtDate(harvestMax)}{topUp ? '' : ' (ngày chốt)'}
                 </span>
                 {err('harvest')}
               </label>
@@ -465,8 +501,8 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
               </li>
             </ol>
             <p className="mt-2 text-[11px] leading-relaxed text-[#7e8779]">
-              Ngày thu hoạch không được sau ngày giao{deliveryDate ? ` ${fmtDate(deliveryDate)}` : ''}, và hàng phải còn tươi tới ngày giao
-              (theo thời gian bảo quản bạn chọn ở bước sau). Nên thu hoạch sát ngày mang hàng tới điểm tập kết.
+              Ngày thu hoạch không được sau ngày chốt {fmtDate(cutoffDate)}. Mức bảo quản ở bước 4 tính từ ngày chốt, và hàng phải còn tươi
+              tới ngày giao{deliveryDate ? ` ${fmtDate(deliveryDate)}` : ''}.
             </p>
           </Step>
 
@@ -503,7 +539,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
           </Step>
 
           {/* 4. Bảo quản */}
-          <Step n={4} title="Thời gian bảo quản sau thu hoạch" icon={Clock}>
+          <Step n={4} title="Mức bảo quản (tính từ ngày chốt)" icon={Clock} hint={`Ngày chốt ${fmtDate(cutoffDate)}: chọn mức hàng của bạn còn tươi tới.`}>
             <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Thời gian bảo quản">
               {SHELF_LIFE.map((s) => (
                 <button
@@ -515,7 +551,13 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   className={`rounded-2xl border p-3.5 text-left transition ${shelf === s.id ? 'border-[#326318] bg-[#f4f7f1] ring-2 ring-[#326318]/25' : 'border-[#dfe6d8] hover:border-[#9ed67d]'}`}
                 >
                   <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-extrabold ${s.tone}`}>{s.label}</span>
-                  <span className="mt-2 block text-xs leading-snug text-[#5d6657]">{s.hint}</span>
+                  <span className="mt-2 block text-sm font-bold text-[#1c2216]">
+                    Tươi tới {fmtDay(addDays(anchor, s.min))} – {fmtDate(addDays(anchor, s.max))}
+                  </span>
+                  {deliveryDate && deliveryDate > addDays(anchor, s.max) && (
+                    <span className="mt-1 block text-[11px] font-bold text-[#b3261e]">Không kịp ngày giao {fmtDate(deliveryDate)}</span>
+                  )}
+                  <span className="mt-1 block text-xs leading-snug text-[#5d6657]">{s.hint}</span>
                 </button>
               ))}
             </div>

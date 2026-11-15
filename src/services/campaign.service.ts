@@ -7,7 +7,7 @@ import type {
   FarmRegistrationResponse,
   CampaignResponse,
   CampaignPage, PreOrderCreateRequest, PreOrderResponse,
-  CampaignIntakeRequest, CampaignUpsertRequest } from './campaign.types'
+  CampaignIntakeRequest, CampaignUpsertRequest, ShippingQuote, DispatchBoard, DamageClaim } from './campaign.types'
 
 export type * from './campaign.types'
 
@@ -22,7 +22,7 @@ function normalizeDates<T>(v: T): T {
   if (!v || typeof v !== 'object') return v
   const out: Record<string, unknown> = {}
   for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-    if (/(At|Date)$/.test(k) && Array.isArray(val) && val.length >= 3 && val.every((x) => typeof x === 'number')) {
+    if (/(At|Date|By|Deadline)$/.test(k) && Array.isArray(val) && val.length >= 3 && val.every((x) => typeof x === 'number')) {
       const [y, mo, d, h, mi, se = 0] = val as number[]
       out[k] = h == null ? `${y}-${pad(mo)}-${pad(d)}` : `${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi ?? 0)}:${pad(se)}`
     } else {
@@ -63,9 +63,27 @@ export const campaignService = {
     return unwrap<CampaignPage<PreOrderResponse>>(res)
   },
 
+  /** Báo hàng hư: số kg tự cân + ảnh cân / ảnh hàng (không cần hoàn hàng) */
+  async reportDamage(preOrderId: number, body: { claimedKg: number; photoUrls: string[]; reason?: string }): Promise<DamageClaim> {
+    return normalizeDates(unwrap<DamageClaim>(await axiosInstance.post(`/pre-orders/${preOrderId}/damage-claims`, body)))
+  },
+
+  async myDamageClaims(preOrderId: number): Promise<DamageClaim[]> {
+    return normalizeDates(unwrap<DamageClaim[]>(await axiosInstance.get(`/pre-orders/${preOrderId}/damage-claims`)))
+  },
+
   async cancelPreOrder(preOrderId: number): Promise<PreOrderResponse> {
     const res = await axiosInstance.post(`/pre-orders/${preOrderId}/cancel`)
     return unwrap<PreOrderResponse>(res)
+  },
+
+  /** Báo giá phí giao trước khi đặt (công khai) */
+  async quoteShipping(
+    campaignId: number,
+    params: { totalKg: number; method: 'DELIVERY' | 'PICKUP'; lat?: number; lng?: number; address?: string },
+  ): Promise<ShippingQuote> {
+    const res = await axiosInstance.get(`/campaigns/${campaignId}/shipping-quote`, { params })
+    return unwrap<ShippingQuote>(res)
   },
 
   async confirmDepositPayment(preOrderId: number): Promise<PreOrderResponse> {
@@ -111,6 +129,15 @@ export const adminCampaignService = {
   async preOrders(id: number): Promise<PreOrderResponse[]> {
     return unwrap(await axiosInstance.get(`/admin/campaigns/${id}/pre-orders`))
   },
+  async damageClaims(id: number): Promise<DamageClaim[]> {
+    return normalizeDates(unwrap<DamageClaim[]>(await axiosInstance.get(`/admin/campaigns/${id}/damage-claims`)))
+  },
+  async approveDamage(claimId: number, approvedKg?: number, note?: string): Promise<DamageClaim> {
+    return normalizeDates(unwrap<DamageClaim>(await axiosInstance.post(`/admin/campaigns/damage-claims/${claimId}/approve`, { approvedKg, note })))
+  },
+  async rejectDamage(claimId: number, note: string): Promise<DamageClaim> {
+    return normalizeDates(unwrap<DamageClaim>(await axiosInstance.post(`/admin/campaigns/damage-claims/${claimId}/reject`, { note })))
+  },
   async approve(registrationId: number, agreedPricePerKg?: number, note?: string): Promise<FarmRegistrationResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/registrations/${registrationId}/approve`, { agreedPricePerKg, note }))
   },
@@ -120,11 +147,48 @@ export const adminCampaignService = {
   async intake(registrationId: number, body: CampaignIntakeRequest): Promise<FarmRegistrationResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/registrations/${registrationId}/intake`, body))
   },
+  /** Bảng chia đơn giao theo phường, xếp theo độ gấp */
+  async dispatchBoard(id: number): Promise<DispatchBoard> {
+    return unwrap(await axiosInstance.get(`/admin/campaigns/${id}/dispatch-board`))
+  },
+  /** Đưa đơn đã đóng gói ra hub; có shipperId thì giao thẳng cho shipper đó */
+  async dispatch(id: number, preOrderIds: number[], shipperId?: number): Promise<DispatchBoard> {
+    return unwrap(await axiosInstance.post(`/admin/campaigns/${id}/dispatch`, { preOrderIds, shipperId }))
+  },
+  /** Đơn giao thất bại -> chờ chia lại */
+  async retry(preOrderId: number): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/retry`))
+  },
+  /** Khách tự đến điểm tập kết đã nhận hàng */
+  async confirmPickup(preOrderId: number): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/picked-up`))
+  },
   async pack(preOrderId: number, deliveryZone?: string): Promise<PreOrderResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/pack`, { deliveryZone }))
   },
   /** call | publish | start-fulfilling | resolve-shortfall | dispatch-to-hub | complete | cancel */
   async action(id: number, action: string, note?: string): Promise<CampaignResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/${id}/${action}`, note ? { note } : undefined))
+  },
+}
+
+/** Shipper nhận và giao đơn chiến dịch tại hub: /shipper/pre-orders/* */
+export const shipperPreOrderService = {
+  /** Đơn tại hub chưa có ai nhận (xếp theo độ gấp) */
+  async ready(): Promise<PreOrderResponse[]> {
+    return unwrap(await axiosInstance.get('/shipper/pre-orders/ready'))
+  },
+  /** Đơn đã giao cho tôi / tôi đang giao */
+  async mine(): Promise<PreOrderResponse[]> {
+    return unwrap(await axiosInstance.get('/shipper/pre-orders/my'))
+  },
+  async accept(id: number): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.put(`/shipper/pre-orders/${id}/accept`))
+  },
+  async deliver(id: number, podImageUrl?: string): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.put(`/shipper/pre-orders/${id}/deliver`, { podImageUrl }))
+  },
+  async fail(id: number, reason: string): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.put(`/shipper/pre-orders/${id}/fail`, { reason }))
   },
 }
