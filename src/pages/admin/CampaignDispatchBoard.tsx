@@ -273,6 +273,12 @@ export default function CampaignDispatchBoard({
                             {o.shipperName ? `${o.shipperName}${o.pickedUpAt ? ' · đang giao' : ' · chờ lấy'}` : 'Tại hub · chờ nhận'}
                           </span>
                         )}
+                        {o.status === 'SHIPPING' && (
+                          <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
+                            <Truck size={12} />
+                            Đang giao{o.shipperName ? ` · ${o.shipperName}` : ''}
+                          </span>
+                        )}
                         {o.status === 'FAILED' && (
                           <span className="inline-flex items-center gap-1 font-semibold text-red-700">
                             <AlertTriangle size={12} /> Giao thất bại{o.failReason ? `: ${o.failReason}` : ''}

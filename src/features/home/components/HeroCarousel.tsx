@@ -355,7 +355,7 @@ function CampaignSlide({ active, campaign: c }: { active: boolean; campaign?: Ca
                 [timeLeftLabel(c.cutoffAt).replace('Còn ', ''), 'Đến ngày chốt đơn'],
               ]
             : [
-                ['10–50 kg', 'Thùng đặt trước'],
+                ['5–15 kg', 'Thùng đặt trước'],
                 ['Cọc trước', 'Trả phần còn lại khi nhận'],
                 ['Hoàn 100%', 'Nếu không đủ ngưỡng'],
               ]

@@ -202,7 +202,7 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
                 <InfoStep n={1}>
                   Nhà vườn mang hàng tới {c.collectionSiteName ? <b>{c.collectionSiteName}</b> : 'điểm tập kết'}.
                 </InfoStep>
-                <InfoStep n={2}>CapNong cân, đóng thùng 10 / 20 / 50 kg, dán QR truy xuất vườn.</InfoStep>
+                <InfoStep n={2}>CapNong cân, đóng thùng 5 / 10 / 15 kg, dán QR truy xuất vườn.</InfoStep>
                 <InfoStep n={3}>
                   Giao tận nơi sau ngày chốt {fmtDate(c.cutoffAt)}
                   {c.deliveryDate ? `, dự kiến từ ${fmtDate(c.deliveryDate)}` : ''}.
@@ -212,6 +212,7 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
                 <InfoStep n={1}>Cọc trước {depositPct}% qua PayOS, CapNong giữ hộ.</InfoStep>
                 <InfoStep n={2}>Phần còn lại trả khi nhận hàng.</InfoStep>
                 <InfoStep n={3}>Chưa đủ {formatKg(c.minThresholdKg)} tới ngày chốt: tự huỷ, hoàn 100% cọc về ví.</InfoStep>
+                <InfoStep n={4}>Không nhận hàng (vắng nhà, từ chối nhận, không tới điểm lấy) thì không được hoàn cọc.</InfoStep>
               </InfoCard>
             </div>
 
@@ -638,7 +639,7 @@ function BuyerJoinCard({ c, onOrder }: { c: CampaignResponse; onOrder?: () => vo
       badgeIcon={ShoppingBasket}
       title="Đặt trước một thùng"
       points={[
-        `Thùng 10 / 20 / 50 kg, giá ${formatVnd(c.rescuePricePerKg)}/kg`,
+        `Thùng 5 / 10 / 15 kg, giá ${formatVnd(c.rescuePricePerKg)}/kg`,
         `Cọc ${depositPct}% qua PayOS, còn lại trả khi nhận`,
         'Không đủ ngưỡng thì hoàn 100% cọc',
       ]}
@@ -734,7 +735,7 @@ function FarmJoinBox({ c, open }: { c: CampaignResponse; open: boolean }) {
 
 /* ─────────────────────────── Khung đặt trước ở cuối bài ─────────────────────────── */
 
-const CRATE_ENUM: Record<(typeof CRATE_SIZES)[number], CrateSize> = { 3: 'KG_3', 5: 'KG_5', 10: 'KG_10', 20: 'KG_20' }
+const CRATE_ENUM: Record<(typeof CRATE_SIZES)[number], CrateSize> = { 5: 'KG_5', 10: 'KG_10', 15: 'KG_15' }
 
 function PreOrderBox({ c }: { c: CampaignResponse }) {
   const { user } = useAuth()
@@ -841,7 +842,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
           <fieldset>
             <legend className="text-sm font-bold text-[#1c1c18]">Cỡ thùng</legend>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-2 grid grid-cols-3 gap-2">
               {CRATE_SIZES.map((kg) => (
                 <button
                   key={kg}
@@ -1151,11 +1152,11 @@ function ConfirmPreOrder({
                 </TimelineItem>
                 {method === 'PICKUP' ? (
                   <TimelineItem icon={PackageCheck} title="Đóng gói xong: CapNong báo bạn tới lấy">
-                    Bạn nhận 2 thông báo: khi bắt đầu nhận hàng từ nhà vườn và khi đơn đóng gói xong. Tới lấy và trả {formatVnd(total - deposit)} còn lại.
+                    Bạn nhận 2 thông báo: khi bắt đầu nhận hàng từ nhà vườn và khi đơn đóng gói xong. Tới lấy và trả {formatVnd(total - deposit)} còn lại. Không tới lấy sau khi đã được nhắc thì đơn bị huỷ và mất cọc.
                   </TimelineItem>
                 ) : (
                   <TimelineItem icon={Truck} title={c.deliveryDate ? `Giao dự kiến từ ${fmtDate(c.deliveryDate)}` : 'Giao sau khi gom hàng'}>
-                    Shipper giao tận nơi, bạn trả {formatVnd(total - deposit + shipFee)} còn lại (gồm phí giao) khi nhận.
+                    Shipper giao tận nơi, bạn trả {formatVnd(total - deposit + shipFee)} còn lại (gồm phí giao) khi nhận. Giao không thành công vì bạn vắng hoặc từ chối nhận thì mất cọc.
                   </TimelineItem>
                 )}
               </ol>
@@ -1220,7 +1221,7 @@ function ConfirmPreOrder({
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0 accent-[#4a7c2f]"
               />
-              Tôi hiểu đơn đặt trước không tự huỷ được sau khi đã cọc, và tiền cọc được hoàn khi chiến dịch không đủ ngưỡng.
+              Tôi hiểu đơn đặt trước không tự huỷ được sau khi đã cọc. Tiền cọc được hoàn khi chiến dịch không đủ ngưỡng hoặc thiếu hàng, và không được hoàn nếu tôi không nhận hàng.
             </label>
             {error && <p className="text-sm font-semibold text-[#b3261e]">{error}</p>}
             <button

@@ -7,7 +7,7 @@ import type {
   FarmRegistrationResponse,
   CampaignResponse,
   CampaignPage, PreOrderCreateRequest, PreOrderResponse,
-  CampaignIntakeRequest, CampaignUpsertRequest, ShippingQuote, DispatchBoard, DamageClaim } from './campaign.types'
+  CampaignIntakeRequest, CampaignUpsertRequest, CampaignBannerRequest, ShippingQuote, DispatchBoard, DamageClaim } from './campaign.types'
 
 export type * from './campaign.types'
 
@@ -162,6 +162,18 @@ export const adminCampaignService = {
   /** Khách tự đến điểm tập kết đã nhận hàng */
   async confirmPickup(preOrderId: number): Promise<PreOrderResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/picked-up`))
+  },
+  /** Tuỳ chỉnh banner trang chủ của chiến dịch */
+  async updateBanner(id: number, body: CampaignBannerRequest): Promise<CampaignResponse> {
+    return unwrap(await axiosInstance.put(`/admin/campaigns/${id}/banner`, body))
+  },
+  /** Gửi thông báo nhắc khách tự đến lấy (đơn đã đóng gói) */
+  async remindPickup(preOrderId: number): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/remind-pickup`))
+  },
+  /** Khách không đến lấy sau khi đã nhắc: đơn thất bại, mất cọc */
+  async pickupNoShow(preOrderId: number, note?: string): Promise<PreOrderResponse> {
+    return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/pickup-no-show`, { note }))
   },
   async pack(preOrderId: number, deliveryZone?: string): Promise<PreOrderResponse> {
     return unwrap(await axiosInstance.post(`/admin/campaigns/pre-orders/${preOrderId}/pack`, { deliveryZone }))

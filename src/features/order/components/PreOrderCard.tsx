@@ -13,7 +13,7 @@ export const PRE_ORDER_TAB_STATUSES: Record<string, PreStatus[] | undefined> = {
   ALL: undefined,
   AWAITING_PAYMENT: ['PENDING'],
   PENDING: ['DEPOSIT_PAID'],
-  SHIPPING: ['PROCESSING', 'READY'],
+  SHIPPING: ['PROCESSING', 'READY', 'SHIPPING'],
   COMPLETED: ['DELIVERED'],
   REFUND: [],
   CANCELLED: ['CANCELLED', 'FAILED'],
@@ -23,7 +23,8 @@ const STATUS: Record<PreStatus, { label: string; cls: string; icon: React.ReactN
   PENDING: { label: 'Chờ thanh toán cọc', cls: 'bg-amber-50 text-amber-700 border-amber-300', icon: <Clock size={13} className="animate-pulse" /> },
   DEPOSIT_PAID: { label: 'Đã cọc · chờ thu hoạch', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={13} /> },
   PROCESSING: { label: 'Đã đóng thùng', cls: 'bg-sky-50 text-sky-700 border-sky-200', icon: <PackageCheck size={13} /> },
-  READY: { label: 'Tại hub · sắp giao', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Truck size={13} /> },
+  READY: { label: 'Tại hub · sắp giao', cls: 'bg-sky-50 text-sky-700 border-sky-200', icon: <PackageCheck size={13} /> },
+  SHIPPING: { label: 'Đang giao', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Truck size={13} /> },
   DELIVERED: { label: 'Đã giao', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={13} /> },
   CANCELLED: { label: 'Đã hủy', cls: 'bg-neutral-100 text-neutral-600 border-neutral-200', icon: <XCircle size={13} /> },
   FAILED: { label: 'Giao không thành công', cls: 'bg-rose-50 text-rose-700 border-rose-200', icon: <AlertCircle size={13} /> },
@@ -34,8 +35,8 @@ const vnd = (n?: number | null) => `${Number(n ?? 0).toLocaleString('vi-VN')} đ
 /** Tiến trình ngắn để người mua biết đơn đặt trước đang ở bước nào */
 const STEPS: { key: PreStatus[]; label: string }[] = [
   { key: ['DEPOSIT_PAID'], label: 'Đã cọc' },
-  { key: ['PROCESSING'], label: 'Đóng thùng' },
-  { key: ['READY'], label: 'Đang giao' },
+  { key: ['PROCESSING', 'READY'], label: 'Đóng thùng' },
+  { key: ['SHIPPING'], label: 'Đang giao' },
   { key: ['DELIVERED'], label: 'Đã giao' },
 ]
 
@@ -47,18 +48,18 @@ export const PreOrderCard: React.FC<{
   onChanged?: (message: string) => void
 }> = ({ p, onCancel, cancelling, onChanged }) => {
   const [claiming, setClaiming] = useState(false)
-  // Báo hàng hư (không hoàn hàng): trong 48h sau khi nhận, chưa có yêu cầu đang chờ duyệt
+  // Báo hàng hư (không hoàn hàng): trong 24h sau khi nhận, chưa có yêu cầu đang chờ duyệt
   const claimOpen = p.status === 'DELIVERED' && !!p.damageClaimDeadline && Date.parse(p.damageClaimDeadline) > Date.now()
     && p.damageClaimStatus !== 'PENDING'
   const damageRefund = Number(p.damageRefundTotal ?? 0)
   const base = STATUS[p.status] ?? STATUS.PENDING
-  // Ra hub nhưng shipper chưa lấy: "Tại hub"; shipper đã lấy hàng: "Đang giao"
-  const st = p.status === 'READY' && p.pickedUpAt ? { ...base, label: 'Đang giao' } : base
+  // Đơn cũ nhận trước khi có trạng thái SHIPPING: READY + pickedUpAt cũng là "Đang giao"
+  const st = p.status === 'READY' && p.pickedUpAt ? STATUS.SHIPPING : base
   const unpaid = p.status === 'PENDING'
   const stepIndex = STEPS.findIndex((s) => s.key.includes(p.status))
   const reduced = p.originalCrateQuantity != null && p.originalCrateQuantity > p.crateQuantity
   const refund = Number(p.shortfallRefundAmount ?? 0)
-  const remainingDue = p.status === 'DEPOSIT_PAID' || p.status === 'PROCESSING' || p.status === 'READY'
+  const remainingDue = p.status === 'DEPOSIT_PAID' || p.status === 'PROCESSING' || p.status === 'READY' || p.status === 'SHIPPING'
 
   return (
     <div
@@ -93,7 +94,7 @@ export const PreOrderCard: React.FC<{
         </div>
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${st.cls}`}>
           {st.icon}
-          {st.label}
+          {p.status === 'FAILED' && p.fulfillmentMethod === 'PICKUP' ? 'Không tới nhận · mất cọc' : st.label}
         </span>
       </div>
 

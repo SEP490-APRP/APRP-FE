@@ -29,6 +29,7 @@ import { useMyProducts } from '@/features/product/hooks/useProductQueries'
 import { formatKg, formatVnd, timeLeftLabel } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
+import CampaignProposals from './CampaignProposals'
 
 const FARMER_KEEP_RATE = 0.9 // nhà vườn nhận 90% sau phí dịch vụ 10% (khớp capnong.wallet.farmer-fee-rate)
 
@@ -52,7 +53,7 @@ const keys = {
 
 /** Kênh Nhà Vườn › Chiến dịch giải cứu: xem lời kêu gọi, đăng ký lô hàng, theo dõi duyệt / cân / chi trả */
 export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }) {
-  const [view, setView] = useState<'calls' | 'mine'>('calls')
+  const [view, setView] = useState<'calls' | 'mine' | 'propose'>('calls')
   const [registering, setRegistering] = useState<CampaignResponse | null>(null)
   const calls = useQuery({ queryKey: keys.calls, queryFn: () => campaignService.getOpenFarmCalls(), retry: 1 })
   const mine = useQuery({ queryKey: keys.mine, queryFn: () => campaignService.getMyRegistrations(), retry: 1 })
@@ -75,11 +76,12 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
             giá đã chốt.
           </p>
         </div>
-        <div className="inline-flex rounded-full bg-[#f4f7f1] p-1 text-xs font-bold">
+        <div className="inline-flex flex-wrap rounded-full bg-[#f4f7f1] p-1 text-xs font-bold">
           {(
             [
               ['calls', 'Đang kêu gọi', calls.data?.length],
               ['mine', 'Đăng ký của tôi', mine.data?.length],
+              ['propose', 'Đề xuất chiến dịch', undefined],
             ] as const
           ).map(([id, label, n]) => (
             <button
@@ -95,7 +97,9 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
         </div>
       </div>
 
-      {view === 'calls' ? (
+      {view === 'propose' ? (
+        <CampaignProposals onInfo={onInfo} />
+      ) : view === 'calls' ? (
         calls.isLoading ? (
           <Skeleton />
         ) : calls.isError ? (
@@ -734,6 +738,8 @@ function RegistrationRow({ r }: { r: FarmRegistrationResponse }) {
           {r.receivedWeightKg != null && (
             <Mini label="Cân thực tế" value={`${formatKg(r.receivedWeightKg)}${r.qualityPassed === false ? ' · không đạt' : ''}`} />
           )}
+          {r.intakeAt != null && r.countedWeightKg != null && <Mini label="Kg được tính tiền" value={formatKg(r.countedWeightKg)} />}
+          {r.payoutAmount == null && r.estimatedPayoutAmount != null && <Mini label="Tiền dự tính" value={`${formatVnd(r.estimatedPayoutAmount)} · nhận khi hoàn thành`} />}
           {r.payoutAmount != null && <Mini label="Đã nhận" value={formatVnd(r.payoutAmount)} />}
           <Mini label="Điểm gom" value={r.collectionSiteName || '—'} />
         </dl>

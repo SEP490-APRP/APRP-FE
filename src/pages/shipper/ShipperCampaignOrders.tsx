@@ -25,9 +25,9 @@ export default function ShipperCampaignOrders() {
 
   const accept = useMutation({ mutationFn: (id: number) => shipperPreOrderService.accept(id), onSuccess: refresh, onError })
 
-  const active = (mine.data ?? []).filter((o) => o.status === 'READY')
-  const assignedWaiting = active.filter((o) => !o.pickedUpAt)
-  const delivering = active.filter((o) => o.pickedUpAt)
+  // READY: admin giao cho mình, chưa lấy khỏi hub. SHIPPING (hoặc đơn cũ READY đã lấy): đang giao
+  const assignedWaiting = (mine.data ?? []).filter((o) => o.status === 'READY' && !o.pickedUpAt)
+  const delivering = (mine.data ?? []).filter((o) => o.status === 'SHIPPING' || (o.status === 'READY' && o.pickedUpAt))
   const done = (mine.data ?? []).filter((o) => o.status === 'DELIVERED' || o.status === 'FAILED').slice(0, 10)
 
   return (
@@ -95,9 +95,15 @@ export default function ShipperCampaignOrders() {
               <li key={o.preOrderId} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span className="font-bold text-gray-800">{o.code} · {o.recipientName}</span>
                 {o.status === 'DELIVERED' ? (
-                  <span className="text-xs font-bold text-emerald-700">Đã giao · thu {vnd(o.remainingAmount)}</span>
+                  <span className="text-xs font-bold text-emerald-700">
+                    Đã giao · thu {vnd(o.remainingAmount)}
+                    {Number(o.shipperIncomeAmount ?? 0) > 0 && ` · cước +${vnd(o.shipperIncomeAmount)}`}
+                  </span>
                 ) : (
-                  <span className="text-xs font-bold text-red-700">Thất bại{o.failReason ? `: ${o.failReason}` : ''}</span>
+                  <span className="text-xs font-bold text-red-700">
+                    Thất bại{o.failReason ? `: ${o.failReason}` : ''}
+                    {Number(o.shipperIncomeAmount ?? 0) > 0 && ` · cước +${vnd(o.shipperIncomeAmount)}`}
+                  </span>
                 )}
               </li>
             ))}
@@ -141,6 +147,10 @@ function Section({
   )
 }
 
+/** Phí dịch vụ shipper (khớp capnong.wallet.shipper-fee-rate) */
+const SHIPPER_FEE_RATE = 0.03
+const shipperEarn = (o: PreOrderResponse) => Math.round(Number(o.shippingBaseFee ?? o.shippingFee ?? 0) * (1 - SHIPPER_FEE_RATE))
+
 function OrderCard({ o, action }: { o: PreOrderResponse; action: React.ReactNode }) {
   const p = PRIORITY[(o.priorityLevel ?? 'NORMAL') as PriorityLevel]
   const dest = o.shippingLatitude != null ? `${o.shippingLatitude},${o.shippingLongitude}` : o.shippingAddress ?? ''
@@ -161,8 +171,17 @@ function OrderCard({ o, action }: { o: PreOrderResponse; action: React.ReactNode
         <div className="shrink-0 text-right">
           <p className="text-[11px] font-bold uppercase text-gray-400">Thu khi giao</p>
           <p className="text-xl font-black text-primary">{vnd(o.remainingAmount)}</p>
+          {shipperEarn(o) > 0 && <p className="text-xs font-bold text-emerald-700">Cước bạn nhận {vnd(shipperEarn(o))}</p>}
         </div>
       </div>
+      {o.status === 'READY' && Number(o.remainingAmount ?? 0) > 0 && (
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Nhận đơn cần ký quỹ <b>{vnd(o.remainingAmount)}</b> trong ví (bằng số tiền sẽ thu). Giao xong ví trừ đúng số tiền mặt bạn đang cầm và cộng cước; giao thất bại thì trả lại ký quỹ và vẫn nhận 50% cước.
+        </p>
+      )}
+      {o.codReservedAmount != null && Number(o.codReservedAmount) > 0 && (
+        <p className="text-xs font-semibold text-sky-700">Đang ký quỹ {vnd(o.codReservedAmount)} trong ví cho đơn này</p>
+      )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600">
         <span className="font-semibold">{o.crateQuantity} thùng × {o.crateKg} kg</span>
         <span className="inline-flex items-center gap-1">
@@ -239,7 +258,8 @@ function DeliveringActions({ o, onDone, onError }: { o: PreOrderResponse; onDone
       <button type="button" onClick={() => setFailing(true)} className="inline-flex items-center gap-1 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700">
         <XCircle size={13} /> Thất bại
       </button>
-      <button type="button" disabled={deliver.isPending} onClick={() => deliver.mutate()} className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-black text-white disabled:opacity-50">
+      {!photo && <span className="w-full text-[11px] font-semibold text-amber-700">Chụp ảnh giao hàng trước khi bấm Giao xong.</span>}
+      <button type="button" disabled={deliver.isPending || uploading || !photo} onClick={() => deliver.mutate()} className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-black text-white disabled:opacity-50">
         <CheckCircle2 size={14} /> Giao xong · đã thu {vnd(o.remainingAmount)}
       </button>
     </div>

@@ -9,6 +9,7 @@ import {
   Testimonials,
   TodayRescue,
 } from '@/features/home'
+import { CampaignSpotlight } from '@/features/campaign/components/CampaignSpotlight'
 import type { Cart } from '@/mocks/catalog'
 
 type HomeProps = {
@@ -34,6 +35,7 @@ export default function Home({ onAdd, onInfo, cart }: HomeProps) {
       <FarmerStory />
       <Testimonials />
       <Newsletter onInfo={onInfo} />
+      <CampaignSpotlight />
     </>
   )
 }

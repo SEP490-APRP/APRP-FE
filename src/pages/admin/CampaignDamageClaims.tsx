@@ -29,7 +29,7 @@ export default function CampaignDamageClaims({ campaignId, onNotice }: { campaig
       <div className="flex flex-wrap gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm shadow-sm">
         <p className="flex-1 text-gray-600">
           Người mua tự cân phần hư và chụp ảnh, không phải gửi trả hàng. Duyệt thì sàn hoàn <b>số kg chấp nhận × giá/kg</b> từ ví sàn vào ví
-          người mua; báo hư chỉ nhận trong 48 giờ sau khi giao.
+          người mua; báo hư chỉ nhận trong 24 giờ sau khi giao.
         </p>
         <div className="flex gap-4">
           <p><span className="block text-[11px] font-bold uppercase text-gray-500">Chờ duyệt</span><b className="text-lg text-amber-700">{pending}</b></p>

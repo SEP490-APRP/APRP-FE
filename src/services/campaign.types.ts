@@ -5,7 +5,8 @@ export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'THRESHOLD_MET' | 'FULFILLING'
 /** Giai đoạn hiển thị công khai (tham số ?phase= của GET /campaigns) */
 export type CampaignPhase = 'UPCOMING' | 'ONGOING' | 'DELIVERING' | 'DONE'
 
-export type CrateSize = 'KG_3' | 'KG_5' | 'KG_10' | 'KG_20' | 'KG_50'
+/** Người mua chỉ đặt được KG_5 / KG_10 / KG_15; KG_3 / KG_20 / KG_50 còn ở đơn cũ */
+export type CrateSize = 'KG_3' | 'KG_5' | 'KG_10' | 'KG_15' | 'KG_20' | 'KG_50'
 export type FulfillmentMethod = 'DELIVERY' | 'PICKUP'
 
 export interface CampaignResponse {
@@ -17,6 +18,16 @@ export interface CampaignResponse {
   categoryName?: string | null
   season?: string | null
   coverImageUrl?: string | null
+  /** Banner trang chủ do Admin tuỳ chỉnh; bannerMode null = AUTO (dựng từ thông tin chiến dịch) */
+  bannerMode?: 'AUTO' | 'IMAGE' | null
+  bannerTheme?: 'ORANGE' | 'GREEN' | 'RED' | null
+  bannerHeadline?: string | null
+  bannerSubline?: string | null
+  bannerBadge?: string | null
+  bannerCtaText?: string | null
+  bannerImageUrl?: string | null
+  bannerOnHome?: boolean | null
+  bannerUpdatedAt?: string | null
   targetVolumeKg: number
   minThresholdKg: number
   rescuePricePerKg: number
@@ -63,6 +74,17 @@ export interface CampaignResponse {
   publishedAt?: string | null
   callPostedAt?: string | null
   createdAt?: string | null
+}
+
+export interface CampaignBannerRequest {
+  mode: 'AUTO' | 'IMAGE'
+  theme: 'ORANGE' | 'GREEN' | 'RED'
+  headline?: string
+  subline?: string
+  badge?: string
+  ctaText?: string
+  imageUrl?: string
+  showOnHome: boolean
 }
 
 export interface CampaignPage<T> {
@@ -194,6 +216,10 @@ export interface PreOrderResponse {
   shippingBaseFee?: number | null
   shippingFee?: number | null
   shippingDiscountAmount?: number | null
+  /** Shipper: tiền thu hộ đang ký quỹ trong ví cho lượt giao hiện tại */
+  codReservedAmount?: number | null
+  /** Shipper: tổng cước đã nhận cho đơn (sau phí dịch vụ 3%) */
+  shipperIncomeAmount?: number | null
   collectionSiteName?: string | null
   collectionSiteAddress?: string | null
   /** Độ gấp khi giao */
@@ -202,7 +228,7 @@ export interface PreOrderResponse {
   deliverBy?: string | null
   shelfLifeTier?: ShelfLifeTier | null
   retryCount?: number | null
-  /** Báo hàng hư: hạn báo (48h sau khi nhận), yêu cầu mới nhất, tổng tiền đã hoàn */
+  /** Báo hàng hư: hạn báo (24h sau khi nhận), yêu cầu mới nhất, tổng tiền đã hoàn */
   damageClaimDeadline?: string | null
   damageClaimStatus?: DamageClaimStatus | null
   damageClaimKg?: number | null
@@ -215,6 +241,8 @@ export interface PreOrderResponse {
   packedAt?: string | null
   readyAt?: string | null
   pickedUpAt?: string | null
+  pickupRemindedAt?: string | null
+  pickupRemindCount?: number | null
   deliveredAt?: string | null
   podImageUrl?: string | null
   shippingLatitude?: number | null
@@ -228,7 +256,8 @@ export interface PreOrderResponse {
   /** Tiền cọc đã hoàn do thiếu hàng */
   shortfallRefundAmount?: number | null
   depositPaidAt?: string | null
-  status: 'PENDING' | 'DEPOSIT_PAID' | 'PROCESSING' | 'READY' | 'DELIVERED' | 'CANCELLED' | 'FAILED'
+  /** READY: đã tới hub, chờ shipper lấy. SHIPPING: shipper đã lấy hàng, đang giao */
+  status: 'PENDING' | 'DEPOSIT_PAID' | 'PROCESSING' | 'READY' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'FAILED'
   depositStatus?: 'PENDING' | 'HELD_IN_ESCROW' | 'RELEASED_TO_FARMER' | 'REFUNDED' | 'CANCELLED' | null
   checkoutUrl?: string | null
   qrCodeUrl?: string | null
@@ -297,6 +326,8 @@ export interface FarmRegistrationResponse {
   intakePhotoUrls: string[]
   intakeNote?: string | null
   intakeAt?: string | null
+  /** Tiền dự tính sau khi cân; tiền thật chuyển vào ví khi chiến dịch hoàn tất */
+  estimatedPayoutAmount?: number | null
   payoutAmount?: number | null
   paidOutAt?: string | null
   createdAt?: string | null
@@ -308,6 +339,7 @@ export interface CampaignUpsertRequest {
   title: string
   description?: string
   season?: string
+  categoryId?: number
   coverImageUrl?: string
   targetVolumeKg: number
   minThresholdKg: number

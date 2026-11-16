@@ -19,5 +19,5 @@ export function timeLeftLabel(cutoffAt: string, now = Date.now()) {
 export const progressOf = (c: Pick<CampaignResponse, 'progressPercent'>) =>
   Math.max(0, Math.min(100, Number(c.progressPercent ?? 0)))
 
-/** Thùng chuẩn: 3 / 5 / 10 / 20 kg (mua nhiều thùng để cộng dồn kg) */
-export const CRATE_SIZES = [3, 5, 10, 20] as const
+/** Thùng người mua được đặt: 5 / 10 / 15 kg (bội số của 5; mua nhiều thùng để cộng dồn kg) */
+export const CRATE_SIZES = [5, 10, 15] as const

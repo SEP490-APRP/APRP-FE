@@ -135,7 +135,7 @@ export function DamageClaimDialog({ p, onClose, onDone }: { p: PreOrderResponse;
           <span className="text-lg font-black text-emerald-700">{vnd(estimate)}</span>
         </div>
         {p.damageClaimDeadline && (
-          <p className="-mt-3 text-xs text-ink-muted">Hạn báo hư: {new Date(p.damageClaimDeadline).toLocaleString('vi-VN')} (48 giờ sau khi nhận hàng).</p>
+          <p className="-mt-3 text-xs text-ink-muted">Hạn báo hư: {new Date(p.damageClaimDeadline).toLocaleString('vi-VN')} (24 giờ sau khi nhận hàng).</p>
         )}
 
         {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>}

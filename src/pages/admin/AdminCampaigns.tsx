@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Ban,
+  Bell,
   Check,
   CheckCircle2,
   Flame,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react'
 import {
   adminCampaignService,
+  campaignProposalService,
   uploadService,
   type CampaignResponse,
   type CampaignStatus,
@@ -31,6 +33,8 @@ import {
 import { formatKg, formatVnd } from '@/features/campaign/utils'
 import CampaignDispatchBoard from './CampaignDispatchBoard'
 import CampaignDamageClaims, { damageClaimsKey } from './CampaignDamageClaims'
+import CampaignBannerEditor from './CampaignBannerEditor'
+import AdminCampaignProposals, { type ApprovePrefill } from './AdminCampaignProposals'
 import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
 import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
@@ -64,6 +68,7 @@ const PRE_ORDER_STATUS: Record<PreOrderResponse['status'], string> = {
   DEPOSIT_PAID: 'Đã cọc · chờ đóng gói',
   PROCESSING: 'Đã đóng gói',
   READY: 'Tại hub',
+  SHIPPING: 'Đang giao',
   DELIVERED: 'Đã giao',
   FAILED: 'Giao thất bại',
   CANCELLED: 'Đã huỷ',
@@ -79,11 +84,32 @@ const keys = {
 export default function AdminCampaigns() {
   const [selected, setSelected] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+  const [view, setView] = useState<'campaigns' | 'proposals'>('campaigns')
+  const [approving, setApproving] = useState<ApprovePrefill | null>(null)
   if (selected != null) return <CampaignDetail id={selected} onBack={() => setSelected(null)} />
   return (
     <>
-      <CampaignList onOpen={setSelected} onCreate={() => setCreating(true)} />
+      <div className="flex flex-wrap gap-2 px-4 pt-4 sm:px-8 sm:pt-8" role="tablist" aria-label="Chiến dịch hoặc đề xuất từ shop">
+        {([['campaigns', 'Chiến dịch'], ['proposals', 'Đề xuất từ shop']] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${view === id ? 'bg-[#326318] text-white' : 'bg-white text-[#326318] ring-1 ring-gray-200 hover:ring-[#9ed67d]'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === 'campaigns' ? (
+        <CampaignList onOpen={setSelected} onCreate={() => setCreating(true)} />
+      ) : (
+        <AdminCampaignProposals onApprove={setApproving} onOpenCampaign={setSelected} />
+      )}
       {creating && <CreateDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelected(id) }} />}
+      {approving && (
+        <CreateDialog
+          prefill={approving}
+          onClose={() => setApproving(null)}
+          onCreated={(id) => { setApproving(null); setSelected(id) }}
+        />
+      )}
     </>
   )
 }
@@ -179,7 +205,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const regs = useQuery({ queryKey: keys.regs(id), queryFn: () => adminCampaignService.registrations(id) })
   const orders = useQuery({ queryKey: keys.orders(id), queryFn: () => adminCampaignService.preOrders(id) })
   const claims = useQuery({ queryKey: damageClaimsKey(id), queryFn: () => adminCampaignService.damageClaims(id) })
-  const [tab, setTab] = useState<'farms' | 'orders' | 'dispatch' | 'claims'>('farms')
+  const [tab, setTab] = useState<'farms' | 'orders' | 'dispatch' | 'claims' | 'banner'>('farms')
   const [intakeFor, setIntakeFor] = useState<FarmRegistrationResponse | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -234,6 +260,13 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setTab('banner')}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50"
+          >
+            <ImagePlus size={16} /> Banner trang chủ
+          </button>
           <a
             href={`/chien-dich/${c.campaignId}?xem-truoc=1`}
             target="_blank"
@@ -263,16 +296,18 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
       {['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) && <SupplyPanel c={c} />}
 
-      <div className="flex gap-1 border-b border-gray-200" role="tablist">
-        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['dispatch', 'Chia đơn giao'], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`]] as const).map(([k, label]) => (
+      <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist">
+        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['dispatch', 'Chia đơn giao'], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`], ['banner', `Banner trang chủ${c.bannerOnHome === false ? ' (tắt)' : ''}`]] as const).map(([k, label]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-bold ${tab === k ? 'border-[#326318] text-[#326318]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-bold ${tab === k ? 'border-[#326318] text-[#326318]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'claims' ? (
+      {tab === 'banner' ? (
+        <CampaignBannerEditor key={c.bannerUpdatedAt ?? 'new'} c={c} onNotice={(n) => { setNotice(n); refresh() }} />
+      ) : tab === 'claims' ? (
         <CampaignDamageClaims campaignId={id} onNotice={(n) => { setNotice(n); refresh() }} />
       ) : tab === 'dispatch' ? (
         <CampaignDispatchBoard c={c} allOrders={orders.data ?? []} onNotice={(n) => { setNotice(n); refresh() }} />
@@ -455,9 +490,38 @@ function OrderTable({
     onSuccess: onChanged,
     onError: (e) => onError(getErrorMessage(e, 'Không xác nhận được khách đã lấy hàng.')),
   })
+  const remind = useMutation({
+    mutationFn: (p: PreOrderResponse) => adminCampaignService.remindPickup(p.preOrderId),
+    onSuccess: onChanged,
+    onError: (e) => onError(getErrorMessage(e, 'Không gửi được thông báo nhắc khách.')),
+  })
+  const remindAll = useMutation({
+    mutationFn: async (list: PreOrderResponse[]) => { for (const p of list) await adminCampaignService.remindPickup(p.preOrderId) },
+    onSuccess: onChanged,
+    onError: (e) => { onChanged(); onError(getErrorMessage(e, 'Có đơn chưa gửi được thông báo nhắc.')) },
+  })
+  const noShow = useMutation({
+    mutationFn: (p: PreOrderResponse) => adminCampaignService.pickupNoShow(p.preOrderId, 'Khách không đến lấy hàng sau khi đã được nhắc'),
+    onSuccess: onChanged,
+    onError: (e) => onError(getErrorMessage(e, 'Không cập nhật được đơn.')),
+  })
+  const waitingPickup = rows.filter((p) => p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP')
+  const notReminded = waitingPickup.filter((p) => !p.pickupRemindCount)
   if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />
   if (rows.length === 0) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">Chưa có đơn đặt trước.</div>
   return (
+    <div className="space-y-3">
+    {c.status === 'FULFILLING' && waitingPickup.length > 0 && (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p className="text-sm text-emerald-900">
+          <b>{waitingPickup.length}</b> đơn tự đến lấy đã đóng gói, chờ khách đến nhận
+          {notReminded.length > 0 ? <> · <b>{notReminded.length}</b> đơn chưa được nhắc</> : ' · đã nhắc tất cả'}
+        </p>
+        <button type="button" disabled={remindAll.isPending || notReminded.length === 0} onClick={() => remindAll.mutate(notReminded)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+          <Bell size={14} /> {remindAll.isPending ? 'Đang gửi…' : 'Gửi thông báo đến lấy hàng'}
+        </button>
+      </div>
+    )}
     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
       <table className="w-full min-w-[820px] text-left text-sm">
         <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
@@ -513,11 +577,27 @@ function OrderTable({
                     <Check size={14} /> Khách đã lấy · thu {formatVnd(p.remainingAmount)}
                   </button>
                 )}
+                {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
+                  <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                    <button type="button" disabled={remind.isPending} onClick={() => remind.mutate(p)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-800 disabled:opacity-50">
+                      <Bell size={12} /> {p.pickupRemindCount ? `Nhắc lại (${p.pickupRemindCount})` : 'Nhắc khách đến lấy'}
+                    </button>
+                    <button type="button" disabled={noShow.isPending || !p.pickupRemindCount} title={p.pickupRemindCount ? 'Khách không đến: đơn thất bại, giữ tiền cọc' : 'Cần nhắc khách ít nhất 1 lần trước'}
+                      onClick={() => { if (window.confirm(`Đánh dấu đơn ${p.code} khách không đến lấy? Khách sẽ mất cọc ${formatVnd(p.depositAmount)}.`)) noShow.mutate(p) }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-700 disabled:opacity-40">
+                      Khách không đến
+                    </button>
+                  </div>
+                )}
+                {p.pickupRemindedAt && p.status === 'PROCESSING' && (
+                  <p className="mt-1 text-[11px] text-gray-500">Đã nhắc lúc {new Date(p.pickupRemindedAt).toLocaleString('vi-VN')}</p>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   )
 }
@@ -635,16 +715,19 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
 
 /* ─────────────────────────── Tạo chiến dịch ─────────────────────────── */
 
-function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: number) => void }) {
+/** Tạo chiến dịch mới; có `prefill` khi duyệt / gộp đơn đề xuất của shop (tạo xong mới đánh dấu đơn đã duyệt) */
+function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; onCreated: (id: number) => void; prefill?: ApprovePrefill }) {
   const inDays = (n: number) => new Date(Date.now() + n * 86400000)
   const local = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString()
   const [f, setF] = useState({
     title: '', description: '', season: '', target: '', min: '', price: '', deposit: '30',
     cutoff: local(inDays(7)).slice(0, 16), delivery: local(inDays(9)).slice(0, 10), site: '',
     halfKg: '10', freeKg: '20', freeRadius: '10', groupMin: '5',
+    ...prefill?.fields,
   })
   const [pickupEnabled, setPickupEnabled] = useState(true)
-  const [address, setAddress] = useState<AddressValue>(EMPTY_ADDRESS)
+  const [address, setAddress] = useState<AddressValue>(prefill?.address ?? EMPTY_ADDRESS)
+  const [note, setNote] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   useEscape(onClose)
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }))
@@ -659,7 +742,10 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
         shipHalfKg: Number(f.halfKg) || undefined, shipFreeKg: Number(f.freeKg) || undefined,
         shipFreeRadiusKm: Number(f.freeRadius) || undefined, groupDiscountMinOrders: Number(f.groupMin) || undefined,
         pickupEnabled,
+        categoryId: prefill?.categoryId ?? undefined,
+        coverImageUrl: prefill?.coverImageUrl ?? undefined,
       }
+      if (prefill) return campaignProposalService.approve(prefill.proposalIds, body, note.trim() || undefined)
       return adminCampaignService.create(body)
     },
     onSuccess: (c) => onCreated(c.campaignId),
@@ -668,7 +754,9 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="tao-cd-title" onClick={(e) => e.stopPropagation()} className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 id="tao-cd-title" className="text-lg font-black text-gray-900">Tạo chiến dịch giải cứu</h3>
+          <h3 id="tao-cd-title" className="text-lg font-black text-gray-900">
+            {prefill ? (prefill.proposalIds.length > 1 ? `Gộp ${prefill.proposalIds.length} đề xuất thành 1 chiến dịch` : 'Duyệt đề xuất thành chiến dịch') : 'Tạo chiến dịch giải cứu'}
+          </h3>
           <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
         <form className="grid gap-3 overflow-y-auto p-5 sm:grid-cols-2" onSubmit={(e) => {
@@ -713,10 +801,16 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
               Cho phép người mua tự đến điểm tập kết lấy hàng (0đ)
             </label>
           </fieldset>
+          {prefill && (
+            <label htmlFor="cd-note" className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
+              Ghi chú gửi shop đề xuất (không bắt buộc)
+              <input id="cd-note" value={note} onChange={(e) => setNote(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal" />
+            </label>
+          )}
           {formError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{formError}</p>}
           {create.isError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{getErrorMessage(create.error, 'Không tạo được chiến dịch.')}</p>}
           <button type="submit" disabled={create.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 sm:col-span-2">
-            {create.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Tạo chiến dịch (nháp)
+            {create.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {prefill ? 'Duyệt & tạo chiến dịch (nháp)' : 'Tạo chiến dịch (nháp)'}
           </button>
         </form>
       </div>
