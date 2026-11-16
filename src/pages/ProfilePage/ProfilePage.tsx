@@ -31,6 +31,7 @@ import {
   Maximize2,
   HeartPulse,
   Bell,
+  AlertTriangle,
 } from 'lucide-react'
 import { authService, getSavedAddresses, createSavedAddress, updateSavedAddress, deleteSavedAddress, setDefaultSavedAddress } from '@/services'
 import type { UserResponse } from '@/services/user.types'
@@ -450,6 +451,30 @@ export default function ProfilePage() {
           <ChevronRight size={14} className="text-[#a8b1a2]" />
           <span className="font-bold text-[#232a1e]">Tài khoản cá nhân</span>
         </div>
+
+        {/* Cảnh báo vi phạm bom hàng & Tước quyền COD */}
+        {profile?.codBlocked && (
+          <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <AlertTriangle className="shrink-0 text-rose-600 mt-0.5" size={20} />
+            <div className="flex-1 text-sm">
+              <h4 className="font-bold text-rose-900">Tài khoản bị giới hạn phương thức thanh toán (Khóa COD)</h4>
+              <p className="mt-0.5 text-rose-700 leading-relaxed">
+                Bạn đã tích lũy {profile.failedDeliveryCount || 3} lần giao hàng thất bại do không nghe máy hoặc từ chối nhận. Quyền thanh toán khi nhận hàng (COD) đã bị tạm tước. Vui lòng thanh toán trực tuyến qua PayOS khi mua sắm.
+              </p>
+            </div>
+          </div>
+        )}
+        {!profile?.codBlocked && (profile?.failedDeliveryCount ?? 0) > 0 && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={20} />
+            <div className="flex-1 text-sm">
+              <h4 className="font-bold text-amber-900">Lưu ý lịch sử nhận hàng ({profile?.failedDeliveryCount}/3 lần vi phạm)</h4>
+              <p className="mt-0.5 text-amber-700 leading-relaxed">
+                Bạn đã có {profile?.failedDeliveryCount} lần nhận hàng không thành công. Nếu tích lũy đủ 3 lần, hệ thống sẽ tự động tước quyền thanh toán COD.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ============================================================== */}
         {/* MAIN 2-COLUMN LAYOUT (SIDEBAR + CONTENT CANVAS)                */}

@@ -44,6 +44,16 @@ const BACKEND_ERROR_CODE_MAP: Record<number, string> = {
   4001: 'Tệp hình ảnh không hợp lệ',
   4002: 'Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 5MB)',
   4003: 'Tải tệp lên máy chủ lưu trữ thất bại',
+
+  // Tài khoản & Vi phạm bom hàng (Series 1000)
+  1026: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ',
+  1034: 'Tài khoản của bạn đang bị tạm khóa 7 ngày do vi phạm chính sách giao nhận (bom hàng 5 lần)',
+
+  // Thanh toán & Ví (Series 16000)
+  16015: 'Tài khoản của bạn đã bị tước quyền thanh toán khi nhận hàng (COD) do có từ 3 lần giao hàng thất bại (bom hàng). Vui lòng chọn thanh toán trực tuyến qua PayOS.',
+
+  // Khiếu nại & Cờ rủi ro (Series 17000)
+  17015: 'Không tìm thấy cờ rủi ro vi phạm',
 }
 
 /**

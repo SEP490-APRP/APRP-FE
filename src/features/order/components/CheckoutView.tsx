@@ -944,6 +944,15 @@ export const CheckoutView: React.FC = () => {
   }
 
   const previewData = previewMutation.data
+  const isCodAllowed = previewData?.codAllowed !== false
+  const codRestrictionReason = previewData?.codRestrictionReason
+
+  // Tự động chuyển về PayOS nếu COD bị tước do bom hàng
+  useEffect(() => {
+    if (previewData && previewData.codAllowed === false && selectedPaymentMethod === 'COD') {
+      setValue('paymentMethod', 'PAYOS', { shouldValidate: true })
+    }
+  }, [previewData?.codAllowed, selectedPaymentMethod, setValue])
   const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? 0
   const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
   const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
@@ -1365,25 +1374,40 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Lựa chọn 2: COD */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'COD'
-                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                    : 'border-line hover:border-gray-300'
-                    }`}
+                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all ${
+                    !isCodAllowed
+                      ? 'border-gray-200 bg-gray-50/70 opacity-70 cursor-not-allowed'
+                      : selectedPaymentMethod === 'COD'
+                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs cursor-pointer'
+                      : 'border-line hover:border-gray-300 cursor-pointer'
+                  }`}
                 >
                   <input
                     type="radio"
                     value="COD"
+                    disabled={!isCodAllowed}
                     {...register('paymentMethod')}
-                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 disabled:opacity-40"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 font-semibold text-sm text-ink">
-                      <Banknote size={16} className="text-amber-600" />
-                      <span>Thanh toán khi nhận hàng (COD)</span>
+                      <Banknote size={16} className={!isCodAllowed ? 'text-gray-400' : 'text-amber-600'} />
+                      <span className={!isCodAllowed ? 'text-gray-500 line-through' : ''}>Thanh toán khi nhận hàng (COD)</span>
+                      {!isCodAllowed && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                          Bị hạn chế
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-ink-muted mt-1 leading-relaxed">
                       Thanh toán bằng tiền mặt trực tiếp cho nhân viên giao hàng khi nhận được nông sản.
                     </p>
+                    {!isCodAllowed && (
+                      <div className="mt-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-start gap-2">
+                        <AlertTriangle size={15} className="shrink-0 mt-0.5 text-rose-600" />
+                        <span>{codRestrictionReason || 'Tài khoản của bạn đã bị tước quyền thanh toán COD do có từ 3 lần giao hàng thất bại (bom hàng). Vui lòng chọn thanh toán trực tuyến qua PayOS.'}</span>
+                      </div>
+                    )}
                   </div>
                 </label>
               </div>
