@@ -11,6 +11,7 @@ import {
   Gift,
   Loader2,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react'
 import { useShopOrders, useShopProfile } from '@/features/shop'
 import { useMyProducts, useMyCombos } from '@/features/product'
@@ -114,6 +115,57 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
 
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Cảnh báo Cờ rủi ro chất lượng cho Shop */}
+      {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags >= 3 && (
+        <div className="p-5 rounded-3xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3.5 shadow-sm">
+          <AlertTriangle className="shrink-0 text-rose-600 mt-1" size={22} />
+          <div className="flex-1 text-sm">
+            <div className="flex items-center gap-2 font-bold text-rose-900 text-base">
+              <span>Cảnh báo chất lượng: Gian hàng đang tích lũy {shopProfile.activeRiskFlags} Cờ Rủi Ro</span>
+              <span className="text-xs bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                Bị áp dụng hình phạt
+              </span>
+            </div>
+            <p className="mt-1 text-rose-700 leading-relaxed">
+              Gian hàng của bạn đã có từ 3 khiếu nại giao hàng hỏng được Admin xác nhận. Hệ thống đã <strong>tự động trừ 1.0 sao</strong> trên điểm đánh giá công khai (hiện còn {shopProfile.ratingAverage || 0} sao) và <strong>giảm độ ưu tiên hiển thị sản phẩm</strong> của gian hàng trên sàn.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => onNavigate('disputes')}
+                className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+              >
+                Xem chi tiết khiếu nại &amp; Thu hồi hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags > 0 && shopProfile.activeRiskFlags < 3 && (
+        <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3.5 shadow-sm">
+          <AlertTriangle className="shrink-0 text-amber-600 mt-1" size={22} />
+          <div className="flex-1 text-sm">
+            <div className="flex items-center gap-2 font-bold text-amber-900 text-base">
+              <span>Cảnh báo vi phạm giao hàng hỏng ({shopProfile.activeRiskFlags}/3 Cờ Rủi Ro)</span>
+              <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                Cảnh báo chất lượng
+              </span>
+            </div>
+            <p className="mt-1 text-amber-700 leading-relaxed">
+              Gian hàng vừa có khiếu nại về hàng dập nát/hỏng được Admin phê duyệt (gắn 1 Risk Flag). Nếu tích lũy đủ 3 cờ rủi ro, gian hàng sẽ bị trừ 1 sao đánh giá công khai và giảm độ ưu tiên hiển thị trên sàn. Vui lòng đóng gói cẩn thận nông sản khi bàn giao shipper.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => onNavigate('disputes')}
+                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+              >
+                Kiểm tra mục khiếu nại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4 KPI Cards Grid (Dữ liệu thực từ API) */}
       <div
         id="tour-overview-stats"
