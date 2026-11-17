@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mysteryBoxService, comboService } from '@/services'
 import {
@@ -7,6 +7,8 @@ import {
   Check,
   Sparkles,
   ShoppingBasket,
+  ShoppingCart,
+  Eye,
   ArrowUpDown,
   Filter,
   Plus,
@@ -423,20 +425,33 @@ function ComboCard({
           </div>
         </div>
 
-        {/* Nút thêm vào giỏ */}
-        <button
-          type="button"
-          onClick={() =>
-            onAdd(
-              combo.realId ?? combo.id,
-              combo.itemType ?? (combo.id.startsWith('mystery') ? 'MYSTERY_BOX' : 'BUILD_COMBO'),
-            )
-          }
-          className="w-full mt-1 py-2.5 px-4 bg-[#4a7c2f] hover:bg-[#3b6624] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-        >
-          <ShoppingBasket size={16} />
-          <span>{combo.category === 'Túi mù' ? 'Thêm Túi Mù Vào Giỏ' : 'Thêm Combo Vào Giỏ'}</span>
-        </button>
+        {/* Nút hành động: 1 nút Chi tiết + 1 nút Thêm vào giỏ */}
+        <div className="mt-2.5 flex items-center gap-2 pt-2.5 border-t border-gray-100">
+          <Link
+            to={detailUrl}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+          >
+            <Eye size={14} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+            <span className="truncate">Chi tiết</span>
+          </Link>
+
+          <button
+            type="button"
+            disabled={combo.stock <= 0}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onAdd(
+                combo.realId ?? combo.id,
+                combo.itemType ?? (combo.id.startsWith('mystery') ? 'MYSTERY_BOX' : 'BUILD_COMBO'),
+              )
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center cursor-pointer"
+          >
+            <ShoppingCart size={14} className="shrink-0" />
+            <span className="truncate">{combo.stock <= 0 ? 'Hết hàng' : 'Thêm giỏ'}</span>
+          </button>
+        </div>
       </div>
     </article>
   )

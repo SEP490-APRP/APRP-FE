@@ -3,33 +3,29 @@ import {
   CheckCircle2,
   Gift,
   ShieldCheck,
-  ShoppingBasket,
+  ShoppingCart,
+  Eye,
   Sparkles,
   Star,
   Zap,
 } from 'lucide-react'
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import comboMysteryImg from '@/assets/combo-mystery.jpg'
 import comboGreenImg from '@/assets/combo-green.jpg'
 import comboKitchenImg from '@/assets/combo-kitchen.jpg'
 import comboHotpotImg from '@/assets/combo-hotpot.jpg'
-import { combos, money, type Product } from '@/mocks/catalog'
-import { discountPercent } from '@/features/product'
-import { LinkButton } from '@/components/ui/Button'
+import { money } from '@/mocks/catalog'
 import { cn } from '@/utils'
 import { mysteryBoxService, comboService } from '@/services'
 import { isMeaningfulComboName, mapComboToCard, mapMysteryBoxToCard } from '@/pages/combos.utils'
 
-/**
- * Thông tin trình bày riêng cho trang chủ. GIÁ và TỒN KHO luôn lấy từ catalog
- * (trước đây ghi cứng ở đây nên trang chủ hiện 139.000đ nhưng giỏ hàng tính 189.000đ,
- * và combo "Lẩu" không có trong catalog nên bấm "Thêm vào giỏ" không thêm được gì).
- */
 type ComboTeaser = {
-  /** id trong catalog; null = chưa bán trực tuyến, nút sẽ dẫn sang trang Combo. */
   catalogId: string | null
+  realId?: number
+  itemType?: string
   name: string
   image: string
   badgeWeight: string
@@ -39,61 +35,11 @@ type ComboTeaser = {
   feature: string
   rating: number
   reviews: number
-  /** Chỉ dùng khi catalogId = null. */
-  fallbackPrice?: { price: number; original: number; unit: string }
+  price: number
+  original: number
+  unit: string
+  stock: number
 }
-
-const TEASERS: ComboTeaser[] = [
-  {
-    catalogId: 'mystery',
-    name: 'Túi mù',
-    image: comboMysteryImg,
-    badgeWeight: '5kg ngẫu nhiên',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Gia đình 2–3 người',
-    feature: 'Gồm 5–6 loại rau lá, củ hầm & quả tươi thu hoạch sáng sớm',
-    rating: 4.9,
-    reviews: 348,
-  },
-  {
-    catalogId: 'green',
-    name: 'Combo',
-    image: comboGreenImg,
-    badgeWeight: '6kg rau củ',
-    badgeHighlight: 'Combo',
-    category: 'Combo',
-    portion: 'Gia đình 3–4 người',
-    feature: 'Cải bó xôi, mồng tơi, cà rốt, bí đỏ & đậu cô ve thanh mát',
-    rating: 4.8,
-    reviews: 215,
-  },
-  {
-    catalogId: 'kitchen',
-    name: 'Combo',
-    image: comboKitchenImg,
-    badgeWeight: '10kg trọn gói',
-    badgeHighlight: 'Combo',
-    category: 'Combo',
-    portion: 'Gia đình 4–5 người',
-    feature: 'Khoai lang mật, củ dền, bắp cải, cà chua bi & bưởi hồng',
-    rating: 5.0,
-    reviews: 182,
-  },
-  {
-    catalogId: null,
-    name: 'Combo',
-    image: comboHotpotImg,
-    badgeWeight: '4.5kg tuyển chọn',
-    badgeHighlight: 'Combo',
-    category: 'Combo',
-    portion: 'Nhóm 4–6 người',
-    feature: 'Nấm tươi, bắp ngọt, rau tần ô, cải thảo, ớt chuông & cà chua',
-    rating: 4.9,
-    reviews: 156,
-    fallbackPrice: { price: 119000, original: 210000, unit: 'combo' },
-  },
-]
 
 const BENEFITS = [
   { icon: CheckCircle2, text: '5–6 loại nông sản tươi ngon ngẫu nhiên' },
@@ -101,65 +47,77 @@ const BENEFITS = [
   { icon: ShieldCheck, text: 'Đổi mới nếu có quả bị dập hỏng' },
 ] as const
 
-const mystery = combos.find((c) => c.id === 'mystery')
-
 function ComboCard({
   teaser,
-  product,
   onAdd,
 }: {
   teaser: ComboTeaser
-  product?: Product
-  onAdd?: (id: string) => void
+  onAdd?: (id: string | number, itemType?: string) => void
 }) {
-  const pricing = product ?? teaser.fallbackPrice
-  const discount = pricing ? discountPercent(pricing) : 0
-  const canAdd = Boolean(product && onAdd && product.stock > 0)
+  const discount = teaser.original > teaser.price
+    ? Math.round((1 - teaser.price / teaser.original) * 100)
+    : 0
+
+  const detailUrl =
+    teaser.itemType === 'MYSTERY_BOX'
+      ? `/tui-mu/${teaser.realId}`
+      : teaser.itemType === 'BUILD_COMBO'
+        ? `/combo/${teaser.realId}`
+        : '/combo-tui-mu'
+
+  const soldOut = teaser.stock <= 0
 
   return (
-    <article className="group flex h-full flex-col rounded-card border border-line bg-white p-3 shadow-card transition-[box-shadow,border-color] duration-300 hover:border-leaf-600/40 hover:shadow-card-hover sm:p-4">
-      <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl bg-paper-warm sm:aspect-[16/11]">
+    <article className="group flex h-full flex-col rounded-2xl border border-[#e8ece3] bg-white p-3 shadow-xs transition-all duration-300 hover:border-[#326318]/50 hover:shadow-md sm:p-4">
+      {/* Khung ảnh: click vào chuyển sang trang chi tiết */}
+      <Link
+        to={detailUrl}
+        className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl bg-paper-warm sm:aspect-[16/11] block"
+      >
         <img
           src={teaser.image}
-          alt=""
+          alt={teaser.name}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none"
         />
         {discount > 0 && (
-          <span className="absolute left-2 top-2 rounded-md bg-sale px-2 py-0.5 text-caption font-extrabold text-white shadow-sm">
+          <span className="absolute left-2 top-2 rounded-md bg-[#e53935] px-2 py-0.5 text-caption font-extrabold text-white shadow-xs">
             -{discount}%
           </span>
         )}
-        <span className="absolute right-2 top-2 rounded-md bg-white/95 px-2 py-0.5 text-caption font-bold text-leaf-700 shadow-sm">
+        <span className="absolute right-2 top-2 rounded-md bg-white/95 px-2 py-0.5 text-caption font-bold text-leaf-700 shadow-xs">
           {teaser.badgeWeight}
         </span>
-        <span className="absolute bottom-2 left-2 rounded-md bg-white/95 px-2 py-0.5 text-caption font-semibold text-soil-600 shadow-sm">
+        <span className="absolute bottom-2 left-2 rounded-md bg-white/95 px-2 py-0.5 text-caption font-semibold text-soil-600 shadow-xs">
           {teaser.badgeHighlight}
         </span>
-      </div>
+      </Link>
 
       <p className="mb-1 flex items-center justify-between gap-2 text-caption text-ink-muted">
         <span className="font-semibold text-leaf-700">{teaser.category}</span>
         <span className="shrink-0">{teaser.portion}</span>
       </p>
-      <h3 className="text-base font-bold leading-snug text-ink">{teaser.name}</h3>
-      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink-muted">{teaser.feature}</p>
+      <h3 className="text-base font-bold leading-snug text-ink line-clamp-1">
+        <Link to={detailUrl} className="hover:text-[#326318] transition-colors">
+          {teaser.name}
+        </Link>
+      </h3>
+      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-muted">{teaser.feature}</p>
 
       <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-line pt-3">
-        {pricing && (
-          <p className="flex items-baseline gap-1.5">
-            <strong className="text-lg font-extrabold text-leaf-700">{money(pricing.price)}</strong>
-            <span className="text-caption text-ink-subtle">/{pricing.unit}</span>
-            {discount > 0 && (
-              <del className="text-caption text-ink-subtle">
-                <span className="sr-only">Giá gốc </span>
-                {money(pricing.original)}
-              </del>
-            )}
-          </p>
-        )}
-        {/* Một ngôi sao + điểm số, thay cho 5 sao đầy cho mọi mức điểm */}
+        <p className="flex items-baseline gap-1.5">
+          <strong className="text-lg font-extrabold text-leaf-700">{money(teaser.price)}</strong>
+          <span className="text-caption text-ink-subtle">/{teaser.unit}</span>
+          {discount > 0 && (
+            <del className="text-caption text-ink-subtle">
+              <span className="sr-only">Giá gốc </span>
+              {money(teaser.original)}
+            </del>
+          )}
+        </p>
+
+        {/* Đánh giá */}
         <p
           className="flex items-center gap-1 text-caption text-ink-muted"
           aria-label={`Đánh giá ${teaser.rating} trên 5, ${teaser.reviews} lượt`}
@@ -170,26 +128,37 @@ function ComboCard({
         </p>
       </div>
 
-      {canAdd && product ? (
+      {/* Chuẩn hóa 2 nút: Chi tiết + Thêm giỏ (Khớp 100% với ProductCard) */}
+      <div className="mt-3 flex items-center gap-2 pt-2.5 border-t border-[#f0eee6]">
+        <Link
+          to={detailUrl}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+        >
+          <Eye size={14} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+          <span className="truncate">Chi tiết</span>
+        </Link>
+
         <button
           type="button"
-          onClick={() => onAdd?.(product.id)}
-          className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-leaf-700 text-sm font-bold text-white shadow-sm transition-colors hover:bg-leaf-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600 focus-visible:ring-offset-2"
-          aria-label={`Thêm ${teaser.name} vào giỏ`}
+          disabled={soldOut}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (teaser.realId && onAdd) {
+              onAdd(teaser.realId, teaser.itemType ?? 'BUILD_COMBO')
+            }
+          }}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center"
         >
-          <ShoppingBasket size={16} aria-hidden />
-          {product.id === 'mystery' ? 'Mở túi mù ngay' : 'Thêm vào giỏ'}
+          <ShoppingCart size={14} className="shrink-0" />
+          <span className="truncate">{soldOut ? 'Hết hàng' : 'Thêm giỏ'}</span>
         </button>
-      ) : (
-        <LinkButton href="/combo-tui-mu" variant="secondary" fullWidth className="mt-3">
-          Xem chi tiết combo <ArrowRight size={16} aria-hidden />
-        </LinkButton>
-      )}
+      </div>
     </article>
   )
 }
 
-export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }) {
+export default function CombosTeaser({ onAdd }: { onAdd?: (id: string | number, itemType?: string) => void }) {
   const { data: mysteryBoxesData } = useQuery({
     queryKey: ['home-mystery-boxes'],
     queryFn: () => mysteryBoxService.getForBuyer(),
@@ -200,7 +169,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
     queryFn: () => comboService.getCombos(),
   })
 
-  const teasers = useMemo(() => {
+  const teasers = useMemo<ComboTeaser[]>(() => {
     const dbMystery = (mysteryBoxesData?.content ?? []).slice(0, 2).map((item) =>
       mapMysteryBoxToCard(item, comboMysteryImg),
     )
@@ -211,7 +180,9 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
     const cards = [...dbMystery, ...dbCombos].filter((card) => isMeaningfulComboName(card.name))
     if (cards.length > 0) {
       return cards.slice(0, 4).map((card) => ({
-        catalogId: card.itemType === 'MYSTERY_BOX' ? `mystery-${card.realId}` : `combo-${card.realId}`,
+        catalogId: card.id,
+        realId: card.realId,
+        itemType: card.itemType,
         name: card.name,
         image: card.image,
         badgeWeight: card.badgeWeight,
@@ -221,12 +192,18 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
         feature: card.feature,
         rating: card.rating,
         reviews: card.reviews,
-        fallbackPrice: { price: card.price, original: card.original, unit: card.unit },
+        price: card.price,
+        original: card.original,
+        unit: card.unit,
+        stock: card.stock,
       }))
     }
 
     return []
   }, [mysteryBoxesData, combosData])
+
+  const firstMystery = mysteryBoxesData?.content?.[0]
+  const mysteryPrice = Number(firstMystery?.price) || 79000
 
   return (
     <section
@@ -248,16 +225,16 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
               Combo &amp; Túi Mù Nông Sản
             </h2>
           </div>
-          <a
-            href="/combo-tui-mu"
+          <Link
+            to="/combo-tui-mu"
             className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-soil-600 hover:text-soil-700"
           >
             Xem tất cả Combo &amp; Túi Mù <ArrowRight size={17} aria-hidden />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Mobile: cuộn ngang có snap (mỗi card ~85% màn hình) thay vì 4 card xếp dọc ~2.000px. Từ sm: lưới 2 cột. */}
+          {/* Mobile: cuộn ngang có snap. Từ sm: lưới 2 cột. */}
           <ul
             aria-label="Các combo nổi bật"
             className={cn(
@@ -268,13 +245,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
           >
             {teasers.map((teaser) => (
               <li key={teaser.name} className="w-[85%] shrink-0 snap-start sm:w-auto">
-                <ComboCard
-                  teaser={teaser}
-                  product={
-                    teaser.catalogId ? combos.find((c) => c.id === teaser.catalogId) : undefined
-                  }
-                  onAdd={onAdd}
-                />
+                <ComboCard teaser={teaser} onAdd={onAdd} />
               </li>
             ))}
           </ul>
@@ -292,17 +263,15 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
                 Mỗi túi là 5kg rau củ quả thu hoạch sớm nhất trong ngày, chọn ngẫu nhiên từ nhà vườn
                 liên kết.
               </p>
-              {mystery && (
-                <p className="rounded-card border border-white/15 bg-black/20 p-3.5">
-                  <span className="block text-caption uppercase tracking-wide text-white/80">
-                    Giá trải nghiệm
-                  </span>
-                  <span className="text-2xl font-black text-sun-300 sm:text-3xl">
-                    Chỉ {money(mystery.price)}
-                  </span>
-                  <span className="text-caption text-white/80">/túi 5kg</span>
-                </p>
-              )}
+              <p className="rounded-card border border-white/15 bg-black/20 p-3.5">
+                <span className="block text-caption uppercase tracking-wide text-white/80">
+                  Giá trải nghiệm
+                </span>
+                <span className="text-2xl font-black text-sun-300 sm:text-3xl">
+                  Chỉ {money(mysteryPrice)}
+                </span>
+                <span className="text-caption text-white/80">/túi 5kg</span>
+              </p>
               <ul className="flex flex-col gap-2 text-sm text-white/90">
                 {BENEFITS.map(({ icon: Icon, text }) => (
                   <li key={text} className="flex items-center gap-2">
@@ -311,16 +280,16 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string) => void }
                   </li>
                 ))}
               </ul>
-              <a
-                href="/combo-tui-mu"
+              <Link
+                to="/combo-tui-mu"
                 className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[#6e3910] shadow-md transition-colors hover:bg-[#fff7ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-soil-600 sm:w-fit"
               >
                 Mở túi mù ngay <ArrowRight size={16} aria-hidden />
-              </a>
+              </Link>
             </div>
             <img
               src={mysteryPromoImg}
-              alt=""
+              alt="Túi mù nông sản bí ẩn"
               loading="lazy"
               decoding="async"
               className="relative z-10 mx-auto hidden max-h-72 w-auto object-contain drop-shadow-xl sm:block sm:max-w-[45%] lg:max-w-full"

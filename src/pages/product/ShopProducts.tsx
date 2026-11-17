@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   Grid,
   List,
   Star,
   ShoppingCart,
+  Eye,
   Heart,
   MessageCircle,
   Clock,
@@ -1249,24 +1250,34 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-line mt-3">
+                            <div className="flex flex-col gap-2.5 pt-3 border-t border-line mt-3">
                               <span className="text-lg font-black text-leaf-700">
                                 {Number(combo.price).toLocaleString('vi-VN')}đ
                               </span>
 
-                              <button
-                                type="button"
-                                onClick={() => handleAddComboToCart(comboId)}
-                                disabled={isAdding || isOutOfStock}
-                                className="px-4 py-2 bg-leaf-700 hover:bg-leaf-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                              >
-                                {isAdding ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <ShoppingCart className="size-3.5" />
-                                )}
-                                <span>Thêm vào giỏ</span>
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  to={`/combo/${comboId}`}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+                                >
+                                  <Eye size={13} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+                                  <span className="truncate">Chi tiết</span>
+                                </Link>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddComboToCart(comboId)}
+                                  disabled={isAdding || isOutOfStock}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center cursor-pointer"
+                                >
+                                  {isAdding ? (
+                                    <Loader2 className="size-3.5 animate-spin shrink-0" />
+                                  ) : (
+                                    <ShoppingCart className="size-3.5 shrink-0" />
+                                  )}
+                                  <span className="truncate">{isOutOfStock ? 'Hết hàng' : 'Thêm giỏ'}</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1361,24 +1372,34 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-line mt-3">
+                            <div className="flex flex-col gap-2.5 pt-3 border-t border-line mt-3">
                               <span className="text-lg font-black text-leaf-700">
                                 {Number(box.price).toLocaleString('vi-VN')}đ
                               </span>
 
-                              <button
-                                type="button"
-                                onClick={() => handleAddBoxToCart(boxId)}
-                                disabled={isAdding || isOutOfStock}
-                                className="px-4 py-2 bg-leaf-700 hover:bg-leaf-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                              >
-                                {isAdding ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <ShoppingCart className="size-3.5" />
-                                )}
-                                <span>Thêm vào giỏ</span>
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  to={`/mystery-box/${boxId}`}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+                                >
+                                  <Eye size={13} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+                                  <span className="truncate">Chi tiết</span>
+                                </Link>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddBoxToCart(boxId)}
+                                  disabled={isAdding || isOutOfStock}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center cursor-pointer"
+                                >
+                                  {isAdding ? (
+                                    <Loader2 className="size-3.5 animate-spin shrink-0" />
+                                  ) : (
+                                    <ShoppingCart className="size-3.5 shrink-0" />
+                                  )}
+                                  <span className="truncate">{isOutOfStock ? 'Hết hàng' : 'Thêm giỏ'}</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>

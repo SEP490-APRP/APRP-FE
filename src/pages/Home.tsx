@@ -13,7 +13,7 @@ import { CampaignSpotlight } from '@/features/campaign/components/CampaignSpotli
 import type { Cart } from '@/mocks/catalog'
 
 type HomeProps = {
-  onAdd: (id: string) => void
+  onAdd: (id: string | number, itemType?: string) => void
   onInfo: (title: string) => void
   cart?: Cart
 }
