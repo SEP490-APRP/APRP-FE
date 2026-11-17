@@ -212,7 +212,14 @@ export const orderService = {
   completeOrder,
   getAddressSuggestions,
   async getAllOrders(): Promise<{ code: number; result: MockOrderResponse[] }> {
-    await new Promise((r) => setTimeout(r, 200))
+    try {
+      const res = await axiosInstance.get('/orders/admin/all')
+      if (res.data?.result) {
+        return res.data
+      }
+    } catch {
+      // Fallback khi chạy offline / dev mock
+    }
     return { code: 200, result: structuredClone(mockOrders) }
   },
 }
