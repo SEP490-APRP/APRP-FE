@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag } from 'lucide-react'
+import { router } from '@/app/router'
 import { useNotificationStore } from '@/stores'
 
 export function formatNotificationDate(dateValue?: any): string {
@@ -71,7 +71,13 @@ export function getSafeLink(rawUrl?: string): { isSafe: boolean; href: string } 
 }
 
 export const NotificationDetailModal: React.FC = () => {
-  const navigate = useNavigate()
+  const navigate = (path: string) => {
+    try {
+      void router.navigate(path)
+    } catch {
+      window.location.href = path
+    }
+  }
   const {
     selectedNotification,
     isDetailOpen,
