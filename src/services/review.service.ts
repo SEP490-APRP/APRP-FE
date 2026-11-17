@@ -88,6 +88,16 @@ export const reviewService = {
     }
   },
 
+  async getByComboId(comboId: number): Promise<ApiResponse<ReviewResponse[]>> {
+    try {
+      const res = await axiosInstance.get(`/reviews/combo/${comboId}`)
+      const result = unwrap<ReviewResponse[]>(res)
+      return { code: 200, result: Array.isArray(result) ? result : [] }
+    } catch {
+      return { code: 500, result: [] }
+    }
+  },
+
   async getMyReviews(): Promise<ApiResponse<ReviewResponse[]>> {
     const res = await axiosInstance.get('/reviews/my')
     const result = unwrap<ReviewResponse[]>(res)

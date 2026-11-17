@@ -881,7 +881,7 @@ export default function Header({
                       {mysteryBoxes.slice(0, 5).map((item) => (
                         <li key={item.mysteryId ?? item.id}>
                           <Link
-                            to="/combo-tui-mu"
+                            to={`/mystery-box/${item.mysteryId ?? item.id}`}
                             onClick={closeDropdown}
                             className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
@@ -912,7 +912,7 @@ export default function Header({
                       {allCombos.slice(0, 5).map((item) => (
                         <li key={item.comboId ?? item.id}>
                           <Link
-                            to="/combo-tui-mu"
+                            to={`/combo/${item.comboId ?? item.id}`}
                             onClick={closeDropdown}
                             className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
@@ -1136,7 +1136,7 @@ export default function Header({
                     type="button"
                     onClick={() => {
                       closeDropdown()
-                      navigate('/combo-tui-mu')
+                      navigate(`/mystery-box/${box.mysteryId ?? box.id}`)
                     }}
                     className="text-left py-1 hover:text-[#8a4e1d] truncate"
                   >
@@ -1149,7 +1149,7 @@ export default function Header({
                     type="button"
                     onClick={() => {
                       closeDropdown()
-                      navigate('/combo-tui-mu')
+                      navigate(`/combo/${combo.comboId ?? combo.id}`)
                     }}
                     className="text-left py-1 hover:text-[#8a4e1d] truncate"
                   >

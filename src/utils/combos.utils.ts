@@ -17,6 +17,7 @@ export interface ComboCardItem {
   reviews: number
   sold: number
   stock: number
+  mealType?: string
 }
 
 export function normalizeComboCategory(kind?: string | null): string {
@@ -160,5 +161,6 @@ export function mapComboToCard(
     reviews: Number((combo as any).reviewCount ?? (combo as any).totalReviews ?? 0),
     sold: soldQuantity,
     stock: Math.max(0, totalQuantity - soldQuantity) || 15,
+    mealType: combo.mealType,
   }
 }

@@ -2,12 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
-  Leaf,
-  MapPin,
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  Truck,
   X,
 } from 'lucide-react'
 import freshFarmerBanner from '../assets/fresh-farmer-banner.jpg'
@@ -27,7 +24,6 @@ import {
   useCategories,
   type Filters,
 } from '@/features/product'
-import { cn } from '@/utils'
 
 type Cart = {
   items?: Readonly<Record<string, number>>
@@ -61,27 +57,6 @@ type FreshProps = {
   /** Tùy chọn: truyền giỏ hàng để card hiện "Trong giỏ: n". */
   cart?: Cart
 }
-
-const HIGHLIGHTS = [
-  {
-    icon: Leaf,
-    title: 'AI thẩm định độ tươi',
-    text: 'Minh bạch điểm độ tươi trên từng lô hàng.',
-    tone: 'bg-leaf-50 text-leaf-600',
-  },
-  {
-    icon: MapPin,
-    title: 'Trực tiếp từ nhà vườn',
-    text: 'Biết rõ người trồng và nhật ký canh tác.',
-    tone: 'bg-sun-100 text-soil-600',
-  },
-  {
-    icon: Truck,
-    title: 'Giao nhanh 2–4 giờ',
-    text: 'Đóng thùng tái chế, giữ trọn độ giòn ngọt.',
-    tone: 'bg-sky-50 text-sky-700',
-  },
-] as const
 
 export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshProps) {
   const navigate = useNavigate()
@@ -462,29 +437,6 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
                 AI gợi ý thực đơn
               </Button>
             </aside>
-
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-              {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
-                <li
-                  key={title}
-                  className="flex items-start gap-3 rounded-xl border border-line bg-white p-4 shadow-card"
-                >
-                  <span
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                      tone,
-                    )}
-                    aria-hidden
-                  >
-                    <Icon size={20} />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-ink">{title}</h3>
-                    <p className="mt-0.5 text-caption leading-relaxed text-ink-muted">{text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
       </div>
