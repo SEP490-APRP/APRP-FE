@@ -70,26 +70,26 @@ export default function Hero() {
           <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-5 mt-2 sm:mt-4 border-t border-white/20">
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-tertiary-fixed-dim font-extrabold tracking-tight">
-                12.000+
+                100%
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Đơn giải cứu
+                Thu hoạch trong ngày
               </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-primary-fixed font-extrabold tracking-tight">
-                500+
+                2–4 Giờ
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Nông dân liên kết
+                Giao hàng xanh
               </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-surface-bright font-extrabold tracking-tight">
-                30 Tấn
+                5.0 ★
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Tránh lãng phí
+                Đánh giá chất lượng
               </span>
             </div>
           </div>

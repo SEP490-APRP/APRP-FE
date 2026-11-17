@@ -28,9 +28,9 @@ export type PriceRangeId = (typeof PRICE_RANGES)[number]['id']
 export const REGIONS = [
   { id: 'all', label: 'Tất cả vùng trồng' },
   { id: 'Đà Lạt', label: 'Đà Lạt (Lâm Đồng)' },
-  { id: 'Gia Lai', label: 'Gia Lai' },
-  { id: 'Bến Tre', label: 'Bến Tre' },
-  { id: 'Đắk Lắk', label: 'Đắk Lắk' },
+  { id: 'Miền Tây', label: 'Miền Tây (Bến Tre, Tiền Giang, Đồng Tháp)' },
+  { id: 'Tây Nguyên', label: 'Tây Nguyên (Đắk Lắk, Gia Lai)' },
+  { id: 'Đông Nam Bộ', label: 'Đông Nam Bộ (Đồng Nai, TP.HCM)' },
 ] as const
 export type RegionId = (typeof REGIONS)[number]['id']
 

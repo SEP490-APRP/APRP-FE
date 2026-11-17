@@ -37,10 +37,9 @@ function getProduceRegion(address?: string): string {
   if (!address) return 'Đà Lạt'
   const a = address.toLowerCase()
   if (a.includes('đà lạt') || a.includes('lâm đồng')) return 'Đà Lạt'
-  if (a.includes('gia lai')) return 'Gia Lai'
-  if (a.includes('bến tre')) return 'Bến Tre'
-  if (a.includes('đắk lắk')) return 'Đắk Lắk'
-  if (a.includes('tiền giang') || a.includes('đồng tháp') || a.includes('miền tây')) return 'Bến Tre'
+  if (a.includes('tiền giang') || a.includes('bến tre') || a.includes('đồng tháp') || a.includes('miền tây') || a.includes('cần thơ')) return 'Miền Tây'
+  if (a.includes('đắk lắk') || a.includes('gia lai') || a.includes('tây nguyên')) return 'Tây Nguyên'
+  if (a.includes('đồng nai') || a.includes('hồ chí minh') || a.includes('bình dương') || a.includes('đông nam')) return 'Đông Nam Bộ'
   return 'Đà Lạt'
 }
 

@@ -5,7 +5,6 @@ import type {
   MysteryBoxCreationRequest,
   MysteryBoxUpdateRequest,
 } from './mysteryBox.types'
-import { mockMysteryBoxes } from '@/mocks/mysteryBox.mock'
 
 export type * from './mysteryBox.types'
 
@@ -33,13 +32,12 @@ export const mysteryBoxService = {
         result: page,
       }
     } catch {
-      // Fallback mock nếu API gặp lỗi
       const page: PageResponse<MysteryBox> = {
-        content: [...mockMysteryBoxes],
+        content: [],
         page: 1,
         size: 50,
-        totalElements: mockMysteryBoxes.length,
-        totalPages: 1,
+        totalElements: 0,
+        totalPages: 0,
         first: true,
         last: true,
       }
