@@ -592,12 +592,15 @@ export default function FarmerPortal({
               </div>
               <div className="overflow-hidden min-w-0 flex-1">
                 <div
-                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1 ${currentTab === 'profile' && !selectedOrderIdForPrep
+                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1.5 ${currentTab === 'profile' && !selectedOrderIdForPrep
                     ? 'text-[#326318]'
                     : 'text-[#1c2216] group-hover:text-[#326318]'
                     }`}
                 >
                   <span className="truncate">{displayShopName}</span>
+                  <span className="bg-[#eef8ea] text-[#2b5619] text-[9px] font-black px-1.5 py-0.5 rounded border border-[#cbe5c4] shrink-0">
+                    VietGAP
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -711,6 +714,7 @@ export default function FarmerPortal({
             <Dashboard
               onNavigate={(tab) => handleTabChange(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'revenue-report' ? (
             <RevenueReport />

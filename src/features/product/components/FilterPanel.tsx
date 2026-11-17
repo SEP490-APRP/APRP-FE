@@ -33,24 +33,16 @@ export const REGIONS = [
 ] as const
 export type RegionId = (typeof REGIONS)[number]['id']
 
-export const AI_SCORES = [
-  { id: 0, label: 'Tất cả điểm AI' },
-  { id: 95, label: 'Từ 95% trở lên' },
-] as const
-export type MinScore = (typeof AI_SCORES)[number]['id']
-
 export type Filters = {
   category: CategoryId
   price: PriceRangeId
   region: RegionId
-  minScore: MinScore
 }
 
 export const DEFAULT_FILTERS: Filters = {
   category: 'Tất cả',
   price: 'all',
   region: 'all',
-  minScore: 0,
 }
 
 /** Đọc danh mục từ URL, VD: #/nong-san-tuoi?danh-muc=rau-an-la (link từ trang chủ). */
@@ -168,13 +160,6 @@ export function FilterPanel({
         options={REGIONS}
         value={filters.region}
         onChange={set('region')}
-      />
-      <RadioGroup
-        legend="Điểm chất lượng AI"
-        name={`${idPrefix}-score`}
-        options={AI_SCORES}
-        value={filters.minScore}
-        onChange={set('minScore')}
       />
     </div>
   )

@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
 import Pagination from '@/components/ui/Pagination'
 import {
-  AI_SCORES,
   CATEGORIES,
   DEFAULT_FILTERS,
   FilterPanel,
@@ -146,8 +145,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
       (p) =>
         p.price >= min &&
         p.price <= max &&
-        (filters.region === 'all' || p.region.includes(filters.region)) &&
-        p.score >= filters.minScore,
+        (filters.region === 'all' || p.region.includes(filters.region)),
     )
     if (sort === 'harvested') fallbackList.sort((a, b) => b.score - a.score)
     else if (sort === 'featured') fallbackList.sort((a, b) => b.rescued - a.rescued)
@@ -178,21 +176,17 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
   }
 
   // Chip cho từng bộ lọc đang bật, bấm để gỡ riêng lẻ
-  const chips = [
-    filters.category !== 'Tất cả' && { key: 'category', label: category.label },
-    filters.price !== 'all' && {
-      key: 'price',
-      label: PRICE_RANGES.find((r) => r.id === filters.price)?.label,
-    },
-    filters.region !== 'all' && {
-      key: 'region',
-      label: REGIONS.find((r) => r.id === filters.region)?.label,
-    },
-    filters.minScore !== 0 && {
-      key: 'minScore',
-      label: `AI ${AI_SCORES.find((s) => s.id === filters.minScore)?.label}`,
-    },
-  ].filter((c): c is { key: keyof Filters; label: string } => Boolean(c && c.label))
+  type ChipItem = { key: keyof Filters; label: string }
+  const chips: ChipItem[] = []
+  if (filters.category !== 'Tất cả') chips.push({ key: 'category', label: category.label })
+  if (filters.price !== 'all') {
+    const pLabel = PRICE_RANGES.find((r) => r.id === filters.price)?.label
+    if (pLabel) chips.push({ key: 'price', label: pLabel })
+  }
+  if (filters.region !== 'all') {
+    const rLabel = REGIONS.find((r) => r.id === filters.region)?.label
+    if (rLabel) chips.push({ key: 'region', label: rLabel })
+  }
 
   return (
     <div className="min-h-screen bg-paper">

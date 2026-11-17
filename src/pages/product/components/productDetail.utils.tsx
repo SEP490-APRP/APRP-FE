@@ -41,6 +41,9 @@ export function getProduceFallback(name: string = ''): string {
   if (lower.includes('bưởi') || lower.includes('cam')) {
     return 'https://images.unsplash.com/photo-1577234286642-fc512a5f8f11?w=600&auto=format&fit=crop'
   }
+  if (lower.includes('mít')) {
+    return 'https://images.unsplash.com/photo-1588879462716-16e03eaeb72e?w=600&auto=format&fit=crop'
+  }
   if (lower.includes('dừa')) {
     return 'https://images.unsplash.com/photo-1544607065-27a96d5b00c6?w=600&auto=format&fit=crop'
   }

@@ -14,7 +14,7 @@ import {
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
 import campaignImg from '@/assets/farmer-forum-banner.jpg'
 import comboImg from '@/assets/combo-hotpot.jpg'
-import aiImg from '@/assets/ai-hero-banner.jpg'
+import aiImg from '@/assets/ai-meal.jpg'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
 import { formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
 import type { CampaignResponse } from '@/services'

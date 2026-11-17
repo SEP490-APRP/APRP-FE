@@ -1,17 +1,11 @@
 import React, { forwardRef, useState } from 'react'
 import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Droplets,
   Leaf,
   Loader2,
   MessageSquare,
   Package,
   ShieldCheck,
-  Sparkles,
   Star,
-  Thermometer,
   ThumbsDown,
   ThumbsUp,
   Truck,
@@ -154,63 +148,7 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                   </div>
                 </div>
 
-                {/* 3. Thông tin thu hoạch / Mùa vụ */}
-                <div className="border-t border-line/60 pt-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3 flex items-center gap-1.5">
-                    <Calendar className="size-3.5 text-leaf-700" />
-                    <span>Thông tin thu hoạch &amp; Mùa vụ</span>
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
-                      <Clock className="size-4 text-leaf-700 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-ink">Thời điểm thu hái tươi</p>
-                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
-                          Hái vào sáng sớm 5h00 - 7h00 trong ngày, đóng thùng ngay để giữ nguyên độ giòn ngọt tự nhiên.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
-                      <Sparkles className="size-4 text-sun-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-ink">Chất lượng chính vụ</p>
-                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
-                          Nông sản đang trong độ chín tối ưu, hàm lượng vitamin và khoáng chất đạt mức cao nhất.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Hướng dẫn bảo quản & Sơ chế */}
-                <div className="border-t border-line/60 pt-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3 flex items-center gap-1.5">
-                    <Droplets className="size-3.5 text-sky-600" />
-                    <span>Hướng dẫn bảo quản &amp; Sơ chế đúng cách</span>
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
-                      <Thermometer className="size-4 text-sky-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-ink">Nhiệt độ &amp; Môi trường</p>
-                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
-                          Bảo quản ngăn mát tủ lạnh (4°C - 8°C). Để nông sản thoáng khí, không rửa nước trước khi cất tủ lạnh.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-paper-warm/60 border border-line/70 flex items-start gap-2.5">
-                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-ink">Cách sơ chế an toàn</p>
-                        <p className="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
-                          Rửa sạch nhẹ nhàng dưới vòi nước chảy, ngâm nước muối loãng 3-5 phút trước khi chế biến hoặc dùng tươi.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5. Khối Đánh giá từ khách hàng hiển thị trực tiếp bên dưới */}
+                {/* 3. Khối Đánh giá từ khách hàng hiển thị trực tiếp bên dưới */}
                 <div className="border-t border-line pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-bold text-ink flex items-center gap-2">
