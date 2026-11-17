@@ -19,6 +19,7 @@ import {
   Loader2,
   X,
   Package,
+  Flag,
 } from 'lucide-react'
 import { useShopDisputes, useShopRespondDispute } from '@/features/order'
 import type { ReturnRequestResponse, ReturnStatus } from '@/services/return.types'
@@ -122,6 +123,9 @@ export default function FarmerDisputes() {
   const countPending = disputes.filter((d) => d.status === 'PENDING' || d.status === 'ADMIN_APPROVED').length
   const countDisputed = disputes.filter((d) => d.status === 'DISPUTED').length
   const countCompleted = disputes.filter((d) => d.status === 'COMPLETED').length
+  const countRiskFlags = disputes.filter(
+    (d) => (d.status === 'COMPLETED' || d.status === 'ADMIN_APPROVED') && !!d.adminRemark
+  ).length
 
   const handleRespond = async (accept: boolean, isReturnGoods: boolean = true) => {
     if (!selectedDispute) return
@@ -170,7 +174,7 @@ export default function FarmerDisputes() {
         </div>
 
         {/* Thẻ đếm nhanh */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-center">
             <span className="block text-base font-black">{countPending}</span>
             <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Cần xử lý</span>
@@ -182,6 +186,13 @@ export default function FarmerDisputes() {
           <div className="px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center">
             <span className="block text-base font-black">{countCompleted}</span>
             <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Hoàn tất</span>
+          </div>
+          <div className="px-4 py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-900 text-center">
+            <span className="block text-base font-black flex items-center justify-center gap-1">
+              <Flag size={14} className="text-red-600 fill-red-600" />
+              {countRiskFlags}
+            </span>
+            <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider">Cờ vi phạm</span>
           </div>
         </div>
       </div>
@@ -214,11 +225,10 @@ export default function FarmerDisputes() {
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  statusFilter === tab.key
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab.key
                     ? 'bg-[#326318] text-white shadow-xs'
                     : 'bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -275,6 +285,12 @@ export default function FarmerDisputes() {
                           <StatusIcon size={12} />
                           <span>{statusCfg.label}</span>
                         </span>
+                        {item.adminRemark && (item.status === 'COMPLETED' || item.status === 'ADMIN_APPROVED') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            <Flag size={10} className="fill-red-600 text-red-600" />
+                            Cờ chất lượng
+                          </span>
+                        )}
                       </div>
 
                       <h4 className="text-sm font-bold text-[#1c2216] truncate group-hover:text-[#326318] transition-colors">
@@ -315,10 +331,10 @@ export default function FarmerDisputes() {
                       </div>
                     )}
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-stone-400 block uppercase">Hoàn trả</span>
-                      <span className="text-base font-black text-rose-600">
-                        {Number(item.refundAmount || 0).toLocaleString('vi-VN')} đ
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Hoàn trả</span>
+                      <span className="text-base font-black text-rose-600 whitespace-nowrap shrink-0">
+                        {Number(item.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
 
@@ -399,16 +415,16 @@ export default function FarmerDisputes() {
                     <p className="text-[11px] text-stone-500 mt-0.5">
                       Số lượng: <strong className="text-stone-700">{selectedDispute.quantity || 1}</strong>
                     </p>
-                    <p className="text-xs font-bold text-[#326318] mt-0.5">
-                      Đơn giá: {Number(selectedDispute.unitPrice || 0).toLocaleString('vi-VN')} đ
+                    <p className="text-xs font-bold text-[#326318] mt-0.5 whitespace-nowrap">
+                      Đơn giá: {Number(selectedDispute.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-stone-400 block uppercase">Số tiền hoàn</span>
-                  <span className="text-lg font-black text-rose-600">
-                    {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')} đ
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Số tiền hoàn</span>
+                  <span className="text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
+                    {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                   </span>
                 </div>
               </div>
@@ -498,8 +514,16 @@ export default function FarmerDisputes() {
 
               {/* Phản hồi từ Admin nếu có */}
               {selectedDispute.adminRemark && (
-                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1">
-                  <span className="font-bold text-indigo-900">Phán quyết từ Quản trị viên (Admin):</span>
+                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-indigo-900">Phán quyết từ Quản trị viên (Admin):</span>
+                    {(selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'ADMIN_APPROVED') && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                        <Flag size={10} className="fill-red-600 text-red-600" />
+                        Đã ghi nhận 1 cờ rủi ro chất lượng
+                      </span>
+                    )}
+                  </div>
                   <p className="text-indigo-800 leading-relaxed">{selectedDispute.adminRemark}</p>
                 </div>
               )}
@@ -519,11 +543,10 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('WALLET')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
-                        shippingPaymentMethod === 'WALLET'
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'WALLET'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                      }`}
+                        }`}
                     >
                       <div className="text-[11px]">Trừ Ví sàn</div>
                       <div className="text-[10px] font-normal opacity-90">Trừ từ số dư ví ngay</div>
@@ -531,11 +554,10 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('COD')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
-                        shippingPaymentMethod === 'COD'
+                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'COD'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                      }`}
+                        }`}
                     >
                       <div className="text-[11px]">Tiền mặt COD</div>
                       <div className="text-[10px] font-normal opacity-90">Đưa shipper khi nhận hàng</div>

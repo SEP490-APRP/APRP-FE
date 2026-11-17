@@ -255,6 +255,11 @@ export function useDeleteProductImage() {
     mutationFn: ({ productId, imageId }: { productId: number; imageId: number }) =>
       productService.deleteImage(productId, imageId),
     onSuccess: (_data, variables) => {
+      // Cập nhật cache tức thời để ảnh biến mất ngay khỏi giao diện
+      queryClient.setQueryData<ProductImageResponse[]>(
+        productKeys.images(variables.productId),
+        (old) => (old ? old.filter((img) => img.id !== variables.imageId) : [])
+      )
       queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
       queryClient.invalidateQueries({ queryKey: productKeys.all })
     },

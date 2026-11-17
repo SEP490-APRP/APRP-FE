@@ -7,6 +7,7 @@ import {
   Loader2, Route, Zap, Package, CheckCircle2, X
 } from 'lucide-react';
 import { shipperService, shipperErrorMessage } from '@/services/shipper.service';
+import axiosInstance from '@/services/api/axiosInstance';
 import { DeliveryResultModal } from '@/features/shipper/components/DeliveryResultModal';
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup';
 import { pickupCode } from '@/utils/orderCode';
@@ -78,6 +79,33 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
   const [speed, setSpeed] = useState(3);
   const [isPickedUp, setIsPickedUp] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [orderMeta, setOrderMeta] = useState<{
+    paymentMethod?: string;
+    codAmount?: number;
+    recipientName?: string;
+    recipientPhone?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!orderId) return;
+    axiosInstance
+      .get(`/shippers/location/order/${orderId}`)
+      .then((res) => {
+        if (res.data?.result) {
+          const r = res.data.result;
+          setOrderMeta({
+            paymentMethod: r.paymentMethod,
+            codAmount:
+              r.codAmount != null
+                ? Number(r.codAmount)
+                : (r.paymentMethod?.toUpperCase() === 'COD' ? Number(r.totalAmount ?? 0) : 0),
+            recipientName: r.recipientName,
+            recipientPhone: r.recipientPhone,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [orderId]);
 
   // ✅ GPS thật của shipper tại thời điểm bấm "Bắt đầu"
   const [realStartPos, setRealStartPos] = useState<RoutePoint | null>(
@@ -527,6 +555,10 @@ const FakeGPS: React.FC<FakeGPSProps> = ({
         <DeliveryResultModal
           orderId={orderId}
           result={resultModal}
+          recipientName={orderMeta?.recipientName}
+          recipientPhone={orderMeta?.recipientPhone}
+          codAmount={orderMeta?.codAmount}
+          paymentMethod={orderMeta?.paymentMethod}
           onClose={() => setResultModal(null)}
           onDone={applyCompleted}
         />

@@ -5,6 +5,7 @@ import {
   HomeRoute,
   FreshRoute,
   CombosRoute,
+  ComboDetailRoute,
   AiRoute,
   StoriesRoute,
   CampaignsRoute,
@@ -28,6 +29,7 @@ import {
   BuyerOrdersRoute,
   MyVouchersRoute,
   MyWalletRoute,
+  ReferralRedirectRoute,
   MealPlanRoute,
   ProfileRoute,
   BuyerMessagesRoute,
@@ -85,6 +87,9 @@ export const router = createBrowserRouter([
           { index: true, element: <HomeRoute />, handle: title(DEFAULT_TITLE) },
           { path: 'nong-san-tuoi/*', element: <FreshRoute />, handle: title('Nông sản tươi') },
           { path: 'combo-tui-mu/*', element: <CombosRoute />, handle: title('Combo & Túi mù') },
+          { path: 'combo/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Combo · CapNong') },
+          { path: 'mystery-box/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
+          { path: 'tui-mu/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
           { path: 'ke-hoach-an-uong/*', element: <MealPlanRoute />, handle: title('Kế Hoạch Ăn Uống · CapNong AI') },
           { path: 'meal-plan/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'meal-planner/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
@@ -94,6 +99,9 @@ export const router = createBrowserRouter([
           { path: 'campaigns/*', element: <Navigate replace to="/chien-dich" /> },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
+
+          // Tiếp thị liên kết (Referral / Affiliate)
+          { path: 'ref/:referralCode', element: <ReferralRedirectRoute />, handle: title('Tiếp thị liên kết · CapNong') },
 
           // Sản phẩm & Gian hàng
           { path: 'san-pham', element: <Navigate replace to="/nong-san-tuoi" /> },

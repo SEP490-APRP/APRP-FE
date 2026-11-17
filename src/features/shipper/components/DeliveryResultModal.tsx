@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Camera, ImagePlus, Phone, X } from 'lucide-react'
+import { Camera, CheckCircle2, Coins, ImagePlus, Phone, X } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/utils'
@@ -23,6 +23,7 @@ interface DeliveryResultModalProps {
   recipientPhone?: string
   /** Tiền mặt cần thu (đơn COD). 0 hoặc bỏ trống = đơn đã thanh toán online */
   codAmount?: number
+  paymentMethod?: string
   onClose: () => void
   /** Gọi sau khi BE đã ghi nhận */
   onDone: (result: DeliveryResult) => void
@@ -39,10 +40,12 @@ export function DeliveryResultModal({
   recipientName,
   recipientPhone,
   codAmount = 0,
+  paymentMethod,
   onClose,
   onDone,
 }: DeliveryResultModalProps) {
   const failed = result === 'FAILED'
+  const isCod = codAmount > 0 || paymentMethod?.toUpperCase() === 'COD'
   const [files, setFiles] = useState<File[]>([])
   const [reason, setReason] = useState<DeliveryFailReason | null>(null)
   const [calls, setCalls] = useState(0)
@@ -110,10 +113,50 @@ export function DeliveryResultModal({
           </div>
         )}
 
-        {!failed && codAmount > 0 && (
-          <div className="rounded-card bg-sun-300/40 p-3 text-sm text-leaf-900">
-            Thu tiền mặt của khách: <span className="font-extrabold">{money(codAmount)}</span>. Số tiền này được trừ vào khoản đã ký quỹ trong ví.
-          </div>
+        {!failed && (
+          isCod ? (
+            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
+                  <Coins className="size-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-700">
+                      Đơn thu tiền mặt (COD)
+                    </span>
+                    <span className="text-lg font-black text-amber-900">
+                      {money(codAmount)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                    Vui lòng thu đủ <strong className="font-bold">{money(codAmount)}</strong> tiền mặt từ khách trước khi bàn giao hàng. Khoản tiền này đã được ký quỹ trong ví của bạn.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4 text-emerald-950 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">
+                  <CheckCircle2 className="size-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-700">
+                      Đã thanh toán online ({paymentMethod || 'VietQR / Ví'})
+                    </span>
+                    <span className="rounded-lg bg-emerald-200/80 px-2 py-0.5 text-xs font-black text-emerald-800">
+                      0 đ
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-bold text-emerald-800 leading-relaxed">
+                    Đơn hàng đã được thanh toán 100% online. <span className="text-emerald-950 underline">TUYỆT ĐỐI KHÔNG THU TIỀN MẶT CỦA KHÁCH.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
         )}
 
         {failed && (

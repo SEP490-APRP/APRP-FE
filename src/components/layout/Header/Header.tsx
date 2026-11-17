@@ -31,6 +31,7 @@ import type { AuthUser } from '@/types'
 import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
+import { ImageSearchModal } from '@/components/common/ImageSearchModal'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
 import logoIcon from '@/assets/logo-icon.png'
@@ -55,6 +56,7 @@ export default function Header({
   onInfo,
 }: HeaderProps) {
   const [query, setQuery] = useState('')
+  const [isImageSearchOpen, setIsImageSearchOpen] = useState(false)
   const [openMobile, setOpenMobile] = useState(false)
   const [mobileSubMenu, setMobileSubMenu] = useState<'fresh' | 'combo' | null>(null)
   const [activeDropdown, setActiveDropdown] = useState<'fresh' | 'combo' | null>(null)
@@ -173,6 +175,15 @@ export default function Header({
     }
   }
 
+  const handleImageSearchSelect = (keyword: string) => {
+    setQuery(keyword)
+    onSearch(keyword)
+    closeDropdown()
+    if (!route.startsWith('/nong-san-tuoi')) {
+      location.hash = '/nong-san-tuoi'
+    }
+  }
+
   const isFreshActive = route.startsWith('/nong-san-tuoi')
   const isComboActive = route.startsWith('/combo-tui-mu')
   const isAiActive = route.startsWith('/cong-nghe-ai')
@@ -238,11 +249,12 @@ export default function Header({
           </button>
           <button
             type="button"
-            className="ai-search flex items-center gap-1"
-            onClick={() => onInfo('Tìm bằng ảnh AI')}
+            className="ai-search flex items-center gap-1 cursor-pointer"
+            onClick={() => setIsImageSearchOpen(true)}
+            title="Tìm kiếm bằng hình ảnh"
           >
             <Camera size={16} />
-            <span>Tìm AI</span>
+            <span>Tìm bằng ảnh</span>
           </button>
         </form>
 
@@ -1505,6 +1517,12 @@ export default function Header({
           </div>
         </div>
       )}
+
+      <ImageSearchModal
+        isOpen={isImageSearchOpen}
+        onClose={() => setIsImageSearchOpen(false)}
+        onSelectKeyword={handleImageSearchSelect}
+      />
     </header>
   )
 }

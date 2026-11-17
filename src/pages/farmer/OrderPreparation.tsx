@@ -173,8 +173,8 @@ export default function OrderPreparation({ orderId, onBack, onInfo }: OrderPrepa
                       </span>
                     </div>
                   </div>
-                  <span className="font-bold text-xs text-[#326318]">
-                    {(item.subtotal || (item.unitPrice || 0) * item.quantity).toLocaleString('vi-VN')} đ
+                  <span className="font-bold text-xs text-[#326318] whitespace-nowrap shrink-0">
+                    {(item.subtotal || (item.unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}&nbsp;đ
                   </span>
                 </div>
               )

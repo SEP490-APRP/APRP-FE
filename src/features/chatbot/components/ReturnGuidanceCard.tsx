@@ -8,7 +8,7 @@ interface ReturnGuidanceCardProps {
   guidance: ReturnGuidanceDto
 }
 
-const formatVnd = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+const formatVnd = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
 
 const formatDeadline = (iso?: string) => {
   if (!iso) return ''

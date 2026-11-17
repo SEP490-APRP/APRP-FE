@@ -153,8 +153,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 {item.unitPrice && (
                   <>
                     {' · '}
-                    <span className="font-semibold text-leaf-700">
-                      {Number(item.unitPrice).toLocaleString('vi-VN')} đ
+                    <span className="font-semibold text-leaf-700 whitespace-nowrap">
+                      {Number(item.unitPrice).toLocaleString('vi-VN')}&nbsp;đ
                     </span>
                   </>
                 )}
@@ -179,11 +179,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 >
                   <Star
                     size={32}
-                    className={`transition-colors ${
-                      star <= activeRating
+                    className={`transition-colors ${star <= activeRating
                         ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
                         : 'text-neutral-300'
-                    }`}
+                      }`}
                   />
                 </button>
               ))}

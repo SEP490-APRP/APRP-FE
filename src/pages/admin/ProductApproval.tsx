@@ -13,7 +13,7 @@ import {
   Sparkles,
   ShieldCheck,
 } from 'lucide-react'
-import type { ProductResponse } from '@/services'
+import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import {
   useApproveProduct,
   usePendingProducts,
@@ -287,7 +287,9 @@ const ProductApproval: React.FC = () => {
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
                       Hạn sử dụng
                     </label>
-                    <p className="text-sm font-bold text-gray-900">{selectedProduct.expiryDate}</p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {normalizeExpiryDate(selectedProduct.expiryDate) || String(selectedProduct.expiryDate)}
+                    </p>
                   </div>
                 )}
                 <div>
@@ -308,7 +310,11 @@ const ProductApproval: React.FC = () => {
                   <Sparkles className="size-5 text-primary" />
                   <h3 className="text-lg font-black text-gray-900">Thẩm Định AI (Google Cloud Vision)</h3>
                 </div>
-                {selectedProduct.moderationResult?.isFlagged ? (
+                {selectedProduct.moderationResult == null ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-gray-100 text-gray-600 flex items-center gap-1 border border-gray-200">
+                    <AlertTriangle size={12} className="text-gray-400" /> Chưa có dữ liệu AI
+                  </span>
+                ) : selectedProduct.moderationResult.isFlagged || galleryImages.some(img => img.isFlagged || img.isApproved === false) ? (
                   <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 flex items-center gap-1">
                     <AlertTriangle size={12} /> Cần Admin soi mắt
                   </span>
@@ -318,6 +324,21 @@ const ProductApproval: React.FC = () => {
                   </span>
                 )}
               </div>
+
+              {/* Hộp thoại cảnh báo nổi bật nếu có cờ nghi ngờ lệch loại hoặc ảnh lỗi */}
+              {(selectedProduct.moderationResult?.isFlagged || galleryImages.some(img => img.isFlagged || img.isApproved === false)) && (
+                <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-amber-800">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                    <span>Cảnh Báo Từ Hệ Thống AI:</span>
+                  </div>
+                  <p className="font-semibold text-amber-800 pl-6">
+                    {selectedProduct.moderationResult?.flagReason ||
+                     galleryImages.find(img => img.isFlagged || img.flagReason)?.flagReason ||
+                     'Ảnh sản phẩm có dấu hiệu bất thường hoặc nghi ngờ lệch loại nông sản. Đề nghị Admin kiểm tra kỹ trước khi duyệt.'}
+                  </p>
+                </div>
+              )}
 
               {selectedProduct.moderationResult ? (
                 <div className="space-y-3">
@@ -331,7 +352,7 @@ const ProductApproval: React.FC = () => {
                     selectedProduct.moderationResult.moderationLabels.length > 0 && (
                       <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
-                          Nhãn AI nhận diện được
+                          Nhãn AI nhận diện được ({selectedProduct.moderationResult.moderationLabels.length} nhãn)
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {selectedProduct.moderationResult.moderationLabels.map((lbl) => (
@@ -349,9 +370,10 @@ const ProductApproval: React.FC = () => {
                     )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">
-                  Ảnh nông sản đạt chuẩn kiểm duyệt Mức 1 hoặc chưa có bản ghi cờ cảnh báo.
-                </p>
+                <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-xs text-gray-500">
+                  <p className="font-semibold text-gray-700">Chưa có kết quả thẩm định tự động từ Google Cloud Vision.</p>
+                  <p className="mt-0.5 text-gray-400">Sản phẩm này chưa có bản ghi cờ cảnh báo. Vui lòng kiểm tra kỹ hình ảnh và thông tin nông sản bằng mắt thường trước khi phê duyệt.</p>
+                </div>
               )}
             </div>
 
@@ -384,6 +406,50 @@ const ProductApproval: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Modal từ chối duyệt khi đang xem chi tiết sản phẩm */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-[32px] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+              <h3 className="text-2xl font-black text-gray-900 mb-2">Lý Do Từ Chối</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                Nông dân sẽ nhận được thông báo kèm lý do này.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Ví dụ: Ảnh sản phẩm không rõ ràng, sai loại nông sản..."
+                className="w-full px-5 py-4 bg-gray-50 border border-transparent rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-red-500/20 focus:bg-white transition-all resize-none mb-6"
+                rows={4}
+              />
+              <div className="flex gap-3">
+                <button
+                  disabled={isProcessing}
+                  onClick={() => {
+                    setShowRejectModal(false)
+                    setRejectReason('')
+                    setRejectingProductId(null)
+                  }}
+                  className="flex-1 py-4 bg-gray-50 text-gray-600 text-sm font-black rounded-2xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  disabled={isProcessing || !rejectReason.trim()}
+                  onClick={confirmReject}
+                  className="flex-[2] py-4 bg-red-600 text-white text-sm font-black rounded-2xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <X className="size-4" />
+                  )}
+                  Xác Nhận Từ Chối
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -567,7 +633,7 @@ const ProductApproval: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <span className="text-xs font-bold text-gray-600">
-                          {product.expiryDate || '—'}
+                          {normalizeExpiryDate(product.expiryDate) || '—'}
                         </span>
                       </td>
                       <td className="px-8 py-5 text-right">
