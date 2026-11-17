@@ -420,12 +420,6 @@ export default function Header({
                             {user.name}
                           </h4>
                           <p className="text-[11px] text-[#6d7567] truncate">{user.email}</p>
-                          <span
-                            className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(user.role).bg
-                              } ${getRoleBadge(user.role).border}`}
-                          >
-                            Vai trò: {getRoleBadge(user.role).label}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -1249,11 +1243,9 @@ export default function Header({
                         user.name.charAt(0).toUpperCase()
                       )}
                     </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
-                      <div className="text-[11px] text-[#555d4e]">
-                        Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
-                      </div>
+                    <div className="overflow-hidden">
+                      <div className="font-bold text-xs text-[#20271c] truncate">{user.name}</div>
+                      <div className="text-[11px] text-[#555d4e] truncate">{user.email}</div>
                     </div>
                   </div>
                   <button
