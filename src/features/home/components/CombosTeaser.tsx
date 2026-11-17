@@ -116,15 +116,19 @@ function ComboCard({
           )}
         </p>
 
-        {/* Đánh giá */}
-        <p
-          className="flex items-center gap-1 text-caption text-ink-muted"
-          aria-label={`Đánh giá ${teaser.rating} trên 5, ${teaser.reviews} lượt`}
-        >
-          <Star size={13} className="fill-amber-400 text-amber-400" aria-hidden />
-          <span className="font-bold text-ink">{teaser.rating.toFixed(1)}</span>
-          <span aria-hidden>({teaser.reviews})</span>
-        </p>
+        {/* Đánh giá thực tế */}
+        {teaser.reviews > 0 ? (
+          <p
+            className="flex items-center gap-1 text-caption text-ink-muted"
+            aria-label={`Đánh giá ${teaser.rating.toFixed(1)} trên 5, ${teaser.reviews} lượt`}
+          >
+            <Star size={13} className="fill-amber-400 text-amber-400" aria-hidden />
+            <span className="font-bold text-ink">{teaser.rating.toFixed(1)}</span>
+            <span aria-hidden>({teaser.reviews})</span>
+          </p>
+        ) : (
+          <span className="text-caption text-ink-subtle">Chưa có đánh giá</span>
+        )}
       </div>
 
       {/* Chuẩn hóa 2 nút: Chi tiết + Thêm giỏ (Khớp 100% với ProductCard) */}
