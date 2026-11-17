@@ -162,8 +162,32 @@ export default function Header({
 
   const handleSelectCategory = (term: string, targetPath: string = '/nong-san-tuoi') => {
     closeDropdown()
-    onSearch(term)
-    navigate(targetPath)
+    const t = term.toLowerCase().trim()
+    if (t === 'rau ăn lá' || t === 'rau lá') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=1')
+    } else if (t === 'củ quả' || t === 'củ') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=2')
+    } else if (t === 'trái cây' || t === 'quả') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=3')
+    } else if (t === 'hữu cơ' || t === 'vietgap') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=4')
+    } else if (t === 'nấm' || t === 'nấm tươi' || t === 'đậu') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=5')
+    } else if (t === 'đặc sản' || t === 'vùng miền') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=6')
+    } else if (t === 'tất cả' || t === '') {
+      onSearch('')
+      navigate(targetPath)
+    } else {
+      onSearch(term)
+      navigate(targetPath)
+    }
   }
 
   function submit(e: FormEvent) {

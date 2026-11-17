@@ -1,7 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, Leaf, MapPin, ShoppingCart } from 'lucide-react'
-import { money, type Product } from '@/mocks/catalog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/utils'
 import {
@@ -9,21 +8,28 @@ import {
   resolveProductImage,
 } from '@/pages/product/components/productDetail.utils'
 
-// Một nơi duy nhất quy đổi id catalog sang id trang chi tiết.
-const DETAIL_IDS: Partial<Record<string, number>> = {
-  carrot: 702,
-  tomato: 704,
-  pomelo: 703,
-  potato: 701,
-  cabbage: 702,
-  spinach: 702,
-  pumpkin: 705,
+export type Product = {
+  id: string
+  name: string
+  price: number
+  original: number
+  image: string
+  category: string
+  farm: string
+  region: string
+  flaw?: string
+  score?: number
+  stock: number
+  rescued?: number
+  unit: string
 }
 
-export const productHref = (product: Pick<Product, 'id'>) =>
-  `/san-pham/${DETAIL_IDS[product.id] ?? product.id}`
+export const formatMoney = (val: number) => val.toLocaleString('vi-VN') + 'đ'
 
-export const discountPercent = ({ price, original }: Pick<Product, 'price' | 'original'>) =>
+export const productHref = (product: { id: string | number }) =>
+  `/san-pham/${product.id}`
+
+export const discountPercent = ({ price, original }: { price: number; original: number }) =>
   original > price ? Math.round((1 - price / original) * 100) : 0
 
 type ProduceImageProps = {
@@ -100,7 +106,7 @@ function ProductCardBase({
 }: ProductCardProps) {
   const href = productHref(p)
   const discount = discountPercent(p)
-  const rescued = Math.min(100, Math.max(0, p.rescued))
+  const rescued = Math.min(100, Math.max(0, p.rescued ?? 0))
   const soldOut = p.stock <= 0
   const reachedStock = inCartQuantity >= p.stock
 
@@ -155,13 +161,13 @@ function ProductCardBase({
         {/* Giá tiền - mt-auto đẩy xuống để thẳng hàng với các thẻ bên cạnh */}
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-2">
           <strong className="text-base font-extrabold text-[#326318] sm:text-lg">
-            {money(p.price)}
+            {formatMoney(p.price)}
           </strong>
           <span className="text-xs text-[#838d7b]">/{p.unit}</span>
           {discount > 0 && (
             <del className="text-xs text-[#838d7b]">
               <span className="sr-only">Giá gốc </span>
-              {money(p.original)}
+              {formatMoney(p.original)}
             </del>
           )}
         </div>

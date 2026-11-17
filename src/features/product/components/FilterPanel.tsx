@@ -8,13 +8,14 @@ import { useCategories } from '../hooks/useCategoryQueries'
 
 export const CATEGORIES = [
   { id: 'Tất cả', slug: 'tat-ca', label: 'Tất cả nông sản', bannerTitle: 'Tất cả sản phẩm' },
-  { id: 'Rau ăn lá', slug: 'rau-an-la', label: 'Rau ăn lá', bannerTitle: 'Rau ăn lá tươi sạch' },
-  { id: 'Củ quả', slug: 'cu-qua', label: 'Củ quả vườn', bannerTitle: 'Củ quả vườn tự nhiên' },
-  { id: 'Trái cây', slug: 'trai-cay', label: 'Trái cây', bannerTitle: 'Trái cây theo mùa' },
-  { id: 'Hữu cơ', slug: 'huu-co', label: 'Hữu cơ', bannerTitle: 'Nông sản hữu cơ' },
-  { id: 'Đà Lạt', slug: 'da-lat', label: 'Đặc sản Đà Lạt', bannerTitle: 'Nông sản Đà Lạt' },
+  { id: 'Rau lá', slug: 'rau-la', label: 'Rau lá', bannerTitle: 'Rau ăn lá tươi sạch' },
+  { id: 'Củ', slug: 'cu', label: 'Củ', bannerTitle: 'Củ tươi tự nhiên' },
+  { id: 'Quả / Trái cây', slug: 'trai-cay', label: 'Quả / Trái cây', bannerTitle: 'Trái cây theo mùa' },
+  { id: 'Nông sản hữu cơ VietGAP', slug: 'vietgap', label: 'Nông sản hữu cơ VietGAP', bannerTitle: 'Nông sản hữu cơ' },
+  { id: 'Nấm tươi & Đậu organic', slug: 'nam-dau', label: 'Nấm tươi & Đậu organic', bannerTitle: 'Nấm tươi & Đậu organic' },
+  { id: 'Đặc sản vùng miền', slug: 'dac-san', label: 'Đặc sản vùng miền', bannerTitle: 'Đặc sản vùng miền' },
 ] as const
-export type CategoryId = (typeof CATEGORIES)[number]['id']
+export type CategoryId = string
 
 export const PRICE_RANGES = [
   { id: 'all', label: 'Tất cả mức giá' },
@@ -125,11 +126,18 @@ export function FilterPanel({
 }) {
   const { data: apiCategories = [] } = useCategories()
 
+  // Bỏ 'Combo & Túi mù' khỏi danh mục nông sản tươi (combo có trang riêng /combo-tui-mu)
+  const freshCategories = apiCategories.filter(
+    (c) =>
+      !c.name.toLowerCase().includes('combo') &&
+      !c.name.toLowerCase().includes('túi mù'),
+  )
+
   const categoryOptions =
-    apiCategories.length > 0
+    freshCategories.length > 0
       ? [
           { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
-          ...apiCategories.map((c) => ({ id: c.name as CategoryId, label: c.name })),
+          ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
         ]
       : CATEGORIES
 

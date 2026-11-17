@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import type { Product } from '@/mocks/catalog'
 import { cn } from '@/utils'
 import { EmptyState, ErrorState } from '@/components/ui/StateViews'
-import { ProductCard, ProductCardSkeleton } from './ProductCard'
+import { ProductCard, ProductCardSkeleton, type Product } from './ProductCard'
 
 type ProductGridProps = {
   products: readonly Product[]
