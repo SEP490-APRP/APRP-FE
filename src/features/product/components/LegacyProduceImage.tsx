@@ -1,5 +1,5 @@
-import { Leaf } from 'lucide-react'
 import { useState } from 'react'
+import logoIcon from '@/assets/logo-icon.png'
 
 /**
  * @deprecated Bản ảnh cũ, còn dùng ở giỏ hàng (App) và trang Combos.
@@ -20,7 +20,7 @@ export function LegacyProduceImage({
     <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />
   ) : (
     <div className={`image-fallback ${className}`} role="img" aria-label={alt}>
-      <Leaf size={42} />
+      <img src={logoIcon} alt="" aria-hidden style={{ width: 48, height: 48, objectFit: 'contain' }} />
       <span>{alt}</span>
     </div>
   )

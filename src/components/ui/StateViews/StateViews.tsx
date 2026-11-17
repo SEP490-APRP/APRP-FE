@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, Leaf, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { cn } from '@/utils'
 import { Button } from '../Button'
+import logoIcon from '@/assets/logo-icon.png'
 
 type StateViewProps = {
   title: string
@@ -46,7 +47,7 @@ function StateFrame({
 }
 
 /** Danh sách rỗng: luôn nói rõ vì sao rỗng và cho người dùng một hành động tiếp theo. */
-export function EmptyState({ icon = <Leaf size={32} />, ...props }: StateViewProps) {
+export function EmptyState({ icon = <img src={logoIcon} alt="" className="h-10 w-10 object-contain" />, ...props }: StateViewProps) {
   return <StateFrame {...props} icon={icon} tone="neutral" role="status" />
 }
 

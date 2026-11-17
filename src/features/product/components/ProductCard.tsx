@@ -1,9 +1,10 @@
 import { memo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, Leaf, MapPin, ShoppingCart } from 'lucide-react'
+import { Eye, MapPin, ShoppingCart } from 'lucide-react'
 import { money, type Product } from '@/mocks/catalog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/utils'
+import logoIcon from '@/assets/logo-icon.png'
 
 // Một nơi duy nhất quy đổi id catalog sang id trang chi tiết.
 const DETAIL_IDS: Partial<Record<string, number>> = {
@@ -42,7 +43,7 @@ export function ProduceImage({ src, alt, className, priority = false }: ProduceI
           className,
         )}
       >
-        <Leaf size={36} aria-hidden />
+        <img src={logoIcon} alt="" aria-hidden className="h-12 w-12 object-contain opacity-80" />
         <span className="line-clamp-2 text-center text-caption font-semibold text-ink-muted">
           {alt}
         </span>

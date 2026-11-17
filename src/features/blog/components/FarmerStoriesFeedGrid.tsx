@@ -7,13 +7,13 @@ import {
   MessageCircle,
   Share2,
   ArrowRight,
-  Sprout,
 } from 'lucide-react'
 import { BlogOptionsMenu } from '@/features/blog'
 import { formatPublishDate, getCategoryBadge } from '@/features/blog/constants'
 import type { BlogResponse } from '@/services'
 import Pagination from '@/components/ui/Pagination'
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
+import logoIcon from '@/assets/logo-icon.png'
 
 interface FarmerStoriesFeedGridProps {
   feedBlogs: BlogResponse[]
@@ -60,7 +60,7 @@ export const FarmerStoriesFeedGrid: React.FC<FarmerStoriesFeedGridProps> = ({
   if (!hasFeatured && feedBlogs.length === 0 && !isLoading) {
     return (
       <div className="bg-white rounded-2xl border border-[#e6dfd2] p-12 text-center flex flex-col items-center gap-3">
-        <Sprout size={48} className="text-[#2e5d16]/40" />
+        <img src={logoIcon} alt="CapNong" className="h-16 w-16 object-contain" />
         <h3 className="text-base font-bold text-[#191f14]">Chưa có bài viết phù hợp</h3>
         <p className="text-xs text-[#6e7668] max-w-sm">
           Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm để xem thêm câu chuyện ruộng vườn.
