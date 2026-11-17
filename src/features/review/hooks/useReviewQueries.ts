@@ -93,3 +93,14 @@ export function useReactToReview() {
     },
   })
 }
+
+export function useFeaturedReviews(limit = 10) {
+  return useQuery({
+    queryKey: ['reviews', 'featured', limit],
+    queryFn: async () => {
+      const res = await reviewService.getFeaturedReviews(limit)
+      return res.result ?? { platformAverageRating: 5.0, platformTotalReviews: 0, reviews: [] }
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
