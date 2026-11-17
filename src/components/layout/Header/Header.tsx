@@ -27,6 +27,7 @@ import {
   Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import type { AuthUser } from '@/types'
 import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
@@ -259,56 +260,15 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="header-actions flex items-center gap-2">
-          {/* Vendor Button / Direct Portal Access based on Role */}
-          {user?.role === 'shop' ? (
-            <a
-              href="/shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Kênh Nhà Vườn</span>
-            </a>
-          ) : user?.role === 'admin' ? (
-            <a
-              href="/admin"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <ShieldCheck size={16} />
-              <span>Vào Admin</span>
-            </a>
-          ) : user?.role === 'shipper' ? (
-            <a
-              href="/shipper"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Truck size={16} />
-              <span>Cổng Shipper</span>
-            </a>
-          ) : (
-            <a
-              href="/dang-ky?role=shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Bán nông sản</span>
-            </a>
-          )}
-
-          {/* Cart Trigger (Chỉ dành cho khách mua) */}
-          {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
-            <button
-              className="icon-button cart-trigger"
-              aria-label={`Giỏ hàng, ${count} sản phẩm`}
-              onClick={onCart}
-            >
-              <ShoppingBasket />
-              {count > 0 && <span>{count}</span>}
-            </button>
-          )}
+          {/* Cart Trigger */}
+          <button
+            className="icon-button cart-trigger"
+            aria-label={`Giỏ hàng, ${count} sản phẩm`}
+            onClick={onCart}
+          >
+            <ShoppingBasket />
+            {count > 0 && <span>{count}</span>}
+          </button>
 
           {/* Notification Trigger & Popover */}
           {user && (
@@ -448,108 +408,52 @@ export default function Header({
                     </div>
 
                     <div className="flex flex-col gap-1 text-xs">
-                      {user.role === 'admin' && (
-                        <a
-                          href="/admin"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold flex items-center gap-2.5 border border-purple-200 transition-colors"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 text-purple-700">
-                            <ShieldCheck size={16} />
-                          </span>
-                          <span>Trung Tâm Quản Trị Admin</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/orders"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <ShoppingBag size={16} />
+                        </span>
+                        <span>Đơn Hàng Của Tôi</span>
+                      </Link>
 
-                      {user.role === 'shipper' && (
-                        <a
-                          href="/shipper"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl bg-[#e9f6f7] hover:bg-[#d8f0f2] text-[#195962] font-bold flex items-center gap-2.5 border border-[#b1dfe4] transition-colors"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-[#d5eff1] flex items-center justify-center shrink-0 text-[#195962]">
-                            <Truck size={16} />
-                          </span>
-                          <span>Cổng Giao Hàng Shipper</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/my-vouchers"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
+                          <Ticket size={16} />
+                        </span>
+                        <span>Kho Voucher Của Tôi</span>
+                      </Link>
 
-                      {user.role === 'shop' && (
-                        <>
-                          <a
-                            href="/shop"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl bg-[#fdf5eb] hover:bg-[#faeedd] text-[#8a4e1d] font-bold flex items-center gap-2.5 border border-[#f5ddbd] transition-colors"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#f8e5cf] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                              <Store size={16} />
-                            </span>
-                            <span>Kênh Nhà Vườn CapNong</span>
-                          </a>
-                          <a
-                            href="/shop/orders"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                              <FileText size={16} />
-                            </span>
-                            <span>Quản Lý Đơn Hàng Bán</span>
-                          </a>
-                        </>
-                      )}
+                      <Link
+                        to="/my-wallet"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <Wallet size={16} />
+                        </span>
+                        <span>Ví Của Tôi</span>
+                      </Link>
 
-                      {/* BUYER-ONLY LINKS: Chỉ hiển thị cho khách mua */}
-                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                        <>
-                          <a
-                            href="/orders"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                              <ShoppingBag size={16} />
-                            </span>
-                            <span>Đơn Hàng Của Tôi</span>
-                          </a>
+                      <Link
+                        to="/ke-hoach-an-uong"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                          <Sparkles size={16} />
+                        </span>
+                        <span>Kế Hoạch Ăn Uống (AI)</span>
+                      </Link>
 
-                          <a
-                            href="/my-vouchers"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
-                              <Ticket size={16} />
-                            </span>
-                            <span>Kho Voucher Của Tôi</span>
-                          </a>
-
-                          <a
-                            href="/my-wallet"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                              <Wallet size={16} />
-                            </span>
-                            <span>Ví Của Tôi</span>
-                          </a>
-
-                          <a
-                            href="/ke-hoach-an-uong"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
-                              <Sparkles size={16} />
-                            </span>
-                            <span>Kế Hoạch Ăn Uống (AI)</span>
-                          </a>
-                        </>
-                      )}
-
-                      <a
-                        href={messagesHref}
+                      <Link
+                        to={messagesHref}
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center justify-between transition-colors group"
                       >
@@ -564,34 +468,32 @@ export default function Header({
                             {unreadTotal}
                           </span>
                         )}
-                      </a>
+                      </Link>
 
-                      <a
-                        href={user.role === 'shop' ? '/shop?tab=profile' : '/tai-khoan'}
+                      <Link
+                        to="/tai-khoan"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
                         <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
                           <User size={16} />
                         </span>
-                        <span>{user.role === 'shop' ? 'Hồ Sơ Nhà Vườn' : 'Hồ Sơ Cá Nhân'}</span>
-                      </a>
+                        <span>Hồ Sơ Cá Nhân</span>
+                      </Link>
 
-                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                        <a
-                          href="/tai-khoan?tab=health"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                            <HeartPulse size={16} />
-                          </span>
-                          <span>Dinh Dưỡng & Dị Ứng</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/tai-khoan?tab=health"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+                          <HeartPulse size={16} />
+                        </span>
+                        <span>Dinh Dưỡng & Dị Ứng</span>
+                      </Link>
 
-                      <a
-                        href="/change-password"
+                      <Link
+                        to="/change-password"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
@@ -599,8 +501,7 @@ export default function Header({
                           <Lock size={16} />
                         </span>
                         <span>Đổi mật khẩu</span>
-                      </a>
-
+                      </Link>
 
                       <hr className="my-1.5 border-[#ede8df]" />
 
@@ -631,51 +532,21 @@ export default function Header({
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <a
-                        href="/dang-nhap"
+                      <Link
+                        to="/dang-nhap"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-xs text-center transition-colors shadow-sm"
                       >
                         Đăng Nhập
-                      </a>
+                      </Link>
 
-                      <a
-                        href="/dang-ky"
+                      <Link
+                        to="/dang-ky"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl border border-[#326318] text-[#326318] hover:bg-[#f1faea] font-bold text-xs text-center transition-colors"
                       >
                         Đăng Ký Tài Khoản Mới
-                      </a>
-
-                      <div className="pt-2 border-t border-[#f0ebd9] flex flex-col gap-1 text-[11px]">
-                        <span className="font-bold text-[#8a4e1d] px-1 uppercase text-[10px]">
-                          Chọn vai trò đăng ký:
-                        </span>
-                        <a
-                          href="/dang-ky?role=buyer"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>1. Buyer (Khách mua nông sản)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                        <a
-                          href="/dang-ky?role=shop"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>2. Shop (Nhà vườn mở gian hàng)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                        <a
-                          href="/dang-ky?role=shipper"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>3. Shipper (Tài xế giao hàng)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                      </div>
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -1375,48 +1246,44 @@ export default function Header({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 my-1">
-                  <a
-                    href="/tai-khoan"
+                  <Link
+                    to="/tai-khoan"
                     onClick={closeDropdown}
                     className="py-2 px-2.5 rounded-xl bg-white border border-[#326318] text-[#326318] font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <User size={13} />
                     <span>Hồ Sơ Của Tôi</span>
-                  </a>
-                  <a
-                    href="/my-vouchers"
+                  </Link>
+                  <Link
+                    to="/my-vouchers"
                     onClick={closeDropdown}
                     className="py-2 px-2.5 rounded-xl bg-white border border-amber-600 text-amber-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <Ticket size={13} />
                     <span>Kho Voucher</span>
-                  </a>
+                  </Link>
                 </div>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/orders"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <ShoppingBag size={14} className="text-emerald-700" />
-                    <span>Đơn Hàng Của Tôi</span>
-                  </a>
-                )}
+                <Link
+                  to="/orders"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <ShoppingBag size={14} className="text-emerald-700" />
+                  <span>Đơn Hàng Của Tôi</span>
+                </Link>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/my-wallet"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <Wallet size={14} />
-                    <span>Ví Của Tôi</span>
-                  </a>
-                )}
+                <Link
+                  to="/my-wallet"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <Wallet size={14} />
+                  <span>Ví Của Tôi</span>
+                </Link>
 
-                <a
-                  href={messagesHref}
+                <Link
+                  to={messagesHref}
                   onClick={closeDropdown}
                   className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between mb-1 shadow-xs"
                 >
@@ -1429,73 +1296,34 @@ export default function Header({
                       {unreadTotal}
                     </span>
                   )}
-                </a>
+                </Link>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/tai-khoan?tab=health"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <HeartPulse size={14} className="text-rose-600" />
-                    <span>Dinh Dưỡng & Dị Ứng</span>
-                  </a>
-                )}
-
-                {user.role === 'admin' && (
-                  <a
-                    href="/admin"
-                    onClick={closeDropdown}
-                    className="py-2.5 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold text-xs flex items-center gap-2 border border-purple-200"
-                  >
-                    <ShieldCheck size={16} className="text-purple-700" />
-                    <span>Quản Trị Hệ Thống Admin</span>
-                  </a>
-                )}
-
-                {user.role === 'shipper' && (
-                  <a
-                    href="/shipper"
-                    onClick={closeDropdown}
-                    className="py-2.5 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold text-xs flex items-center gap-2 border border-[#b1dfe4]"
-                  >
-                    <Truck size={16} className="text-[#195962]" />
-                    <span>Cổng Giao Hàng Shipper</span>
-                  </a>
-                )}
-
-                {user.role === 'shop' && (
-                  <div className="grid grid-cols-2 gap-2 mt-0.5">
-                    <a
-                      href="/shop"
-                      onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm flex items-center justify-center gap-1"
-                    >
-                      <Store size={13} />
-                      <span>Kênh Nhà Vườn</span>
-                    </a>
-                    <a
-                      href="/shop/orders"
-                      onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center flex items-center justify-center gap-1"
-                    >
-                      <FileText size={13} />
-                      <span>Quản Lý Đơn</span>
-                    </a>
-                  </div>
-                )}
+                <Link
+                  to="/tai-khoan?tab=health"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <HeartPulse size={14} className="text-rose-600" />
+                  <span>Dinh Dưỡng & Dị Ứng</span>
+                </Link>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <a
-                  href="/dang-nhap"
+                <Link
+                  to="/dang-nhap"
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl bg-[#326318] text-white font-bold text-xs text-center shadow-sm"
                 >
                   Đăng Nhập
-                </a>
-                <a
-                  href="/dang-ky"
+                </Link>
+                <Link
+                  to="/dang-ky"
+                  onClick={closeDropdown}
+                  className="py-2.5 rounded-xl border border-[#326318] text-[#326318] bg-white font-bold text-xs text-center"
+                >
+                  Đăng Ký
+                </Link>
+              </div>
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl border border-[#326318] text-[#326318] bg-white font-bold text-xs text-center"
                 >
