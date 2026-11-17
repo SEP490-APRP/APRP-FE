@@ -27,10 +27,31 @@ function getCategoryArtwork(name: string) {
       </svg>
     )
   }
-  if (n.includes('hữu cơ') || n.includes('vietgap') || n.includes('organic')) {
+  if (n.includes('hữu cơ') || n.includes('vietgap')) {
     return (
       <svg viewBox="0 0 88 88" aria-hidden="true">
         <path d="M44 16C28 16 20 30 20 46C20 62 34 74 44 74C54 74 68 62 68 46C68 30 60 16 44 16ZM44 30V62M44 40Q34 34 28 40Q32 50 44 46M44 46Q54 38 60 44Q56 54 44 52" />
+      </svg>
+    )
+  }
+  if (n.includes('nấm') || n.includes('đậu')) {
+    return (
+      <svg viewBox="0 0 88 88" aria-hidden="true">
+        <path d="M18 48C18 30 29 20 44 20C59 20 70 30 70 48C70 51 68 52 44 52C20 52 18 51 18 48Z" />
+        <path d="M36 52V68C36 72 41 74 44 74C47 74 52 72 52 68V52" />
+        <circle cx={34} cy={34} r={3} />
+        <circle cx={54} cy={36} r={2.5} />
+        <circle cx={44} cy={27} r={2.5} />
+      </svg>
+    )
+  }
+  if (n.includes('đặc sản') || n.includes('vùng miền')) {
+    return (
+      <svg viewBox="0 0 88 88" aria-hidden="true">
+        <path d="M44 18C44 28 35 44 35 56C35 63 39 68 44 68C49 68 53 63 53 56C53 44 44 28 44 18Z" />
+        <path d="M44 42C36 44 22 50 24 62C25 67 30 70 37 68C41 67 43 62 44 56" />
+        <path d="M44 42C52 44 66 50 64 62C63 67 58 70 51 68C47 67 45 62 44 56" />
+        <ellipse cx={44} cy={72} rx={16} ry={3} />
       </svg>
     )
   }
