@@ -19,6 +19,7 @@ import {
   Gift,
   Boxes,
   Navigation,
+  RotateCcw,
 } from 'lucide-react'
 import {
   useShopOrders,
@@ -27,8 +28,19 @@ import {
   useCancelOrder,
 } from '@/features/shop/hooks/useShopOrders'
 import { exportService } from '@/services/export.service'
+import { CustomSelect } from '@/components/common/CustomSelect'
+
+const CANCEL_REASON_OPTIONS = [
+  { value: 'Hết hàng thu hoạch đột xuất', label: 'Hết hàng thu hoạch đột xuất' },
+  { value: 'Nông sản không đạt chuẩn chất lượng tươi', label: 'Nông sản không đạt chuẩn chất lượng tươi' },
+  { value: 'Thời tiết bất khả kháng ảnh hưởng vận chuyển', label: 'Thời tiết bất khả kháng ảnh hưởng vận chuyển' },
+  { value: 'Khách yêu cầu hủy qua tin nhắn', label: 'Khách yêu cầu hủy qua tin nhắn' },
+]
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { OrderSettlementCard } from '@/features/wallet'
+import { CapNongLoading } from '@/components/ui/Loading'
+import { needsPickupCode, pickupCode } from '@/utils/orderCode'
 
 interface OrdersProps {
   onOpenOrderPrep?: (orderId: string) => void
@@ -37,7 +49,7 @@ interface OrdersProps {
 
 /** Danh sách toàn bộ trạng thái hợp lệ của Shop (Loại bỏ hoàn toàn AWAITING_PAYMENT) */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUND_REQUESTED', 'REFUNDED'
 ]
 
 /** Định nghĩa tabs theo tiêu chuẩn sàn TMĐT lớn (Shopee / TikTok Shop Seller Center) */
@@ -93,12 +105,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
   // Lọc tìm kiếm theo mã đơn, người nhận, số điện thoại
   const filteredOrders = search.trim()
     ? orders.filter((o) => {
-        const id = String(o.orderId ?? o.id ?? '')
-        const name = o.recipientName?.toLowerCase() || ''
-        const phone = o.recipientPhone || ''
-        const q = search.toLowerCase().trim()
-        return id.includes(q) || name.includes(q) || phone.includes(q)
-      })
+      const id = String(o.orderId ?? o.id ?? '')
+      const name = o.recipientName?.toLowerCase() || ''
+      const phone = o.recipientPhone || ''
+      const q = search.toLowerCase().trim()
+      return id.includes(q) || name.includes(q) || phone.includes(q)
+    })
     : orders
 
   const toggleWeightAgreement = (orderId: number) => {
@@ -226,6 +238,18 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
             <XCircle size={12} /> Đã hủy
           </span>
         )
+      case 'REFUND_REQUESTED':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Yêu cầu hoàn trả
+          </span>
+        )
+      case 'REFUNDED':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Đã hoàn tiền
+          </span>
+        )
       case 'FAILED':
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-black bg-red-50 text-red-700 border border-red-200 flex items-center gap-1.5">
@@ -307,11 +331,10 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                 setActiveTabIdx(idx)
                 setPage(0)
               }}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
-                isActive
+              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${isActive
                   ? 'bg-[#326318] text-white border-[#326318] shadow-sm'
                   : 'bg-white border-[#e4ece0] text-[#646e5f] hover:bg-[#f3f7ef] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
               {isActive && data?.totalElements != null && (
@@ -326,12 +349,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
       {/* 4. Orders List Body */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-3xl border border-[#e8ece3]">
-          <Loader2 className="size-8 text-[#326318] animate-spin" />
-          <p className="text-xs text-[#7e8779] font-bold uppercase tracking-widest">
-            Đang tải dữ liệu đơn hàng từ hệ thống...
-          </p>
-        </div>
+        <CapNongLoading
+          className="!min-h-[360px]"
+          message="Đang tải dữ liệu đơn hàng..."
+          subMessage="Kênh quản lý đơn hàng nhà vườn CapNong"
+          size="md"
+        />
       ) : isError ? (
         <div className="bg-red-50 border border-red-200 rounded-3xl p-8 text-center space-y-3">
           <AlertCircle className="size-8 text-red-500 mx-auto" />
@@ -376,16 +399,15 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                 {/* 4.1 Card Header */}
                 <div className="px-6 py-4 bg-[#fbfdf9] border-b border-[#f1f4ed] flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-black text-sm text-[#1c2216] tracking-tight">
-                      #ORD-{orderId}
+                    <span className="font-black text-sm text-ink tracking-tight">
+                      Đơn {pickupCode(orderId)}
                     </span>
                     {renderStatusBadge(ord.status)}
                     <span
-                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                        ord.paymentMethod === 'PAYOS'
+                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${ord.paymentMethod === 'PAYOS'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}
+                        }`}
                     >
                       {ord.paymentMethod === 'PAYOS' ? '💳 VietQR PayOS' : '💵 Thu COD'}
                     </span>
@@ -395,12 +417,12 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                     <span>
                       {ord.createdAt
                         ? new Date(ord.createdAt).toLocaleString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                          })
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
                         : 'Vừa xong'}
                     </span>
                     <button
@@ -482,18 +504,24 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-[#1c2216] truncate">{name}</p>
-                                <p className="text-[11px] text-[#717b6d]">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-bold text-[#1c2216] truncate">{name}</p>
+                                  {item.isRequestedReturn && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                      <RotateCcw size={10} /> Đang yêu cầu trả hàng
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#717b6d] whitespace-nowrap">
                                   Số lượng: <strong className="text-[#1c2216]">{item.quantity}</strong>{' '}
-                                  × {(item.unitPrice || 0).toLocaleString('vi-VN')} đ
+                                  × {(item.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                                 </p>
                               </div>
                             </div>
                             <strong className="text-xs text-[#1c2216] whitespace-nowrap shrink-0">
                               {(
                                 item.subtotal || (item.unitPrice || 0) * (item.quantity || 1)
-                              ).toLocaleString('vi-VN')}{' '}
-                              đ
+                              ).toLocaleString('vi-VN')}&nbsp;đ
                             </strong>
                           </div>
                         )
@@ -501,18 +529,18 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                     </div>
 
                     {/* Financial Summary */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#f1f4ed] text-xs">
-                      <div className="text-[#737c6e]">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#f1f4ed] text-xs gap-2">
+                      <div className="text-[#737c6e] whitespace-nowrap">
                         {ord.shippingFee != null && (
                           <span>
-                            Phí vận chuyển: <strong>{ord.shippingFee.toLocaleString('vi-VN')} đ</strong>
+                            Phí vận chuyển: <strong className="whitespace-nowrap shrink-0">{ord.shippingFee.toLocaleString('vi-VN')}&nbsp;đ</strong>
                           </span>
                         )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-[#737c6e] block text-[11px]">Tổng tiền đơn:</span>
-                        <strong className="text-lg font-black text-[#326318]">
-                          {(ord.totalAmount || 0).toLocaleString('vi-VN')} đ
+                      <div className="text-right shrink-0">
+                        <span className="text-[#737c6e] block text-[11px] whitespace-nowrap">Tổng tiền đơn:</span>
+                        <strong className="text-lg font-black text-[#326318] whitespace-nowrap shrink-0">
+                          {(ord.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                         </strong>
                       </div>
                     </div>
@@ -574,6 +602,17 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                               <span>Xác Nhận Đơn Hàng</span>
                             </button>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Mã đối soát: nhà vườn ghi lên túi hàng, tài xế so khớp khi lấy hàng */}
+                      {needsPickupCode(ord.status) && (
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-leaf-600 bg-leaf-50 px-4 py-3">
+                          <div>
+                            <p className="text-caption font-bold uppercase text-leaf-700">Mã dán lên túi hàng</p>
+                            <p className="text-caption text-ink-muted">Tài xế sẽ so mã này trước khi bấm "Đã lấy hàng"</p>
+                          </div>
+                          <span className="text-3xl font-extrabold tracking-wider text-leaf-800">{pickupCode(orderId)}</span>
                         </div>
                       )}
 
@@ -690,6 +729,41 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                         </div>
                       )}
 
+                      {/* FLOW G: REFUND_REQUESTED */}
+                      {ord.status === 'REFUND_REQUESTED' && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <RotateCcw size={18} className="text-rose-600 shrink-0" />
+                            <span>
+                              <strong>Khách hàng đang yêu cầu hoàn trả / khiếu nại!</strong> Vui lòng vào mục "Khiếu nại &amp; Trợ giúp" để xem chi tiết bằng chứng và phản hồi.
+                            </span>
+                          </div>
+                          <a
+                            href="/shop?tab=disputes"
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                          >
+                            Xem khiếu nại
+                          </a>
+                        </div>
+                      )}
+
+                      {/* FLOW H: REFUNDED */}
+                      {ord.status === 'REFUNDED' && (
+                        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <CheckCircle2 size={18} className="text-amber-600 shrink-0" />
+                            <span>
+                              <strong>Đơn hàng đã hoàn tiền:</strong> Đã xử lý hoàn tiền thành công cho người mua.
+                            </span>
+                          </div>
+                          {ord.refundAmount && ord.refundAmount > 0 && (
+                            <span className="font-bold text-rose-700 text-xs whitespace-nowrap">
+                              Đã hoàn: -{Number(ord.refundAmount).toLocaleString('vi-VN')}&nbsp;đ
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* FLOW F: CANCELLED */}
                       {ord.status === 'CANCELLED' && (
                         <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
@@ -788,23 +862,29 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                       <span className="font-bold text-[#1c2216]">
                         {it.itemName || it.productName || it.mysteryBoxType}
                       </span>
-                      <span className="text-[11px] text-[#747e70] block">
-                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')} đ
+                      <span className="text-[11px] text-[#747e70] block whitespace-nowrap">
+                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
-                    <strong>
-                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')} đ
+                    <strong className="whitespace-nowrap shrink-0">
+                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')}&nbsp;đ
                     </strong>
                   </div>
                 ))}
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#f4f8f0] border border-[#dce8d6] flex justify-between items-center text-sm">
-                <span className="font-bold text-[#1c2216]">Tổng thanh toán:</span>
-                <strong className="text-lg font-black text-[#326318]">
-                  {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ
+              <div className="p-4 rounded-2xl bg-[#f4f8f0] border border-[#dce8d6] flex justify-between items-center text-sm gap-2">
+                <span className="font-bold text-[#1c2216] whitespace-nowrap">Tổng thanh toán:</span>
+                <strong className="text-lg font-black text-[#326318] whitespace-nowrap shrink-0">
+                  {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                 </strong>
               </div>
+              {(selectedOrder.orderId ?? selectedOrder.id) &&
+                !['CANCELLED', 'FAILED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
+                  <div className="p-4 rounded-2xl bg-white border border-[#e8ece3]">
+                    <OrderSettlementCard orderId={(selectedOrder.orderId ?? selectedOrder.id) as number} viewer="SHOP" />
+                  </div>
+                )}
               {selectedOrder.status === 'SHIPPING' && (
                 <div className="pt-2">
                   <button
@@ -848,20 +928,11 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
 
             <div className="text-left text-xs space-y-1">
               <label className="text-[11px] font-bold text-[#454c3e]">Lý do hủy đơn:</label>
-              <select
+              <CustomSelect
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none"
-              >
-                <option value="Hết hàng thu hoạch đột xuất">Hết hàng thu hoạch đột xuất</option>
-                <option value="Nông sản không đạt chuẩn chất lượng tươi">
-                  Nông sản không đạt chuẩn chất lượng tươi
-                </option>
-                <option value="Thời tiết bất khả kháng ảnh hưởng vận chuyển">
-                  Thời tiết bất khả kháng ảnh hưởng vận chuyển
-                </option>
-                <option value="Khách yêu cầu hủy qua tin nhắn">Khách yêu cầu hủy qua tin nhắn</option>
-              </select>
+                onChange={(val) => setCancelReason(String(val))}
+                options={CANCEL_REASON_OPTIONS}
+              />
             </div>
 
             <div className="flex gap-2.5 pt-2">

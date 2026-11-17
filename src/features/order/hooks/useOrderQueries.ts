@@ -8,6 +8,8 @@ export const orderKeys = {
   list: () => [...orderKeys.all, 'list'] as const,
   codPending: () => [...orderKeys.all, 'cod-pending'] as const,
   disputes: () => [...orderKeys.all, 'disputes'] as const,
+  shopDisputes: (status?: string) => [...orderKeys.all, 'shop-disputes', status] as const,
+  buyerDisputes: (status?: string) => [...orderKeys.all, 'buyer-disputes', status] as const,
 }
 
 export function useAllOrders() {
@@ -78,6 +80,60 @@ export function useCheckDisputePayout() {
       if (res.result?.request?.status === 'COMPLETED') {
         void queryClient.invalidateQueries({ queryKey: orderKeys.disputes() })
       }
+    },
+  })
+}
+
+export function useShopDisputes(page = 0, size = 50, status?: any) {
+  return useQuery({
+    queryKey: orderKeys.shopDisputes(status),
+    queryFn: async () => (await returnService.getShopReturns(page, size, status)).result?.content ?? [],
+  })
+}
+
+export function useShopRespondDispute() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...payload
+    }: {
+      id: number
+      accept: boolean
+      shopResponse: string
+      isReturnGoods?: boolean
+      shippingPaymentMethod?: 'WALLET' | 'COD'
+      returnShippingFee?: number
+    }) => returnService.shopRespond(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+    },
+  })
+}
+
+export function useBuyerDisputes(page = 0, size = 50, status?: any) {
+  return useQuery({
+    queryKey: orderKeys.buyerDisputes(status),
+    queryFn: async () => (await returnService.getBuyerReturns(page, size, status)).result?.content ?? [],
+  })
+}
+
+export function useCreateReturnRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: any) => returnService.createReturnRequest(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+    },
+  })
+}
+
+export function useCancelReturnRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => returnService.cancelReturnRequest(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
     },
   })
 }

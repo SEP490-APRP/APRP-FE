@@ -15,6 +15,7 @@ import {
 export const productKeys = {
   all: ['products'] as const,
   list: () => [...productKeys.all, 'list'] as const,
+  home: (size: number) => [...productKeys.all, 'home', size] as const,
   forBuyer: () => [...productKeys.all, 'for-buyer'] as const,
   myShop: (params?: GetMyProductsParams) => [...productKeys.all, 'my-shop', params ?? {}] as const,
   detail: (idOrSlug: string) => [...productKeys.all, 'detail', idOrSlug] as const,
@@ -35,14 +36,41 @@ export function useAllProducts() {
   })
 }
 
+/** Trang chủ: chỉ lấy {size} sản phẩm mới nhất (BE phân trang: GET /products?page=1&size=) */
+export function useHomeProducts(size = 8) {
+  return useQuery({
+    queryKey: productKeys.home(size),
+    queryFn: async () => ((await productService.getAll({ page: 1, size })).result ?? []).slice(0, size),
+  })
+}
+
 const fetchForBuyer = async () => (await productService.getForBuyer()).result ?? []
 
 /** Sản phẩm đang bán của một shop. */
 export function useShopProducts(shopId: number) {
   return useQuery({
-    queryKey: productKeys.forBuyer(),
-    queryFn: fetchForBuyer,
-    select: (products) => products.filter((p) => p.shopOwnerId === shopId || p.shopId === shopId),
+    queryKey: ['products', 'shop', shopId],
+    queryFn: async () => {
+      // 1. Thử gọi API có param shopId
+      try {
+        const res = await productService.getAll({ shopId, size: 100 } as any)
+        const directList = (res.result ?? []).filter((p) => {
+          const sId = Number(p.shopId ?? p.shopOwnerId ?? (p as any).shop?.id)
+          return sId === shopId
+        })
+        if (directList.length > 0) return directList
+      } catch (e) {
+        console.warn('Failed to fetch products with shopId filter:', e)
+      }
+
+      // 2. Fallback: Lấy toàn bộ sản phẩm và lọc theo shopId
+      const all = (await productService.getAll({ size: 100 })).result ?? []
+      return all.filter((p) => {
+        const sId = Number(p.shopId ?? p.shopOwnerId ?? (p as any).shop?.id)
+        return sId === shopId
+      })
+    },
+    enabled: Boolean(shopId) && !isNaN(shopId),
   })
 }
 
@@ -227,6 +255,11 @@ export function useDeleteProductImage() {
     mutationFn: ({ productId, imageId }: { productId: number; imageId: number }) =>
       productService.deleteImage(productId, imageId),
     onSuccess: (_data, variables) => {
+      // Cập nhật cache tức thời để ảnh biến mất ngay khỏi giao diện
+      queryClient.setQueryData<ProductImageResponse[]>(
+        productKeys.images(variables.productId),
+        (old) => (old ? old.filter((img) => img.id !== variables.imageId) : [])
+      )
       queryClient.invalidateQueries({ queryKey: productKeys.images(variables.productId) })
       queryClient.invalidateQueries({ queryKey: productKeys.all })
     },

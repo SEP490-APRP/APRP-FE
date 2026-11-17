@@ -9,6 +9,9 @@ import {
   XCircle,
   ChevronRight,
   Navigation,
+  Star,
+  RotateCcw,
+  PackageCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -16,13 +19,17 @@ import { OrderStatusBadge } from './OrderStatusBadge'
 import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
+import { CancelOrderModal } from './CancelOrderModal'
+import { ReturnRequestModal } from './ReturnRequestModal'
+import { BuyerOrderDetailModal } from './BuyerOrderDetailModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
-import { orderService, paymentService } from '@/services'
-import type { OrderResponse, OrderStatus } from '@/types/order.types'
+import { ReviewModal } from '@/features/review'
+import { orderService, paymentService, productService } from '@/services'
+import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
 
-type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED'
+type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'REFUND' | 'CANCELLED'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
@@ -30,6 +37,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'PENDING', label: 'Chờ xác nhận' },
   { key: 'SHIPPING', label: 'Đang vận chuyển' },
   { key: 'COMPLETED', label: 'Đã hoàn thành' },
+  { key: 'REFUND', label: 'Trả hàng / Hoàn tiền' },
   { key: 'CANCELLED', label: 'Đã hủy' },
 ]
 
@@ -43,11 +51,27 @@ export const BuyerOrdersView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const currentTab = (searchParams.get('tab') as TabKey) || 'ALL'
-  const [searchKeyword, setSearchKeyword] = useState('')
+  const orderIdParam = searchParams.get('orderId')
+  const [searchKeyword, setSearchKeyword] = useState(orderIdParam || '')
   const [orders, setOrders] = useState<OrderResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
+  const [completingOrderId, setCompletingOrderId] = useState<number | null>(null)
+  const [completeError, setCompleteError] = useState<string | null>(null)
   const [isCancellingBatch, setIsCancellingBatch] = useState(false)
+
+  // Cancel Order Modal State
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean
+    order: OrderResponse | null
+    batchOrders: OrderResponse[] | null
+    errorMessage: string | null
+  }>({
+    isOpen: false,
+    order: null,
+    batchOrders: null,
+    errorMessage: null,
+  })
 
   // QR Modal State
   const [qrModalData, setQrModalData] = useState<PaymentResponse | null>(null)
@@ -59,6 +83,62 @@ export const BuyerOrdersView: React.FC = () => {
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false)
   const [isLoadingResumeOptions, setIsLoadingResumeOptions] = useState(false)
   const [trackingModalOrder, setTrackingModalOrder] = useState<OrderResponse | null>(null)
+
+  // Review Modal State
+  const [reviewModalItem, setReviewModalItem] = useState<OrderItem | null>(null)
+  const [reviewModalOrderId, setReviewModalOrderId] = useState<number | null>(null)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+
+  // Return & Refund Modal State
+  const [returnModalItem, setReturnModalItem] = useState<OrderItem | null>(null)
+  const [returnModalOrderId, setReturnModalOrderId] = useState<number | null>(null)
+  const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<number | null>(null)
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+
+  const handleProductClick = async (it: OrderItem, shopId?: number) => {
+    if (it.productId) {
+      navigate(`/san-pham/${it.productId}`)
+      return
+    }
+
+    if (it.itemType === 'MYSTERY_BOX' || it.mysteryBoxId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    if (it.itemType === 'BUILD_COMBO' || it.buildComboId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    const name = it.itemName || it.productName
+    if (name) {
+      try {
+        const res = await productService.getAll({ keyword: name })
+        const products = res.result || []
+        const matched =
+          products.find(
+            (p) =>
+              (p.productName || p.name || '').trim().toLowerCase() === name.trim().toLowerCase() ||
+              (p.productName || p.name || '').toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes((p.productName || p.name || '').toLowerCase())
+          ) || products[0]
+
+        if (matched?.id || matched?.productId) {
+          navigate(`/san-pham/${matched.id || matched.productId}`)
+          return
+        }
+      } catch (err) {
+        console.warn('Fallback tìm kiếm sản phẩm thất bại:', err)
+      }
+    }
+
+    if (shopId) {
+      navigate(`/cua-hang/${shopId}`)
+    } else {
+      navigate(`/nong-san-tuoi${name ? `?search=${encodeURIComponent(name)}` : ''}`)
+    }
+  }
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -72,6 +152,8 @@ export const BuyerOrdersView: React.FC = () => {
         statuses = ['CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP']
       } else if (currentTab === 'COMPLETED') {
         statuses = ['DELIVERED', 'COMPLETED']
+      } else if (currentTab === 'REFUND') {
+        statuses = ['REFUND_REQUESTED', 'REFUNDED']
       } else if (currentTab === 'CANCELLED') {
         statuses = ['CANCELLED', 'FAILED']
       }
@@ -95,6 +177,24 @@ export const BuyerOrdersView: React.FC = () => {
       fetchOrders()
     }
   }, [user, currentTab])
+
+  useEffect(() => {
+    const id = searchParams.get('orderId')
+    if (id) {
+      setSearchKeyword(id)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const cancelTargetId = searchParams.get('orderId')
+    const shouldAutoCancel = searchParams.get('action') === 'cancel'
+    if (shouldAutoCancel && cancelTargetId && orders.length > 0 && !cancelModalState.isOpen) {
+      const found = orders.find((o) => String(o.orderId || o.id) === cancelTargetId)
+      if (found && (found.status === 'PENDING' || found.status === 'AWAITING_PAYMENT')) {
+        handleOpenCancelModal(found)
+      }
+    }
+  }, [orders, searchParams])
 
   // Lọc theo từ khóa tìm kiếm
   const filteredOrders = useMemo(() => {
@@ -218,37 +318,91 @@ export const BuyerOrdersView: React.FC = () => {
     }
   }
 
-  // Xử lý hủy 1 đơn đơn lẻ
-  const handleCancelOrder = async (orderId: number) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId}?`)) return
-    setCancellingOrderId(orderId)
-    try {
-      await orderService.cancelOrder(orderId)
-      await fetchOrders()
-    } catch (err: any) {
-      alert(err?.message || 'Không thể hủy đơn hàng này.')
-    } finally {
-      setCancellingOrderId(null)
+  // Mở modal xác nhận hủy đơn đơn lẻ
+  const handleOpenCancelModal = (orderOrId: number | OrderResponse) => {
+    const target =
+      typeof orderOrId === 'number'
+        ? orders.find((o) => (o.orderId || o.id) === orderOrId) ||
+        ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
+        : orderOrId
+    setCancelModalState({
+      isOpen: true,
+      order: target,
+      batchOrders: null,
+      errorMessage: null,
+    })
+  }
+
+  // Mở modal xác nhận hủy toàn bộ batch checkout
+  const handleOpenCancelBatchModal = (batchOrders: OrderResponse[]) => {
+    setCancelModalState({
+      isOpen: true,
+      order: null,
+      batchOrders,
+      errorMessage: null,
+    })
+  }
+
+  // Thực hiện hủy đơn khi người dùng bấm xác nhận trong modal
+  const handleConfirmCancelOrder = async (_reason: string) => {
+    const { order, batchOrders } = cancelModalState
+    if (batchOrders && batchOrders.length > 0) {
+      setIsCancellingBatch(true)
+      try {
+        for (const o of batchOrders) {
+          const id = o.orderId || o.id
+          if (id) {
+            await orderService.cancelOrder(id)
+          }
+        }
+        setCancelModalState({ isOpen: false, order: null, batchOrders: null, errorMessage: null })
+        await fetchOrders()
+      } catch (err: any) {
+        console.error('Lỗi hủy batch:', err)
+        setCancelModalState((prev) => ({
+          ...prev,
+          errorMessage: err?.message || 'Có lỗi khi hủy các đơn trong checkout.',
+        }))
+      } finally {
+        setIsCancellingBatch(false)
+      }
+    } else if (order) {
+      const id = order.orderId || order.id
+      if (!id) return
+      setCancellingOrderId(id)
+      try {
+        await orderService.cancelOrder(id)
+        setCancelModalState({ isOpen: false, order: null, batchOrders: null, errorMessage: null })
+        await fetchOrders()
+      } catch (err: any) {
+        console.error('Lỗi khi hủy đơn hàng:', err)
+        setCancelModalState((prev) => ({
+          ...prev,
+          errorMessage: err?.message || 'Không thể hủy đơn hàng này.',
+        }))
+      } finally {
+        setCancellingOrderId(null)
+      }
     }
   }
 
-  // Xử lý hủy toàn bộ batch checkout
-  const handleCancelBatch = async (batchOrders: OrderResponse[]) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy toàn bộ checkout này gồm ${batchOrders.length} đơn hàng?`)) return
-    setIsCancellingBatch(true)
+  // Buyer xác nhận đã nhận hàng: DELIVERED -> COMPLETED, backend chia tiền vào ví Shop / Shipper / Sàn
+  const handleCompleteOrder = async (order: OrderResponse) => {
+    const id = order.orderId || order.id
+    if (!id) return
+    if (!window.confirm(`Xác nhận bạn đã nhận đủ hàng của đơn #${id}? Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.`)) {
+      return
+    }
+    setCompleteError(null)
+    setCompletingOrderId(id)
     try {
-      for (const o of batchOrders) {
-        const id = o.orderId || o.id
-        if (id) {
-          await orderService.cancelOrder(id)
-        }
-      }
+      await orderService.completeOrder(id)
       await fetchOrders()
     } catch (err: any) {
-      console.error('Lỗi hủy batch:', err)
-      alert(err?.message || 'Có lỗi khi hủy các đơn trong checkout.')
+      console.error('Lỗi xác nhận nhận hàng:', err)
+      setCompleteError(err?.message || 'Không thể xác nhận đã nhận hàng.')
     } finally {
-      setIsCancellingBatch(false)
+      setCompletingOrderId(null)
     }
   }
 
@@ -287,11 +441,10 @@ export const BuyerOrdersView: React.FC = () => {
             onClick={() => {
               setSearchParams(tab.key === 'ALL' ? {} : { tab: tab.key })
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              currentTab === tab.key
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${currentTab === tab.key
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
+              }`}
           >
             {tab.label}
           </button>
@@ -309,6 +462,12 @@ export const BuyerOrdersView: React.FC = () => {
           className="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border border-line text-sm text-ink outline-none focus:border-emerald-500 shadow-sm transition-colors"
         />
       </div>
+
+      {completeError && (
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-4 py-3">
+          {completeError}
+        </div>
+      )}
 
       {/* Danh sách đơn hàng */}
       {isLoading ? (
@@ -351,8 +510,8 @@ export const BuyerOrdersView: React.FC = () => {
                   batchId={item.batchId}
                   orders={item.orders}
                   onResumePayment={handleResumeBatchPayment}
-                  onCancelBatch={handleCancelBatch}
-                  onCancelSingleOrder={handleCancelOrder}
+                  onCancelBatch={handleOpenCancelBatchModal}
+                  onCancelSingleOrder={handleOpenCancelModal}
                   isResuming={isLoadingResumeOptions}
                   isCancelling={isCancellingBatch}
                 />
@@ -369,11 +528,10 @@ export const BuyerOrdersView: React.FC = () => {
             return (
               <div
                 key={`single-${orderId}`}
-                className={`bg-white rounded-3xl border transition-all overflow-hidden ${
-                  isUnpaid
-                    ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
-                    : 'border-line hover:border-neutral-300 shadow-sm'
-                }`}
+                className={`bg-white rounded-3xl border transition-all overflow-hidden ${isUnpaid
+                  ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
+                  : 'border-line hover:border-neutral-300 shadow-sm'
+                  }`}
               >
                 {/* Header đơn: Shop & Trạng thái */}
                 <div className="px-6 py-4 bg-neutral-50/70 border-b border-line flex flex-wrap items-center justify-between gap-3">
@@ -410,31 +568,87 @@ export const BuyerOrdersView: React.FC = () => {
                 </div>
 
                 {/* Danh sách items */}
-                <div className="p-6 divide-y divide-line/60">
+                <div className="p-6 divide-line/60 divide-y">
                   {order.items && order.items.length > 0 ? (
-                    order.items.map((it, idx) => (
-                      <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center gap-4">
-                        <img
-                          src={it.imageUrl || '/images/default-produce.png'}
-                          alt={it.productName || 'Sản phẩm'}
-                          className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-ink truncate">
-                            {it.productName || it.mysteryBoxType || 'Sản phẩm nông sản'}
-                          </h4>
-                          <p className="text-xs text-ink-muted mt-0.5">
-                            Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
-                          </p>
+                    order.items.map((it, idx) => {
+                      const name = it.productName || it.itemName || it.mysteryBoxType || 'Sản phẩm nông sản'
+                      return (
+                        <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleProductClick(it, order.shopId)}
+                            className="flex items-center gap-4 flex-1 min-w-0 group cursor-pointer select-none"
+                            title="Nhấn để xem chi tiết sản phẩm"
+                          >
+                            <img
+                              src={it.imageUrl || '/images/default-produce.png'}
+                              alt={name}
+                              className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50 transition-all duration-200 group-hover:scale-105 group-hover:border-emerald-400 group-hover:shadow-xs"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-semibold text-sm text-ink truncate group-hover:text-emerald-700 transition-colors">
+                                  {name}
+                                </h4>
+                                <span className="text-[10px] text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity font-semibold shrink-0">
+                                  Xem chi tiết &rarr;
+                                </span>
+                              </div>
+                              <p className="text-xs text-ink-muted mt-0.5">
+                                Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                            <p className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                              {Number(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
+                            </p>
+                            {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
+                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                {it.isRequestedReturn ? (
+                                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                    ↺ Đang yêu cầu trả hàng
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReturnModalItem(it)
+                                      setReturnModalOrderId(orderId)
+                                      setIsReturnModalOpen(true)
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
+                                  >
+                                    <RotateCcw size={11} />
+                                    <span>Trả hàng</span>
+                                  </button>
+                                )}
+
+                                {it.isReviewed ? (
+                                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                    ✓ Đã đánh giá
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReviewModalItem(it)
+                                      setReviewModalOrderId(orderId)
+                                      setIsReviewModalOpen(true)
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <Star size={12} className="fill-white" />
+                                    <span>Đánh giá</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-emerald-700">
-                            {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
+                      )
+                    })) : (
                     <div className="py-2 text-xs text-ink-muted italic">
                       Chi tiết sản phẩm đang được cập nhật
                     </div>
@@ -448,14 +662,14 @@ export const BuyerOrdersView: React.FC = () => {
                       Phương thức: <span className="font-bold text-ink">{order.paymentMethod || 'COD'}</span>
                     </div>
                     {order.shippingFee !== undefined && (
-                      <div>
-                        Phí ship: <span className="font-bold text-ink">{Number(order.shippingFee).toLocaleString('vi-VN')} đ</span>
+                      <div className="whitespace-nowrap">
+                        Phí ship: <span className="font-bold text-ink whitespace-nowrap shrink-0">{Number(order.shippingFee).toLocaleString('vi-VN')}&nbsp;đ</span>
                       </div>
                     )}
-                    <div className="text-sm">
-                      Tổng thanh toán:{' '}
-                      <span className="font-black text-emerald-700 text-base">
-                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')} đ
+                    <div className="text-sm whitespace-nowrap flex items-center gap-1">
+                      <span>Tổng thanh toán:</span>{' '}
+                      <span className="font-black text-emerald-700 text-base whitespace-nowrap shrink-0">
+                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
                   </div>
@@ -479,12 +693,25 @@ export const BuyerOrdersView: React.FC = () => {
                     {(order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING') && (
                       <Button
                         variant="secondary"
-                        onClick={() => handleCancelOrder(orderId)}
+                        onClick={() => handleOpenCancelModal(order)}
                         disabled={cancellingOrderId === orderId}
-                        className="gap-1 px-3 py-2 text-xs rounded-xl text-rose-600 hover:bg-rose-50 border-rose-200"
+                        className="gap-1 px-3 py-2 text-xs rounded-xl text-rose-600 hover:bg-rose-50 border-rose-200 cursor-pointer"
                       >
                         <XCircle size={14} />
                         {cancellingOrderId === orderId ? 'Đang hủy...' : 'Hủy đơn'}
+                      </Button>
+                    )}
+
+                    {/* Đã giao -> Buyer xác nhận ĐÃ NHẬN HÀNG (chia tiền vào ví) */}
+                    {order.status === 'DELIVERED' && (
+                      <Button
+                        variant="primary"
+                        onClick={() => handleCompleteOrder(order)}
+                        disabled={completingOrderId === orderId}
+                        className="gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20"
+                      >
+                        <PackageCheck size={14} />
+                        {completingOrderId === orderId ? 'Đang xác nhận...' : 'Đã nhận hàng'}
                       </Button>
                     )}
 
@@ -501,12 +728,13 @@ export const BuyerOrdersView: React.FC = () => {
                     )}
 
                     {/* Xem chi tiết kết quả */}
-                    <Link
-                      to={`/payment/result?orderId=${orderId}&method=${order.paymentMethod}`}
-                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailOrderId(orderId)}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors cursor-pointer"
                     >
                       Chi tiết
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -553,6 +781,76 @@ export const BuyerOrdersView: React.FC = () => {
           onClose={() => setTrackingModalOrder(null)}
         />
       )}
+
+      {/* Modal Chi Tiết Đơn Hàng Chuẩn TMĐT (100% Real API, Không Mock Data) */}
+      <BuyerOrderDetailModal
+        isOpen={selectedDetailOrderId !== null}
+        orderId={selectedDetailOrderId}
+        onClose={() => setSelectedDetailOrderId(null)}
+        onPayNow={(ord) => handlePayNow(ord)}
+        onCancelOrder={(ord) => handleOpenCancelModal(ord)}
+        onCompleteOrder={(ord) => handleCompleteOrder(ord)}
+        onReviewItem={(it, ordId) => {
+          setReviewModalItem(it)
+          setReviewModalOrderId(ordId)
+          setIsReviewModalOpen(true)
+        }}
+        onReturnItem={(it, ordId) => {
+          setReturnModalItem(it)
+          setReturnModalOrderId(ordId)
+          setIsReturnModalOpen(true)
+        }}
+      />
+
+      {/* Modal Xác Nhận Hủy Đơn Hàng (Đơn lẻ & Toàn bộ Checkout) */}
+      <CancelOrderModal
+        isOpen={cancelModalState.isOpen}
+        order={cancelModalState.order}
+        batchOrders={cancelModalState.batchOrders}
+        isCancelling={cancellingOrderId !== null || isCancellingBatch}
+        errorMessage={cancelModalState.errorMessage}
+        onClose={() => {
+          if (cancellingOrderId === null && !isCancellingBatch) {
+            setCancelModalState({
+              isOpen: false,
+              order: null,
+              batchOrders: null,
+              errorMessage: null,
+            })
+          }
+        }}
+        onConfirm={handleConfirmCancelOrder}
+      />
+
+      {/* Modal Đánh giá sản phẩm */}
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        item={reviewModalItem}
+        orderId={reviewModalOrderId ?? undefined}
+        onClose={() => {
+          setIsReviewModalOpen(false)
+          setReviewModalItem(null)
+          setReviewModalOrderId(null)
+        }}
+        onSuccess={() => {
+          fetchOrders()
+        }}
+      />
+
+      {/* Modal Yêu cầu Trả hàng / Hoàn tiền */}
+      <ReturnRequestModal
+        isOpen={isReturnModalOpen}
+        item={returnModalItem}
+        orderId={returnModalOrderId ?? 0}
+        onClose={() => {
+          setIsReturnModalOpen(false)
+          setReturnModalItem(null)
+          setReturnModalOrderId(null)
+        }}
+        onSuccess={() => {
+          fetchOrders()
+        }}
+      />
     </div>
   )
 }

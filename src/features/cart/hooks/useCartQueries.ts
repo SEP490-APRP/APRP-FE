@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { cartService } from '@/services'
-import { useUiStore } from '@/stores'
+import { useUiStore, useAuthStore } from '@/stores'
 import type { CartAddRequest, CartRemoveRequest, CartUpdateRequest } from '@/types/cart.types'
 
 export const cartKeys = {
@@ -8,9 +8,11 @@ export const cartKeys = {
 }
 
 export function useMyCart() {
+  const token = useAuthStore((s) => s.token)
   return useQuery({
     queryKey: cartKeys.all,
     queryFn: () => cartService.getMyCart(),
+    enabled: !!token,
   })
 }
 

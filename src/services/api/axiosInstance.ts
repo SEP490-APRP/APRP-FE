@@ -1,13 +1,21 @@
 import { create, type AxiosError } from 'axios'
 import type { ApiError, ApiResponse } from '@/types'
-import { ENV, STORAGE_KEYS } from '@/utils'
+import { ENV, STORAGE_KEYS, isTokenValid } from '@/utils'
 
 /** Phát ra khi API trả 401; AuthProvider nghe event này để đăng xuất. */
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized'
 
 function readToken(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEYS.TOKEN)
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN) || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+    if (!token) return null
+    if (!isTokenValid(token)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
+      }
+      return null
+    }
+    return token
   } catch {
     return null
   }

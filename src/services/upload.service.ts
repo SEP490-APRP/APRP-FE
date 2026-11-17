@@ -26,6 +26,33 @@ export const uploadService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60_000,
+    })
+
+    return response.data
+  },
+
+  /**
+   * Tải tệp đa phương tiện (ảnh hoặc video) lên Cloudinary qua Backend `POST /upload/media`.
+   */
+  async uploadMedia(file: File, folder: string = 'chat'): Promise<ApiResponse<UploadResponse>> {
+    if (ENV.USE_MOCK) {
+      await new Promise((r) => setTimeout(r, 300))
+      const mockUrl = URL.createObjectURL(file)
+      return { code: 1000, message: 'Upload mock thành công', result: { url: mockUrl } }
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('folder', folder)
+
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name)
+    const endpoint = isVideo ? '/upload/video' : '/upload/image'
+    const response = await axiosInstance.post<ApiResponse<UploadResponse>>(endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 180_000, // Cho phép 3 phút để upload video dung lượng lớn lên Cloudinary
     })
 
     return response.data

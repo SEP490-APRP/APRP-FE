@@ -1,10 +1,11 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom'
+import RootLayout from '@/app/layouts/RootLayout'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
-  RootLayout,
   HomeRoute,
   FreshRoute,
   CombosRoute,
+  ComboDetailRoute,
   AiRoute,
   StoriesRoute,
   PrivacyRoute,
@@ -13,20 +14,32 @@ import {
   ShopVouchersRoute,
   AuthRoute,
   ForgotPasswordRoute,
+  ChangePasswordRoute,
   OtpVerificationRoute,
+  OAuthSuccessRoute,
   AdminRoute,
   SellerRoute,
+  ShopOrdersRoute,
   ShipperRoute,
   CartRoute,
   CheckoutRoute,
   PaymentResultRoute,
   BuyerOrdersRoute,
   MyVouchersRoute,
+  MyWalletRoute,
+  ReferralRedirectRoute,
+  MealPlanRoute,
+  ProfileRoute,
+  BuyerMessagesRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
 
-import { ShopOrdersPage } from '@/pages/ShopOrdersPage'
+/** Giữ query (?tab=...) khi chuyển đường dẫn cũ sang /tai-khoan. */
+function ProfileRedirect() {
+  const { search } = useLocation()
+  return <Navigate replace to={`/tai-khoan${search}`} />
+}
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
@@ -48,7 +61,7 @@ export const router = createBrowserRouter([
       // 2. Phân hệ Nhà vườn (Farmer / Seller Portal)
       {
         path: 'shop/orders',
-        element: <ShopOrdersPage />,
+        element: <ShopOrdersRoute />,
         handle: title('Quản lý đơn hàng · Kênh Nhà Vườn'),
       },
       {
@@ -72,9 +85,18 @@ export const router = createBrowserRouter([
           { index: true, element: <HomeRoute />, handle: title(DEFAULT_TITLE) },
           { path: 'nong-san-tuoi/*', element: <FreshRoute />, handle: title('Nông sản tươi') },
           { path: 'combo-tui-mu/*', element: <CombosRoute />, handle: title('Combo & Túi mù') },
+          { path: 'combo/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Combo · CapNong') },
+          { path: 'mystery-box/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
+          { path: 'tui-mu/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
+          { path: 'ke-hoach-an-uong/*', element: <MealPlanRoute />, handle: title('Kế Hoạch Ăn Uống · CapNong AI') },
+          { path: 'meal-plan/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
+          { path: 'meal-planner/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'cong-nghe-ai/*', element: <AiRoute />, handle: title('Công nghệ AI Tiên phong') },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
+
+          // Tiếp thị liên kết (Referral / Affiliate)
+          { path: 'ref/:referralCode', element: <ReferralRedirectRoute />, handle: title('Tiếp thị liên kết · CapNong') },
 
           // Sản phẩm & Gian hàng
           { path: 'san-pham', element: <Navigate replace to="/nong-san-tuoi" /> },
@@ -94,20 +116,35 @@ export const router = createBrowserRouter([
           { path: 'my-orders/*', element: <Navigate replace to="/orders" /> },
           { path: 'my-vouchers/*', element: <MyVouchersRoute />, handle: title('Kho Voucher Của Tôi · CapNong') },
           { path: 'kho-voucher/*', element: <Navigate replace to="/my-vouchers" /> },
+          { path: 'my-wallet/*', element: <MyWalletRoute />, handle: title('Ví Của Tôi · CapNong') },
+          { path: 'vi-cua-toi/*', element: <Navigate replace to="/my-wallet" /> },
           { path: 'voucher-cua-toi/*', element: <Navigate replace to="/my-vouchers" /> },
           { path: 'gio-hang/*', element: <Navigate replace to="/cart" /> },
           { path: 'thanh-toan/*', element: <Navigate replace to="/checkout" /> },
 
+          // Tin nhắn & Trò chuyện (Chat trực tuyến với Nhà Vườn & Hỗ trợ)
+          { path: 'tin-nhan/*', element: <BuyerMessagesRoute />, handle: title('Tin Nhắn & Trò Chuyện · CapNong') },
+          { path: 'messages/*', element: <Navigate replace to="/tin-nhan" /> },
+          { path: 'chat/*', element: <Navigate replace to="/tin-nhan" /> },
+
           // Xác thực & Tài khoản
+          { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
+          { path: 'profile/*', element: <ProfileRedirect /> },
+          { path: 'thong-bao/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
+          { path: 'notifications/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
+          { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'login/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
           { path: 'dang-nhap/*', element: <AuthRoute mode="login" />, handle: title('Đăng nhập') },
+          { path: 'register/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },
           { path: 'dang-ky/*', element: <AuthRoute mode="register" />, handle: title('Đăng ký') },
-          { path: 'login/*', element: <Navigate replace to="/dang-nhap" /> },
-          { path: 'register/*', element: <Navigate replace to="/dang-ky" /> },
+          { path: 'forgot-password/*', element: <ForgotPasswordRoute />, handle: title('Quên mật khẩu') },
           { path: 'quen-mat-khau/*', element: <ForgotPasswordRoute />, handle: title('Quên mật khẩu') },
-          { path: 'forgot-password/*', element: <Navigate replace to="/quen-mat-khau" /> },
+          { path: 'change-password/*', element: <ChangePasswordRoute />, handle: title('Đổi mật khẩu') },
+          { path: 'doi-mat-khau/*', element: <ChangePasswordRoute />, handle: title('Đổi mật khẩu') },
+          { path: 'otp-verification/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
+          { path: 'verify-otp/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
           { path: 'xac-thuc-otp/*', element: <OtpVerificationRoute />, handle: title('Xác thực OTP') },
-          { path: 'verify-otp/*', element: <Navigate replace to="/xac-thuc-otp" /> },
-          { path: 'otp-verification/*', element: <Navigate replace to="/xac-thuc-otp" /> },
+          { path: 'oauth-success/*', element: <OAuthSuccessRoute />, handle: title('Đăng nhập Google') },
 
           // Điều hướng phụ trợ (Aliases)
           { path: 'farmer/*', element: <Navigate replace to="/shop" /> },

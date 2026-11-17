@@ -11,6 +11,7 @@ import {
   Gift,
   Loader2,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react'
 import { useShopOrders, useShopProfile } from '@/features/shop'
 import { useMyProducts, useMyCombos } from '@/features/product'
@@ -114,6 +115,57 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
 
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Cảnh báo Cờ rủi ro chất lượng cho Shop */}
+      {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags >= 3 && (
+        <div className="p-5 rounded-3xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3.5 shadow-sm">
+          <AlertTriangle className="shrink-0 text-rose-600 mt-1" size={22} />
+          <div className="flex-1 text-sm">
+            <div className="flex items-center gap-2 font-bold text-rose-900 text-base">
+              <span>Cảnh báo chất lượng: Gian hàng đang tích lũy {shopProfile.activeRiskFlags} Cờ Rủi Ro</span>
+              <span className="text-xs bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                Bị áp dụng hình phạt
+              </span>
+            </div>
+            <p className="mt-1 text-rose-700 leading-relaxed">
+              Gian hàng của bạn đã có từ 3 khiếu nại giao hàng hỏng được Admin xác nhận. Hệ thống đã <strong>tự động trừ 1.0 sao</strong> trên điểm đánh giá công khai (hiện còn {shopProfile.ratingAverage || 0} sao) và <strong>giảm độ ưu tiên hiển thị sản phẩm</strong> của gian hàng trên sàn.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => onNavigate('disputes')}
+                className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+              >
+                Xem chi tiết khiếu nại &amp; Thu hồi hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags > 0 && shopProfile.activeRiskFlags < 3 && (
+        <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3.5 shadow-sm">
+          <AlertTriangle className="shrink-0 text-amber-600 mt-1" size={22} />
+          <div className="flex-1 text-sm">
+            <div className="flex items-center gap-2 font-bold text-amber-900 text-base">
+              <span>Cảnh báo vi phạm giao hàng hỏng ({shopProfile.activeRiskFlags}/3 Cờ Rủi Ro)</span>
+              <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                Cảnh báo chất lượng
+              </span>
+            </div>
+            <p className="mt-1 text-amber-700 leading-relaxed">
+              Gian hàng vừa có khiếu nại về hàng dập nát/hỏng được Admin phê duyệt (gắn 1 Risk Flag). Nếu tích lũy đủ 3 cờ rủi ro, gian hàng sẽ bị trừ 1 sao đánh giá công khai và giảm độ ưu tiên hiển thị trên sàn. Vui lòng đóng gói cẩn thận nông sản khi bàn giao shipper.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => onNavigate('disputes')}
+                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+              >
+                Kiểm tra mục khiếu nại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4 KPI Cards Grid (Dữ liệu thực từ API) */}
       <div
         id="tour-overview-stats"
@@ -220,11 +272,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('NONG_SAN')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'NONG_SAN'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'NONG_SAN'
                   ? 'border-[#326318] text-[#326318] bg-[#326318]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               Nông sản ({freshProducts.length})
             </button>
@@ -232,11 +283,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('COMBO')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'COMBO'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'COMBO'
                   ? 'border-[#195962] text-[#195962] bg-[#195962]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
               Combo ({combos.length})
             </button>
@@ -244,13 +294,12 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => setProductTab('BLIND_BOX')}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                productTab === 'BLIND_BOX'
+              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${productTab === 'BLIND_BOX'
                   ? 'border-[#8a4e1d] text-[#8a4e1d] bg-[#8a4e1d]/5'
                   : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
-              }`}
+                }`}
             >
-              Hộp Mù ({blindBoxes.length})
+              Túi Mù ({blindBoxes.length})
             </button>
           </div>
 
@@ -394,7 +443,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             )
           ) : blindBoxes.length === 0 ? (
             <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
-              Chưa có túi mù nào. Hãy bấm tạo Túi Mù Blind Box để giải cứu nhanh cuối ngày!
+              Chưa có túi mù nào. Hãy bấm tạo Túi Mù để giải cứu nhanh cuối ngày!
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -427,11 +476,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
 
                   <div className="col-span-2 flex items-center justify-end">
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        box.isActive
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${box.isActive
                           ? 'bg-[#eaf5e1] text-[#326318] border-[#b8e19c]'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}
+                        }`}
                     >
                       <span>{box.isActive ? 'Đang mở' : 'Tạm dừng'}</span>
                     </span>
@@ -487,11 +535,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                 const statusBadge = getOrderStatusBadge(ord.status)
                 const formattedTime = ord.createdAt
                   ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }) +
-                    ' · ' +
-                    new Date(ord.createdAt).toLocaleDateString('vi-VN')
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }) +
+                  ' · ' +
+                  new Date(ord.createdAt).toLocaleDateString('vi-VN')
                   : 'Vừa xong'
 
                 return (
@@ -579,8 +627,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#6f7869] uppercase">
               Doanh Thu Đã Hoàn Thành
             </span>
-            <div className="text-2xl font-black text-[#326318] mt-1">
-              {completedRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#326318] mt-1 whitespace-nowrap">
+              {completedRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Từ {completedOrders.length} đơn hàng đã giao thành công
@@ -591,8 +639,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#8a4e1d] uppercase">
               Đang Chờ Quyết Toán
             </span>
-            <div className="text-2xl font-black text-[#8a4e1d] mt-1">
-              {pendingSettlementRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#8a4e1d] mt-1 whitespace-nowrap">
+              {pendingSettlementRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Từ {shippingOrPendingOrders.length} đơn hàng đang xử lý / vận chuyển
@@ -603,8 +651,8 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <span className="text-[11px] font-bold text-[#2d5c99] uppercase">
               Tổng Giá Trị Đơn Hàng
             </span>
-            <div className="text-2xl font-black text-[#2d5c99] mt-1">
-              {totalSalesRevenue.toLocaleString('vi-VN')} đ
+            <div className="text-2xl font-black text-[#2d5c99] mt-1 whitespace-nowrap">
+              {totalSalesRevenue.toLocaleString('vi-VN')}&nbsp;đ
             </div>
             <span className="text-[10px] text-[#86927f]">
               Tổng doanh số tích lũy của gian hàng

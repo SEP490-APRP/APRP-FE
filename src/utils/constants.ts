@@ -4,7 +4,7 @@
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string) ||
   (import.meta.env.VITE_API_URL as string) ||
-  'http://localhost:8080'
+  'http://localhost:8080/api'
 
 /** Pagination defaults */
 export const PAGINATION = {
@@ -31,6 +31,7 @@ export const ROUTES = {
   REGISTER: '/register',
   OTP_VERIFICATION: '/otp-verification',
   FORGOT_PASSWORD: '/forgot-password',
+  CHANGE_PASSWORD: '/change-password',
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
   SHOP_ORDERS: '/shop/orders',

@@ -25,10 +25,12 @@ export {
 export { ProductGrid } from './components/ProductGrid'
 export { ProductImageGalleryModal } from './components/ProductImageGalleryModal'
 export { EditProductModal } from './components/EditProductModal'
+export { DeleteProductModal } from './components/DeleteProductModal'
 export {
   productKeys,
   type ProductDetailData,
   useAllProducts,
+  useHomeProducts,
   useProductDetail,
   useShopProducts,
   useMyProducts,
@@ -51,4 +53,4 @@ export {
   type ProductFormInput,
   type ProductFormValues,
 } from './schemas/productForm.schema'
-export { useCombos, useMyCombos, useCreateCombo, useUpdateCombo, useDeleteCombo, comboKeys } from './hooks/useComboQueries'
+export { useCombos, useShopCombos, useMyCombos, useCreateCombo, useUpdateCombo, useDeleteCombo, comboKeys } from './hooks/useComboQueries'

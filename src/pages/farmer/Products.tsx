@@ -14,21 +14,25 @@ import {
   PauseCircle,
   ChevronDown,
   Check,
+  PlayCircle,
+  RotateCcw,
 } from 'lucide-react'
 import type { FarmerProduct } from './types'
-import { comboService, mysteryBoxService, type ProductResponse } from '@/services'
+import { comboService, mysteryBoxService, normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
 import {
   useMyProducts,
   useDeleteProduct,
+  useUpdateProduct,
   useMyCombos,
   useDeleteCombo,
 } from '@/features/product'
 import { useCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
-import { EditProductModal } from '@/features/product/components/EditProductModal'
+import { EditProductModal, DeleteProductModal } from '@/features/product'
 import Pagination from '@/components/ui/Pagination/Pagination'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 interface ProductsProps {
   products?: FarmerProduct[]
@@ -36,6 +40,7 @@ interface ProductsProps {
   onOpenBlindBoxTool: () => void
   onOpenComboBuilder?: (combo?: any) => void
   onInfo?: (msg: string) => void
+  initialSearchQuery?: string
 }
 
 export type StatusFilter = 'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED' | 'INACTIVE'
@@ -43,12 +48,11 @@ export type ProductTypeFilter = 'ALL' | 'SINGLE' | 'MYSTERY_BOX' | 'COMBO'
 
 export function isBlindBoxItem(p: any): boolean {
   if (p?.isBlindBox) return true
+  if (p?.category?.categoryId === 9998) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('hộp mù') ||
@@ -57,27 +61,22 @@ export function isBlindBoxItem(p: any): boolean {
     catLower.includes('mystery') ||
     nameLower.includes('túi mù') ||
     nameLower.includes('hộp mù') ||
-    nameLower.includes('blind box') ||
-    unitLower === 'hộp'
+    nameLower.includes('blind box')
   )
 }
 
 export function isComboItem(p: any): boolean {
   if (p?.isCombo) return true
   if (isBlindBoxItem(p)) return false
+  if (p?.category?.categoryId === 9999) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('combo') ||
-    nameLower.includes('combo') ||
-    unitLower === 'combo' ||
-    unitLower === 'phần' ||
-    unitLower === 'set'
+    nameLower.includes('combo')
   )
 }
 
@@ -88,6 +87,7 @@ export default function Products({
   onOpenBlindBoxTool,
   onOpenComboBuilder,
   onInfo,
+  initialSearchQuery = '',
 }: ProductsProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [typeFilter, setTypeFilter] = useState<ProductTypeFilter>('ALL')
@@ -108,7 +108,14 @@ export default function Products({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isCategoryDropdownOpen])
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearchQuery)
+
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setSearch(initialSearchQuery)
+      setPage(0)
+    }
+  }, [initialSearchQuery])
   const [page, setPage] = useState<number>(0)
   const pageSize = 10
 
@@ -123,6 +130,9 @@ export default function Products({
     isOpen: boolean
     product: ProductResponse | null
   }>({ isOpen: false, product: null })
+
+  // Modal xác nhận tạm dừng / gỡ nông sản
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
 
   // Lấy dữ liệu kho hàng của Shop từ BE (tải tối đa 100 mặt hàng mỗi loại để phân trang & lọc Client-side đồng nhất)
   const { data: myProductsData, isLoading: isLoadingProducts } = useMyProducts({
@@ -144,6 +154,7 @@ export default function Products({
   const { data: categories = [] } = useCategories()
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
+  const updateProductMutation = useUpdateProduct()
   const deleteComboMutation = useDeleteCombo()
   const deleteMysteryBoxMutation = useDeleteMysteryBox()
 
@@ -208,31 +219,31 @@ export default function Products({
   const displayItems: ProductResponse[] = hasApiData || comboItems.length > 0 || boxItems.length > 0
     ? allStoreItems
     : propProducts.map((p) => ({
-        id: Number(p.id) || 1,
-        productId: Number(p.id) || 1,
-        productName: p.name,
-        name: p.name,
-        sellingPrice: p.price,
-        price: p.price,
-        stockQuantity: p.stock,
-        stock: p.stock,
-        unit: p.unit || 'kg',
-        status: ((p.status as string) === 'Chờ duyệt'
-          ? 'PENDING'
-          : (p.status as string) === 'Đang bán'
-            ? 'ACTIVE'
-            : (p.status as string) === 'Bị từ chối'
-              ? 'REJECTED'
-              : 'INACTIVE') as any,
-        category: p.category as any,
-        categoryId: 1,
-        imageUrl: p.image,
-        image: p.image,
-        expiryDate: undefined,
-        rejectReason: undefined,
-        defectReason: undefined,
-        images: [],
-      }))
+      id: Number(p.id) || 1,
+      productId: Number(p.id) || 1,
+      productName: p.name,
+      name: p.name,
+      sellingPrice: p.price,
+      price: p.price,
+      stockQuantity: p.stock,
+      stock: p.stock,
+      unit: p.unit || 'kg',
+      status: ((p.status as string) === 'Chờ duyệt'
+        ? 'PENDING'
+        : (p.status as string) === 'Đang bán'
+          ? 'ACTIVE'
+          : (p.status as string) === 'Bị từ chối'
+            ? 'REJECTED'
+            : 'INACTIVE') as any,
+      category: p.category as any,
+      categoryId: 1,
+      imageUrl: p.image,
+      image: p.image,
+      expiryDate: undefined,
+      rejectReason: undefined,
+      defectReason: undefined,
+      images: [],
+    }))
 
   // Danh sách các mặt hàng phù hợp với trạng thái statusFilter đang chọn
   const itemsByStatus = displayItems.filter((p) => {
@@ -273,6 +284,18 @@ export default function Products({
     return true
   })
 
+  // Sắp xếp: ưu tiên thời gian cập nhật/từ chối gần nhất (updatedAt DESC), sau đó đến productId DESC
+  filtered.sort((a, b) => {
+    const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    if (timeB !== timeA) {
+      return timeB - timeA
+    }
+    const idA = Number(a.productId ?? a.id ?? 0)
+    const idB = Number(b.productId ?? b.id ?? 0)
+    return idB - idA
+  })
+
   // Phân trang: dùng filtered.length để phản ánh tổng cả Nông sản lẻ + Combo + Túi mù
   const totalPages = Math.ceil(filtered.length / pageSize) || 1
   const totalElements = filtered.length
@@ -298,24 +321,63 @@ export default function Products({
     setPage(0)
   }
 
-  const handleDelete = async (p: any) => {
+  const isDeleting =
+    deleteMutation.isPending ||
+    deleteComboMutation.isPending ||
+    deleteMysteryBoxMutation.isPending
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    const p = deleteTarget
     const prodId = Number(p.id ?? p.productId)
     const prodName = p.productName || p.name || 'Sản phẩm'
-    if (window.confirm(`Bạn có chắc muốn tạm dừng/gỡ bỏ "${prodName}"?`)) {
-      try {
-        if (isComboItem(p)) {
-          await deleteComboMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Combo: ${prodName}`)
-        } else if (isBlindBoxItem(p)) {
-          await deleteMysteryBoxMutation.mutateAsync(prodId)
-          onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
-        } else {
-          await deleteMutation.mutateAsync(prodId)
-          onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
-        }
-      } catch (err: any) {
-        onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
+    try {
+      if (isComboItem(p)) {
+        await deleteComboMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Combo: ${prodName}`)
+      } else if (isBlindBoxItem(p)) {
+        await deleteMysteryBoxMutation.mutateAsync(prodId)
+        onInfo?.(`Đã gỡ Túi mù: ${prodName}`)
+      } else {
+        await deleteMutation.mutateAsync(prodId)
+        onInfo?.(`Đã tạm dừng sản phẩm: ${prodName}`)
       }
+      setDeleteTarget(null)
+    } catch (err: any) {
+      onInfo?.(getErrorMessage(err) || 'Lỗi khi xử lý sản phẩm')
+    }
+  }
+
+  const handleResumeProduct = async (p: any) => {
+    const prodId = Number(p.id ?? p.productId)
+    const prodName = p.productName || p.name || 'Sản phẩm'
+    const isRejected = p.status?.toUpperCase() === 'REJECTED'
+
+    const confirmMsg = isRejected
+      ? `Gửi lại nông sản "${prodName}" vào hàng chờ duyệt để Admin kiểm tra lại?`
+      : `Mở bán lại nông sản "${prodName}"? (Sản phẩm sẽ được gửi Admin thẩm định duyệt lại)`
+
+    if (!(await globalShowConfirm(confirmMsg))) return
+
+    try {
+      await updateProductMutation.mutateAsync({
+        id: prodId,
+        request: {
+          productName: prodName,
+          categoryId: typeof p.category === 'object' && p.category !== null ? p.category.categoryId : (p.categoryId || 1),
+          unit: p.unit || 'kg',
+          sellingPrice: Number(p.sellingPrice ?? p.price ?? 0),
+          stockQuantity: Number(p.stockQuantity ?? p.stock ?? 0),
+          description: p.description || '',
+          expiryDate: p.expiryDate || new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
+          discountPercent: p.discountPercent || 0,
+          status: 'PENDING',
+        },
+      })
+      void globalShowAlert(`Đã gửi sản phẩm "${prodName}" vào hàng chờ duyệt!`, 'Thành công', 'success')
+      onInfo?.(`Đã gửi duyệt lại sản phẩm: ${prodName}`)
+    } catch (err: any) {
+      void globalShowAlert(getErrorMessage(err, 'Lỗi khi kích hoạt lại sản phẩm'), 'Lỗi', 'error')
     }
   }
 
@@ -372,10 +434,10 @@ export default function Products({
             <button
               id="tour-products-combo-btn"
               type="button"
-              onClick={onOpenComboBuilder}
+              onClick={() => onOpenComboBuilder?.()}
               className="px-4 py-2 rounded-full bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
             >
-              Tạo Combo Món
+              Tạo Combo Nông Sản
             </button>
           )}
 
@@ -385,7 +447,7 @@ export default function Products({
             onClick={onOpenBlindBoxTool}
             className="px-4 py-2 rounded-full bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
           >
-            Tạo Túi Mù Blind Box
+            Tạo Túi Mù
           </button>
 
           <button
@@ -394,7 +456,6 @@ export default function Products({
             onClick={onOpenAddProduct}
             className="px-4 py-2 rounded-full bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-sm flex items-center gap-1 cursor-pointer transition-all"
           >
-            <Plus size={14} />
             <span>Đăng Bán Nông Sản</span>
           </button>
         </div>
@@ -408,55 +469,50 @@ export default function Products({
             <button
               type="button"
               onClick={() => handleStatusChange('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'ALL'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ALL'
                   ? 'bg-[#1c2216] text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Tất cả
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('ACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'ACTIVE'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ACTIVE'
                   ? 'bg-[#326318] text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Đang bán
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('PENDING')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'PENDING'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'PENDING'
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Chờ duyệt
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('REJECTED')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'REJECTED'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'REJECTED'
                   ? 'bg-red-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Từ chối
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('INACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
-                statusFilter === 'INACTIVE'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'INACTIVE'
                   ? 'bg-gray-600 text-white shadow-sm'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-              }`}
+                }`}
             >
               Tạm dừng
             </button>
@@ -485,44 +541,40 @@ export default function Products({
             <button
               type="button"
               onClick={() => handleTypeChange('ALL')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'ALL'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'ALL'
                   ? 'bg-[#1c2216] text-white'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
             >
               Tất cả ({itemsByStatus.length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('SINGLE')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'SINGLE'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'SINGLE'
                   ? 'bg-[#326318] text-white'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
             >
               Nông sản lẻ ({itemsByStatus.filter((p) => !isBlindBoxItem(p) && !isComboItem(p)).length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('MYSTERY_BOX')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'MYSTERY_BOX'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'MYSTERY_BOX'
                   ? 'bg-[#8a4e1d] text-white'
                   : 'bg-white border border-[#f5ddbd] text-[#8a4e1d] hover:bg-[#fdf5eb]'
-              }`}
+                }`}
             >
               Túi mù ({itemsByStatus.filter(isBlindBoxItem).length})
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('COMBO')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                typeFilter === 'COMBO'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'COMBO'
                   ? 'bg-[#195962] text-white'
                   : 'bg-white border border-[#cae4e7] text-[#195962] hover:bg-[#edf6f7]'
-              }`}
+                }`}
             >
               Combo ({itemsByStatus.filter(isComboItem).length})
             </button>
@@ -534,11 +586,10 @@ export default function Products({
               id="tour-products-category-filter-btn"
               type="button"
               onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${
-                categoryFilter !== 'ALL'
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${categoryFilter !== 'ALL'
                   ? 'bg-[#326318] text-white border-[#326318] shadow-xs'
                   : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-              }`}
+                }`}
               title="Lọc danh mục nông sản"
             >
               <Filter size={12} />
@@ -577,11 +628,10 @@ export default function Products({
                       handleCategoryChange('ALL')
                       setIsCategoryDropdownOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${
-                      categoryFilter === 'ALL'
+                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${categoryFilter === 'ALL'
                         ? 'text-[#326318] bg-[#f4f7f1] font-bold'
                         : 'text-[#2e3726]'
-                    }`}
+                      }`}
                   >
                     <span>Tất cả danh mục</span>
                     {categoryFilter === 'ALL' && <Check size={12} className="text-[#326318]" />}
@@ -595,11 +645,10 @@ export default function Products({
                         handleCategoryChange(c.categoryId)
                         setIsCategoryDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${
-                        categoryFilter === c.categoryId
+                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center justify-between hover:bg-[#f4f7f1] transition-colors cursor-pointer ${categoryFilter === c.categoryId
                           ? 'text-[#326318] bg-[#f4f7f1] font-bold'
                           : 'text-[#2e3726]'
-                      }`}
+                        }`}
                     >
                       <span className="truncate">{c.name}</span>
                       {categoryFilter === c.categoryId && (
@@ -679,7 +728,7 @@ export default function Products({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm font-black text-[#1c2216]">{prodName}</h4>
-                        
+
                         {isBlindBoxItem(p) ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#fdf5eb] text-[#8a4e1d] border border-[#f5ddbd]">
                             Túi Mù
@@ -701,7 +750,7 @@ export default function Products({
                         ) : isComboItem(p) ? (
                           <>Set nguyên liệu bữa ăn · Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span></>
                         ) : (
-                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${p.expiryDate}`}</>
+                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${normalizeExpiryDate(p.expiryDate) || p.expiryDate}`}</>
                         )}
                       </span>
                     </div>
@@ -755,15 +804,27 @@ export default function Products({
                         <Edit3 size={16} />
                       </button>
 
-                      {/* Nút Xóa / Tạm dừng */}
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p)}
-                        title="Tạm dừng / Gỡ sản phẩm"
-                        className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {/* Nút Khôi phục / Mở bán lại nếu đang Tạm dừng hoặc Bị từ chối */}
+                      {!isBlindBoxItem(p) && !isComboItem(p) && (p.status === 'INACTIVE' || p.status === 'REJECTED') ? (
+                        <button
+                          type="button"
+                          onClick={() => handleResumeProduct(p)}
+                          title={p.status === 'REJECTED' ? 'Gửi Admin duyệt lại' : 'Mở bán lại (gửi Admin duyệt)'}
+                          className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#326318] hover:text-[#254b12] cursor-pointer transition-colors"
+                        >
+                          {p.status === 'REJECTED' ? <RotateCcw size={16} /> : <PlayCircle size={16} />}
+                        </button>
+                      ) : (
+                        /* Nút Xóa / Tạm dừng */
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          title="Tạm dừng / Gỡ sản phẩm"
+                          className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -819,6 +880,7 @@ export default function Products({
       {/* Edit Product Modal */}
       {editModalState.product && (
         <EditProductModal
+          key={editModalState.product.id ?? editModalState.product.productId}
           product={editModalState.product}
           isOpen={editModalState.isOpen}
           onClose={() => setEditModalState({ isOpen: false, product: null })}
@@ -828,6 +890,19 @@ export default function Products({
           onInfo={onInfo}
         />
       )}
+
+      {/* Delete / Pause Product Modal */}
+      <DeleteProductModal
+        isOpen={deleteTarget !== null}
+        item={deleteTarget}
+        isDeleting={isDeleting}
+        isCombo={deleteTarget ? isComboItem(deleteTarget) : false}
+        isBlindBox={deleteTarget ? isBlindBoxItem(deleteTarget) : false}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null)
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

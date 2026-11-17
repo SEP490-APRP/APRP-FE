@@ -12,6 +12,10 @@ import {
   AlertCircle,
   X,
   Eye,
+  Phone,
+  Truck,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react'
 import type { UserResponse } from '@/services'
 import { useAllUsers, useApproveKyc, useFetchUser, useSetUserActive } from '@/features/user'
@@ -469,8 +473,7 @@ const ShipperManagement: React.FC = () => {
                     {/* Account Info */}
                     <div>
                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">contact_phone</span>{' '}
-                        Thông tin liên hệ
+                        <Phone className="size-4" /> Thông tin liên hệ
                       </h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -506,10 +509,7 @@ const ShipperManagement: React.FC = () => {
                     {/* Operation Info */}
                     <div>
                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">
-                          local_shipping
-                        </span>{' '}
-                        Thông tin hoạt động
+                        <Truck className="size-4" /> Thông tin hoạt động
                       </h4>
                       <div className="grid grid-cols-2 gap-4 flex-wrap">
                         <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -534,8 +534,7 @@ const ShipperManagement: React.FC = () => {
                     {/* Document Images */}
                     <div>
                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">folder_open</span>{' '}
-                        Giấy tờ đã nộp
+                        <FolderOpen className="size-4" /> Giấy tờ đã nộp
                       </h4>
 
                       <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 mb-4 text-xs text-blue-800 leading-relaxed font-medium">
@@ -565,10 +564,7 @@ const ShipperManagement: React.FC = () => {
                                 />
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                   <span className="text-white font-bold bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 text-xs">
-                                    <span className="material-symbols-outlined text-sm">
-                                      open_in_new
-                                    </span>{' '}
-                                    Phóng to
+                                    <ExternalLink className="size-3.5" /> Phóng to
                                   </span>
                                 </div>
                               </div>
@@ -600,10 +596,7 @@ const ShipperManagement: React.FC = () => {
                                 />
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                   <span className="text-white font-bold bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 text-xs">
-                                    <span className="material-symbols-outlined text-sm">
-                                      open_in_new
-                                    </span>{' '}
-                                    Phóng to
+                                    <ExternalLink className="size-3.5" /> Phóng to
                                   </span>
                                 </div>
                               </div>

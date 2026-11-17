@@ -519,29 +519,35 @@
   gap: 16px;
   min-height: 72px;
   position: relative;
-  z-index: 2;
+  z-index: 50;
   background: rgba(252, 249, 241, 0.98);
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
 }
-.brand-leaf {
-  color: #4a7c2f;
+.brand img {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .brand strong {
   display: block;
-  font-size: 22px;
+  font-size: 23px;
+  font-weight: 900;
   line-height: 1.1;
-  color: #326318;
-  letter-spacing: -0.6px;
+  color: #2b591b;
+  letter-spacing: -0.5px;
 }
 .brand small {
-  font-size: 10px;
-  color: #7a573a;
+  font-size: 11px;
+  font-weight: 500;
+  color: #55624d;
   display: block;
+  letter-spacing: -0.1px;
 }
 .header-search {
   display: flex;
@@ -601,6 +607,22 @@
   right: 1px;
   border-radius: 20px;
   background: #326318;
+  color: #fff;
+  min-width: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+  text-align: center;
+}
+.chat-trigger {
+  position: relative;
+}
+.chat-trigger > span {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  border-radius: 20px;
+  background: #e11d48;
   color: #fff;
   min-width: 18px;
   font-size: 10px;
@@ -1231,26 +1253,36 @@
 }
 .toast {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  z-index: 40;
+  z-index: 9999;
   background: #264319;
   color: #fff;
-  padding: 12px 18px;
+  padding: 12px 20px;
   border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-  font-size: 12px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
   width: max-content;
   max-width: 92vw;
+  line-height: 1.4;
+}
+.toast.toast-error {
+  background: #881337;
+  border: 1px solid #e11d48;
+}
+.toast.toast-warning {
+  background: #78350f;
+  border: 1px solid #d97706;
 }
 .toast button {
   font-weight: 700;
   text-decoration: underline;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* Tablet Breakpoint Optimizations (601px to 1023px) */
@@ -1479,3 +1511,112 @@
   }
 }
 
+/* Cart Drawer Slide-in Animation & Smooth Transitions */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-slideInRight {
+  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-scaleUp {
+  animation: scaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ===== CapNong Orbital Loading Animations (Inspired by AeMedia Style) ===== */
+@keyframes capnong-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes capnong-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes capnong-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.05);
+  }
+}
+
+@keyframes capnong-pulse-glow {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes capnong-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+
+
+@keyframes bell-ring {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  15%, 45% {
+    transform: rotate(14deg);
+  }
+  30%, 60% {
+    transform: rotate(-14deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+  85% {
+    transform: rotate(-6deg);
+  }
+}
+
+.animate-bell-ring {
+  animation: bell-ring 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+}

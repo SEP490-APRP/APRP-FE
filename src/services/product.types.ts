@@ -33,6 +33,7 @@ export interface ModerationLabelResponse {
 export interface ModerationResultResponse {
   id: number
   isFlagged?: boolean
+  flagReason?: string
   overallConfidence?: number
   checkedAt?: string
   moderationLabels?: ModerationLabelResponse[]
@@ -56,6 +57,17 @@ export interface AiDescriptionSuggestionResponse {
   suggestedDescription: string
   keyHighlights?: string[]
   generatedSource?: string
+}
+
+export interface ImageSearchResponse {
+  identifiedProduce: string | null
+  confidence: number
+  isAgricultural?: boolean
+  agricultural?: boolean
+  detectedKeywords: string[]
+  searchKeyword: string | null
+  products: ProductResponse[]
+  totalMatches: number
 }
 
 export interface ProductImageCreationRequest {

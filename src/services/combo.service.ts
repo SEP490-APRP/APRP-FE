@@ -11,6 +11,7 @@ export type * from './combo.types'
 export const comboService = {
   // Lấy danh sách build combo công khai
   async getCombos(params?: {
+    shopId?: number
     status?: string
     mealType?: string
     region?: string

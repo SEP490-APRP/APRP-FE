@@ -4,8 +4,8 @@ import { useUser } from '@/features/user'
 import { useAuth } from '@/stores'
 import ShopProducts from './ShopProducts'
 
-const DEFAULT_TITLE = 'XẤU MÃ - Nông Sản Mộc Mạc, Giá Trị Thật'
-const DEFAULT_IMG = 'https://nongsanxauma.vn/logo.png'
+const DEFAULT_TITLE = 'CapNong - Nông sản xấu mã – Ngon thật'
+const DEFAULT_IMG = '/logo.png'
 
 const setMeta = (property: string, content: string) => {
   let el = document.querySelector(`meta[property="${property}"]`)

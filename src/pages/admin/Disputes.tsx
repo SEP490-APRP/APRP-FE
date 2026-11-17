@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  Film,
 } from 'lucide-react'
 import { returnService, ReturnRequestResponse } from '@/services/return.service'
 import { useCheckDisputePayout, useDisputeAction, useDisputes } from '@/features/order'
@@ -45,8 +46,7 @@ const Disputes: React.FC = () => {
         matchesSearch &&
         (d.status === 'PENDING' ||
           d.status === 'SHOP_APPROVED' ||
-          d.status === 'DISPUTED' ||
-          d.status === 'REFUND_PENDING')
+          d.status === 'DISPUTED' || d.status === 'ADMIN_APPROVED' || d.status === 'REFUND_PENDING')
       )
     if (statusFilter === 'COMPLETED') return matchesSearch && d.status === 'COMPLETED'
     return matchesSearch && d.status === statusFilter
@@ -102,7 +102,9 @@ const Disputes: React.FC = () => {
         }
 
         globalShowAlert(
-          'Đã thực hiện thao tác ' + (accept ? 'phê duyệt' : 'từ chối'),
+          accept
+            ? 'Đã duyệt khiếu nại! Yêu cầu được chuyển cho Shop để lựa chọn phương án lấy lại hàng hoặc hoàn tiền ngay trong 24h.'
+            : 'Đã từ chối khiếu nại.',
           'Thành công',
           'success',
         )
@@ -130,7 +132,12 @@ const Disputes: React.FC = () => {
     }
   }
 
-  const evidenceList = selectedDispute?.evidence ? selectedDispute.evidence.split(';') : []
+  const evidenceList =
+    selectedDispute?.evidenceUrls && selectedDispute.evidenceUrls.length > 0
+      ? selectedDispute.evidenceUrls
+      : selectedDispute?.evidence
+        ? selectedDispute.evidence.split(';')
+        : []
   const [activeEvidence, setActiveEvidence] = useState(0)
 
   return (
@@ -240,6 +247,11 @@ const Disputes: React.FC = () => {
                         <XCircle className="size-3" /> ĐÃ TỪ CHỐI
                       </>
                     )}
+                    {item.status === 'ADMIN_APPROVED' && (
+                      <>
+                        <Clock className="size-3 text-indigo-500" /> CHỜ SHOP CHỌN THU HỒI
+                      </>
+                    )}
                     {item.status === 'DISPUTED' && (
                       <>
                         <AlertTriangle className="size-3" /> TRANH CHẤP
@@ -278,17 +290,30 @@ const Disputes: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 relative bg-black flex items-center justify-center">
+                  <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
                     {evidenceList.length > 0 ? (
-                      <img
-                        src={evidenceList[activeEvidence]}
-                        className="max-h-full object-contain"
-                      />
+                      evidenceList[activeEvidence].toLowerCase().includes('.mp4') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('.mov') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('.webm') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('video') ? (
+                        <video
+                          key={evidenceList[activeEvidence]}
+                          src={evidenceList[activeEvidence]}
+                          controls
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <img
+                          src={evidenceList[activeEvidence]}
+                          className="max-h-full object-contain"
+                          alt="Bằng chứng"
+                        />
+                      )
                     ) : (
-                      <div className="text-gray-500 text-sm">Không có hình ảnh</div>
+                      <div className="text-gray-500 text-sm">Không có hình ảnh hoặc video</div>
                     )}
-                    <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 flex items-center gap-3">
-                      <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white">
+                    <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 flex items-center gap-3 pointer-events-none">
+                      <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white shrink-0">
                         <AlertTriangle className="size-4" />
                       </div>
                       <p className="text-[11px] text-white/90 font-medium italic line-clamp-2">
@@ -297,14 +322,31 @@ const Disputes: React.FC = () => {
                     </div>
                   </div>
                   <div className="p-4 flex gap-4 overflow-x-auto bg-gray-900">
-                    {evidenceList.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        onClick={() => setActiveEvidence(i)}
-                        className={`size-16 rounded-xl object-cover cursor-pointer transition-all ${activeEvidence === i ? 'border-2 border-primary scale-110' : 'opacity-40 hover:opacity-100'}`}
-                      />
-                    ))}
+                    {evidenceList.map((url, i) => {
+                      const isVideo =
+                        url.toLowerCase().includes('.mp4') ||
+                        url.toLowerCase().includes('.mov') ||
+                        url.toLowerCase().includes('.webm') ||
+                        url.toLowerCase().includes('video')
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setActiveEvidence(i)}
+                          className={`relative size-16 rounded-xl overflow-hidden cursor-pointer transition-all shrink-0 ${
+                            activeEvidence === i ? 'border-2 border-primary scale-110' : 'opacity-40 hover:opacity-100'
+                          }`}
+                        >
+                          {isVideo ? (
+                            <div className="w-full h-full bg-stone-900 flex flex-col items-center justify-center text-amber-400">
+                              <Film className="size-5" />
+                              <span className="text-[8px] text-white font-mono mt-0.5">Video</span>
+                            </div>
+                          ) : (
+                            <img src={url} className="w-full h-full object-cover" alt="Bằng chứng" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -395,59 +437,86 @@ const Disputes: React.FC = () => {
                           className="w-full h-24 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-medium outline-none focus:border-primary transition-all resize-none"
                         />
                       </div>
-                      <div className="grid grid-cols-1 gap-3">
-                        <button
-                          onClick={() => handleAdminAction(true, 100)}
-                          disabled={
-                            submitting ||
-                            selectedDispute.status === 'COMPLETED' ||
-                            selectedDispute.status === 'REFUND_PENDING'
-                          }
-                          className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95 disabled:opacity-50"
-                        >
-                          {submitting ? (
-                            <Loader2 className="size-5 animate-spin mx-auto" />
-                          ) : selectedDispute.status === 'SHOP_APPROVED' ? (
-                            'XÁC NHẬN HOÀN TIỀN 100%'
-                          ) : (
-                            'PHÊ DUYỆT HOÀN TIỀN 100%'
-                          )}
-                        </button>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            onClick={() => handleAdminAction(true, 50)}
-                            disabled={
-                              submitting ||
-                              selectedDispute.status === 'COMPLETED' ||
-                              selectedDispute.status === 'REFUND_PENDING'
-                            }
-                            className="py-3 bg-green-50 text-primary font-black rounded-xl border border-primary/20 hover:bg-green-100 transition-colors disabled:opacity-50"
-                          >
-                            HOÀN 50%
-                          </button>
-                          <button
-                            onClick={() => handleAdminAction(false)}
-                            disabled={
-                              submitting ||
-                              selectedDispute.status === 'COMPLETED' ||
-                              selectedDispute.status === 'REFUND_PENDING'
-                            }
-                            className="py-3 bg-red-50 text-red-500 font-black rounded-xl border border-red-100 hover:bg-red-100 transition-colors disabled:opacity-50"
-                          >
-                            TỪ CHỐI
-                          </button>
-                        </div>
-                      </div>
-                      {selectedDispute.status === 'COMPLETED' && (
-                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
-                          <div className="size-8 bg-emerald-500 rounded-full flex items-center justify-center text-white scale-75">
-                            <ShieldCheck className="size-5" />
-                          </div>
-                          <p className="text-xs font-bold text-emerald-700">
-                            Khiếu nại này đã được giải quyết thành công.
-                          </p>
-                        </div>
-                      )}
+                      {(() => {
+                        const isResolved =
+                          selectedDispute.status === 'COMPLETED' ||
+                          selectedDispute.status === 'ADMIN_APPROVED' ||
+                          selectedDispute.status === 'REJECTED' ||
+                          selectedDispute.status === 'CANCELLED' ||
+                          selectedDispute.status === 'RETURN_SHIPPING' ||
+                          selectedDispute.status === 'RETURN_PICKED_UP' ||
+                          selectedDispute.status === 'RETURN_DELIVERED' ||
+                          selectedDispute.status === 'REFUND_PENDING';
+
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 gap-3">
+                              <button
+                                onClick={() => handleAdminAction(true, 100)}
+                                disabled={submitting || isResolved}
+                                className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {submitting ? (
+                                  <Loader2 className="size-5 animate-spin mx-auto" />
+                                ) : selectedDispute.status === 'SHOP_APPROVED' ? (
+                                  'XÁC NHẬN HOÀN TIỀN 100%'
+                                ) : (
+                                  'PHÊ DUYỆT HOÀN TIỀN 100%'
+                                )}
+                              </button>
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => handleAdminAction(true, 50)}
+                                  disabled={submitting || isResolved}
+                                  className="py-3 bg-green-50 text-primary font-black rounded-xl border border-primary/20 hover:bg-green-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  HOÀN 50%
+                                </button>
+                                <button
+                                  onClick={() => handleAdminAction(false)}
+                                  disabled={submitting || isResolved}
+                                  className="py-3 bg-red-50 text-red-500 font-black rounded-xl border border-red-100 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  TỪ CHỐI
+                                </button>
+                              </div>
+                            </div>
+
+                            {selectedDispute.status === 'ADMIN_APPROVED' && (
+                              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-indigo-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <Clock className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-indigo-800">
+                                  Đã phê duyệt khiếu nại. Yêu cầu đang được chuyển cho Shop để lựa chọn phương án lấy lại hàng hoặc hoàn tiền ngay trong 24h.
+                                </p>
+                              </div>
+                            )}
+
+                            {selectedDispute.status === 'REJECTED' && (
+                              <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <XCircle className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-red-700">
+                                  Admin đã từ chối yêu cầu khiếu nại này.
+                                </p>
+                              </div>
+                            )}
+
+                            {selectedDispute.status === 'COMPLETED' && (
+                              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="size-8 bg-emerald-500 rounded-full flex items-center justify-center text-white scale-75 shrink-0">
+                                  <ShieldCheck className="size-5" />
+                                </div>
+                                <p className="text-xs font-bold text-emerald-700">
+                                  Khiếu nại này đã được giải quyết thành công.
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <p className="text-[10px] text-gray-400 font-medium italic text-center">
                         Hành động này sẽ giải quyết tranh chấp và cập nhật ví tiền của các bên liên
                         quan.

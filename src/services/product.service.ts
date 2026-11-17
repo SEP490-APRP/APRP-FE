@@ -3,6 +3,7 @@ import type {
   AiDescriptionSuggestionRequest,
   AiDescriptionSuggestionResponse,
   GetMyProductsParams,
+  ImageSearchResponse,
   ProductCreationRequest,
   ProductImageCreationRequest,
   ProductImageResponse,
@@ -15,6 +16,37 @@ import { ENV } from '@/utils'
 
 export type * from './product.types'
 
+/** Chuẩn hóa định dạng ngày từ Backend (mảng Jackson [YYYY, MM, DD], chuỗi YYYY-MM-DD, chuỗi nén YYYYMMDD) thành YYYY-MM-DD */
+export function normalizeExpiryDate(val: any): string | undefined {
+  if (!val) return undefined
+  if (Array.isArray(val) && val.length >= 3) {
+    const y = String(val[0]).padStart(4, '0')
+    const m = String(val[1]).padStart(2, '0')
+    const d = String(val[2]).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  if (typeof val === 'number') {
+    const numStr = String(val)
+    if (numStr.length === 8 && /^\d{8}$/.test(numStr)) {
+      return `${numStr.substring(0, 4)}-${numStr.substring(4, 6)}-${numStr.substring(6, 8)}`
+    }
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (trimmed.includes(',')) {
+      const parts = trimmed.split(',')
+      if (parts.length >= 3) {
+        return `${parts[0].trim().padStart(4, '0')}-${parts[1].trim().padStart(2, '0')}-${parts[2].trim().padStart(2, '0')}`
+      }
+    }
+    if (trimmed.length === 8 && /^\d{8}$/.test(trimmed)) {
+      return `${trimmed.substring(0, 4)}-${trimmed.substring(4, 6)}-${trimmed.substring(6, 8)}`
+    }
+    return trimmed.split('T')[0]
+  }
+  return undefined
+}
+
 /** Chuẩn hóa ProductResponse từ BE để tương thích 100% với UI FE cũ và mới */
 function normalizeProduct(p: any): ProductResponse {
   const id = Number(p.productId ?? p.id)
@@ -24,6 +56,9 @@ function normalizeProduct(p: any): ProductResponse {
   const primaryImg = p.images?.find((img: any) => img.isPrimary)?.imageUrl
   const firstImg = p.images?.[0]?.imageUrl
   const imageUrl = primaryImg ?? firstImg ?? p.imageUrl ?? p.image ?? ''
+  const shopId = Number(p.shop?.id ?? p.shopId ?? p.shopOwnerId ?? 0)
+  const shopName = p.shop?.shopName ?? p.shop?.fullName ?? p.shopName ?? ''
+  const expiryDate = normalizeExpiryDate(p.expiryDate)
 
   return {
     ...p,
@@ -38,6 +73,10 @@ function normalizeProduct(p: any): ProductResponse {
     imageUrl,
     image: imageUrl,
     primaryImageUrl: primaryImg ?? imageUrl,
+    shopId,
+    shopOwnerId: shopId,
+    shopName,
+    expiryDate,
   }
 }
 
@@ -45,10 +84,10 @@ function normalizeProduct(p: any): ProductResponse {
 let localFarmerProducts: ProductResponse[] = [...mockBuyerProducts]
 
 export const productService = {
-  async getAll(params?: { categoryId?: number; keyword?: string; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
+  async getAll(params?: { categoryId?: number; keyword?: string; shopId?: number; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
     try {
       const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products', {
-        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 50, ...params },
+        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 100, ...params },
       })
       const items = (res.data.result?.content ?? []).map(normalizeProduct)
       if (items.length > 0) {
@@ -62,6 +101,9 @@ export const productService = {
     let list = [...localFarmerProducts]
     if (params?.categoryId) {
       list = list.filter((p: any) => p.categoryId === params.categoryId || p.category?.categoryId === params.categoryId)
+    }
+    if (params?.shopId) {
+      list = list.filter((p: any) => Number(p.shopId ?? p.shopOwnerId ?? p.shop?.id) === params.shopId)
     }
     if (params?.keyword) {
       const kw = params.keyword.toLowerCase()
@@ -430,6 +472,21 @@ export const productService = {
     const res = await axiosInstance.post<ApiResponse<AiDescriptionSuggestionResponse>>(
       '/products/ai-suggest-description',
       request,
+    )
+    return res.data
+  },
+
+  /** Tìm kiếm nông sản bằng hình ảnh AI (Google Cloud Vision) */
+  async searchByImage(file: File): Promise<ApiResponse<ImageSearchResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await axiosInstance.post<ApiResponse<ImageSearchResponse>>(
+      '/products/search-by-image',
+      formData,
+      {
+        timeout: 60_000, // Cho phép 60s đối với upload và xử lý ảnh AI độ phân giải cao (tới 10MB)
+      }
     )
     return res.data
   },

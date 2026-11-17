@@ -19,6 +19,8 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   PAID: 'Đã thanh toán',
   CANCELLED: 'Đã hủy',
   FAILED: 'Thất bại',
+  REFUND_REQUESTED: 'Yêu cầu trả hàng',
+  REFUNDED: 'Đã hoàn tiền',
 }
 
 export function getOrderStatusLabel(status?: string | null): string {
@@ -32,12 +34,14 @@ export function getOrderStatusBadgeClass(status?: string | null): string {
     case 'PAID':
     case 'DELIVERED':
     case 'QUALITY_APPROVED':
+    case 'REFUNDED':
       return 'bg-emerald-50 text-emerald-700 border-emerald-200'
     case 'PICKED_UP':
     case 'SHIPPING':
     case 'SHIPPING_TO_WAREHOUSE':
       return 'bg-blue-50 text-blue-700 border-blue-200'
     case 'AWAITING_PAYMENT':
+    case 'REFUND_REQUESTED':
       return 'bg-amber-500/10 text-amber-700 border-amber-300'
     case 'PENDING':
     case 'AWAITING_CONFIRMATION':

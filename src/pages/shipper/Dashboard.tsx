@@ -1,27 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { notificationService, NotificationItem, orderService } from '../../services';
+import { notificationService, NotificationItem } from '../../services';
 import {
   shipperService,
+  shipperErrorMessage,
+  SHIPPER_HEARTBEAT_MS,
   AvailableOrderResponse,
   ShipperOrderResponse,
 } from '../../services/shipper.service';
+import { notificationSocketService } from '@/services/websocket/notificationSocket.service';
+import { CodAcceptDialog, DeliveryResultModal, type DeliveryResult } from '@/features/shipper';
 import { PageResponse } from '../../types';
 import { getWebSocketUrl, TOKEN_KEY } from '../../services/api.config';
 import {
-  Bell, MapPin, Wallet, Navigation, Zap, Clock, Bike, Package,
+  Bell, MapPin, RotateCcw, Wallet, Navigation, Zap, Clock, Bike, Package,
   ArrowRight, User, LogOut, Truck, CheckCircle2, X, Info,
-  RefreshCw, Loader2, Radio, StopCircle, WifiOff, Store, MessageSquare, Camera, ImagePlus, Home,
+  RefreshCw, Loader2, Radio, StopCircle, WifiOff, Store, MessageSquare, Home,
   Route
 } from 'lucide-react';
 import FakeGPS from './Fakegps';
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal';
 import { authService } from '../../services/auth.service';
 import type { UserResponse } from '../../services/auth.service';
-import { getCodCollectAmount, getCodPrepaidAmount, isCodOrder } from '../../services/codSettlement.service';
-import { globalShowAlert } from '@/components/common/Popup';
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup';
+import { pickupCode } from '@/utils/orderCode';
+import logoIcon from '@/assets/logo-icon.png';
+import { CapNongLoading } from '@/components/ui/Loading';
+import { ShipperReturnOrders } from './ShipperReturnOrders';
+import { ShipperWalletPanel } from '@/features/wallet';
 
 interface ShipperDashboardProps {
   onLogout?: () => void;
@@ -33,11 +41,32 @@ type TrackingStatus = 'off' | 'starting' | 'active' | 'error';
 
 const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigateStore }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const handleGoHome = () => {
     if (onNavigateStore) onNavigateStore();
     else navigate('/');
   };
-  const [activeTab, setActiveTab] = useState('Đơn hàng mới');
+
+  const tabParam = searchParams.get('tab');
+  const initialTab =
+    tabParam === 'delivering' || tabParam === 'dang-giao'
+      ? 'Đơn đang giao'
+      : tabParam === 'profile' || tabParam === 'ho-so' || tabParam === 'cod' || tabParam === 'wallet'
+        ? 'Hồ sơ cá nhân'
+        : 'Đơn hàng mới';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const param = searchParams.get('tab');
+    if (param === 'delivering' || param === 'dang-giao') {
+      setActiveTab('Đơn đang giao');
+    } else if (param === 'profile' || param === 'ho-so' || param === 'cod' || param === 'wallet') {
+      setActiveTab('Hồ sơ cá nhân');
+    } else if (param === 'new' || param === 'don-moi') {
+      setActiveTab('Đơn hàng mới');
+    }
+  }, [searchParams]);
   const [radius, setRadius] = useState('5km');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -57,14 +86,9 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   const [acceptSuccess, setAcceptSuccess] = useState<number | null>(null);
   const [codAcceptOrder, setCodAcceptOrder] = useState<AvailableOrderResponse | null>(null);
   const [completeModal, setCompleteModal] = useState<{
-    orderId: number;
-    status: 'DELIVERED' | 'FAILED';
-    recipientName?: string;
+    order: ShipperOrderResponse;
+    status: DeliveryResult;
   } | null>(null);
-  const [completeNote, setCompleteNote] = useState('');
-  const [completeFiles, setCompleteFiles] = useState<File[]>([]);
-  const [completePreviews, setCompletePreviews] = useState<string[]>([]);
-  const [completingOrder, setCompletingOrder] = useState(false);
   const [pickingUpOrderId, setPickingUpOrderId] = useState<number | null>(null);
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('off');
   const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
@@ -76,13 +100,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   const [myProfile, setMyProfile] = useState<UserResponse | null>(() => authService.getUserInfo());
 
   // ✅ Trạng thái trực tuyến / ngoại tuyến chuẩn sàn Grab / ShopeeFood
-  const [isOnline, setIsOnline] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('shipper_is_online') === 'true';
-    } catch {
-      return true;
-    }
-  });
+  // Trạng thái thật lấy từ BE khi mở trang (checkOnlineStatus)
+  const [isOnline, setIsOnline] = useState<boolean>(false);
   const [togglingOnline, setTogglingOnline] = useState<boolean>(false);
 
   const stompClientRef = useRef<Client | null>(null);
@@ -170,12 +189,56 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         globalShowAlert('Đã bật Trực tuyến! Đang quét các đơn hàng mới sẵn sàng quanh bạn.', 'Trực tuyến', 'success');
         fetchAvailableOrders(pageIndex, pageSize);
       }
-    } catch (err: any) {
-      globalShowAlert(err?.message || 'Không thể cập nhật trạng thái hoạt động.', 'Lỗi', 'error');
+    } catch (err) {
+      globalShowAlert(shipperErrorMessage(err, 'Không thể cập nhật trạng thái hoạt động.'), 'Lỗi', 'error');
     } finally {
       setTogglingOnline(false);
     }
   };
+
+  // Heartbeat: khi đang trực tuyến, gửi vị trí mỗi 60s để BE biết shipper còn hoạt động (quá 5 phút sẽ tự offline)
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (shipperLat != null && shipperLng != null) coordsRef.current = { lat: shipperLat, lng: shipperLng };
+  }, [shipperLat, shipperLng]);
+  useEffect(() => {
+    if (!isOnline) return;
+    const beat = () => {
+      const send = (lat: number, lng: number) =>
+        shipperService.goOnline({ latitude: lat, longitude: lng }).catch(() => undefined);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setShipperLat(pos.coords.latitude);
+            setShipperLng(pos.coords.longitude);
+            void send(pos.coords.latitude, pos.coords.longitude);
+          },
+          () => coordsRef.current && void send(coordsRef.current.lat, coordsRef.current.lng),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 },
+        );
+      } else if (coordsRef.current) {
+        void send(coordsRef.current.lat, coordsRef.current.lng);
+      }
+    };
+    const id = setInterval(beat, SHIPPER_HEARTBEAT_MS);
+    return () => clearInterval(id);
+  }, [isOnline]);
+
+  // Điều phối realtime: đơn mới gần bạn → tải lại danh sách; đơn đã có người nhận → gỡ khỏi danh sách
+  const refreshOrdersRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    return notificationSocketService.onShipperOffer((offer) => {
+      if (offer.type === 'ORDER_TAKEN') {
+        setAvailableOrders((prev) => prev.filter((o) => o.orderId !== offer.orderId));
+        setOrdersPage((prev) =>
+          prev ? { ...prev, content: (prev.content || []).filter((o) => o.orderId !== offer.orderId) } : prev,
+        );
+        setCodAcceptOrder((prev) => (prev?.orderId === offer.orderId ? null : prev));
+      } else {
+        refreshOrdersRef.current();
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const fetch = async () => {
@@ -194,38 +257,12 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     setLoadingMyOrders(true);
     try {
       const res = await shipperService.getMyOrders();
-      const shippingOrders = (res.result ?? []).filter(
-        (o: ShipperOrderResponse) => o.status === 'SHIPPING' || o.status === 'PICKED_UP'
+      setMyOrders(
+        (res.result ?? []).filter((o: ShipperOrderResponse) => o.status === 'SHIPPING' || o.status === 'PICKED_UP'),
       );
-
-      const enriched = await Promise.all(
-        shippingOrders.map(async (order: ShipperOrderResponse) => {
-          try {
-            const detail = await orderService.getOrderById(order.orderId);
-            const resObj: any = (detail as any)?.result ?? detail;
-            if (resObj) {
-              return {
-                ...order,
-                status: resObj.status ?? order.status,
-                pickedUpAt: resObj.pickedUpAt ?? order.pickedUpAt,
-                paymentMethod: resObj.paymentMethod ?? order.paymentMethod,
-                totalAmount: resObj.totalAmount ?? order.totalAmount,
-                codAmount: resObj.codAmount ?? order.codAmount,
-                codPrepaidAmount: resObj.codPrepaidAmount ?? order.codPrepaidAmount,
-                shippingDiscountAmount: resObj.shippingDiscountAmount ?? order.shippingDiscountAmount,
-                refundAmount: resObj.refundAmount ?? order.refundAmount,
-                refundReason: resObj.refundReason ?? order.refundReason,
-              };
-            }
-          } catch {
-            // Giữ dữ liệu shipper nếu không lấy được chi tiết đơn
-          }
-          return order;
-        })
-      );
-
-      setMyOrders(enriched);
-    } catch { } finally { setLoadingMyOrders(false); }
+    } catch (err) {
+      console.warn('Không tải được đơn đang giao:', err);
+    } finally { setLoadingMyOrders(false); }
   };
 
   useEffect(() => {
@@ -253,7 +290,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       // Load paged orders for shipper (no nearby-only logic)
       fetchAvailableOrders(pageIndex, pageSize);
     }
-  }, [activeTab, pageIndex, pageSize]);
+  }, [activeTab, pageIndex, pageSize, isOnline]);
 
   const fetchNearbyOrders = async (lat: number, lng: number) => {
     setLoadingOrders(true);
@@ -265,10 +302,17 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   };
 
   const fetchAvailableOrders = async (p = 0, s = 10) => {
+    // Đơn mới chỉ hiện khi đang trực tuyến (BE trả 7006 nếu chưa)
+    if (!isOnline) {
+      setAvailableOrders([]);
+      setOrdersPage(null);
+      return;
+    }
     setLoadingOrders(true);
     setOrdersError(null);
     try {
-      const res = await shipperService.getAvailableOrders(p, s);
+      const coords = shipperLat != null && shipperLng != null ? { lat: shipperLat, lng: shipperLng } : null;
+      const res = await shipperService.getAvailableOrders(p, s, coords);
       if (res.result) {
         setOrdersPage(res.result);
         setAvailableOrders(res.result.content ?? []);
@@ -276,12 +320,15 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         setAvailableOrders([]);
       }
     } catch (err) {
-      setOrdersError('Không tải được danh sách đơn.');
+      setOrdersError(shipperErrorMessage(err, 'Không tải được danh sách đơn.'));
       setAvailableOrders([]);
     } finally { setLoadingOrders(false); }
   };
+  refreshOrdersRef.current = () => {
+    if (activeTab === 'Đơn hàng mới') void fetchAvailableOrders(pageIndex, pageSize);
+  };
 
-  const handleAcceptOrder = async (order: AvailableOrderResponse, codPaymentOption?: 'CASH' | 'WALLET') => {
+  const handleAcceptOrder = async (order: AvailableOrderResponse, confirmedCod = false) => {
     // ✅ Quy tắc 1 đơn tại 1 thời điểm
     if (myOrders.length > 0) {
       globalShowAlert(
@@ -292,14 +339,15 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       return;
     }
 
-    if ((order.paymentMethod ?? '').toUpperCase() === 'COD' && !codPaymentOption) {
+    // Đơn COD: xem số tiền ký quỹ và số dư khả dụng trước khi nhận
+    if ((order.paymentMethod ?? '').toUpperCase() === 'COD' && !confirmedCod) {
       setCodAcceptOrder(order);
       return;
     }
     const orderId = order.orderId;
     setAcceptingOrderId(orderId);
     try {
-      await shipperService.acceptOrder(orderId, codPaymentOption);
+      const accepted = await shipperService.acceptOrder(orderId);
       setCodAcceptOrder(null);
 
       // ✅ 1. BIẾN MẤT LIỀN KHỎI DANH SÁCH ĐƠN HÀNG MỚI
@@ -314,11 +362,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       });
 
       // ✅ 2. ĐƯA NGAY VÀO DANH SÁCH ĐƠN ĐANG GIAO CỦA SHIPPER
-      const newShippingOrder: ShipperOrderResponse = {
-        ...order,
-        status: 'SHIPPING',
-        codPaymentOption: codPaymentOption ?? 'WALLET',
-      };
+      const newShippingOrder: ShipperOrderResponse = { ...order, ...accepted, status: 'SHIPPING' };
       setMyOrders(prev => [newShippingOrder, ...prev.filter(o => o.orderId !== orderId)]);
 
       // ✅ 3. THÔNG BÁO THÀNH CÔNG VÀ CHUYỂN TAB SANG ĐƠN ĐANG GIAO
@@ -332,15 +376,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         setActiveTab('Đơn đang giao');
         fetchMyOrders();
       }, 700);
-    } catch (err: any) {
-      const errorCode = err?.data?.code;
-      const apiMessage = err?.data?.message || err?.message;
-      const message = errorCode === 4009
-        ? 'Đơn này đã được shipper khác nhận rồi.'
-        : errorCode === 3004
-          ? 'Số dư ví shipper không đủ để ứng COD. Số tiền ứng gồm tiền hàng và phí nền tảng từ phí ship, vui lòng nạp thêm tiền vào ví rồi thử lại.'
-          : apiMessage || 'Không thể nhận đơn. Vui lòng thử lại sau.';
-      globalShowAlert(message, 'Lỗi', 'error');
+    } catch (err) {
+      globalShowAlert(shipperErrorMessage(err, 'Không thể nhận đơn. Vui lòng thử lại sau.'), 'Không nhận được đơn', 'error');
+      const code = (err as { data?: { code?: number } })?.data?.code;
+      // Đơn đã có người nhận / đổi trạng thái: gỡ khỏi danh sách và tải lại
+      if (code === 7005 || code === 7002) {
+        setCodAcceptOrder(null);
+        void fetchAvailableOrders(pageIndex, pageSize);
+      }
     } finally { setAcceptingOrderId(null); }
   };
 
@@ -392,69 +435,36 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   useEffect(() => () => stopTracking(), []);
 
-  const openCompleteModal = (orderId: number, status: 'DELIVERED' | 'FAILED', recipientName?: string) => {
-    setCompleteModal({ orderId, status, recipientName });
-    setCompleteNote('');
-    setCompleteFiles([]);
-    setCompletePreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return [];
-    });
+  const openCompleteModal = (order: ShipperOrderResponse, status: DeliveryResult) => {
+    setCompleteModal({ order, status });
   };
 
-  const closeCompleteModal = () => {
+  const handleCompleteDone = (orderId: number, status: DeliveryResult) => {
+    if (trackingOrderId === orderId) stopTracking();
     setCompleteModal(null);
-    setCompleteNote('');
-    setCompleteFiles([]);
-    setCompletePreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return [];
-    });
-  };
-
-  const handlePickEvidenceFiles = (fileList: FileList | null) => {
-    if (!fileList?.length) return;
-    const next = Array.from(fileList).slice(0, 5);
-    setCompleteFiles(next);
-    setCompletePreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return next.map((f) => URL.createObjectURL(f));
-    });
-  };
-
-  const handleCompleteOrder = async () => {
-    if (!completeModal) return;
-    const { orderId, status } = completeModal;
-    try {
-      setCompletingOrder(true);
-      await shipperService.updateOrderStatus(
-        orderId,
-        { status, note: completeNote.trim() || undefined },
-        completeFiles.length > 0 ? completeFiles : undefined,
-      );
-      if (trackingOrderId === orderId) stopTracking();
-      closeCompleteModal();
-      fetchMyOrders();
-      globalShowAlert(
-        status === 'DELIVERED' ? 'Giao hàng thành công!' : 'Đã đánh dấu thất bại',
-        'Cập nhật',
-        status === 'DELIVERED' ? 'success' : 'warning',
-      );
-    } catch (errors: any) {
-      globalShowAlert(errors?.data?.message || 'Không thể cập nhật trạng thái', 'Lỗi', 'error');
-    } finally {
-      setCompletingOrder(false);
-    }
+    fetchMyOrders();
+    globalShowAlert(
+      status === 'DELIVERED'
+        ? 'Giao hàng thành công! Cước giao vào ví khi khách xác nhận đã nhận hàng.'
+        : 'Đã báo giao thất bại. Hàng được hoàn kho, tiền ký quỹ COD (nếu có) đã trả lại ví.',
+      'Cập nhật',
+      status === 'DELIVERED' ? 'success' : 'warning',
+    );
   };
 
   const handlePickupOrder = async (orderId: number) => {
+    const ok = await globalShowConfirm(
+      `Đối soát mã đơn ${pickupCode(orderId)}`,
+      `Kiểm tra mã trên túi hàng trùng ${pickupCode(orderId)} rồi mới xác nhận đã lấy hàng.`,
+    );
+    if (!ok) return;
     try {
       setPickingUpOrderId(orderId);
       await shipperService.pickupOrder(orderId);
       globalShowAlert('Đã xác nhận lấy hàng tại shop thành công! Bắt đầu chặng giao đến người mua.', 'Lấy hàng thành công', 'success');
       fetchMyOrders();
-    } catch (errors: any) {
-      globalShowAlert(errors?.data?.message || 'Không thể xác nhận lấy hàng', 'Lỗi', 'error');
+    } catch (err) {
+      globalShowAlert(shipperErrorMessage(err, 'Không thể xác nhận lấy hàng'), 'Lỗi', 'error');
     } finally {
       setPickingUpOrderId(null);
     }
@@ -503,15 +513,15 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
     return diff < 1 ? 'Vừa xong' : diff < 60 ? `${diff} phút trước` : new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isCodOrder = (order: { paymentMethod?: string }) => (order.paymentMethod ?? '').toUpperCase() === 'COD';
+  const getCodCollectAmount = (order: AvailableOrderResponse) => order.codAmount ?? order.totalAmount ?? 0;
+
   const renderCodCollectLine = (order: ShipperOrderResponse) => {
     if (!isCodOrder(order)) return null;
 
     const collectAmount = getCodCollectAmount(order);
-    const prepaidAmount = getCodPrepaidAmount(order);
+    const reservedAmount = order.codReservedAmount ?? 0;
     const refundAmount = order.refundAmount ?? 0;
-    const prepaidLabel = order.codPaymentOption === 'CASH'
-      ? 'Tiền hàng + phí nền tảng đã chọn nộp tiền mặt cho admin'
-      : 'Tiền hàng + phí nền tảng đã ứng từ ví shipper';
 
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-1.5">
@@ -535,11 +545,13 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             Đã trừ hoàn tiền: {fmtCur(refundAmount)}
           </p>
         )}
-        <p className="text-[11px] font-black text-amber-800">
-          {prepaidLabel}: {fmtCur(prepaidAmount)}
-        </p>
-        <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
-          Lưu ý: COD cần thu là tổng tiền khách trả. Số tiền ứng gồm tiền hàng và 10% phí nền tảng từ phí ship.
+        {reservedAmount > 0 && (
+          <p className="text-[11px] font-black text-amber-800">
+            Đang ký quỹ trong ví: {fmtCur(reservedAmount)}
+          </p>
+        )}
+        <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+          Thu đủ tiền mặt của khách. Giao xong, tiền ký quỹ được trừ đúng số này; giao thất bại thì trả lại ví.
         </p>
       </div>
     );
@@ -547,7 +559,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
   // ===================== RENDER: ĐƠN ĐANG GIAO =====================
   const renderMyOrders = () => {
-    if (loadingMyOrders) return <div className="flex justify-center py-20"><Loader2 className="size-8 text-primary animate-spin" /></div>;
+    if (loadingMyOrders) return (
+      <CapNongLoading
+        className="!min-h-[300px]"
+        message="Đang tải danh sách đơn đang giao..."
+        subMessage="Cổng vận chuyển CapNong Shipper"
+        size="md"
+      />
+    );
     if (myOrders.length === 0) return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Truck className="size-12" /></div>
@@ -560,12 +579,12 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
           const isTracking = trackingOrderId === order.orderId;
           const codOrder = isCodOrder(order);
           const codCollectAmount = codOrder ? getCodCollectAmount(order) : 0;
-          const codPrepaidAmount = codOrder ? getCodPrepaidAmount(order) : 0;
           return (
             <div key={order.orderId} className="bg-white rounded-[40px] border border-gray-100 shadow-sm p-8 flex flex-col gap-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Đơn #{order.orderId}</p>
+                  <p className="text-2xl font-extrabold text-leaf-800 tracking-wider">{pickupCode(order.orderId)}</p>
+                  <p className="text-caption text-ink-muted">Mã trên túi hàng phải trùng mã này</p>
                   <h3 className="text-lg font-black text-gray-900 mt-1">{order.recipientName}</h3>
                   <p className="text-xs text-gray-500 mt-1">{order.shippingAddress}</p>
                 </div>
@@ -576,8 +595,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                     <>
                       <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mt-2">Cần thu COD</p>
                       <p className="text-lg font-black text-amber-600">{fmtCur(codCollectAmount)}</p>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-2">Đã ứng cho admin</p>
-                      <p className="text-sm font-black text-gray-700">{fmtCur(codPrepaidAmount)}</p>
+
                     </>
                   )}
                 </div>
@@ -643,7 +661,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                     )}
                   </button>
                   <button
-                    onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
+                    onClick={() => openCompleteModal(order, 'FAILED')}
                     className="h-12 px-4 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 active:scale-95 text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 transition-all border border-gray-200 cursor-pointer"
                     title="Không lấy được hàng hoặc shop hủy"
                   >
@@ -653,14 +671,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
               ) : (
                 <div className="grid grid-cols-2 gap-3 items-stretch">
                   <button
-                    onClick={() => openCompleteModal(order.orderId, 'DELIVERED', order.recipientName)}
+                    onClick={() => openCompleteModal(order, 'DELIVERED')}
                     title={codOrder ? 'Xác nhận đã thu đúng tiền COD từ khách' : undefined}
                     className="h-12 bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-green-600/20 cursor-pointer"
                   >
                     <CheckCircle2 className="size-4 shrink-0" /> Giao thành công
                   </button>
                   <button
-                    onClick={() => openCompleteModal(order.orderId, 'FAILED', order.recipientName)}
+                    onClick={() => openCompleteModal(order, 'FAILED')}
                     className="h-12 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 cursor-pointer"
                   >
                     <X className="size-4 shrink-0" /> Giao thất bại
@@ -711,20 +729,33 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
       <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
           {ordersToShow.length === 0 ? (
-            <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
-              <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
-              <p className="text-lg font-black text-gray-400 uppercase">
-                Không có đơn nào
-              </p>
-              <p className="text-xs text-gray-400">Thử tải lại</p>
-              <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
-                className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
-                <RefreshCw className="size-4" /> Tải lại
-              </button>
-            </div>
+            loadingOrders ? (
+              <div className="col-span-3">
+                <CapNongLoading
+                  className="!min-h-[300px]"
+                  message="Đang quét đơn hàng mới quanh bạn..."
+                  subMessage="Hệ thống tự động tìm đơn đã sẵn sàng giao"
+                  size="md"
+                />
+              </div>
+            ) : (
+              <div className="col-span-3 flex flex-col items-center justify-center py-24 gap-6 text-center">
+                <div className="size-24 bg-gray-50 rounded-[40px] flex items-center justify-center text-gray-200 border border-gray-100"><Package className="size-12" /></div>
+                <p className="text-lg font-black text-gray-400 uppercase">
+                  Không có đơn nào
+                </p>
+                <p className="text-xs text-gray-400">
+                  {ordersError ?? 'Hệ thống sẽ báo ngay khi có đơn mới gần bạn.'}
+                </p>
+                <button onClick={() => fetchAvailableOrders(pageIndex, pageSize)}
+                  className="px-8 py-3 bg-primary/10 text-primary rounded-2xl text-xs font-black uppercase flex items-center gap-2">
+                  <RefreshCw className="size-4" /> Tải lại
+                </button>
+              </div>
+            )
           ) : ordersToShow.map((order) => {
             const codOrder = (order.paymentMethod ?? '').toUpperCase() === 'COD';
-            const prepaidAmount = getCodPrepaidAmount(order);
+            const codAmount = getCodCollectAmount(order);
 
             // 📍 Tọa độ hiện tại của shipper (lấy GPS hoặc mặc định khu vực Thủ Đức)
             const curShipLat = shipperLat ?? 10.8505;
@@ -739,10 +770,10 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             const buyerLng = order.shippingLongitude ?? 106.7725;
 
             // 🛵 Chặng 1: Shipper -> Shop (khoảng cách đến quán lấy hàng)
-            const shipToShopKm = order.shipToShopKm ?? calcRoadDistance(curShipLat, curShipLng, shopLat, shopLng);
+            const shipToShopKm = order.distanceToShopKm ?? calcRoadDistance(curShipLat, curShipLng, shopLat, shopLng);
 
             // 📦 Chặng 2: Shop -> Buyer (khoảng cách giao hàng đến khách)
-            const shopToBuyerKm = order.shopToBuyerKm ?? order.distanceKm ?? calcRoadDistance(shopLat, shopLng, buyerLat, buyerLng);
+            const shopToBuyerKm = order.distanceKm ?? calcRoadDistance(shopLat, shopLng, buyerLat, buyerLng);
 
             // 🗺️ Tổng lộ trình toàn chặng: Shipper -> Shop -> Buyer (chuẩn sàn Grab)
             const totalJourneyKm = Math.round((shipToShopKm + shopToBuyerKm) * 10) / 10;
@@ -844,9 +875,9 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
               </div>
               {codOrder && (
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-4">
-                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Đơn COD cần ứng trước</p>
-                  <p className="text-lg font-black text-amber-800 mt-1">{fmtCur(prepaidAmount)}</p>
-                  <p className="text-[11px] text-amber-700 font-semibold mt-1">Chọn trả tiền mặt cho admin hoặc trừ trực tiếp từ ví shipper.</p>
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Đơn COD · cần ký quỹ</p>
+                  <p className="text-lg font-black text-amber-800 mt-1">{fmtCur(codAmount)}</p>
+                  <p className="text-[11px] text-amber-700 font-semibold mt-1">Số dư khả dụng trong ví phải đủ số này mới nhận được đơn.</p>
                 </div>
               )}
 
@@ -902,12 +933,10 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
           className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity cursor-pointer group"
           title="Về Trang chủ CapNong"
         >
-          <div className="size-10 bg-white rounded-xl flex items-center justify-center text-[#1a4d2e] group-hover:scale-105 transition-transform">
-            <Bike className="size-6 fill-current" />
-          </div>
+          <img src={logoIcon} alt="CapNong" className="size-10 object-contain group-hover:scale-105 transition-transform" />
           <div>
-            <h2 className="text-xl font-black tracking-tighter uppercase leading-none">XẤU MÃ SHIPPER</h2>
-            <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-1">Hệ thống vận chuyển thông minh</p>
+            <h2 className="text-xl font-black tracking-tighter uppercase leading-none">CapNong Shipper</h2>
+            <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mt-1">Hệ thống giao vận nông sản</p>
           </div>
         </button>
         <div className="flex items-center gap-4">
@@ -957,12 +986,14 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             {[
               { id: 'Đơn hàng mới', label: 'Đơn hàng mới', count: availableOrders.length },
               { id: 'Đơn đang giao', label: 'Đơn đang giao', count: myOrders.length },
+              { id: 'Đơn hoàn hàng', label: 'Đơn hoàn hàng' },
               { id: 'Hồ sơ cá nhân', label: 'Hồ sơ cá nhân' },
             ].map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab.id ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
                 {tab.id === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab.id ? 'fill-primary' : ''}`} />}
                 {tab.id === 'Đơn đang giao' && <Truck className="size-4" />}
+                {tab.id === 'Đơn hoàn hàng' && <RotateCcw className="size-4" />}
                 {tab.id === 'Hồ sơ cá nhân' && <User className="size-4" />}
                 <span>{tab.label}</span>
                 {typeof tab.count === 'number' && (
@@ -1089,6 +1120,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
         {activeTab === 'Đơn đang giao' && renderMyOrders()}
 
+        {activeTab === 'Đơn hoàn hàng' && <ShipperReturnOrders />}
+
         {activeTab === 'Hồ sơ cá nhân' && (
           <div className="bg-white rounded-[48px] border border-gray-100 shadow-sm p-10 flex items-center gap-10">
             <div className="size-32 rounded-[40px] overflow-hidden border-4 border-white shadow-xl bg-blue-100">
@@ -1120,6 +1153,12 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             </div>
           </div>
         )}
+
+        {activeTab === 'Hồ sơ cá nhân' && (
+          <div className="mt-8">
+            <ShipperWalletPanel />
+          </div>
+        )}
       </div>
 
       {/* Notification Modal */}
@@ -1148,124 +1187,25 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
         </div>
       )}
       {completeModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={closeCompleteModal} />
-          <div className="bg-white w-full max-w-lg rounded-[36px] shadow-2xl relative z-10 p-8">
-            <h3 className="text-2xl font-black text-gray-900 uppercase">
-              {completeModal.status === 'DELIVERED' ? 'Xác nhận giao thành công' : 'Báo giao thất bại'}
-            </h3>
-            <p className="text-sm text-gray-500 font-semibold mt-2">
-              Đơn #{completeModal.orderId}
-              {completeModal.recipientName ? ` · ${completeModal.recipientName}` : ''}
-            </p>
-
-            {completeModal.status === 'FAILED' && (
-              <div className="mt-5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Lý do (tuỳ chọn)</label>
-                <textarea
-                  value={completeNote}
-                  onChange={(e) => setCompleteNote(e.target.value)}
-                  placeholder="VD: Không liên lạc được, sai địa chỉ..."
-                  className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:border-primary min-h-[88px] resize-none"
-                />
-              </div>
-            )}
-
-            <div className="mt-5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Ảnh bằng chứng (tuỳ chọn)
-              </label>
-              <label className="mt-2 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all">
-                <ImagePlus className="size-6 text-gray-400" />
-                <span className="text-xs font-black text-gray-500 uppercase">Chọn ảnh từ máy</span>
-                <span className="text-[10px] text-gray-400 font-semibold">Tối đa 5 ảnh · Không bắt buộc</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handlePickEvidenceFiles(e.target.files)}
-                />
-              </label>
-              {completePreviews.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {completePreviews.map((url, idx) => (
-                    <div key={url} className="relative size-20 rounded-2xl overflow-hidden border border-gray-100">
-                      <img src={url} alt={`evidence-${idx}`} className="size-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-8 flex gap-3">
-              <button
-                type="button"
-                onClick={closeCompleteModal}
-                disabled={completingOrder}
-                className="flex-1 h-12 rounded-2xl border border-gray-200 text-xs font-black text-gray-600 uppercase hover:bg-gray-50 disabled:opacity-50"
-              >
-                Huỷ
-              </button>
-              <button
-                type="button"
-                onClick={handleCompleteOrder}
-                disabled={completingOrder}
-                className={`flex-1 h-12 rounded-2xl text-xs font-black text-white uppercase flex items-center justify-center gap-2 disabled:opacity-60 ${
-                  completeModal.status === 'FAILED' ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-primary-dark'
-                }`}
-              >
-                {completingOrder ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : completeModal.status === 'DELIVERED' ? (
-                  <><Camera className="size-4" /> Xác nhận giao</>
-                ) : (
-                  'Báo thất bại'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeliveryResultModal
+          orderId={completeModal.order.orderId}
+          result={completeModal.status}
+          recipientName={completeModal.order.recipientName}
+          recipientPhone={completeModal.order.recipientPhone}
+          codAmount={isCodOrder(completeModal.order) ? getCodCollectAmount(completeModal.order) : 0}
+          onClose={() => setCompleteModal(null)}
+          onDone={(status) => handleCompleteDone(completeModal.order.orderId, status)}
+        />
       )}
       {codAcceptOrder && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setCodAcceptOrder(null)} />
-          <div className="bg-white w-full max-w-xl rounded-[36px] shadow-2xl relative z-10 p-8">
-            <h3 className="text-2xl font-black text-gray-900 uppercase">Chọn cách ứng tiền COD</h3>
-            <p className="text-sm text-gray-500 font-semibold mt-2">
-              Đơn #{codAcceptOrder.orderId} cần ứng trước{' '}
-              <span className="font-black text-amber-700">
-                {fmtCur(getCodPrepaidAmount(codAcceptOrder))}
-              </span>
-              {' '}trước khi giao.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-              <button
-                onClick={() => handleAcceptOrder(codAcceptOrder, 'CASH')}
-                disabled={acceptingOrderId === codAcceptOrder.orderId}
-                className="p-5 rounded-3xl border-2 border-amber-200 bg-amber-50 text-left hover:bg-amber-100 transition-all disabled:opacity-60"
-              >
-                <p className="text-sm font-black text-amber-800 uppercase">Trả tiền mặt</p>
-                <p className="text-xs text-amber-700 font-semibold mt-2">Shipper đưa tiền mặt, admin xác nhận đã nhận tiền rồi mới giao.</p>
-              </button>
-              <button
-                onClick={() => handleAcceptOrder(codAcceptOrder, 'WALLET')}
-                disabled={acceptingOrderId === codAcceptOrder.orderId}
-                className="p-5 rounded-3xl border-2 border-emerald-200 bg-emerald-50 text-left hover:bg-emerald-100 transition-all disabled:opacity-60"
-              >
-                <p className="text-sm font-black text-emerald-800 uppercase">Trừ ví shipper</p>
-                <p className="text-xs text-emerald-700 font-semibold mt-2">Hệ thống trừ ví ngay. Nếu không đủ số dư, đơn sẽ không được nhận.</p>
-              </button>
-            </div>
-            <button
-              onClick={() => setCodAcceptOrder(null)}
-              className="w-full mt-4 py-3 rounded-2xl bg-gray-100 text-gray-500 text-xs font-black uppercase hover:bg-gray-200"
-            >
-              Hủy
-            </button>
-          </div>
-        </div>
+        <CodAcceptDialog
+          orderId={codAcceptOrder.orderId}
+          codAmount={getCodCollectAmount(codAcceptOrder)}
+          shopName={codAcceptOrder.shopName}
+          accepting={acceptingOrderId === codAcceptOrder.orderId}
+          onConfirm={() => handleAcceptOrder(codAcceptOrder, true)}
+          onClose={() => setCodAcceptOrder(null)}
+        />
       )}
       {/* ✅ Modal xem bản đồ Google Maps thời gian thực */}
       {mapModalOrder && (

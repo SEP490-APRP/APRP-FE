@@ -12,6 +12,9 @@ import type {
   IntrospectRequest,
   IntrospectResponse,
   RefreshTokenRequest,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
   JwtTokenPayload,
   UserResponse,
 } from './auth.types'
@@ -151,6 +154,17 @@ export const authService = {
   },
 
   /**
+   * Đăng nhập người dùng bằng Google token qua POST /auth/google
+   */
+  async loginGoogle(token: string): Promise<ApiResponse<LoginResponse>> {
+    const response = await axiosInstance.post<ApiResponse<LoginResponse>>(
+      '/auth/google',
+      { token },
+    )
+    return response.data
+  },
+
+  /**
    * Đăng ký tài khoản Khách mua (Buyer) qua POST /users
    * BE tự động gửi OTP đến email đã đăng ký.
    */
@@ -201,6 +215,52 @@ export const authService = {
    */
   async getMyInfo(): Promise<ApiResponse<UserResponse>> {
     const response = await axiosInstance.get<ApiResponse<UserResponse>>('/users/me')
+    return response.data
+  },
+
+  /**
+   * Cập nhật thông tin tài khoản hiện tại qua PUT /users/me
+   */
+  async updateMyInfo(data: Record<string, unknown>): Promise<ApiResponse<UserResponse>> {
+    const response = await axiosInstance.put<ApiResponse<UserResponse>>('/users/me', data)
+    return response.data
+  },
+
+  /**
+   * Cập nhật ảnh đại diện người dùng qua PATCH /users/me/images (Multipart/form-data)
+   */
+  async updateAvatar(file: File): Promise<ApiResponse<UserResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await axiosInstance.patch<ApiResponse<UserResponse>>('/users/me/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  /**
+   * Đổi mật khẩu cho người dùng hiện tại qua POST /users/change-password
+   */
+  async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<void>> {
+    const response = await axiosInstance.post<ApiResponse<void>>('/users/change-password', data)
+    return response.data
+  },
+
+  /**
+   * Yêu cầu gửi OTP quên mật khẩu qua POST /auth/forgot-password
+   */
+  async forgotPassword(data: ForgotPasswordRequest): Promise<ApiResponse<void>> {
+    const response = await axiosInstance.post<ApiResponse<void>>('/auth/forgot-password', data)
+    return response.data
+  },
+
+  /**
+   * Đặt lại mật khẩu mới với OTP qua POST /auth/reset-password
+   */
+  async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<void>> {
+    const response = await axiosInstance.post<ApiResponse<void>>('/auth/reset-password', data)
     return response.data
   },
 

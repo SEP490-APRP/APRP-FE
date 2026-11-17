@@ -11,8 +11,13 @@ import {
   Eye,
   Mail,
   Store,
+  FolderOpen,
+  ExternalLink,
+  Flag,
+  CheckCircle2,
 } from 'lucide-react'
-import type { UserResponse } from '@/services'
+import type { UserResponse, ShopRiskFlagResponse } from '@/services'
+import { userService } from '@/services'
 import { useFetchUser, useSetUserActive, useUsersByRole } from '@/features/user'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
@@ -27,6 +32,9 @@ const ShopMonitoring: React.FC = () => {
   const [page, setPage] = useState(0)
   const [selectedShop, setSelectedShop] = useState<UserResponse | null>(null)
   const [modalLoading, setModalLoading] = useState(false)
+  const [riskFlags, setRiskFlags] = useState<ShopRiskFlagResponse[]>([])
+  const [loadingFlags, setLoadingFlags] = useState(false)
+  const [resolvingFlagId, setResolvingFlagId] = useState<number | null>(null)
 
   const shopsQuery = useUsersByRole(SHOP_ROLES, null, page, PAGE_SIZE)
   const fetchUser = useFetchUser()
@@ -40,8 +48,19 @@ const ShopMonitoring: React.FC = () => {
   const handleViewProfile = async (userId: number) => {
     setModalLoading(true)
     setSelectedShop(null)
+    setRiskFlags([])
     try {
-      setSelectedShop(await fetchUser(userId))
+      const user = await fetchUser(userId)
+      setSelectedShop(user)
+      try {
+        setLoadingFlags(true)
+        const flagsRes = await userService.getShopRiskFlags(userId)
+        setRiskFlags(flagsRes.result || [])
+      } catch (flagErr) {
+        console.error('Failed to load shop risk flags', flagErr)
+      } finally {
+        setLoadingFlags(false)
+      }
     } catch {
       globalShowAlert('Không thể tải thông tin cửa hàng. Vui lòng thử lại.', 'Lỗi', 'error')
     } finally {
@@ -49,8 +68,33 @@ const ShopMonitoring: React.FC = () => {
     }
   }
 
+  const handleResolveFlag = async (flagId: number) => {
+    if (!selectedShop) return
+    const confirmed = await globalShowConfirm(
+      'Gỡ cờ vi phạm chất lượng',
+      'Bạn có chắc muốn gỡ cờ vi phạm này cho Shop? Nếu số cờ hiệu lực giảm xuống dưới 3, hệ thống sẽ tự động khôi phục 1 sao đánh giá cho gian hàng.'
+    )
+    if (!confirmed) return
+
+    setResolvingFlagId(flagId)
+    try {
+      await userService.resolveRiskFlag(flagId, 'Admin xác nhận miễn trừ / giải quyết thỏa đáng')
+      globalShowAlert('Đã gỡ cờ rủi ro thành công! Điểm đánh giá của shop đã được cập nhật.', 'Thành công', 'success')
+      const flagsRes = await userService.getShopRiskFlags(selectedShop.id)
+      setRiskFlags(flagsRes.result || [])
+      const updatedShop = await fetchUser(selectedShop.id)
+      setSelectedShop(updatedShop)
+      void shopsQuery.refetch()
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Không thể gỡ cờ rủi ro'), 'Lỗi', 'error')
+    } finally {
+      setResolvingFlagId(null)
+    }
+  }
+
   const closeModal = () => {
     setSelectedShop(null)
+    setRiskFlags([])
     setModalLoading(false)
   }
 
@@ -223,12 +267,20 @@ const ShopMonitoring: React.FC = () => {
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-4">
                         <div className="size-10 bg-gray-50 rounded-2xl flex items-center justify-center text-primary">
-                          <span className="material-symbols-outlined">storefront</span>
+                          <Store className="size-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-gray-900">
-                            {shop.shopName || 'Shop N/A'}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-gray-900">
+                              {shop.shopName || 'Shop N/A'}
+                            </p>
+                            {typeof shop.activeRiskFlags === 'number' && shop.activeRiskFlags > 0 && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200">
+                                <Flag size={10} className="fill-rose-600 text-rose-600" />
+                                {shop.activeRiskFlags} cờ vi phạm
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                             ID: {shop.id}
                           </p>
@@ -358,7 +410,7 @@ const ShopMonitoring: React.FC = () => {
                         />
                       ) : (
                         <div className="size-20 rounded-3xl bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0">
-                          <span className="material-symbols-outlined text-[40px]">storefront</span>
+                          <Store className="size-10" />
                         </div>
                       )}
                       <div>
@@ -468,11 +520,95 @@ const ShopMonitoring: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Quản lý Cờ rủi ro chất lượng */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                          <Flag className="size-3.5 text-rose-600" /> Cờ rủi ro chất lượng (
+                          {riskFlags.filter((f) => f.isActive).length} cờ hiệu lực)
+                        </h4>
+                      </div>
+
+                      {loadingFlags ? (
+                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                          <Loader2 size={16} className="animate-spin text-primary" /> Đang tải danh sách cờ...
+                        </div>
+                      ) : riskFlags.length === 0 ? (
+                        <div className="p-3.5 bg-green-50/70 rounded-2xl border border-green-200 text-green-800 text-xs flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                          <span>Shop hiện không có cờ vi phạm chất lượng nào.</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {riskFlags.map((flag) => (
+                            <div
+                              key={flag.id}
+                              className={`p-3.5 rounded-2xl border transition-all flex flex-col gap-2 ${
+                                flag.isActive
+                                  ? 'bg-red-50/70 border-red-200'
+                                  : 'bg-gray-50 border-gray-200 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                      flag.isActive ? 'bg-red-200 text-red-900' : 'bg-gray-200 text-gray-700'
+                                    }`}
+                                  >
+                                    <Flag size={10} className={flag.isActive ? 'fill-red-700 text-red-700' : ''} />
+                                    {flag.isActive ? 'Đang hiệu lực' : 'Đã gỡ bỏ'}
+                                  </span>
+                                  <span className="font-mono text-xs font-bold text-gray-700">
+                                    Mã #{flag.id}
+                                  </span>
+                                  {flag.orderId && (
+                                    <span className="font-mono text-xs text-gray-500">
+                                      (Đơn #{flag.orderId})
+                                    </span>
+                                  )}
+                                </div>
+
+                                {flag.isActive && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResolveFlag(flag.id)}
+                                    disabled={resolvingFlagId === flag.id}
+                                    className="px-3 py-1 bg-white border border-red-300 text-red-700 hover:bg-red-600 hover:text-white rounded-xl text-[11px] font-black transition-colors shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
+                                  >
+                                    {resolvingFlagId === flag.id ? (
+                                      <Loader2 size={12} className="animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 size={12} />
+                                    )}
+                                    Gỡ cờ
+                                  </button>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-gray-800 font-medium">
+                                <span className="text-gray-500 font-normal">Lý do vi phạm: </span>
+                                {flag.reason}
+                              </p>
+
+                              <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-200/50">
+                                <span>Gắn cờ lúc: {new Date(flag.createdAt).toLocaleString('vi-VN')}</span>
+                                {flag.resolvedAt && (
+                                  <span className="text-green-700 font-bold">
+                                    Đã gỡ: {new Date(flag.resolvedAt).toLocaleString('vi-VN')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     {selectedShop.achievement && (
                       <div>
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[14px]">folder_open</span>{' '}
-                          Giấy tờ / Chứng nhận
+                          <FolderOpen className="size-3.5" /> Giấy tờ / Chứng nhận
                         </h4>
                         <a
                           href={selectedShop.achievement}
@@ -488,10 +624,7 @@ const ShopMonitoring: React.FC = () => {
                             />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="text-white font-bold bg-black/50 px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-sm">
-                                  open_in_new
-                                </span>{' '}
-                                Phóng to
+                                <ExternalLink className="size-3.5" /> Phóng to
                               </span>
                             </div>
                           </div>

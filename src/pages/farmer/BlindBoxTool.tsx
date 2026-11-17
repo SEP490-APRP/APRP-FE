@@ -236,7 +236,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-[#f1f4ed] flex items-center justify-between shrink-0 bg-[#fafcf9]">
           <div>
-            <h3 className="text-base font-black text-[#1c2216]">Tạo Túi Mù Blind Box</h3>
+            <h3 className="text-base font-black text-[#1c2216]">Tạo Túi Mù</h3>
             <p className="text-[11px] text-[#7e8779]">
               Đóng gói nông sản thành hộp bí ẩn giải cứu nhanh cuối ngày
             </p>
@@ -513,7 +513,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
             <div className="flex items-center gap-2">
               {imageUrl && (
                 <div className="relative shrink-0 w-9 h-9 rounded-xl overflow-hidden border border-[#f5ddbd] bg-[#fdf5eb]">
-                  <img src={imageUrl} alt="Blind box preview" className="w-full h-full object-cover" />
+                  <img src={imageUrl} alt="Ảnh đại diện túi mù" className="w-full h-full object-cover" />
                 </div>
               )}
               <input
@@ -586,7 +586,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
             <button
               type="submit"
               disabled={createMysteryBoxMutation.isPending}
-              className="w-full py-3 rounded-xl bg-[#8a4e1d] hover:bg-[#6c3911] disabled:opacity-60 text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-[#326318] hover:bg-[#254b12] disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
             >
               {createMysteryBoxMutation.isPending ? (
                 <>

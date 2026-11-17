@@ -5,6 +5,10 @@ export * from './order.types'
 export * from './chat'
 
 export enum BlogCategory {
+  STORY = 'STORY',
+  NEW_PRODUCT = 'NEW_PRODUCT',
+  GUIDE = 'GUIDE',
+  PROMOTION = 'PROMOTION',
   SUC_KHOE = 'SUC_KHOE',
   NONG_NGHIEP = 'NONG_NGHIEP',
   ME_O_VAT = 'ME_O_VAT',
@@ -16,6 +20,10 @@ export enum BlogCategory {
 }
 
 export const BlogCategoryLabel: Record<string, string> = {
+  [BlogCategory.STORY]: 'Chuyện nhà nông',
+  [BlogCategory.NEW_PRODUCT]: 'Nông sản mới & Mùa vụ',
+  [BlogCategory.GUIDE]: 'Cẩm nang & Mẹo vặt',
+  [BlogCategory.PROMOTION]: 'Khuyến mãi & Ưu đãi',
   [BlogCategory.SUC_KHOE]: 'Sức khỏe & Dinh dưỡng',
   [BlogCategory.NONG_NGHIEP]: 'Nông nghiệp sạch & Nhà vườn',
   [BlogCategory.ME_O_VAT]: 'Mẹo vặt nội trợ',

@@ -1,3 +1,6 @@
 export { CartModal } from './components/CartModal'
+export { CartItemRow } from './components/CartItemRow'
+export { CartDeleteModal } from './components/CartDeleteModal'
 export { useAddToCart } from './hooks/useAddToCart'
+export { useCartOperations } from './hooks/useCartOperations'
 export * from './hooks/useCartQueries'
