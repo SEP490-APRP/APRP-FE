@@ -52,7 +52,7 @@ export default function Hero() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
             <a
               className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-primary-container hover:bg-primary text-white font-bold text-sm sm:text-base transition-all transform hover:-translate-y-0.5 shadow-lg shadow-primary-container/30 min-h-[46px]"
-              href="/giai-cuu-hom-nay"
+              href="#giai-cuu-hom-nay"
             >
               <ShoppingBasket size={20} aria-hidden />
               <span>Mua ngay hôm nay</span>

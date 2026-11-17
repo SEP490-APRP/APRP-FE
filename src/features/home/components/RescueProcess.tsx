@@ -51,9 +51,6 @@ export default function RescueProcess({ onInfo: _onInfo }: { onInfo?: (title: st
             <div className="rescue-info">
               <h3>Đặt hàng</h3>
               <p>Thanh toán linh hoạt, tiền được bảo chứng đến khi bạn hài lòng.</p>
-              <Link to="/bao-mat-thong-tin" className="rescue-btn">
-                Xem bảo chứng
-              </Link>
             </div>
           </li>
 
@@ -97,9 +94,6 @@ export default function RescueProcess({ onInfo: _onInfo }: { onInfo?: (title: st
             <div className="rescue-info">
               <h3>Giao tận nơi</h3>
               <p>Shipper xanh giao nhanh trong 2–4 giờ, đổi trả rõ ràng.</p>
-              <Link to="/bao-mat-thong-tin" className="rescue-btn">
-                Xem chính sách
-              </Link>
             </div>
           </li>
         </ol>

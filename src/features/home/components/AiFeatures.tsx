@@ -1,21 +1,11 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Camera, Sprout, Utensils, type LucideIcon } from 'lucide-react'
 import aiVisionImg from '@/assets/ai-vision.jpg'
 import aiMealImg from '@/assets/ai-meal.jpg'
 import aiFarmerImg from '@/assets/ai-farmer.jpg'
-import { money, products, type Product } from '@/mocks/catalog'
-import { discountPercent } from '@/features/product'
-import { cn } from '@/utils'
-
-/**
- * Section "Công nghệ AI" – thiết kế lại 03/10/2026.
- *
- * Thay 3 card giống hệt nhau + popup bằng MỘT sân khấu ảnh lớn và một
- * "phiếu kiểm định" giấy kraft (như nhãn buộc vào bó rau ngoài chợ). Người dùng
- * thử AI ngay tại chỗ: đổi mẫu nông sản thì phiếu đổi theo, không cần mở popup.
- * Số liệu trên phiếu quét lấy từ catalog nên khớp với giá đang bán.
- */
+import { useHomeProducts } from '@/features/product'
+import { cn, formatCurrency } from '@/utils'
 
 type TabId = 'vision' | 'chef' | 'copilot'
 
@@ -59,15 +49,15 @@ const TABS: Tab[] = [
   },
 ]
 
-// Mẫu quét lấy thẳng từ catalog để giá trên phiếu khớp với giá bán
-const SCAN_SAMPLES: Product[] = ['carrot', 'cabbage', 'tomato']
-  .map((id) => products.find((p) => p.id === id))
-  .filter((p): p is Product => Boolean(p))
-
-const SHORT_NAME: Record<string, string> = {
-  carrot: 'Cà rốt',
-  cabbage: 'Bắp cải',
-  tomato: 'Cà chua bi',
+export interface AiSample {
+  id: string
+  name: string
+  shortName: string
+  price: number
+  original: number
+  flaw: string
+  score: number
+  discount: number
 }
 
 const MENUS = [
@@ -107,8 +97,6 @@ const COPILOT_STEPS = [
   'Lên sẵn thực đơn chuẩn vị và danh sách đi chợ tiết kiệm',
 ]
 
-/* ------------------------------------------------------------------ */
-
 /** Một dòng trên phiếu: nhãn trái, giá trị phải, nối bằng dấu chấm như hóa đơn chợ. */
 function TagRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -120,7 +108,7 @@ function TagRow({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** Phiếu kiểm định giấy kraft: điểm nhấn thị giác duy nhất của section. */
+/** Phiếu kiểm định giấy kraft: điểm nhấn thị giác của section. */
 function KraftTag({
   heading,
   title,
@@ -190,6 +178,7 @@ function ToolControls({
   onSample,
   onMenu,
   cta,
+  samples,
 }: {
   tab: TabId
   sampleId: string
@@ -197,15 +186,16 @@ function ToolControls({
   onSample: (id: string) => void
   onMenu: (id: MenuId) => void
   cta: Tab['cta']
+  samples: AiSample[]
 }) {
   return (
     <div className="flex flex-col gap-6">
-      {tab === 'vision' && (
+      {tab === 'vision' && samples.length > 0 && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-white/70">Chọn một mẫu để thử quét:</p>
+          <p className="text-sm text-white/70">Chọn một nông sản từ kho để thử quét:</p>
           <Chips
             label="Mẫu nông sản"
-            options={SCAN_SAMPLES.map((p) => ({ id: p.id, label: SHORT_NAME[p.id] ?? p.name }))}
+            options={samples.map((p) => ({ id: p.id, label: p.shortName }))}
             value={sampleId}
             onChange={onSample}
           />
@@ -218,7 +208,6 @@ function ToolControls({
         </div>
       )}
       {tab === 'copilot' && (
-        // Đây thật sự là các bước theo thứ tự nên mới đánh số
         <ol className="flex flex-col gap-3">
           {COPILOT_STEPS.map((step, i) => (
             <li key={step} className="flex items-start gap-3 text-sm leading-relaxed text-white/85">
@@ -241,24 +230,50 @@ function ToolControls({
   )
 }
 
-/* ------------------------------------------------------------------ */
-
 interface AiFeaturesProps {
-  /** Giữ để tương thích với Home; section mới không còn popup "chưa kết nối". */
   onInfo?: (title: string) => void
 }
 
 export default function AiFeatures(_props: AiFeaturesProps) {
+  const { data: apiProducts } = useHomeProducts(6)
+
+  const samples = useMemo<AiSample[]>(() => {
+    if (!apiProducts || apiProducts.length === 0) return []
+    return apiProducts.slice(0, 3).map((p) => {
+      const price = p.sellingPrice ?? p.price ?? 0
+      const discount = p.discountPercent ?? 0
+      const original = discount > 0 ? Math.round(price / (1 - discount / 100)) : price
+      const fullName = p.productName || p.name || 'Nông sản'
+      const parts = fullName.split(' ')
+      const shortName = parts.length > 2 ? parts.slice(0, 2).join(' ') : fullName
+      return {
+        id: String(p.productId || p.id),
+        name: fullName,
+        shortName,
+        price,
+        original,
+        discount,
+        flaw: p.defectReason || 'Ngoại hình tự nhiên',
+        score: 95,
+      }
+    })
+  }, [apiProducts])
+
   const [tab, setTab] = useState<TabId>('vision')
-  const [sampleId, setSampleId] = useState(SCAN_SAMPLES[0]?.id ?? '')
+  const [sampleId, setSampleId] = useState<string>('')
   const [menuId, setMenuId] = useState<MenuId>('eatclean')
-  // Tăng mỗi lần đổi mẫu để chạy lại đường quét đúng 1 lần (chuyển động do người dùng kích hoạt)
   const [scanKey, setScanKey] = useState(0)
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   const baseId = useId()
 
+  useEffect(() => {
+    if (samples.length > 0 && !sampleId) {
+      setSampleId(samples[0].id)
+    }
+  }, [samples, sampleId])
+
   const active = TABS.find((t) => t.id === tab) ?? TABS[0]
-  const sample = SCAN_SAMPLES.find((p) => p.id === sampleId) ?? SCAN_SAMPLES[0]
+  const sample = samples.find((p) => p.id === sampleId) ?? samples[0]
   const menu = MENUS.find((m) => m.id === menuId) ?? MENUS[0]
 
   const selectTab = (index: number, focus = false) => {
@@ -273,7 +288,6 @@ export default function AiFeatures(_props: AiFeaturesProps) {
     setScanKey((k) => k + 1)
   }
 
-  // Điều hướng bàn phím chuẩn WAI-ARIA cho tablist
   const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const target: Record<string, number> = {
       ArrowDown: index + 1,
@@ -297,6 +311,7 @@ export default function AiFeatures(_props: AiFeaturesProps) {
       onSample={pickSample}
       onMenu={setMenuId}
       cta={active.cta}
+      samples={samples}
     />
   )
 
@@ -306,14 +321,14 @@ export default function AiFeatures(_props: AiFeaturesProps) {
       aria-labelledby="ai-title"
       className="relative overflow-hidden bg-[#142a0e] py-16 text-white sm:py-20 lg:py-28"
     >
-      {/* Quầng sáng mờ phía sau ảnh, chỉ để tách ảnh khỏi nền */}
+      {/* Quầng sáng mờ phía sau ảnh */}
       <div
         aria-hidden
         className="pointer-events-none absolute -right-40 top-1/4 h-[36rem] w-[36rem] rounded-full bg-[#326318]/35 blur-3xl"
       />
 
       <div className="relative mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-x-16 lg:px-8 xl:px-12">
-        {/* ---------- Cột trái: tiêu đề, chọn công cụ, điều khiển ---------- */}
+        {/* Cột trái: tiêu đề, chọn công cụ, điều khiển */}
         <div className="flex flex-col gap-8 lg:col-span-5">
           <header className="flex flex-col gap-4">
             <h2
@@ -379,11 +394,10 @@ export default function AiFeatures(_props: AiFeaturesProps) {
             })}
           </div>
 
-          {/* Desktop: điều khiển nằm dưới tab. Mobile: nằm dưới phiếu (xem cuối section) */}
           <div className="hidden lg:block">{controls}</div>
         </div>
 
-        {/* ---------- Cột phải: ảnh + phiếu kraft ---------- */}
+        {/* Cột phải: ảnh + phiếu kraft */}
         <div
           id={`${baseId}-panel`}
           role="tabpanel"
@@ -411,7 +425,6 @@ export default function AiFeatures(_props: AiFeaturesProps) {
 
               {tab === 'vision' && (
                 <div aria-hidden className="absolute inset-[12%]">
-                  {/* Khung ngắm 4 góc */}
                   {[
                     'left-0 top-0 border-l-2 border-t-2',
                     'right-0 top-0 border-r-2 border-t-2',
@@ -423,7 +436,6 @@ export default function AiFeatures(_props: AiFeaturesProps) {
                       className={cn('absolute h-7 w-7 rounded-[3px] border-sun-300', c)}
                     />
                   ))}
-                  {/* Đường quét: chạy một lần mỗi khi đổi mẫu hoặc mở tab */}
                   <span
                     key={scanKey}
                     className="ai-scanline absolute inset-x-0 top-0 h-0.5 bg-sun-300 opacity-0 shadow-[0_0_16px_4px_rgb(255_234_121/0.5)] motion-reduce:hidden"
@@ -432,12 +444,11 @@ export default function AiFeatures(_props: AiFeaturesProps) {
               )}
             </div>
 
-            {/* Phiếu: chồng lên góc dưới trái của ảnh ở desktop; mobile nằm giữa, chờm lên mép ảnh */}
             <div
               aria-live="polite"
               className="relative -mt-16 flex justify-center px-3 sm:-mt-24 lg:absolute lg:-bottom-12 lg:-left-20 lg:mt-0 lg:block lg:w-[22rem] lg:px-0"
             >
-              {tab === 'vision' && sample && (
+              {tab === 'vision' && sample ? (
                 <KraftTag
                   heading="Phiếu kiểm định AI"
                   title={sample.name}
@@ -445,12 +456,14 @@ export default function AiFeatures(_props: AiFeaturesProps) {
                     <div className="mt-4 flex items-baseline justify-between gap-2 rounded-xl bg-[#e2d1ad] px-3 py-2.5">
                       <span className="text-sm text-[#6b5434]">Giá giải cứu</span>
                       <span className="flex items-baseline gap-2 tabular-nums">
-                        <del className="text-caption text-[#6b5434]">
-                          <span className="sr-only">Giá gốc </span>
-                          {money(sample.original)}
-                        </del>
+                        {sample.original > sample.price && (
+                          <del className="text-caption text-[#6b5434]">
+                            <span className="sr-only">Giá gốc </span>
+                            {formatCurrency(sample.original)}
+                          </del>
+                        )}
                         <strong className="text-xl font-extrabold text-[#326318]">
-                          {money(sample.price)}
+                          {formatCurrency(sample.price)}
                         </strong>
                       </span>
                     </div>
@@ -458,9 +471,23 @@ export default function AiFeatures(_props: AiFeaturesProps) {
                 >
                   <TagRow label="Vẻ ngoài">{sample.flaw}</TagRow>
                   <TagRow label="Độ tươi">{sample.score}/100</TagRow>
-                  <TagRow label="Rẻ hơn giá gốc">{discountPercent(sample)}%</TagRow>
+                  <TagRow label="Rẻ hơn giá gốc">
+                    {sample.original > sample.price
+                      ? Math.round((1 - sample.price / sample.original) * 100)
+                      : sample.discount}%
+                  </TagRow>
                 </KraftTag>
-              )}
+              ) : tab === 'vision' ? (
+                <KraftTag
+                  heading="Phiếu kiểm định AI"
+                  title="Hệ thống đang sẵn sàng"
+                >
+                  <TagRow label="Trạng thái">Sẵn sàng nhận diện</TagRow>
+                  <TagRow label="Độ tươi">Tiêu chuẩn CapNong</TagRow>
+                  <TagRow label="Bảo chứng">AI Vision Việt Nam</TagRow>
+                </KraftTag>
+              ) : null}
+
               {tab === 'chef' && (
                 <KraftTag heading="Thực đơn gợi ý" title={menu.dish}>
                   <TagRow label="Năng lượng">{menu.kcal} kcal</TagRow>
@@ -469,6 +496,7 @@ export default function AiFeatures(_props: AiFeaturesProps) {
                   <TagRow label="Rau củ dùng">{menu.uses}</TagRow>
                 </KraftTag>
               )}
+
               {tab === 'copilot' && (
                 <KraftTag heading="Kế hoạch dinh dưỡng" title="Khẩu phần rau xanh chuẩn VietGAP">
                   <TagRow label="Mục tiêu">Ăn sạch & Dinh dưỡng</TagRow>

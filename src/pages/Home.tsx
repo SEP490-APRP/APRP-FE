@@ -10,7 +10,8 @@ import {
   TodayRescue,
 } from '@/features/home'
 import { CampaignSpotlight } from '@/features/campaign/components/CampaignSpotlight'
-import type { Cart } from '@/mocks/catalog'
+
+type Cart = Record<string, number>
 
 type HomeProps = {
   onAdd: (id: string | number, itemType?: string) => void

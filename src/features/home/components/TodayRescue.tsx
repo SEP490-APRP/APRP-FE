@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
-import { money, type Cart, type Product as StorefrontProduct } from '@/mocks/catalog'
 import { ProductGrid, useHomeProducts } from '@/features/product'
 import { buttonClasses } from '@/components/ui/Button'
+import { formatCurrency } from '@/utils'
+
+type StorefrontProduct = Parameters<typeof ProductGrid>[0]['products'][number]
 
 const BENEFITS = [
   { icon: CheckCircle2, text: 'Không chất bảo quản' },
@@ -12,7 +14,7 @@ const BENEFITS = [
   { icon: ShieldCheck, text: 'Đổi trả 1-1 nhanh chóng' },
 ] as const
 
-export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Cart }) {
+export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Record<string, number> }) {
   // Trang chủ chỉ hiện 8 sản phẩm (4 trên, 4 dưới); xem thêm ở trang Nông sản tươi
   const { data: apiProducts, isLoading } = useHomeProducts(8)
 
@@ -111,7 +113,7 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-2xl sm:text-3xl font-black text-sun-300 tracking-tight">
-                    Chỉ từ {money(lowestPrice)}
+                    Chỉ từ {formatCurrency(lowestPrice)}
                   </span>
                   <span className="text-caption text-white/80">/kg</span>
                 </div>

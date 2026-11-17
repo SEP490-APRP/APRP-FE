@@ -17,8 +17,7 @@ import comboMysteryImg from '@/assets/combo-mystery.jpg'
 import comboGreenImg from '@/assets/combo-green.jpg'
 import comboKitchenImg from '@/assets/combo-kitchen.jpg'
 import comboHotpotImg from '@/assets/combo-hotpot.jpg'
-import { money } from '@/mocks/catalog'
-import { cn } from '@/utils'
+import { cn, formatCurrency } from '@/utils'
 import { mysteryBoxService, comboService } from '@/services'
 import { isMeaningfulComboName, mapComboToCard, mapMysteryBoxToCard } from '@/pages/combos.utils'
 
@@ -107,12 +106,12 @@ function ComboCard({
 
       <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-line pt-3">
         <p className="flex items-baseline gap-1.5">
-          <strong className="text-lg font-extrabold text-leaf-700">{money(teaser.price)}</strong>
+          <strong className="text-lg font-extrabold text-leaf-700">{formatCurrency(teaser.price)}</strong>
           <span className="text-caption text-ink-subtle">/{teaser.unit}</span>
           {discount > 0 && (
             <del className="text-caption text-ink-subtle">
               <span className="sr-only">Giá gốc </span>
-              {money(teaser.original)}
+              {formatCurrency(teaser.original)}
             </del>
           )}
         </p>
@@ -203,7 +202,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string | number, 
   }, [mysteryBoxesData, combosData])
 
   const firstMystery = mysteryBoxesData?.content?.[0]
-  const mysteryPrice = Number(firstMystery?.price) || 79000
+  const mysteryPrice = Number(firstMystery?.price) || 0
 
   return (
     <section
@@ -268,7 +267,7 @@ export default function CombosTeaser({ onAdd }: { onAdd?: (id: string | number, 
                   Giá trải nghiệm
                 </span>
                 <span className="text-2xl font-black text-sun-300 sm:text-3xl">
-                  Chỉ {money(mysteryPrice)}
+                  {mysteryPrice > 0 ? `Chỉ ${formatCurrency(mysteryPrice)}` : 'Trợ giá giải cứu'}
                 </span>
                 <span className="text-caption text-white/80">/túi 5kg</span>
               </p>

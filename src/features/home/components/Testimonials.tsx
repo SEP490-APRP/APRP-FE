@@ -178,25 +178,14 @@ export default function Testimonials() {
           {/* Avatar Stack + Counter */}
           <div className="flex items-center gap-3.5 pt-3 border-t border-[#ede8df]">
             <div className="flex items-center -space-x-2.5">
-              {topAvatars.length > 0 ? (
-                topAvatars.map((av, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-9 h-9 rounded-full ${av.bg} text-white flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm`}
-                  >
-                    {av.text}
-                  </div>
-                ))
-              ) : (
-                <>
-                  <div className="w-9 h-9 rounded-full bg-[#f43f5e] text-white flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm">
-                    TT
-                  </div>
-                  <div className="w-9 h-9 rounded-full bg-[#0284c7] text-white flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm">
-                    MT
-                  </div>
-                </>
-              )}
+              {topAvatars.map((av, idx) => (
+                <div
+                  key={idx}
+                  className={`w-9 h-9 rounded-full ${av.bg} text-white flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm`}
+                >
+                  {av.text}
+                </div>
+              ))}
               <div className="w-9 h-9 rounded-full bg-[#2e7d32] text-white flex items-center justify-center font-bold text-caption ring-2 ring-white shadow-sm">
                 ★ {avgRating.toFixed(1)}
               </div>

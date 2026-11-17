@@ -52,20 +52,6 @@ export default function Categories() {
   const { data: rawCategories, isLoading } = useCategories()
 
   const categories = (rawCategories ?? []) as CategoryResponse[]
-  const hasCombo = categories.some((c) => {
-    const n = (c.name || '').toLowerCase()
-    return n.includes('combo') || n.includes('túi mù')
-  })
-
-  // Nếu danh mục API chưa có combo, ghép thêm ô Combo & Túi mù để giữ trọn vẹn bố cục 6 ô đồng đều
-  const displayCategories = [...categories]
-  if (!hasCombo && displayCategories.length > 0 && displayCategories.length < 6) {
-    displayCategories.push({
-      categoryId: -1,
-      name: 'Combo & Túi mù',
-      description: 'Giảm thêm 15% · Giao nhanh',
-    })
-  }
 
   return (
     <section id="danh-muc" aria-labelledby="danh-muc-title">
@@ -97,10 +83,9 @@ export default function Categories() {
                 <div className="h-3 bg-gray-100 rounded w-16" />
               </div>
             ))
-          ) : displayCategories.length > 0 ? (
-            displayCategories.map((cat) => {
+          ) : categories.length > 0 ? (
+            categories.map((cat) => {
               const isComboItem =
-                cat.categoryId === -1 ||
                 (cat.name || '').toLowerCase().includes('combo') ||
                 (cat.name || '').toLowerCase().includes('túi mù')
 
