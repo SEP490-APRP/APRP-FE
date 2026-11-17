@@ -13,7 +13,12 @@ export default function FarmerStory() {
     category: 'STORY',
   })
 
-  const latestStory = blogData?.content?.[0]
+  // Nếu chưa có bài viết thể loại STORY, tự động lấy bài viết mới nhất từ bất kỳ danh mục nào
+  const { data: latestBlogData } = usePublicBlogs(
+    blogData && blogData.content?.length === 0 ? { page: 0, size: 1 } : undefined,
+  )
+
+  const latestStory = blogData?.content?.[0] ?? latestBlogData?.content?.[0]
 
   const title = latestStory?.title ||
     '"Rau củ cong queo từng bị đổ đống hàng tấn mỗi vụ... Giờ đây chúng nuôi sống gia đình tôi."'

@@ -1,4 +1,4 @@
-﻿import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Camera, Sprout, Utensils, type LucideIcon } from 'lucide-react'
 import aiVisionImg from '@/assets/ai-vision.jpg'
