@@ -34,7 +34,8 @@ export function WalletTransactionList({
     <div className="divide-y divide-[#f1f4ed]">
       {items.map((tx) => {
         const isIn = tx.amount >= 0
-        const isHold = tx.hold === true
+        // Giữ chỗ ký quỹ COD hiển thị như tạm giữ: không đổi số dư, chỉ đổi số dư khả dụng
+        const isHold = tx.hold === true || tx.reserve === true
         return (
           <div key={tx.id} className="py-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -67,7 +68,11 @@ export function WalletTransactionList({
                 {formatVnd(tx.amount, true)}
               </div>
               <div className="text-[10px] text-[#858f7e]">
-                {isHold ? `Tạm giữ: ${formatVnd(tx.frozenAfter ?? 0)}` : `Số dư: ${formatVnd(tx.balanceAfter)}`}
+                {tx.reserve
+                  ? `Số dư: ${formatVnd(tx.balanceAfter)}`
+                  : isHold
+                    ? `Tạm giữ: ${formatVnd(tx.frozenAfter ?? 0)}`
+                    : `Số dư: ${formatVnd(tx.balanceAfter)}`}
               </div>
             </div>
           </div>

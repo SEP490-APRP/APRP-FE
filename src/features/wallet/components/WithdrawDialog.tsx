@@ -39,7 +39,7 @@ export function WithdrawDialog({ open, onClose, defaults, onSuccess }: WithdrawD
   const [serverError, setServerError] = useState<string | null>(null)
   const [done, setDone] = useState<number | null>(null)
 
-  const available = Math.max(0, Number(walletQuery.data?.balance ?? 0))
+  const available = Math.max(0, Number(walletQuery.data?.availableBalance ?? walletQuery.data?.balance ?? 0))
   const last = historyQuery.data?.[0]
 
   // Mở popup: xoá trạng thái cũ

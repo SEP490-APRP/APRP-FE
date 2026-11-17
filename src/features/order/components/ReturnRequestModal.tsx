@@ -14,6 +14,7 @@ import type { OrderItem } from '@/types/order.types'
 import { uploadService } from '@/services/upload.service'
 import { useCreateReturnRequest } from '@/features/order/hooks/useOrderQueries'
 import { globalShowAlert } from '@/components/common/Popup'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface ReturnRequestModalProps {
   isOpen: boolean
@@ -30,6 +31,9 @@ const RETURN_REASONS = [
   'Hàng đã quá ngày sử dụng hoặc biến chất khi nhận',
   'Lý do khác',
 ]
+
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+const MAX_VIDEO_SIZE_BYTES = 30 * 1024 * 1024 // 30MB
 
 export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
   isOpen,
@@ -92,6 +96,18 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
       const newUrls: string[] = []
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
+        const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name)
+        const maxSize = isVideo ? MAX_VIDEO_SIZE_BYTES : MAX_IMAGE_SIZE_BYTES
+
+        if (file.size > maxSize) {
+          setErrorMessage(
+            isVideo
+              ? `Tệp video "${file.name}" vượt quá dung lượng cho phép (tối đa 30MB). Vui lòng chọn video ngắn hơn!`
+              : `Ảnh "${file.name}" vượt quá dung lượng cho phép (tối đa 10MB)!`
+          )
+          continue
+        }
+
         setUploadProgress(`Đang tải lên tệp ${i + 1}/${files.length}...`)
         const res = await uploadService.uploadMedia(file, 'returns')
         if (res.result?.url) {
@@ -101,7 +117,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
       setEvidenceUrls((prev) => [...prev, ...newUrls])
     } catch (err: any) {
       console.error('Upload evidence failed:', err)
-      setErrorMessage('Không thể tải tệp lên máy chủ. Vui lòng thử lại với ảnh dung lượng nhỏ hơn!')
+      setErrorMessage('Không thể tải tệp lên máy chủ. Vui lòng kiểm tra dung lượng hoặc kết nối mạng!')
     } finally {
       setIsUploading(false)
       setUploadProgress('')
@@ -125,7 +141,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
         : selectedReason
 
     if (refundAmount <= 0 || refundAmount > maxRefundAmount) {
-      setErrorMessage(`Số tiền yêu cầu hoàn phải từ 1.000 đ đến tối đa ${maxRefundAmount.toLocaleString('vi-VN')} đ`)
+      setErrorMessage(`Số tiền yêu cầu hoàn phải từ 1.000\u00A0đ đến tối đa ${maxRefundAmount.toLocaleString('vi-VN')}\u00A0đ`)
       return
     }
 
@@ -212,10 +228,10 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
               </h4>
               <p className="text-[11px] text-stone-500 mt-0.5">
                 Số lượng mua: <strong className="text-stone-700">{itemQty}</strong> • Đơn giá:{' '}
-                <strong className="text-stone-700">{itemUnitPrice.toLocaleString('vi-VN')} đ</strong>
+                <strong className="text-stone-700 whitespace-nowrap">{itemUnitPrice.toLocaleString('vi-VN')}&nbsp;đ</strong>
               </p>
-              <p className="text-xs font-bold text-emerald-700 mt-1">
-                Tổng giá trị mặt hàng: {maxRefundAmount.toLocaleString('vi-VN')} đ
+              <p className="text-xs font-bold text-emerald-700 mt-1 whitespace-nowrap">
+                Tổng giá trị mặt hàng: {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ
               </p>
             </div>
           </div>
@@ -226,18 +242,14 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
               <span>Lý do hoàn trả:</span>
               <span className="text-[10px] text-stone-400 font-normal">Bắt buộc</span>
             </label>
-            <select
+            <CustomSelect
+              id="return-reason-select"
               value={selectedReason}
-              onChange={(e) => setSelectedReason(e.target.value)}
+              onChange={(val) => setSelectedReason(String(val))}
               disabled={createReturnMutation.isPending}
-              className="w-full p-2.5 bg-stone-50 hover:bg-stone-100/80 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer"
-            >
-              {RETURN_REASONS.map((r, i) => (
-                <option key={i} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              options={RETURN_REASONS.map((r) => ({ value: r, label: r }))}
+              placeholder="Chọn lý do hoàn trả"
+            />
 
             {selectedReason === 'Lý do khác' && (
               <textarea
@@ -251,7 +263,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
             )}
           </div>
 
-                    {/* Ghi chú: Shop là bên quyết định có lấy hàng về hay không */}
+          {/* Ghi chú: Shop là bên quyết định có lấy hàng về hay không */}
           <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
             <span className="font-bold text-amber-700 shrink-0">💡 Lưu ý:</span>
             <span>
@@ -263,7 +275,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-[#343b2e] flex items-center justify-between">
               <span>Số tiền yêu cầu hoàn lại:</span>
-              <span className="text-[10px] text-stone-400">Tối đa {maxRefundAmount.toLocaleString('vi-VN')} đ</span>
+              <span className="text-[10px] text-stone-400">Tối đa {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ</span>
             </label>
             <div className="relative">
               <input
@@ -338,7 +350,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
                 <>
                   <UploadCloud size={22} className="text-stone-400" />
                   <span className="text-xs font-bold text-stone-700">Tải ảnh hoặc video bằng chứng</span>
-                  <span className="text-[10px] text-stone-400">Hỗ trợ JPG, PNG, MP4 (Tối đa 50MB)</span>
+                  <span className="text-[10px] text-stone-400">Hỗ trợ JPG, PNG, MP4, MOV (Video ≤ 30MB, Ảnh ≤ 10MB)</span>
                 </>
               )}
             </label>

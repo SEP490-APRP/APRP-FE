@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Images, Loader2, Sparkles } from 'lucide-react'
+import { X, Images, Loader2, Sparkles, AlertTriangle } from 'lucide-react'
 import {
   productFormSchema,
   type ProductFormInput,
@@ -10,8 +10,18 @@ import {
 } from '../schemas/productForm.schema'
 import { useCategories } from '../hooks/useCategoryQueries'
 import { useUpdateProduct, useAiSuggestDescription } from '../hooks/useProductQueries'
-import type { ProductResponse } from '@/services'
+import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { CustomSelect } from '@/components/common/CustomSelect'
+
+const UNIT_OPTIONS = [
+  { value: 'kg', label: 'kg (Kilogram)' },
+  { value: 'hộp', label: 'hộp' },
+  { value: 'bó', label: 'bó' },
+  { value: 'túi', label: 'túi' },
+  { value: 'trái', label: 'trái / quả' },
+  { value: 'thùng', label: 'thùng' },
+]
 
 interface EditProductModalProps {
   product: ProductResponse
@@ -49,8 +59,8 @@ export function EditProductModal({
       ? (product.category as any).categoryId
       : (product.categoryId ?? (categories[0]?.categoryId || 1))
 
-  const defaultExpiry =
-    product.expiryDate ||
+  const formattedExpiry =
+    normalizeExpiryDate(product.expiryDate) ||
     (() => {
       const d = new Date()
       d.setDate(d.getDate() + 7)
@@ -65,6 +75,8 @@ export function EditProductModal({
     handleSubmit,
     setValue,
     getValues,
+    watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -74,12 +86,37 @@ export function EditProductModal({
       price: product.sellingPrice || product.price || 0,
       stock: product.stockQuantity || product.stock || 0,
       unit: product.unit || 'kg',
-      expiryDate: defaultExpiry,
+      expiryDate: formattedExpiry,
       description: product.description || '',
       discountPercent: product.discountPercent || 0,
       region: product.region || 'Đà Lạt & Lâm Đồng',
     },
   })
+
+  // Đồng bộ lại toàn bộ Form khi product thay đổi hoặc khi modal mở ra
+  useEffect(() => {
+    if (isOpen && product) {
+      const currentExpiry =
+        normalizeExpiryDate(product.expiryDate) ||
+        (() => {
+          const d = new Date()
+          d.setDate(d.getDate() + 7)
+          return d.toISOString().split('T')[0]
+        })()
+
+      reset({
+        name: product.productName || product.name || '',
+        categoryId: defaultCategoryId,
+        price: product.sellingPrice || product.price || 0,
+        stock: product.stockQuantity || product.stock || 0,
+        unit: product.unit || 'kg',
+        expiryDate: currentExpiry,
+        description: product.description || '',
+        discountPercent: product.discountPercent || 0,
+        region: product.region || 'Đà Lạt & Lâm Đồng',
+      })
+    }
+  }, [product, isOpen, reset, defaultCategoryId])
 
   if (!isOpen) return null
 
@@ -117,6 +154,10 @@ export function EditProductModal({
 
   const onSubmit = async (values: ProductFormValues) => {
     try {
+      const nextStatus = (product.status === 'REJECTED' || product.status === 'INACTIVE')
+        ? 'PENDING'
+        : product.status
+
       await updateMutation.mutateAsync({
         id: product.id,
         request: {
@@ -128,10 +169,13 @@ export function EditProductModal({
           description: values.description,
           expiryDate: values.expiryDate,
           discountPercent: values.discountPercent,
-          status: product.status,
+          status: nextStatus,
         },
       })
-      onInfo?.(`Đã cập nhật sản phẩm: ${values.name}`)
+      const isResubmitting = product.status === 'REJECTED' || product.status === 'INACTIVE'
+      onInfo?.(isResubmitting
+        ? `Đã cập nhật và gửi duyệt lại nông sản: ${values.name}`
+        : `Đã cập nhật sản phẩm: ${values.name}`)
       onClose()
     } catch (err) {
       alert(getErrorMessage(err) || 'Không thể cập nhật sản phẩm')
@@ -174,6 +218,17 @@ export function EditProductModal({
             Mã sản phẩm: <span className="font-bold">#{product.id}</span> · Trạng thái:{' '}
             <span className="font-bold">{product.status}</span>
           </p>
+
+          {/* Banner lý do bị từ chối nếu có */}
+          {Boolean(product.rejectReason) && (
+            <div className="mt-3 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs">
+              <div className="font-bold flex items-center gap-1.5 mb-1 text-red-900">
+                <AlertTriangle size={15} className="text-red-600 shrink-0" />
+                <span>Lý do Admin từ chối:</span>
+              </div>
+              <p className="text-red-700 pl-5 leading-relaxed">{product.rejectReason}</p>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Form */}
@@ -199,17 +254,17 @@ export function EditProductModal({
               <label htmlFor="edit-category" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Danh mục *
               </label>
-              <select
+              <CustomSelect
                 id="edit-category"
-                {...register('categoryId', { valueAsNumber: true })}
-                className={SELECT_CLASS}
-              >
-                {categories.map((c) => (
-                  <option key={c.categoryId} value={c.categoryId}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                value={watch('categoryId') ?? defaultCategoryId}
+                onChange={(val) => setValue('categoryId', Number(val), { shouldValidate: true, shouldDirty: true })}
+                options={categories.map((c) => ({
+                  value: c.categoryId,
+                  label: c.name,
+                }))}
+                placeholder="Chọn danh mục"
+                error={!!errors.categoryId}
+              />
               <FieldError message={errors.categoryId?.message} />
             </div>
 
@@ -217,14 +272,14 @@ export function EditProductModal({
               <label htmlFor="edit-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <select id="edit-unit" {...register('unit')} className={SELECT_CLASS}>
-                <option value="kg">kg (Kilogram)</option>
-                <option value="hộp">hộp</option>
-                <option value="bó">bó</option>
-                <option value="túi">túi</option>
-                <option value="trái">trái / quả</option>
-                <option value="thùng">thùng</option>
-              </select>
+              <CustomSelect
+                id="edit-unit"
+                value={watch('unit') || 'kg'}
+                onChange={(val) => setValue('unit', String(val), { shouldValidate: true, shouldDirty: true })}
+                options={UNIT_OPTIONS}
+                placeholder="Chọn đơn vị tính"
+                error={!!errors.unit}
+              />
               <FieldError message={errors.unit?.message} />
             </div>
           </div>
@@ -357,7 +412,11 @@ export function EditProductModal({
               {(isSubmitting || updateMutation.isPending) && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              <span>Lưu Thay Đổi</span>
+              <span>
+                {product.status === 'REJECTED' || product.status === 'INACTIVE'
+                  ? 'Lưu & Gửi Duyệt Lại'
+                  : 'Lưu Thay Đổi'}
+              </span>
             </button>
           </div>
         </form>

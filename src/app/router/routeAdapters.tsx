@@ -14,6 +14,7 @@ export { PageLoading }
 const Home = lazy(() => import('@/pages/Home'))
 const Fresh = lazy(() => import('@/pages/Fresh'))
 const Combos = lazy(() => import('@/pages/Combos'))
+const ComboDetail = lazy(() => import('@/pages/combo/ComboDetail'))
 const FarmerStoriesPage = lazy(() => import('@/pages/FarmerStoriesPage'))
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'))
 const ProductDetail = lazy(() => import('@/pages/product/ProductDetail'))
@@ -38,6 +39,7 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
 const BuyerMessagesPage = lazy(() => import('@/pages/chat/BuyerMessagesPage'))
+const ReferralRedirectPage = lazy(() => import('@/pages/ReferralRedirectPage'))
 
 const DEFAULT_PRODUCT_ID = '701'
 const DEFAULT_SHOP_ID = '101'
@@ -69,6 +71,9 @@ export function CombosRoute() {
   return <Combos onAdd={onAdd} onInfo={onInfo} />
 }
 
+export function ComboDetailRoute() {
+  return <ComboDetail />
+}
 export function StoriesRoute() {
   const { onAdd, onInfo } = useStorefront()
   return <FarmerStoriesPage onAdd={onAdd} onInfo={onInfo} />
@@ -129,6 +134,15 @@ export function MyWalletRoute() {
         <MyWalletPage />
       </div>
     </RequireRole>
+  )
+}
+
+/** Chuyển hướng & Phân giải link tiếp thị CapNong */
+export function ReferralRedirectRoute() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <ReferralRedirectPage />
+    </Suspense>
   )
 }
 

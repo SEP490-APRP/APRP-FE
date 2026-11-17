@@ -12,6 +12,26 @@ export const walletKeys = {
   refunds: () => [...walletKeys.all, 'refunds'] as const,
   overview: (period: string) => [...walletKeys.all, 'platform', 'overview', period] as const,
   myWithdrawals: () => [...walletKeys.all, 'me', 'withdrawals'] as const,
+  myTopups: () => [...walletKeys.all, 'me', 'topups'] as const,
+}
+
+/** Lịch sử nạp ví của tôi */
+export function useMyTopups(enabled = true) {
+  return useQuery({ queryKey: walletKeys.myTopups(), queryFn: walletApi.getMyTopups, enabled })
+}
+
+/** Tạo link PayOS nạp ví */
+export function useCreateTopup() {
+  return useMutation({ mutationFn: walletApi.createTopup })
+}
+
+/** Xác nhận lệnh nạp sau khi quay lại từ PayOS, tải lại ví nếu đã cộng tiền */
+export function useConfirmTopup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: walletApi.confirmTopup,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: walletKeys.all }),
+  })
 }
 
 /** Ví của người đang đăng nhập (Shop / Shipper; Admin nhận ví sàn) */

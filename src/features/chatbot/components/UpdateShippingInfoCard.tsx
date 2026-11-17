@@ -18,7 +18,7 @@ export const UpdateShippingInfoCard: React.FC<UpdateShippingInfoCardProps> = ({ 
     info.note ||
     info.suggestedAction ||
     (isPhone
-      ? 'Hệ thống không hỗ trợ sửa trực tiếp số điện thoại trên đơn đã chốt để tránh xung đột dữ liệu vận chuyển. Bạn hãy liên hệ trực tiếp với tài xế giao hàng hoặc gọi Hotline 1900-CAPNONG để được hỗ trợ chuyển số mới nhé!'
+      ? 'Hệ thống không hỗ trợ sửa trực tiếp số điện thoại trên đơn đã chốt để tránh xung đột dữ liệu vận chuyển. Bạn hãy liên hệ trực tiếp với tài xế giao hàng hoặc bộ phận hỗ trợ để được chuyển số mới nhé!'
       : 'Hệ thống CapNong tính cước vận chuyển tự động theo toạ độ Google Maps giữa nhà vườn và người nhận nên không hỗ trợ đổi trực tiếp địa chỉ trên đơn đã chốt. Nếu đơn chưa giao, bạn có thể Hủy đơn trong mục Đơn hàng của tôi để đặt lại địa chỉ mới nhé!')
 
   return (
@@ -107,13 +107,15 @@ export const UpdateShippingInfoCard: React.FC<UpdateShippingInfoCardProps> = ({ 
               <Phone className="w-3.5 h-3.5 text-white" />
               <span>Gọi Shipper báo số mới</span>
             </a>
-            <a
-              href={`tel:${info.supportContact || '1900636999'}`}
-              className="py-2 px-3 text-xs font-semibold text-[#1c1c17] bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-            >
-              <Headphones className="w-3.5 h-3.5 text-[#ffba41]" />
-              <span>Hotline</span>
-            </a>
+            {info.supportContact && (
+              <a
+                href={`tel:${info.supportContact}`}
+                className="py-2 px-3 text-xs font-semibold text-[#1c1c17] bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <Headphones className="w-3.5 h-3.5 text-[#ffba41]" />
+                <span>Hotline</span>
+              </a>
+            )}
           </>
         ) : (
           <>
@@ -125,13 +127,15 @@ export const UpdateShippingInfoCard: React.FC<UpdateShippingInfoCardProps> = ({ 
               <span>Xem đơn hàng của tôi</span>
               <ArrowRight className="w-3.5 h-3.5 text-[#ffba41]" />
             </Link>
-            <a
-              href={`tel:${info.supportContact || '1900636999'}`}
-              className="py-2 px-3 text-xs font-semibold text-[#1c1c17] bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-            >
-              <Headphones className="w-3.5 h-3.5 text-[#ffba41]" />
-              <span>Gọi hotline</span>
-            </a>
+            {info.supportContact && (
+              <a
+                href={`tel:${info.supportContact}`}
+                className="py-2 px-3 text-xs font-semibold text-[#1c1c17] bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <Headphones className="w-3.5 h-3.5 text-[#ffba41]" />
+                <span>Gọi hotline</span>
+              </a>
+            )}
           </>
         )}
       </div>

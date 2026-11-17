@@ -1,10 +1,11 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom'
 import RootLayout from '@/app/layouts/RootLayout'
 import StorefrontLayout from '@/app/layouts/StorefrontLayout'
 import {
   HomeRoute,
   FreshRoute,
   CombosRoute,
+  ComboDetailRoute,
   StoriesRoute,
   PrivacyRoute,
   ProductRoute,
@@ -25,12 +26,19 @@ import {
   BuyerOrdersRoute,
   MyVouchersRoute,
   MyWalletRoute,
+  ReferralRedirectRoute,
   MealPlanRoute,
   ProfileRoute,
   BuyerMessagesRoute,
   SectionOrNotFound,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
+
+/** Giữ query (?tab=...) khi chuyển đường dẫn cũ sang /tai-khoan. */
+function ProfileRedirect() {
+  const { search } = useLocation()
+  return <Navigate replace to={`/tai-khoan${search}`} />
+}
 
 const title = (t: RouteHandle['title']): RouteHandle => ({ title: t })
 
@@ -76,12 +84,18 @@ export const router = createBrowserRouter([
           { index: true, element: <HomeRoute />, handle: title(DEFAULT_TITLE) },
           { path: 'nong-san-tuoi/*', element: <FreshRoute />, handle: title('Nông sản tươi') },
           { path: 'combo-tui-mu/*', element: <CombosRoute />, handle: title('Combo & Túi mù') },
+          { path: 'combo/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Combo · CapNong') },
+          { path: 'mystery-box/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
+          { path: 'tui-mu/:id/*', element: <ComboDetailRoute />, handle: title('Chi tiết Túi mù · CapNong') },
           { path: 'ke-hoach-an-uong/*', element: <MealPlanRoute />, handle: title('Kế Hoạch Ăn Uống · CapNong AI') },
           { path: 'meal-plan/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'meal-planner/*', element: <Navigate replace to="/ke-hoach-an-uong" /> },
           { path: 'cong-nghe-ai/*', element: <Navigate replace to="/" /> },
           { path: 'cau-chuyen-nong-dan/*', element: <StoriesRoute />, handle: title('Chuyện Nông Dân') },
           { path: 'bao-mat-thong-tin/*', element: <PrivacyRoute />, handle: title('Chính Sách Bảo Mật') },
+
+          // Tiếp thị liên kết (Referral / Affiliate)
+          { path: 'ref/:referralCode', element: <ReferralRedirectRoute />, handle: title('Tiếp thị liên kết · CapNong') },
 
           // Sản phẩm & Gian hàng
           { path: 'san-pham', element: <Navigate replace to="/nong-san-tuoi" /> },
@@ -114,7 +128,7 @@ export const router = createBrowserRouter([
 
           // Xác thực & Tài khoản
           { path: 'tai-khoan/*', element: <ProfileRoute />, handle: title('Hồ Sơ Cá Nhân · CapNong') },
-          { path: 'profile/*', element: <Navigate replace to="/tai-khoan" /> },
+          { path: 'profile/*', element: <ProfileRedirect /> },
           { path: 'thong-bao/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
           { path: 'notifications/*', element: <Navigate replace to="/tai-khoan?tab=thong-bao" /> },
           { path: 'ho-so/*', element: <Navigate replace to="/tai-khoan" /> },

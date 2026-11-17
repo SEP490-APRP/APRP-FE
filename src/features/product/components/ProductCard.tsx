@@ -129,6 +129,7 @@ function ProductCardBase({
             -{discount}%
           </span>
         )}
+
       </Link>
 
       <div className="flex flex-1 flex-col p-3 sm:p-3.5">

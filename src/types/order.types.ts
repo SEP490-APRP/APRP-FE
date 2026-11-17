@@ -135,6 +135,8 @@ export interface CheckoutPreviewResponse {
   totalVoucherDiscount?: number
   voucherDiscountsDetail?: Record<string, number>
   finalTotalAmount?: number
+  codAllowed?: boolean
+  codRestrictionReason?: string
   // Aliases backward compatible
   subtotal?: number
   shippingFee?: number

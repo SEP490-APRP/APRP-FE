@@ -4,18 +4,27 @@ import { mysteryBoxService, type MysteryBoxCreationRequest } from '@/services'
 export const mysteryBoxKeys = {
   all: ['mystery-boxes'] as const,
   forBuyer: () => [...mysteryBoxKeys.all, 'for-buyer'] as const,
+  shop: (shopId: number) => [...mysteryBoxKeys.all, 'shop', shopId] as const,
   myShop: (page = 1, size = 10) => [...mysteryBoxKeys.all, 'my-shop', page, size] as const,
 }
 
 /** Túi mù đang bán của một shop. */
 export function useShopMysteryBoxes(shopId: number) {
   return useQuery({
-    queryKey: mysteryBoxKeys.forBuyer(),
+    queryKey: mysteryBoxKeys.shop(shopId),
     queryFn: async () => {
-      const page = await mysteryBoxService.getForBuyer()
-      return page?.content ?? []
+      const page = await mysteryBoxService.getForBuyer({ shopId, size: 50 })
+      const rawList = page?.content ?? (page as any)?.result?.content ?? []
+      return rawList.map((box: any) => ({
+        ...box,
+        id: box.mysteryId ?? box.id,
+        mysteryId: box.mysteryId ?? box.id,
+      }))
     },
-    select: (boxes) => boxes.filter((b) => (b.shopId ? b.shopId === shopId : b.shopOwnerId === shopId)),
+    select: (boxes) =>
+      boxes.filter((b: any) =>
+        b.shopId ? b.shopId === shopId : (b.shopOwnerId ? b.shopOwnerId === shopId : (b.shop?.id ? b.shop.id === shopId : true)),
+      ),
   })
 }
 

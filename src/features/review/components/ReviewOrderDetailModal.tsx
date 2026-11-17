@@ -133,12 +133,12 @@ export function ReviewOrderDetailModal({
                       <span className="font-bold text-[#1c2216] block">
                         {it.itemName || it.productName || it.mysteryBoxType || 'Nông sản'}
                       </span>
-                      <span className="text-[11px] text-[#747e70]">
-                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')} đ
+                      <span className="text-[11px] text-[#747e70] whitespace-nowrap">
+                        Số lượng: {it.quantity} × {(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
-                    <strong className="text-[#1c2216]">
-                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')} đ
+                    <strong className="text-[#1c2216] whitespace-nowrap shrink-0">
+                      {(it.subtotal || (it.unitPrice || 0) * it.quantity).toLocaleString('vi-VN')}&nbsp;đ
                     </strong>
                   </div>
                 ))}
@@ -146,10 +146,10 @@ export function ReviewOrderDetailModal({
             </div>
 
             {/* Tổng thanh toán */}
-            <div className="p-3 rounded-lg bg-[#f0f6ec] border border-[#d6e5ce] flex justify-between items-center text-xs">
-              <span className="font-bold text-[#1c2216]">Tổng thanh toán:</span>
-              <strong className="text-sm font-black text-[#326318]">
-                {(order.totalAmount || 0).toLocaleString('vi-VN')} đ
+            <div className="p-3 rounded-lg bg-[#f0f6ec] border border-[#d6e5ce] flex justify-between items-center text-xs gap-2">
+              <span className="font-bold text-[#1c2216] whitespace-nowrap">Tổng thanh toán:</span>
+              <strong className="text-sm font-black text-[#326318] whitespace-nowrap shrink-0">
+                {(order.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
               </strong>
             </div>
           </div>

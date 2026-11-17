@@ -12,6 +12,10 @@ export interface NotificationItem {
   isRead?: boolean
   adminId?: number
   adminName?: string
+  /** NEW_ORDER_OFFER | ORDER_STATUS | DISPATCH_TIMEOUT...; không có = thông báo chung */
+  type?: string | null
+  /** Id đối tượng liên quan (vd. orderId) */
+  referenceId?: number | null
 }
 
 export interface AdminSendNotificationRequest {

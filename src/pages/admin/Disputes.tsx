@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  Film,
 } from 'lucide-react'
 import { returnService, ReturnRequestResponse } from '@/services/return.service'
 import { useCheckDisputePayout, useDisputeAction, useDisputes } from '@/features/order'
@@ -289,17 +290,30 @@ const Disputes: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 relative bg-black flex items-center justify-center">
+                  <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
                     {evidenceList.length > 0 ? (
-                      <img
-                        src={evidenceList[activeEvidence]}
-                        className="max-h-full object-contain"
-                      />
+                      evidenceList[activeEvidence].toLowerCase().includes('.mp4') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('.mov') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('.webm') ||
+                      evidenceList[activeEvidence].toLowerCase().includes('video') ? (
+                        <video
+                          key={evidenceList[activeEvidence]}
+                          src={evidenceList[activeEvidence]}
+                          controls
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <img
+                          src={evidenceList[activeEvidence]}
+                          className="max-h-full object-contain"
+                          alt="Bằng chứng"
+                        />
+                      )
                     ) : (
-                      <div className="text-gray-500 text-sm">Không có hình ảnh</div>
+                      <div className="text-gray-500 text-sm">Không có hình ảnh hoặc video</div>
                     )}
-                    <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 flex items-center gap-3">
-                      <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white">
+                    <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 flex items-center gap-3 pointer-events-none">
+                      <div className="size-8 bg-red-500 rounded-full flex items-center justify-center text-white shrink-0">
                         <AlertTriangle className="size-4" />
                       </div>
                       <p className="text-[11px] text-white/90 font-medium italic line-clamp-2">
@@ -308,14 +322,31 @@ const Disputes: React.FC = () => {
                     </div>
                   </div>
                   <div className="p-4 flex gap-4 overflow-x-auto bg-gray-900">
-                    {evidenceList.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        onClick={() => setActiveEvidence(i)}
-                        className={`size-16 rounded-xl object-cover cursor-pointer transition-all ${activeEvidence === i ? 'border-2 border-primary scale-110' : 'opacity-40 hover:opacity-100'}`}
-                      />
-                    ))}
+                    {evidenceList.map((url, i) => {
+                      const isVideo =
+                        url.toLowerCase().includes('.mp4') ||
+                        url.toLowerCase().includes('.mov') ||
+                        url.toLowerCase().includes('.webm') ||
+                        url.toLowerCase().includes('video')
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setActiveEvidence(i)}
+                          className={`relative size-16 rounded-xl overflow-hidden cursor-pointer transition-all shrink-0 ${
+                            activeEvidence === i ? 'border-2 border-primary scale-110' : 'opacity-40 hover:opacity-100'
+                          }`}
+                        >
+                          {isVideo ? (
+                            <div className="w-full h-full bg-stone-900 flex flex-col items-center justify-center text-amber-400">
+                              <Film className="size-5" />
+                              <span className="text-[8px] text-white font-mono mt-0.5">Video</span>
+                            </div>
+                          ) : (
+                            <img src={url} className="w-full h-full object-cover" alt="Bằng chứng" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 

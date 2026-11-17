@@ -1,6 +1,6 @@
 import axiosInstance from '@/services/api/axiosInstance'
 import type { ApiResponse, PageResponse } from '@/types'
-import type { AdminUserReport, UserResponse } from './user.types'
+import type { AdminUserReport, ShopRiskFlagResponse, UserResponse } from './user.types'
 import { mockReportData } from '@/mocks/user.mock'
 
 export type * from './user.types'
@@ -78,5 +78,29 @@ export const userService = {
       code: 200,
       result: mockReportData,
     }
+  },
+
+  /** Shop xem danh sách cờ rủi ro của mình: GET /shops/my-risk-flags */
+  async getMyRiskFlags(): Promise<ApiResponse<ShopRiskFlagResponse[]>> {
+    const res = await axiosInstance.get('/shops/my-risk-flags')
+    return res.data
+  },
+
+  /** Admin xem danh sách cờ rủi ro của một shop: GET /admin/shops/{shopId}/risk-flags */
+  async getShopRiskFlags(shopId: number): Promise<ApiResponse<ShopRiskFlagResponse[]>> {
+    const res = await axiosInstance.get(`/admin/shops/${shopId}/risk-flags`)
+    return res.data
+  },
+
+  /** Admin gỡ bỏ / giải quyết một cờ rủi ro: PUT /admin/risk-flags/{flagId}/resolve */
+  async resolveRiskFlag(flagId: number, note?: string): Promise<ApiResponse<void>> {
+    const res = await axiosInstance.put(`/admin/risk-flags/${flagId}/resolve`, { note })
+    return res.data
+  },
+
+  /** Admin xóa vi phạm bom hàng cho khách: PUT /admin/users/{userId}/reset-customer-penalties */
+  async resetCustomerPenalties(userId: number): Promise<ApiResponse<void>> {
+    const res = await axiosInstance.put(`/admin/users/${userId}/reset-customer-penalties`)
+    return res.data
   },
 }

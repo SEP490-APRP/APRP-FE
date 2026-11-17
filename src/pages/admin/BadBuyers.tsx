@@ -17,8 +17,10 @@ import {
   Calendar,
   User,
   Megaphone,
+  RotateCcw,
 } from 'lucide-react'
 import type { UserResponse } from '@/services'
+import { userService } from '@/services'
 import { useFetchUser, useSetUserActive, useUsersByRole } from '@/features/user'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
@@ -77,7 +79,37 @@ const BadBuyers: React.FC = () => {
     }
   }
 
+  const [resettingId, setResettingId] = useState<number | null>(null)
+
+  const handleResetPenalties = async (userId: number) => {
+    const confirmed = await globalShowConfirm(
+      'Khôi phục quyền COD & Xóa vi phạm',
+      'Bạn có chắc chắn muốn xóa lịch sử vi phạm bom hàng và mở lại quyền thanh toán COD cho khách hàng này?'
+    )
+    if (!confirmed) return
+
+    setResettingId(userId)
+    try {
+      await userService.resetCustomerPenalties(userId)
+      globalShowAlert(
+        'Đã khôi phục quyền thanh toán COD và xóa vi phạm bom hàng thành công!',
+        'Thành công',
+        'success'
+      )
+      if (selectedBuyer && selectedBuyer.id === userId) {
+        const updated = await fetchUser(userId)
+        setSelectedBuyer(updated)
+      }
+      void buyersQuery.refetch()
+    } catch (err) {
+      globalShowAlert(getErrorMessage(err, 'Không thể đặt lại vi phạm'), 'Lỗi', 'error')
+    } finally {
+      setResettingId(null)
+    }
+  }
+
   const blockedBuyers = buyers.filter((b) => b.lockedAt != null || b.status === 'INACTIVE')
+  const codBlockedBuyers = buyers.filter((b) => b.codBlocked || (b.failedDeliveryCount ?? 0) >= 3)
   const activeBuyers = buyers.filter((b) => b.lockedAt == null && b.status === 'ACTIVE')
 
   if (loading) {
@@ -99,15 +131,15 @@ const BadBuyers: React.FC = () => {
           {
             label: 'TỔNG TÀI KHOẢN BỊ KHÓA',
             value: blockedBuyers.length.toLocaleString(),
-            sub: 'Đã bị vô hiệu hóa',
+            sub: 'Tạm khóa 7 ngày hoặc vô hiệu hóa',
             icon: UserX,
             color: 'text-red-500',
             bg: 'bg-red-50',
           },
           {
-            label: 'ĐANG HOẠT ĐỘNG',
-            value: activeBuyers.length.toLocaleString(),
-            sub: 'Tài khoản bình thường',
+            label: 'BỊ TƯỚC QUYỀN COD',
+            value: codBlockedBuyers.length.toLocaleString(),
+            sub: 'Bom hàng từ 3 lần trở lên',
             icon: ShieldAlert,
             color: 'text-orange-500',
             bg: 'bg-orange-50',
@@ -115,7 +147,7 @@ const BadBuyers: React.FC = () => {
           {
             label: 'TỔNG NGƯỜI MUA',
             value: buyers.length.toLocaleString(),
-            sub: 'Tất cả trạng thái',
+            sub: 'Tất cả trạng thái tài khoản',
             icon: Unlock,
             color: 'text-blue-500',
             bg: 'bg-blue-50',
@@ -205,13 +237,25 @@ const BadBuyers: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            <p
-                              className={`text-sm font-black ${isBlocked ? 'text-red-700' : 'text-gray-900'}`}
-                            >
-                              {user.fullName || user.username || 'N/A'}
-                            </p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                              ID: {user.id}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p
+                                className={`text-sm font-black ${isBlocked ? 'text-red-700' : 'text-gray-900'}`}
+                              >
+                                {user.fullName || user.username || 'N/A'}
+                              </p>
+                              {typeof user.failedDeliveryCount === 'number' && user.failedDeliveryCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                                  Bom {user.failedDeliveryCount} lần
+                                </span>
+                              )}
+                              {user.codBlocked && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200">
+                                  Khóa COD
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                              ID: {user.id} {user.email ? `• ${user.email}` : ''}
                             </p>
                             {user.lockedAt && (
                               <p className="text-[10px] text-red-400 font-bold mt-0.5">
@@ -223,9 +267,19 @@ const BadBuyers: React.FC = () => {
                       </td>
                       <td className="px-6 py-6 text-center">
                         <span
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black ${isBlocked ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black whitespace-nowrap ${
+                            isBlocked
+                              ? 'bg-red-50 text-red-500 border border-red-200'
+                              : user.codBlocked
+                                ? 'bg-orange-50 text-orange-600 border border-orange-200'
+                                : 'bg-green-50 text-green-600'
+                          }`}
                         >
-                          {isBlocked ? 'Đã khóa' : 'Hoạt động'}
+                          {isBlocked
+                            ? 'Đã tạm khóa'
+                            : user.codBlocked
+                              ? 'Khóa COD'
+                              : 'Hoạt động'}
                         </span>
                       </td>
                       <td className="px-10 py-6 text-right">
@@ -279,28 +333,37 @@ const BadBuyers: React.FC = () => {
                 Quy tắc tự động khóa
               </h4>
             </div>
-            <div className="space-y-8">
+            <div className="space-y-6">
               {[
                 {
                   id: 1,
-                  text: 'Tự động gắn cờ Cảnh báo khi người mua có 2 đơn "bom" (hủy hàng khi giao) trong 30 ngày.',
+                  title: 'Cảnh báo nhắc nhở (Lỗi chủ quan 1 – 2 lần)',
+                  text: 'Khi khách có 1 hoặc 2 đơn giao thất bại do lỗi chủ quan (không liên lạc được, từ chối nhận), hệ thống tự động gửi thông báo nhắc nhở.',
                 },
-                { id: 2, text: 'Tự động Khóa tài khoản 7 ngày nếu phát sinh đơn bom thứ 3.' },
+                {
+                  id: 2,
+                  title: 'Tước quyền COD (Giao thất bại 3 lần)',
+                  text: 'Khách bị giao hàng thất bại 3 lần do lỗi chủ quan sẽ bị cảnh báo tài khoản và tước quyền thanh toán COD (chỉ cho phép thanh toán online qua PayOS).',
+                },
                 {
                   id: 3,
-                  text: 'Khóa vĩnh viễn đối với tài khoản có tỉ lệ nhận hàng < 30% sau 10 đơn hàng đầu tiên.',
+                  title: 'Tự động tạm khóa 7 ngày (Bom hàng 5 lần)',
+                  text: 'Khách bom hàng đủ 5 lần sẽ bị hệ thống tự động tạm khóa tài khoản (suspended) trong 7 ngày. Hết hạn 7 ngày hệ thống tự động mở khóa.',
                 },
               ].map((rule) => (
                 <div key={rule.id} className="flex gap-4">
-                  <span className="size-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">
+                  <span className="size-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
                     {rule.id}
                   </span>
-                  <p className="text-sm font-medium text-gray-600 leading-relaxed">{rule.text}</p>
+                  <div>
+                    <h5 className="text-xs font-black text-gray-900 mb-1">{rule.title}</h5>
+                    <p className="text-xs text-gray-600 leading-relaxed">{rule.text}</p>
+                  </div>
                 </div>
               ))}
             </div>
             <button className="w-full py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest border border-gray-100 rounded-2xl hover:bg-gray-50 transition-colors">
-              Điều chỉnh cấu hình quy tắc
+              Chính sách Customer Penalty
             </button>
           </div>
 
@@ -313,7 +376,7 @@ const BadBuyers: React.FC = () => {
               {[
                 {
                   label: 'Gửi cảnh báo hàng loạt',
-                  sub: 'Áp dụng cho đối tượng 2 đơn bom',
+                  sub: 'Áp dụng cho đối tượng vi phạm bom hàng',
                   icon: ShieldAlert,
                   color: 'text-orange-400',
                 },
@@ -481,6 +544,47 @@ const BadBuyers: React.FC = () => {
                           </p>
                         </div>
                       )}
+
+                      {/* Trạng thái giao nhận & vi phạm bom hàng */}
+                      <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 mt-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest">
+                            LỊCH SỬ BOM HÀNG (GIAO THẤT BẠI)
+                          </span>
+                          <span className="font-mono font-black text-sm text-amber-900">
+                            {selectedBuyer.failedDeliveryCount ?? 0} lần
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-stone-600 font-medium">Quyền thanh toán COD:</span>
+                          <span
+                            className={`font-bold px-2 py-0.5 rounded-md ${
+                              selectedBuyer.codBlocked
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}
+                          >
+                            {selectedBuyer.codBlocked ? 'Đang bị khóa COD' : 'Bình thường'}
+                          </span>
+                        </div>
+                        {(selectedBuyer.codBlocked || (selectedBuyer.failedDeliveryCount ?? 0) > 0) && (
+                          <div className="pt-2 border-t border-amber-200 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleResetPenalties(selectedBuyer.id)}
+                              disabled={resettingId === selectedBuyer.id}
+                              className="px-3.5 py-1.5 bg-white border border-amber-300 text-amber-900 hover:bg-amber-600 hover:text-white rounded-xl text-xs font-black transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              {resettingId === selectedBuyer.id ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <RotateCcw size={12} />
+                              )}
+                              Mở lại COD & Xóa vi phạm
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
