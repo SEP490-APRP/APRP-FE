@@ -29,6 +29,7 @@ import { pickupCode } from '@/utils/orderCode';
 import logoIcon from '@/assets/logo-icon.png';
 import { CapNongLoading } from '@/components/ui/Loading';
 import { ShipperReturnOrders } from './ShipperReturnOrders';
+import ShipperCampaignOrders from './ShipperCampaignOrders';
 import { ShipperWalletPanel } from '@/features/wallet';
 
 interface ShipperDashboardProps {
@@ -51,6 +52,8 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
   const initialTab =
     tabParam === 'delivering' || tabParam === 'dang-giao'
       ? 'Đơn đang giao'
+      : tabParam === 'campaign' || tabParam === 'chien-dich'
+        ? 'Đơn chiến dịch'
       : tabParam === 'profile' || tabParam === 'ho-so' || tabParam === 'cod' || tabParam === 'wallet'
         ? 'Hồ sơ cá nhân'
         : 'Đơn hàng mới';
@@ -986,6 +989,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
             {[
               { id: 'Đơn hàng mới', label: 'Đơn hàng mới', count: availableOrders.length },
               { id: 'Đơn đang giao', label: 'Đơn đang giao', count: myOrders.length },
+              { id: 'Đơn chiến dịch', label: 'Đơn chiến dịch' },
               { id: 'Đơn hoàn hàng', label: 'Đơn hoàn hàng' },
               { id: 'Hồ sơ cá nhân', label: 'Hồ sơ cá nhân' },
             ].map((tab) => (
@@ -993,6 +997,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
                 className={`py-5 text-sm font-black uppercase tracking-tight transition-all border-b-4 flex items-center gap-2 ${activeTab === tab.id ? 'text-primary border-primary' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
                 {tab.id === 'Đơn hàng mới' && <Zap className={`size-4 ${activeTab === tab.id ? 'fill-primary' : ''}`} />}
                 {tab.id === 'Đơn đang giao' && <Truck className="size-4" />}
+                {tab.id === 'Đơn chiến dịch' && <Package className="size-4" />}
                 {tab.id === 'Đơn hoàn hàng' && <RotateCcw className="size-4" />}
                 {tab.id === 'Hồ sơ cá nhân' && <User className="size-4" />}
                 <span>{tab.label}</span>
@@ -1120,6 +1125,7 @@ const ShipperDashboard: React.FC<ShipperDashboardProps> = ({ onLogout, onNavigat
 
         {activeTab === 'Đơn đang giao' && renderMyOrders()}
 
+        {activeTab === 'Đơn chiến dịch' && <ShipperCampaignOrders />}
         {activeTab === 'Đơn hoàn hàng' && <ShipperReturnOrders />}
 
         {activeTab === 'Hồ sơ cá nhân' && (

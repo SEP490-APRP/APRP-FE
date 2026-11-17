@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import type { ProductImageResponse } from '@/services'
-import { clImg } from './productDetail.utils'
+import { clImg, getProduceFallback, resolveProductImage } from './productDetail.utils'
 
 interface ProductImageGalleryProps {
   images: ProductImageResponse[]
@@ -48,17 +48,19 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       {/* Main image */}
       <div className="flex flex-col gap-2.5">
         <div
-          className="relative w-full aspect-[4/3] sm:aspect-square max-h-[320px] rounded-xl overflow-hidden border border-gray-100 group cursor-zoom-in bg-gray-50 flex items-center justify-center"
-          style={{ boxShadow: '0 2px 12px 0 rgba(74,124,47,0.06)' }}
+          className="relative w-full aspect-[4/3] max-h-[420px] rounded-lg overflow-hidden border border-line-subtle group cursor-zoom-in bg-paper-warm/50 shadow-2xs"
           onClick={() => setLightbox(true)}
         >
           <img
-            src={clImg(sorted[activeIdx]?.imageUrl, 'main')}
-            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+            src={resolveProductImage(productName, clImg(sorted[activeIdx]?.imageUrl, 'main'))}
+            className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
             alt={`${productName} - ảnh ${activeIdx + 1}`}
+            onError={(e) => {
+              ;(e.currentTarget as HTMLImageElement).src = getProduceFallback(productName)
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full p-2.5 shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+            <div className="bg-white/95 backdrop-blur-sm rounded-full p-2.5 shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
               <ZoomIn className="size-4 text-leaf-700" />
             </div>
           </div>
@@ -98,8 +100,8 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     }}
                     className={`rounded-full transition-all duration-300 cursor-pointer ${
                       i === activeIdx
-                        ? 'w-4 h-1 bg-white'
-                        : 'w-1 h-1 bg-white/50 hover:bg-white/80'
+                        ? 'w-4 h-1 bg-leaf-700'
+                        : 'w-1 h-1 bg-gray-300 hover:bg-gray-400'
                     }`}
                   />
                 ))}
@@ -110,22 +112,25 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
         {/* Thumbnail row */}
         {sorted.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-0.5">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 pt-1">
             {sorted.map((img, idx) => (
               <button
                 key={img.id}
                 type="button"
                 onClick={() => setActiveIdx(idx)}
-                className={`flex-shrink-0 size-12 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${
+                className={`flex-shrink-0 size-13 sm:size-14 rounded-lg overflow-hidden border-2 bg-[#FAF7EF]/60 transition-all duration-200 cursor-pointer ${
                   idx === activeIdx
-                    ? 'border-leaf-600 shadow-2xs scale-105'
-                    : 'border-gray-200 hover:border-leaf-300 opacity-70 hover:opacity-100'
+                    ? 'border-leaf-600 shadow-2xs scale-102 ring-2 ring-leaf-100'
+                    : 'border-line hover:border-leaf-300 opacity-70 hover:opacity-100'
                 }`}
               >
                 <img
-                  src={clImg(img.imageUrl, 'thumb')}
+                  src={resolveProductImage(productName, clImg(img.imageUrl, 'thumb'))}
                   className="w-full h-full object-cover"
                   alt={`Thumbnail ${idx + 1}`}
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).src = getProduceFallback(productName)
+                  }}
                 />
               </button>
             ))}
@@ -174,8 +179,8 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             </>
           )}
           <img
-            src={clImg(sorted[activeIdx]?.imageUrl, 'main')}
-            className="max-h-[88vh] max-w-[88vw] object-contain rounded-2xl shadow-2xl"
+            src={resolveProductImage(productName, clImg(sorted[activeIdx]?.imageUrl, 'main'))}
+            className="max-h-[88vh] max-w-[88vw] object-contain rounded-xl shadow-2xl"
             alt={productName}
             onClick={(e) => e.stopPropagation()}
           />
