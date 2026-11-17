@@ -1,5 +1,4 @@
 export {
-  AI_SCORES,
   CATEGORIES,
   DEFAULT_FILTERS,
   FilterPanel,
@@ -9,7 +8,6 @@ export {
   filtersFromHash,
   type CategoryId,
   type Filters,
-  type MinScore,
   type PriceRangeId,
   type RegionId,
 } from './components/FilterPanel'

@@ -15,7 +15,6 @@ const Home = lazy(() => import('@/pages/Home'))
 const Fresh = lazy(() => import('@/pages/Fresh'))
 const Combos = lazy(() => import('@/pages/Combos'))
 const ComboDetail = lazy(() => import('@/pages/combo/ComboDetail'))
-const AiPage = lazy(() => import('@/pages/AiPage'))
 const FarmerStoriesPage = lazy(() => import('@/pages/FarmerStoriesPage'))
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'))
 const ProductDetail = lazy(() => import('@/pages/product/ProductDetail'))
@@ -77,12 +76,6 @@ export function CombosRoute() {
 export function ComboDetailRoute() {
   return <ComboDetail />
 }
-
-export function AiRoute() {
-  const { onInfo } = useStorefront()
-  return <AiPage onInfo={onInfo} />
-}
-
 export function StoriesRoute() {
   const { onAdd, onInfo } = useStorefront()
   return <FarmerStoriesPage onAdd={onAdd} onInfo={onInfo} />

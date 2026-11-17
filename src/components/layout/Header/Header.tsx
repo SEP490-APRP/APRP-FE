@@ -186,7 +186,6 @@ export default function Header({
 
   const isFreshActive = route.startsWith('/nong-san-tuoi')
   const isComboActive = route.startsWith('/combo-tui-mu')
-  const isAiActive = route.startsWith('/cong-nghe-ai')
   const isFarmerActive = route.startsWith('/cau-chuyen-nong-dan')
   const isCampaignActive = route.startsWith('/chien-dich')
   const { data: openCampaigns } = useActiveCampaigns(0, 1)
@@ -762,17 +761,7 @@ export default function Header({
               </a>
             </div>
 
-            {/* 4. Công nghệ AI */}
-            <a
-              href="/cong-nghe-ai"
-              className={`nav-pill ${isAiActive ? 'is-active' : ''}`}
-              aria-current={isAiActive ? 'page' : undefined}
-              onClick={closeDropdown}
-            >
-              Công nghệ AI
-            </a>
-
-            {/* 5. Kế hoạch ăn uống */}
+            {/* 4. Kế hoạch ăn uống */}
             <a
               href="/ke-hoach-an-uong"
               className={`nav-pill ${route.startsWith('/ke-hoach-an-uong') ? 'is-active' : ''}`}
@@ -1333,14 +1322,14 @@ export default function Header({
             )}
           </div>
 
-          {/* 4. Công nghệ AI */}
+          {/* 4. Thực đơn AI */}
           <a
-            href="/cong-nghe-ai"
-            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+            href="/ke-hoach-an-uong"
+            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${route.startsWith('/ke-hoach-an-uong') ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
               }`}
             onClick={closeDropdown}
           >
-            Công nghệ AI
+            Thực đơn AI
           </a>
 
           {/* 5. Câu chuyện nông dân */}
