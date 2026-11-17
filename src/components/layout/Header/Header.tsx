@@ -30,6 +30,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
 import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
+import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
 import { ImageSearchModal } from '@/components/common/ImageSearchModal'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
@@ -185,8 +186,10 @@ export default function Header({
 
   const isFreshActive = route.startsWith('/nong-san-tuoi')
   const isComboActive = route.startsWith('/combo-tui-mu')
-  const isAiActive = route.startsWith('/cong-nghe-ai')
   const isFarmerActive = route.startsWith('/cau-chuyen-nong-dan')
+  const isCampaignActive = route.startsWith('/chien-dich')
+  const { data: openCampaigns } = useActiveCampaigns(0, 1)
+  const openCampaignCount = openCampaigns?.totalElements ?? 0
   const isAuthActive =
     route.startsWith('/dang-nhap') ||
     route.startsWith('/dang-ky') ||
@@ -706,6 +709,22 @@ export default function Header({
               Trang chủ
             </a>
 
+            {/* 1b. Chiến dịch giải cứu: cùng kiểu pill, thêm icon lửa + số chiến dịch đang mở */}
+            <a
+              href="/chien-dich"
+              className={`nav-pill nav-pill-campaign ${isCampaignActive ? 'is-active' : ''}`}
+              aria-current={isCampaignActive ? 'page' : undefined}
+              onClick={closeDropdown}
+            >
+              <Flame size={14} className="nav-pill-campaign-icon" aria-hidden />
+              <span>Chiến dịch</span>
+              {openCampaignCount > 0 && (
+                <span className="nav-pill-campaign-count" aria-label={`${openCampaignCount} chiến dịch đang mở`}>
+                  {openCampaignCount > 9 ? '9+' : openCampaignCount}
+                </span>
+              )}
+            </a>
+
             {/* 2. Nông sản tươi (Hover trigger) */}
             <div className="relative" onMouseEnter={() => handleMouseEnter('fresh')}>
               <a
@@ -742,17 +761,7 @@ export default function Header({
               </a>
             </div>
 
-            {/* 4. Công nghệ AI */}
-            <a
-              href="/cong-nghe-ai"
-              className={`nav-pill ${isAiActive ? 'is-active' : ''}`}
-              aria-current={isAiActive ? 'page' : undefined}
-              onClick={closeDropdown}
-            >
-              Công nghệ AI
-            </a>
-
-            {/* 5. Kế hoạch ăn uống */}
+            {/* 4. Kế hoạch ăn uống */}
             <a
               href="/ke-hoach-an-uong"
               className={`nav-pill ${route.startsWith('/ke-hoach-an-uong') ? 'is-active' : ''}`}
@@ -1160,6 +1169,23 @@ export default function Header({
             Trang chủ
           </a>
 
+          {/* 1b. Chiến dịch giải cứu */}
+          <a
+            href="/chien-dich"
+            className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center gap-2 ${isCampaignActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+              }`}
+            aria-current={isCampaignActive ? 'page' : undefined}
+            onClick={closeDropdown}
+          >
+            <Flame size={15} className={isCampaignActive ? 'text-[#ffba41]' : 'text-[#e8590c]'} aria-hidden />
+            Chiến dịch
+            {openCampaignCount > 0 && (
+              <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-[#ffba41] text-[11px] font-extrabold text-[#3d2a00] inline-flex items-center justify-center">
+                {openCampaignCount > 9 ? '9+' : openCampaignCount}
+              </span>
+            )}
+          </a>
+
           {/* 2. Nông sản tươi (Accordion) */}
           <div className="flex flex-col">
             <button
@@ -1296,14 +1322,14 @@ export default function Header({
             )}
           </div>
 
-          {/* 4. Công nghệ AI */}
+          {/* 4. Thực đơn AI */}
           <a
-            href="/cong-nghe-ai"
-            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+            href="/ke-hoach-an-uong"
+            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${route.startsWith('/ke-hoach-an-uong') ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
               }`}
             onClick={closeDropdown}
           >
-            Công nghệ AI
+            Thực đơn AI
           </a>
 
           {/* 5. Câu chuyện nông dân */}

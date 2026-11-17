@@ -17,6 +17,7 @@ import {
   HelpCircle,
   AlertTriangle,
   BookOpen,
+  Flame,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type {
@@ -47,6 +48,7 @@ import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
 import FarmerBlogs from './FarmerBlogs'
 import FarmerMessages from './FarmerMessages'
+import FarmerCampaigns from './Campaigns'
 import OnboardingTour from './OnboardingTour'
 import { STORAGE_KEYS } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
@@ -110,6 +112,7 @@ export default function FarmerPortal({
     'profile',
     'wallet',
     'messages',
+    'campaigns',
   ]
   const tabParam = searchParams.get('tab')
   const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
@@ -482,6 +485,7 @@ export default function FarmerPortal({
     { name: 'Báo cáo doanh thu', icon: BarChart3, id: 'revenue-report' },
     { name: 'Sản phẩm', icon: Package, id: 'products' },
     { name: 'Đơn hàng', icon: ShoppingCart, id: 'orders' },
+    { name: 'Chiến dịch giải cứu', icon: Flame, id: 'campaigns' },
     { name: 'Khiếu nại & Trợ giúp', icon: AlertTriangle, id: 'disputes' },
     { name: 'Đánh giá', icon: MessageSquare, id: 'reviews' },
     { name: 'Bài viết & Bảng tin', icon: BookOpen, id: 'blogs' },
@@ -588,12 +592,15 @@ export default function FarmerPortal({
               </div>
               <div className="overflow-hidden min-w-0 flex-1">
                 <div
-                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1 ${currentTab === 'profile' && !selectedOrderIdForPrep
+                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1.5 ${currentTab === 'profile' && !selectedOrderIdForPrep
                     ? 'text-[#326318]'
                     : 'text-[#1c2216] group-hover:text-[#326318]'
                     }`}
                 >
                   <span className="truncate">{displayShopName}</span>
+                  <span className="bg-[#eef8ea] text-[#2b5619] text-[9px] font-black px-1.5 py-0.5 rounded border border-[#cbe5c4] shrink-0">
+                    VietGAP
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -707,6 +714,7 @@ export default function FarmerPortal({
             <Dashboard
               onNavigate={(tab) => handleTabChange(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'revenue-report' ? (
             <RevenueReport />
@@ -728,6 +736,8 @@ export default function FarmerPortal({
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
               onInfo={handleInfo}
             />
+          ) : currentTab === 'campaigns' ? (
+            <FarmerCampaigns onInfo={handleInfo} />
           ) : currentTab === 'disputes' ? (
             <FarmerDisputes />
           ) : currentTab === 'blogs' ? (

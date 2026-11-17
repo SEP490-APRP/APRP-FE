@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Banknote,
+  Flame,
   BarChart3,
   Bell,
   Gavel,
@@ -84,6 +85,12 @@ const TABS = {
     icon: Banknote,
     page: lazy(() => import('./CodSettlement')),
   },
+  campaigns: {
+    name: 'Chiến dịch giải cứu',
+    icon: Flame,
+    page: lazy(() => import('./AdminCampaigns')),
+    badge: 'Mới',
+  },
   wallet: { name: 'Ví sàn & Rút tiền', icon: Wallet, page: lazy(() => import('./AdminWallet')) },
   vouchers: {
     name: 'Voucher toàn sàn',
@@ -118,6 +125,7 @@ const SECTIONS: { title: string; items: AdminTabId[] }[] = [
   { title: 'Tổng quan & Báo cáo', items: ['overview', 'user-report'] },
   { title: 'Kiểm duyệt & Đánh giá', items: ['kyc', 'products', 'disputes', 'reviews'] },
   { title: 'Thành viên', items: ['shops', 'shippers', 'bad-buyers'] },
+  { title: 'Chiến dịch', items: ['campaigns'] },
   { title: 'Tài chính & Đối soát', items: ['cod', 'wallet', 'vouchers'] },
   { title: 'Truyền thông & CSKH', items: ['news', 'notifications', 'messages'] },
 ]

@@ -32,7 +32,7 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 ${className}`}
       >
         <CheckCircle2 size={13} className="text-emerald-600" />
-        Đã thanh toán
+        {(paymentMethod || '').toUpperCase() === 'WALLET' ? 'Đã thanh toán bằng ví' : 'Đã thanh toán'}
       </span>
     )
   }

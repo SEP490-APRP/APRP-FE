@@ -178,7 +178,7 @@ function findClosestRouteIndex(points: RoutePoint[], curLat: number, curLng: num
 }
 
 // Google Maps script loader
-function loadGoogleMapsScript(apiKey: string): Promise<void> {
+export function loadGoogleMapsScript(apiKey: string): Promise<void> {
   if (window.google && window.google.maps) {
     return Promise.resolve();
   }
