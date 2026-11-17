@@ -27,7 +27,7 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
         const rawAddress = p.shop?.address || ''
         const region = rawAddress ? rawAddress.split(',').pop()?.trim() || 'Đà Lạt' : 'Đà Lạt'
         const stock = p.stockQuantity ?? p.stock ?? 0
-        const rescued = p.rescuedPercentage ?? (stock > 0 ? Math.min(95, Math.max(30, Math.round(100 - stock / 2))) : 100)
+        const rescued = stock > 0 ? Math.min(95, Math.max(30, Math.round(100 - stock / 2))) : 100
         return {
           id: String(p.productId || p.id),
           name: p.productName || p.name || 'Nông sản',
@@ -37,8 +37,8 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
           category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
           farm: p.shop?.shopName || 'Nhà vườn CapNong',
           region,
-          flaw: 'Ngoại hình tự nhiên',
-          score: p.freshnessScore ?? p.score ?? 96,
+          flaw: p.defectReason || 'Ngoại hình tự nhiên',
+          score: 96,
           stock,
           rescued,
           unit: p.unit || 'kg',

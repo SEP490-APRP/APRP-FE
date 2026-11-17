@@ -1323,12 +1323,6 @@ export default function Header({
                   Đăng Ký
                 </Link>
               </div>
-                  onClick={closeDropdown}
-                  className="py-2.5 rounded-xl border border-[#326318] text-[#326318] bg-white font-bold text-xs text-center"
-                >
-                  Đăng Ký
-                </a>
-              </div>
             )}
           </div>
         </div>
