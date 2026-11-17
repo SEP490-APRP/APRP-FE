@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
-import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag } from 'lucide-react'
 import { useNotificationStore } from '@/stores'
 
 export function formatNotificationDate(dateValue?: any): string {
@@ -70,6 +71,7 @@ export function getSafeLink(rawUrl?: string): { isSafe: boolean; href: string } 
 }
 
 export const NotificationDetailModal: React.FC = () => {
+  const navigate = useNavigate()
   const {
     selectedNotification,
     isDetailOpen,
@@ -92,6 +94,56 @@ export const NotificationDetailModal: React.FC = () => {
   if (!isDetailOpen || !selectedNotification) return null
 
   const noti = selectedNotification
+
+  const textContent = `${noti.title ?? ''} ${noti.message ?? ''} ${noti.evidence ?? ''}`.toLowerCase()
+  const type = (noti.type ?? '').toUpperCase()
+
+  let targetOrderId: number | null = noti.referenceId ?? null
+  if (!targetOrderId) {
+    const match = textContent.match(/đơn hàng.*?#?(\d+)/i) || (noti.evidence && noti.evidence.match(/(\d+)/))
+    if (match && match[1]) {
+      targetOrderId = parseInt(match[1], 10)
+    }
+  }
+
+  const isOrderRelated = Boolean(targetOrderId) || type.includes('ORDER')
+  const isWalletRelated =
+    textContent.includes('ví tiền') ||
+    textContent.includes('rút tiền') ||
+    textContent.includes('nạp tiền') ||
+    textContent.includes('ký quỹ')
+  const isVoucherRelated = textContent.includes('voucher') || textContent.includes('khuyến mãi')
+
+  const hasSmartAction = isOrderRelated || isWalletRelated || isVoucherRelated
+
+  let smartActionTitle = 'Xem chi tiết'
+  let SmartActionIcon = Bell
+  if (targetOrderId) {
+    smartActionTitle = `Xem chi tiết đơn hàng #${targetOrderId}`
+    SmartActionIcon = Truck
+  } else if (isOrderRelated) {
+    smartActionTitle = 'Đến danh sách đơn hàng'
+    SmartActionIcon = Truck
+  } else if (isWalletRelated) {
+    smartActionTitle = 'Đến ví của tôi'
+    SmartActionIcon = Wallet
+  } else if (isVoucherRelated) {
+    smartActionTitle = 'Xem kho voucher của tôi'
+    SmartActionIcon = Tag
+  }
+
+  const handlePrimaryAction = () => {
+    closeDetail()
+    if (targetOrderId) {
+      navigate(`/orders?search=${targetOrderId}`)
+    } else if (isOrderRelated) {
+      navigate('/orders')
+    } else if (isWalletRelated) {
+      navigate('/my-wallet')
+    } else if (isVoucherRelated) {
+      navigate('/my-vouchers')
+    }
+  }
 
   const handleDelete = () => {
     deleteNotification(noti.id)
@@ -195,6 +247,18 @@ export const NotificationDetailModal: React.FC = () => {
               </div>
             )
           })()}
+
+          {/* Smart CTA Action */}
+          {hasSmartAction && (
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+            >
+              <SmartActionIcon size={14} />
+              <span>{smartActionTitle}</span>
+            </button>
+          )}
         </div>
 
         {/* Footer Actions */}
