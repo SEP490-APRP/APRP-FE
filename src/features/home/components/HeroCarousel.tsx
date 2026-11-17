@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BookOpen,
   CalendarClock,
@@ -270,17 +271,28 @@ const ctaGhost =
 
 type Cta = { href: string; label: string; icon: typeof ShoppingBasket }
 
+function CtaLink({ cta, className }: { cta: Cta; className: string }) {
+  if (cta.href.startsWith('#')) {
+    return (
+      <a className={className} href={cta.href}>
+        <cta.icon size={20} aria-hidden />
+        <span>{cta.label}</span>
+      </a>
+    )
+  }
+  return (
+    <Link className={className} to={cta.href}>
+      <cta.icon size={20} aria-hidden />
+      <span>{cta.label}</span>
+    </Link>
+  )
+}
+
 function Ctas({ primary, ghost }: { primary: Cta; ghost: Cta }) {
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
-      <a className={ctaPrimary} href={primary.href}>
-        <primary.icon size={20} aria-hidden />
-        <span>{primary.label}</span>
-      </a>
-      <a className={ctaGhost} href={ghost.href}>
-        <ghost.icon size={20} aria-hidden />
-        <span>{ghost.label}</span>
-      </a>
+      <CtaLink cta={primary} className={ctaPrimary} />
+      <CtaLink cta={ghost} className={ctaGhost} />
     </div>
   )
 }
@@ -312,8 +324,8 @@ function RescueSlide({ active }: { active: boolean }) {
         Tươi ngon, an lành và giao thần tốc mỗi ngày.
       </Lead>
       <Ctas
-        primary={{ href: '/giai-cuu-hom-nay', label: 'Mua ngay hôm nay', icon: ShoppingBasket }}
-        ghost={{ href: '/cong-nghe-ai', label: 'Xem cách hoạt động', icon: PlayCircle }}
+        primary={{ href: '/nong-san-tuoi', label: 'Mua ngay hôm nay', icon: ShoppingBasket }}
+        ghost={{ href: '#cong-nghe-ai', label: 'Xem cách hoạt động', icon: PlayCircle }}
       />
       <Stats
         items={[
@@ -403,7 +415,7 @@ function AiSlide({ active }: { active: boolean }) {
       </Lead>
       <Ctas
         primary={{ href: '/ke-hoach-an-uong', label: 'Tạo thực đơn miễn phí', icon: Sparkles }}
-        ghost={{ href: '/cong-nghe-ai', label: 'Xem cách hoạt động', icon: PlayCircle }}
+        ghost={{ href: '#cong-nghe-ai', label: 'Xem cách hoạt động', icon: PlayCircle }}
       />
       <Stats
         items={[

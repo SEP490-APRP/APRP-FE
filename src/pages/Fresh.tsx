@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
   Leaf,
@@ -69,16 +70,36 @@ const HIGHLIGHTS = [
 ] as const
 
 export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshProps) {
+  const [searchParams] = useSearchParams()
   const [filters, setFilters] = useState<Filters>(() => filtersFromHash())
 
-  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL
+  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL & searchParams
   useEffect(() => {
+    const kw = searchParams.get('keyword')
+    if (kw && kw !== query) {
+      setQuery(kw)
+    }
+
+    const catId = searchParams.get('categoryId')
+    const danhMuc = searchParams.get('danh-muc')
+
+    if (catId) {
+      const catIdNum = Number(catId)
+      if (catIdNum === 1) setFilters((prev) => ({ ...prev, category: 'Rau ăn lá' }))
+      else if (catIdNum === 2) setFilters((prev) => ({ ...prev, category: 'Củ quả' }))
+      else if (catIdNum === 3) setFilters((prev) => ({ ...prev, category: 'Trái cây' }))
+      else if (catIdNum === 4) setFilters((prev) => ({ ...prev, category: 'Hữu cơ' }))
+    } else if (danhMuc) {
+      const match = CATEGORIES.find((c) => c.slug === danhMuc)
+      if (match) setFilters((prev) => ({ ...prev, category: match.id }))
+    }
+
     const sync = () => {
       if (location.hash.includes('danh-muc=')) setFilters(filtersFromHash())
     }
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
-  }, [])
+  }, [searchParams])
   const [sort, setSort] = useState<SortId>('featured')
   const [currentPage, setCurrentPage] = useState(0)
   const [filtersOpen, setFiltersOpen] = useState(false)

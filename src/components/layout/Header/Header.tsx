@@ -27,7 +27,7 @@ import {
   Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '@/types'
 import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
@@ -56,6 +56,7 @@ export default function Header({
   onCart,
   onInfo,
 }: HeaderProps) {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false)
   const [openMobile, setOpenMobile] = useState(false)
@@ -162,9 +163,7 @@ export default function Header({
   const handleSelectCategory = (term: string, targetPath: string = '/nong-san-tuoi') => {
     closeDropdown()
     onSearch(term)
-    if (location.hash !== `#${targetPath}`) {
-      location.hash = targetPath
-    }
+    navigate(targetPath)
   }
 
   function submit(e: FormEvent) {
@@ -172,7 +171,7 @@ export default function Header({
     onSearch(query)
     closeDropdown()
     if (!route.startsWith('/nong-san-tuoi')) {
-      location.hash = '/nong-san-tuoi'
+      navigate('/nong-san-tuoi')
     }
   }
 
@@ -181,7 +180,7 @@ export default function Header({
     onSearch(keyword)
     closeDropdown()
     if (!route.startsWith('/nong-san-tuoi')) {
-      location.hash = '/nong-san-tuoi'
+      navigate('/nong-san-tuoi')
     }
   }
 

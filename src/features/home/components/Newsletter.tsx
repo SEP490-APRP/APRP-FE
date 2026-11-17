@@ -1,4 +1,5 @@
 ﻿import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Mail,
   CheckCircle2,
@@ -81,7 +82,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
 
         {/* 3 Pillars Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-          {/* 1. Khách Hàng (Buyer) */}
+          {/* 1. Nông sản tươi sạch */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#ffea79]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#ffea79] text-[#331c00] flex items-center justify-center font-bold shadow-md">
@@ -89,57 +90,56 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#ffea79]">
-                  01 · Người Tiêu Dùng
+                  01 · Nông Sản Tươi Lành
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Khách Hàng (Buyer)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Tiết Kiệm Mỗi Ngày</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
                 Tiết kiệm 40% – 60% chi phí rau củ quả tươi hái sớm mỗi ngày, nhận ngay voucher
-                50.000đ cho đơn đầu tiên.
+                50.000đ cho đơn hàng đầu tiên.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=buyer"
+              <Link
+                to="/nong-san-tuoi"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffea79] group-hover:text-white transition-colors"
               >
-                <span>Đăng ký mua nông sản</span>
+                <span>Mua sắm nông sản</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
           </div>
 
-          {/* 2. Nhà Vườn (Shop) */}
+          {/* 2. Minh Bạch & Bảo Chứng */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#a4e876]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#a4e876] text-[#0f2e03] flex items-center justify-center font-bold shadow-md">
-                <Store size={24} />
+                <ShieldCheck size={24} />
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#a4e876]">
-                  02 · Nông Dân &amp; HTX
+                  02 · Nguồn Gốc Rõ Ràng
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Nhà Vườn (Shop)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Bảo Chứng Chất Lượng</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                Tiêu thụ 100% nông sản xấu mã với giá công bằng, miễn phí sàn 0% tháng đầu, thu gom
-                tận ruộng 24h.
+                100% nông sản có nhật ký canh tác từ nhà vườn thật, kiểm tra điểm độ tươi AI và chính sách đổi trả 1-1 an tâm tuyệt đối.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=shop"
+              <Link
+                to="/bao-mat-thong-tin"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#a4e876] group-hover:text-white transition-colors"
               >
-                <span>Mở gian hàng nhà vườn</span>
+                <span>Xem chính sách bảo chứng</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
           </div>
 
-          {/* 3. Tài Xế (Shipper) */}
+          {/* 3. Giao Tươi Thần Tốc */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#ffba41]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#ffba41] text-[#3d2000] flex items-center justify-center font-bold shadow-md">
@@ -147,24 +147,23 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#ffba41]">
-                  03 · Vận Chuyển Xanh
+                  03 · Giao Hàng Xanh
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Tài Xế (Shipper)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Giao Nhanh 2–4 Giờ</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                Thu nhập linh hoạt 8 – 15 triệu/tháng, thuật toán AI tối ưu tuyến đường chặng ngắn,
-                nhận đơn giao tươi liền tay.
+                Giao hàng nhanh bằng thùng giấy tái chế giữ trọn độ ẩm và vị giòn ngọt của nông sản vừa thu hoạch sáng sớm.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=shipper"
+              <Link
+                to="/combo-tui-mu"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffba41] group-hover:text-white transition-colors"
               >
-                <span>Tham gia đội tài xế</span>
+                <span>Khám phá Combo giao ngay</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -178,8 +177,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
             >
               <CheckCircle2 size={24} className="shrink-0" />
               <div className="text-sm sm:text-base font-bold text-white">
-                Cảm ơn bạn! CapNong đã ghi nhận thông tin. Đây là bản trải nghiệm nên chưa gửi
-                voucher thật.
+                Cảm ơn bạn! CapNong đã ghi nhận đăng ký. Mã ưu đãi 50.000đ sẽ sớm được gửi tới bạn!
               </div>
             </div>
           ) : (

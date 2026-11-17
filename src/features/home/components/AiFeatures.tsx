@@ -1,4 +1,5 @@
 ﻿import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Camera, Sprout, Utensils, type LucideIcon } from 'lucide-react'
 import aiVisionImg from '@/assets/ai-vision.jpg'
 import aiMealImg from '@/assets/ai-meal.jpg'
@@ -50,11 +51,11 @@ const TABS: Tab[] = [
   {
     id: 'copilot',
     icon: Sprout,
-    title: 'Trợ lý nhà vườn',
-    description: 'Chụp một ảnh tại ruộng, tin đăng bán được soạn sẵn.',
+    title: 'Trợ lý Dinh dưỡng',
+    description: 'Tư vấn dinh dưỡng thông minh và kế hoạch ăn uống khoa học theo nhu cầu.',
     image: aiFarmerImg,
-    imageAlt: 'Đôi tay nông dân ôm bó cà rốt và củ dền vừa nhổ',
-    cta: { label: 'Mở gian hàng nhà vườn', href: '/dang-ky?role=shop' },
+    imageAlt: 'Nông sản hữu cơ tươi ngon giàu dinh dưỡng từ vườn',
+    cta: { label: 'Tạo kế hoạch ăn uống', href: '/ke-hoach-an-uong' },
   },
 ]
 
@@ -101,9 +102,9 @@ const MENUS = [
 type MenuId = (typeof MENUS)[number]['id']
 
 const COPILOT_STEPS = [
-  'Chụp ảnh nông sản ngay tại ruộng',
-  'AI nhận diện loại, ước lượng khối lượng và đề xuất giá',
-  'Duyệt tin đăng, shipper đến lấy hàng',
+  'Nhập sở thích ăn uống và mục tiêu dinh dưỡng gia đình',
+  'AI tính toán khẩu phần, calo và phân bổ nông sản hợp lý',
+  'Lên sẵn thực đơn chuẩn vị và danh sách đi chợ tiết kiệm',
 ]
 
 /* ------------------------------------------------------------------ */
@@ -229,13 +230,13 @@ function ToolControls({
           ))}
         </ol>
       )}
-      <a
-        href={cta.href}
+      <Link
+        to={cta.href}
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-sun-300 px-6 text-sm font-bold text-[#1a3a0c] transition-colors hover:bg-[#fff1a8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sun-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#142a0e] sm:w-fit"
       >
         {cta.label}
         <ArrowRight size={16} aria-hidden />
-      </a>
+      </Link>
     </div>
   )
 }
@@ -469,11 +470,11 @@ export default function AiFeatures(_props: AiFeaturesProps) {
                 </KraftTag>
               )}
               {tab === 'copilot' && (
-                <KraftTag heading="Tin đăng tự soạn" title="Cà rốt cầu vồng Đà Lạt, 120kg">
-                  <TagRow label="Phân loại">Củ cong, nhiều nhánh</TagRow>
-                  <TagRow label="Giá đề xuất">18.000đ/kg</TagRow>
-                  <TagRow label="Chứng nhận">VietGAP</TagRow>
-                  <TagRow label="Thời gian soạn">28 giây</TagRow>
+                <KraftTag heading="Kế hoạch dinh dưỡng" title="Khẩu phần rau xanh chuẩn VietGAP">
+                  <TagRow label="Mục tiêu">Ăn sạch & Dinh dưỡng</TagRow>
+                  <TagRow label="Tiết kiệm">35% so với mua lẻ</TagRow>
+                  <TagRow label="Nông sản">100% từ nhà vườn</TagRow>
+                  <TagRow label="Thời gian lên món">15 - 20 phút</TagRow>
                 </KraftTag>
               )}
             </div>

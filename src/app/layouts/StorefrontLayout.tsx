@@ -176,8 +176,8 @@ export default function StorefrontLayout() {
         onLogout={handleLogout}
         onSearch={(s) => {
           setQuery(s)
-          if (isFresh) document.getElementById('san-pham')?.scrollIntoView()
-          else navigate('/nong-san-tuoi/san-pham')
+          if (isFresh) document.getElementById('san-pham')?.scrollIntoView({ behavior: 'smooth' })
+          else navigate(`/nong-san-tuoi${s ? `?keyword=${encodeURIComponent(s)}` : ''}`)
         }}
         onCart={() => openCart()}
         onInfo={showInfo}

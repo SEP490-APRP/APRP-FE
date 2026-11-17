@@ -1,4 +1,5 @@
-import { Quote, Store, ArrowRight, BookOpen } from 'lucide-react'
+import { Quote, ShoppingBasket, ArrowRight, BookOpen } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ProduceImage } from '@/features/product'
 import { usePublicBlogs } from '@/features/blog'
 
@@ -76,34 +77,34 @@ export default function FarmerStory() {
               </p>
 
               <div>
-                <a
-                  href="/cau-chuyen-nong-dan"
+                <Link
+                  to="/cau-chuyen-nong-dan"
                   className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-[#2e5d16] hover:underline"
                 >
                   <BookOpen size={16} />
                   <span>Khám phá thêm các câu chuyện mùa vụ khác</span>
                   <ArrowRight size={14} />
-                </a>
+                </Link>
               </div>
             </div>
 
-            {/* Vendor Registration CTA Box */}
+            {/* Buyer Support CTA Box */}
             <div className="bg-[#f7faf4] rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border border-[#e2e8dc]">
               <div className="flex flex-col">
                 <span className="text-sm sm:text-base font-bold text-[#1c2216]">
-                  Bạn là nhà vườn hoặc hợp tác xã?
+                  Đồng hành cùng nhà vườn Việt Nam
                 </span>
                 <span className="text-xs sm:text-sm text-[#666f60]">
-                  Mở gian hàng miễn phí, AI hỗ trợ đăng bán trong 30 giây.
+                  Mỗi đơn hàng giải cứu là một phần tiếp sức để người nông dân yên tâm canh tác sạch.
                 </span>
               </div>
-              <a
+              <Link
                 className="shrink-0 px-6 py-3 rounded-full bg-[#2e5d16] hover:bg-[#234910] text-white text-sm font-bold transition-colors shadow-md text-center min-h-[44px] flex items-center justify-center gap-2"
-                href="/dang-ky?role=shop"
+                to="/nong-san-tuoi"
               >
-                <Store size={16} aria-hidden />
-                Đăng ký mở gian hàng
-              </a>
+                <ShoppingBasket size={16} aria-hidden />
+                Ủng hộ nông sản hôm nay
+              </Link>
             </div>
           </div>
         </div>
