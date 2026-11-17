@@ -39,3 +39,11 @@ export interface VoucherCreateRequest {
   expiryDate: string
   isPublic?: boolean
 }
+
+export interface VoucherUpdateRequest {
+  claimLimit?: number
+  expiryDate?: string
+  minOrderValue?: number
+  isPublic?: boolean
+  active?: boolean
+}
