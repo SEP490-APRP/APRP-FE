@@ -38,6 +38,8 @@ const MyWalletPage = lazy(() => import('@/pages/MyWalletPage/MyWalletPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
+const CampaignsPage = lazy(() => import('@/pages/CampaignsPage'))
+const CampaignDetailPage = lazy(() => import('@/pages/CampaignDetailPage'))
 const BuyerMessagesPage = lazy(() => import('@/pages/chat/BuyerMessagesPage'))
 const ReferralRedirectPage = lazy(() => import('@/pages/ReferralRedirectPage'))
 
@@ -77,6 +79,14 @@ export function ComboDetailRoute() {
 export function StoriesRoute() {
   const { onAdd, onInfo } = useStorefront()
   return <FarmerStoriesPage onAdd={onAdd} onInfo={onInfo} />
+}
+
+export function CampaignsRoute() {
+  return <CampaignsPage />
+}
+
+export function CampaignDetailRoute() {
+  return <CampaignDetailPage />
 }
 
 export function PrivacyRoute() {
