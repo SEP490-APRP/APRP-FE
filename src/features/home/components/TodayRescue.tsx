@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
 import { money, type Cart, type Product as StorefrontProduct } from '@/mocks/catalog'
 import { ProductGrid, useHomeProducts } from '@/features/product'
-import { LinkButton } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/Button'
 
 const BENEFITS = [
   { icon: CheckCircle2, text: 'Không chất bảo quản' },
@@ -23,6 +24,10 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
           ? Math.round(price / (1 - p.discountPercent / 100))
           : price
         const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+        const rawAddress = p.shop?.address || ''
+        const region = rawAddress ? rawAddress.split(',').pop()?.trim() || 'Đà Lạt' : 'Đà Lạt'
+        const stock = p.stockQuantity ?? p.stock ?? 0
+        const rescued = p.rescuedPercentage ?? (stock > 0 ? Math.min(95, Math.max(30, Math.round(100 - stock / 2))) : 100)
         return {
           id: String(p.productId || p.id),
           name: p.productName || p.name || 'Nông sản',
@@ -31,11 +36,11 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
           image,
           category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
           farm: p.shop?.shopName || 'Nhà vườn CapNong',
-          region: 'Đà Lạt',
+          region,
           flaw: 'Ngoại hình tự nhiên',
-          score: 96,
-          stock: p.stockQuantity ?? p.stock ?? 100,
-          rescued: 50,
+          score: p.freshnessScore ?? p.score ?? 96,
+          stock,
+          rescued,
           unit: p.unit || 'kg',
         }
       })
@@ -67,12 +72,12 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
               Giải cứu hôm nay
             </h2>
           </div>
-          <a
-            href="/nong-san-tuoi"
+          <Link
+            to="/nong-san-tuoi"
             className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-leaf-700 hover:text-leaf-800"
           >
             Xem tất cả nông sản <ArrowRight size={17} aria-hidden />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -121,14 +126,16 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
                 ))}
               </ul>
 
-              <LinkButton
-                href="/nong-san-tuoi"
-                variant="secondary"
-                size="lg"
-                className="w-full border-0 sm:w-fit font-bold shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 mt-1"
+              <Link
+                to="/nong-san-tuoi"
+                className={buttonClasses({
+                  variant: 'secondary',
+                  size: 'lg',
+                  className: 'w-full border-0 sm:w-fit font-bold shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 mt-1 text-center',
+                })}
               >
                 Khám phá ngay <ArrowRight size={16} aria-hidden />
-              </LinkButton>
+              </Link>
             </div>
 
             <div className="relative z-10 pt-4 mt-auto flex items-center justify-center">
