@@ -41,6 +41,7 @@ import { Drawer } from '@/components/ui/Drawer'
 import { Skeleton, TableSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/StateViews'
 import { cn } from '@/utils'
+import { useNewProposalBadge } from '@/features/campaign/hooks/useNewProposalBadge'
 
 /* ------------------------------------------------------------------ */
 /* Tách code theo tab: người mua không phải tải ~250KB code admin       */
@@ -151,6 +152,8 @@ type AdminPortalProps = {
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
   const { user: storeUser, token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+  // Số đề xuất chiến dịch mới từ shop, admin mở tab xem rồi thì mất
+  const { count: newProposals } = useNewProposalBadge()
   const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
@@ -243,6 +246,10 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                     {id === 'messages' && unreadTotal > 0 ? (
                       <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
                         {unreadTotal}
+                      </span>
+                    ) : id === 'campaigns' && newProposals > 0 ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newProposals} đề xuất mới từ shop`}>
+                        {newProposals}
                       </span>
                     ) : 'badge' in item && item.badge ? (
                       <span

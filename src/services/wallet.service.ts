@@ -191,6 +191,19 @@ export const WALLET_TX_LABEL: Record<WalletTransactionType, string> = {
   PLATFORM_REFUND_DEDUCT: 'Sàn điều chỉnh do hoàn tiền',
   SHOP_RETURN_SHIPPING_DEDUCT: 'Cước hoàn hàng',
   SHOP_RETURN_SHIPPING_REFUND: 'Hoàn cước hoàn hàng',
+  ORDER_WALLET_PAYMENT: 'Trả đơn hàng bằng ví',
+  ORDER_WALLET_REFUND: 'Hoàn tiền ví (đơn huỷ / thất bại)',
+  CAMPAIGN_DEPOSIT_HOLD: 'Tạm giữ tiền cọc chiến dịch',
+  CAMPAIGN_DEPOSIT_RELEASED: 'Giải ngân cọc chiến dịch',
+  CAMPAIGN_DEPOSIT_REFUNDED: 'Hoàn cọc chiến dịch',
+  CAMPAIGN_REMAINING_COLLECTED: 'Thu phần còn lại đơn đặt trước',
+  CAMPAIGN_FARM_INCOME: 'Tiền hàng chiến dịch về ví',
+  CAMPAIGN_FARM_PAYOUT: 'Chi trả nhà vườn chiến dịch',
+  CAMPAIGN_SHIPPER_PAYOUT: 'Trả cước giao đơn chiến dịch',
+  CAMPAIGN_DEPOSIT_WALLET_PAID: 'Trả cọc chiến dịch bằng ví',
+  CAMPAIGN_DEPOSIT_WALLET_REFUND: 'Hoàn phần cọc đã trả bằng ví',
+  CAMPAIGN_DAMAGE_COMPENSATION: 'Bồi thường hàng hư chiến dịch',
+  CAMPAIGN_DAMAGE_REFUND: 'Nhận tiền hàng hư chiến dịch',
 }
 
 export const walletService = freshResponses({

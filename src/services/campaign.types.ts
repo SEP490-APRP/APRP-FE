@@ -34,6 +34,14 @@ export interface CampaignResponse {
   /** 0-1, vd 0.3 = 30% */
   depositPercent: number
   cutoffAt: string
+  /** Ngày bắt đầu chiến dịch (yyyy-MM-dd), sau hạn chốt đơn đặt trước */
+  startDate?: string | null
+  /** Ngày kết thúc chiến dịch (yyyy-MM-dd) */
+  endDate?: string | null
+  /** Ngày giờ đăng bài kêu gọi nhà vườn góp hàng */
+  publishAt?: string | null
+  /** Hạn chốt góp hàng của nhà vườn (trước hạn chốt đơn đặt trước) */
+  farmCutoffAt?: string | null
   deliveryDate?: string | null
   collectionSiteName?: string | null
   collectionSiteAddress?: string | null
@@ -270,7 +278,8 @@ export interface PreOrderResponse {
 /** Mức bảo quản: số ngày hàng còn tươi tính từ NGÀY CHỐT chiến dịch */
 export type ShelfLifeTier = 'DAYS_2_3' | 'DAYS_3_4' | 'DAYS_5_6'
 
-export type FarmRegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+/** CANCELLED: chiến dịch bị huỷ nên lô đăng ký huỷ theo */
+export type FarmRegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
 export interface FarmRegistrationRequest {
   surplusVolumeKg: number
@@ -347,6 +356,14 @@ export interface CampaignUpsertRequest {
   depositPercent: number
   /** yyyy-MM-ddTHH:mm:ss */
   cutoffAt: string
+  /** yyyy-MM-dd, không trước ngày chốt đơn */
+  startDate?: string
+  /** yyyy-MM-dd, không trước ngày bắt đầu */
+  endDate?: string
+  /** yyyy-MM-ddTHH:mm:ss, ngày giờ đăng bài kêu gọi nhà vườn */
+  publishAt?: string
+  /** yyyy-MM-ddTHH:mm:ss, sau ngày đăng bài, trước hạn chốt đơn đặt trước */
+  farmCutoffAt?: string
   deliveryDate?: string
   collectionSiteName?: string
   collectionSiteAddress?: string

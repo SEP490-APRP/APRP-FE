@@ -17,7 +17,7 @@ export const PRIORITY: Record<PriorityLevel, { label: string; chip: string; dot:
   NORMAL: { label: 'Thường', chip: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-500', ring: 'border-gray-200' },
 }
 
-const SHELF_LABEL: Record<string, string> = { DAYS_2_3: 'Mức 1 · 2–3 ngày sau chốt', DAYS_3_4: 'Mức 2 · 3–4 ngày sau chốt', DAYS_5_6: 'Mức 3 · 5–6 ngày sau chốt' }
+const SHELF_LABEL: Record<string, string> = { DAYS_2_3: '2–3 ngày sau chốt', DAYS_3_4: '3–4 ngày sau chốt', DAYS_5_6: '5–6 ngày sau chốt' }
 
 const fmtTime = (v?: string | null) =>
   v ? new Date(v).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—'
@@ -130,7 +130,7 @@ export default function CampaignDispatchBoard({
         </div>
       </div>
       <p className="rounded-xl bg-gray-50 px-3.5 py-2.5 text-xs leading-relaxed text-gray-600">
-        <b>Cách xếp độ gấp:</b> lô nhà vườn khai mức 1 (giữ tươi 2–3 ngày sau ngày chốt) → <b className="text-red-700">Gấp</b>; còn dưới 24h tới hạn tươi
+        <b>Cách xếp độ gấp:</b> lô nhà vườn khai giữ tươi 2–3 ngày sau ngày chốt → <b className="text-red-700">Gấp</b>; còn dưới 24h tới hạn tươi
         (tính từ ngày chốt chiến dịch) → <b className="text-red-700">Gấp</b>; dưới 48h hoặc đơn giao lại sau thất bại → <b className="text-amber-700">Ưu tiên</b>;
         còn lại → <b className="text-emerald-700">Thường</b>. Khu và đơn gấp luôn nằm trên cùng.
       </p>

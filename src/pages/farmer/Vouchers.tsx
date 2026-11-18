@@ -615,7 +615,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                     <Input
                       type="number"
                       min={0}
-                      step={1000}
+                      step="any"
                       value={minOrderValue ?? ''}
                       onChange={(e) => setMinOrderValue(Number(e.target.value))}
                       className="h-10 text-xs font-bold rounded-xl pr-12"

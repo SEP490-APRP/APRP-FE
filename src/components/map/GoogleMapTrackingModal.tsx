@@ -187,9 +187,10 @@ export function loadGoogleMapsScript(apiKey: string): Promise<void> {
   }
 
   return new Promise((resolve, reject) => {
+    // Mạng chậm / trang nhiều ảnh: script Google Maps có thể mất vài giây, chờ tối đa 15s
     const timeout = setTimeout(() => {
       reject(new Error('Google Maps script load timed out'));
-    }, 3500);
+    }, 15000);
 
     const existing = document.getElementById('google-maps-sdk-script');
     if (existing) {
@@ -197,14 +198,20 @@ export function loadGoogleMapsScript(apiKey: string): Promise<void> {
         clearTimeout(timeout);
         return resolve();
       }
-      setTimeout(() => {
-        clearTimeout(timeout);
+      // Script đang tải dở (vd ô địa chỉ khác vừa gọi): chờ tới khi xong thay vì báo lỗi sau 1s
+      const poll = setInterval(() => {
         if (window.google && window.google.maps) {
+          clearInterval(poll);
+          clearTimeout(timeout);
           resolve();
-        } else {
-          reject(new Error('Google Maps not initialized'));
         }
-      }, 1000);
+      }, 200);
+      existing.addEventListener('error', (err) => {
+        clearInterval(poll);
+        clearTimeout(timeout);
+        reject(err);
+      });
+      setTimeout(() => clearInterval(poll), 15000);
       return;
     }
 

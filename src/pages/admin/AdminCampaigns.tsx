@@ -10,13 +10,16 @@ import {
   CheckCircle2,
   Flame,
   ImagePlus,
+  Pencil,
   Loader2,
   Megaphone,
   Eye,
   PackageCheck,
   Plus,
   Scale,
+  Sprout,
   Truck,
+  Wallet,
   Warehouse,
   X,
 } from 'lucide-react'
@@ -34,8 +37,9 @@ import { formatKg, formatVnd } from '@/features/campaign/utils'
 import CampaignDispatchBoard from './CampaignDispatchBoard'
 import CampaignDamageClaims, { damageClaimsKey } from './CampaignDamageClaims'
 import CampaignBannerEditor from './CampaignBannerEditor'
-import AdminCampaignProposals, { type ApprovePrefill } from './AdminCampaignProposals'
-import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
+import AdminCampaignProposals, { ProposalSourcePanel, type ApprovePrefill } from './AdminCampaignProposals'
+import { useNewProposalBadge } from '@/features/campaign/hooks/useNewProposalBadge'
+import { AddressPicker, composeAddress, EMPTY_ADDRESS, parseAddress, type AddressValue } from '@/components/common/AddressPicker'
 import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
 // CKEditor khá nặng: chỉ tải khi mở form tạo chiến dịch
@@ -48,7 +52,7 @@ import { getErrorMessage } from '@/utils'
  */
 
 const STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
-  DRAFT: { label: 'Nháp', tone: 'bg-gray-100 text-gray-700' },
+  DRAFT: { label: 'Chuẩn bị', tone: 'bg-gray-100 text-gray-700' },
   ACTIVE: { label: 'Đang mở đặt trước', tone: 'bg-amber-100 text-amber-800' },
   THRESHOLD_MET: { label: 'Đủ ngưỡng', tone: 'bg-sky-100 text-sky-800' },
   FULFILLING: { label: 'Đang gom hàng', tone: 'bg-emerald-100 text-emerald-800' },
@@ -57,7 +61,7 @@ const STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
 }
 const FILTERS: { id: string; label: string }[] = [
   { id: '', label: 'Tất cả' },
-  { id: 'DRAFT', label: 'Nháp / gom nhà vườn' },
+  { id: 'DRAFT', label: 'Chuẩn bị / kêu gọi nhà vườn' },
   { id: 'ACTIVE', label: 'Đang mở' },
   { id: 'THRESHOLD_MET', label: 'Đủ ngưỡng' },
   { id: 'FULFILLING', label: 'Đang gom hàng' },
@@ -86,14 +90,24 @@ export default function AdminCampaigns() {
   const [creating, setCreating] = useState(false)
   const [view, setView] = useState<'campaigns' | 'proposals'>('campaigns')
   const [approving, setApproving] = useState<ApprovePrefill | null>(null)
+  // Số đề xuất mới từ shop: mở tab "Đề xuất từ shop" là tính đã xem, số biến mất
+  const { count: newProposals, markSeen } = useNewProposalBadge()
+  useEffect(() => {
+    if (view === 'proposals' && selected == null) markSeen()
+  }, [view, selected, markSeen])
   if (selected != null) return <CampaignDetail id={selected} onBack={() => setSelected(null)} />
   return (
     <>
       <div className="flex flex-wrap gap-2 px-4 pt-4 sm:px-8 sm:pt-8" role="tablist" aria-label="Chiến dịch hoặc đề xuất từ shop">
         {([['campaigns', 'Chiến dịch'], ['proposals', 'Đề xuất từ shop']] as const).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
-            className={`rounded-xl px-4 py-2 text-sm font-bold ${view === id ? 'bg-[#326318] text-white' : 'bg-white text-[#326318] ring-1 ring-gray-200 hover:ring-[#9ed67d]'}`}>
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold ${view === id ? 'bg-[#326318] text-white' : 'bg-white text-[#326318] ring-1 ring-gray-200 hover:ring-[#9ed67d]'}`}>
             {label}
+            {id === 'proposals' && newProposals > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white" aria-label={`${newProposals} đề xuất mới`}>
+                {newProposals}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -171,9 +185,14 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
             <tbody className="divide-y divide-gray-100">
               {rows.map((c) => (
                 <tr key={c.campaignId} className="hover:bg-[#f7faf4]">
-                  <td className="max-w-[320px] px-4 py-3">
-                    <p className="truncate font-bold text-gray-900">{c.title}</p>
-                    <p className="text-xs text-gray-500">{c.code} · {c.collectionSiteName || 'Chưa có điểm tập kết'}</p>
+                  <td className="max-w-[380px] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <CoverThumb url={c.coverImageUrl || c.bannerImageUrl} />
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-gray-900">{c.title}</p>
+                        <p className="truncate text-xs text-gray-500">{c.code} · {c.collectionSiteName || 'Chưa có điểm tập kết'}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3"><StatusChip s={c.status} called={!!c.callPostedAt} /></td>
                   <td className="px-4 py-3 text-right tabular-nums">{kg(c.bookedVolumeKg)} / {kg(c.targetVolumeKg)}</td>
@@ -208,6 +227,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const [tab, setTab] = useState<'farms' | 'orders' | 'dispatch' | 'claims' | 'banner'>('farms')
   const [intakeFor, setIntakeFor] = useState<FarmRegistrationResponse | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [editing, setEditing] = useState(false)
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: keys.one(id) })
@@ -239,27 +259,89 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
     </button>
   )
 
+  const cover = c.coverImageUrl || c.bannerImageUrl || null
+  const lead = articleLead(c.description)
+  const now = Date.now()
+  const timeline = [
+    c.publishAt ? { label: 'Đăng bài kêu gọi', ...splitDateTime(c.publishAt), done: new Date(c.publishAt).getTime() <= now } : null,
+    c.farmCutoffAt ? { label: 'Chốt góp hàng', ...splitDateTime(c.farmCutoffAt), done: new Date(c.farmCutoffAt).getTime() <= now } : null,
+    { label: 'Chốt đơn đặt trước', ...splitDateTime(c.cutoffAt), done: new Date(c.cutoffAt).getTime() <= now },
+    c.startDate ? { label: 'Bắt đầu', date: fmtYmd(c.startDate), time: '', done: new Date(c.startDate + 'T00:00:00').getTime() <= now } : null,
+    c.endDate ? { label: 'Kết thúc', date: fmtYmd(c.endDate), time: '', done: new Date(c.endDate + 'T23:59:59').getTime() <= now } : null,
+  ].filter((x): x is { label: string; date: string; time: string; done: boolean } => x != null)
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-8">
       <button type="button" onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-[#326318]">
         <ArrowLeft size={16} /> Tất cả chiến dịch
       </button>
 
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusChip s={c.status} called={!!c.callPostedAt} />
-            <span className="text-xs font-semibold text-gray-400">{c.code}</span>
+      {/* Đầu trang dạng bài báo: ảnh bìa, tít, sapo, thông tin chính, mốc thời gian */}
+      <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+        <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <figure className="relative aspect-[16/10] bg-[#eef5e7] lg:aspect-auto lg:min-h-[300px]">
+            {cover ? (
+              <img src={cover} alt={c.title} className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#e4f0da] to-[#fff6c4] text-[#326318]">
+                <Sprout size={44} strokeWidth={1.5} />
+                <span className="text-sm font-bold">Chưa có ảnh bìa</span>
+              </div>
+            )}
+            {(c.categoryName || c.season) && (
+              <figcaption className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-[#326318] shadow-sm backdrop-blur">
+                {[c.categoryName, c.season].filter(Boolean).join(' · ')}
+              </figcaption>
+            )}
+          </figure>
+
+          <div className="flex min-w-0 flex-col gap-4 p-6 sm:p-8">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <StatusChip s={c.status} called={!!c.callPostedAt} />
+              <span className="font-bold text-[#e8590c]">Chiến dịch giải cứu</span>
+              <span className="text-gray-300">/</span>
+              <span className="font-semibold text-gray-400">{c.code}</span>
+            </div>
+            <h2 className="text-2xl font-black leading-tight text-gray-900 [text-wrap:balance] sm:text-[1.9rem]">{c.title}</h2>
+            {lead && <p className="line-clamp-3 text-[15px] leading-relaxed text-gray-600">{lead}</p>}
+            <p className="flex items-start gap-2 text-sm text-gray-700">
+              <Warehouse size={16} className="mt-0.5 shrink-0 text-[#326318]" />
+              <span>
+                <b className="font-bold">{c.collectionSiteName || 'Chưa có điểm tập kết'}</b>
+                {c.collectionSiteAddress && <span className="text-gray-500"> · {c.collectionSiteAddress}</span>}
+              </span>
+            </p>
+            <dl className="mt-auto grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Fact label="Giá giải cứu" value={`${formatVnd(c.rescuePricePerKg)}/kg`} strong />
+              <Fact label="Cọc" value={`${Math.round(Number(c.depositPercent) * 100)}%`} />
+              <Fact label="Ngưỡng tối thiểu" value={kg(c.minThresholdKg)} />
+              <Fact label="Mục tiêu" value={kg(c.targetVolumeKg)} />
+            </dl>
           </div>
-          <h2 className="mt-2 text-xl font-black text-gray-900 sm:text-2xl">{c.title}</h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-            <span className="inline-flex items-center gap-1"><Warehouse size={14} /> {c.collectionSiteName || '—'}{c.collectionSiteAddress ? ` · ${c.collectionSiteAddress}` : ''}</span>
-            <span>Giá giải cứu {formatVnd(c.rescuePricePerKg)}/kg</span>
-            <span>Chốt {new Date(c.cutoffAt).toLocaleString('vi-VN')}</span>
-            {c.deliveryDate && <span>Giao {new Date(c.deliveryDate).toLocaleDateString('vi-VN')}</span>}
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        <ol className="grid grid-cols-2 gap-px border-t border-gray-100 bg-gray-100 sm:grid-cols-4">
+          {timeline.map((t) => (
+            <li key={t.label} className="flex flex-col gap-0.5 bg-white px-5 py-4 sm:px-8">
+              <span className={`flex items-center gap-1.5 text-xs font-bold ${t.done ? 'text-[#326318]' : 'text-gray-500'}`}>
+                <span className={`h-2 w-2 rounded-full ${t.done ? 'bg-[#326318]' : 'border border-gray-300 bg-white'}`} /> {t.label}
+              </span>
+              <span className="text-lg font-black tabular-nums text-gray-900">{t.date}</span>
+              {t.time && <span className="text-xs tabular-nums text-gray-500">lúc {t.time}</span>}
+            </li>
+          ))}
+        </ol>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 bg-[#fafbf8] px-5 py-4 sm:px-8">
+          {c.status === 'DRAFT' && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#326318] bg-white px-4 py-2.5 text-sm font-bold text-[#326318] hover:bg-[#eef6e7]"
+            >
+              <Pencil size={16} /> Chỉnh sửa
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setTab('banner')}
@@ -285,7 +367,14 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
           {fulfilling && button('complete', 'Hoàn tất & chi trả', 'Đã hoàn tất: giải ngân cọc và chi trả nhà vườn.', <CheckCircle2 size={16} />)}
           {['DRAFT', 'ACTIVE', 'THRESHOLD_MET'].includes(c.status) && button('cancel', 'Huỷ & hoàn cọc', 'Đã huỷ chiến dịch và hoàn cọc.', <Ban size={16} />, 'danger')}
         </div>
-      </div>
+      </article>
+      {editing && (
+        <CreateDialog
+          editing={c}
+          onClose={() => setEditing(false)}
+          onCreated={() => { setEditing(false); setNotice({ ok: true, text: 'Đã lưu thay đổi chiến dịch.' }); refresh() }}
+        />
+      )}
 
       {notice && (
         <div role="status" className={`flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold ${notice.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
@@ -295,6 +384,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
       )}
 
       {['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) && <SupplyPanel c={c} />}
+      {(orders.data?.length ?? 0) > 0 && <DepositPanel rows={orders.data ?? []} />}
 
       <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist">
         {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['dispatch', 'Chia đơn giao'], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`], ['banner', `Banner trang chủ${c.bannerOnHome === false ? ' (tắt)' : ''}`]] as const).map(([k, label]) => (
@@ -325,6 +415,36 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
         />
       )}
     </div>
+  )
+}
+
+/** Tiền cọc của người mua theo trạng thái: sàn đang giữ, đã hoàn, đã giải ngân, chờ thanh toán */
+function DepositPanel({ rows }: { rows: PreOrderResponse[] }) {
+  const sum = (s: string) => rows.filter((r) => r.depositStatus === s).reduce((t, r) => t + Number(r.depositAmount ?? 0), 0)
+  const count = (s: string) => rows.filter((r) => r.depositStatus === s).length
+  const items = [
+    { s: 'HELD_IN_ESCROW', label: 'Sàn đang giữ', tone: 'text-amber-700' },
+    { s: 'REFUNDED', label: 'Đã hoàn người mua', tone: 'text-sky-700' },
+    { s: 'RELEASED_TO_FARMER', label: 'Đã giải ngân', tone: 'text-[#326318]' },
+    { s: 'PENDING', label: 'Chờ thanh toán cọc', tone: 'text-gray-700' },
+  ]
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-gray-700"><Wallet size={16} /> Tiền cọc người mua</h3>
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {items.map((i) => (
+          <div key={i.s} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{i.label}</p>
+            <p className={`mt-1 text-xl font-black tabular-nums ${i.tone}`}>{formatVnd(sum(i.s))}</p>
+            <p className="text-xs text-gray-500">{count(i.s)} đơn</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-gray-500">
+        Cọc nằm ở mục tạm giữ của ví Sàn (Ví sàn &amp; Rút tiền). Huỷ chiến dịch thì toàn bộ cọc đang giữ hoàn vào ví CapNong của người mua;
+        hoàn tất chiến dịch thì cọc được giải ngân để chi trả nhà vườn.
+      </p>
+    </section>
   )
 }
 
@@ -422,8 +542,8 @@ function FarmTable({
                 </p>
                 <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#326318]"><Eye size={12} /> Xem đơn & ảnh lô hàng</span>
               </div>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : r.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
-                {r.status === 'APPROVED' ? 'Đã duyệt' : r.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : r.status === 'REJECTED' ? 'bg-red-100 text-red-700' : r.status === 'CANCELLED' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-800'}`}>
+                {r.status === 'APPROVED' ? 'Đã duyệt' : r.status === 'REJECTED' ? 'Từ chối' : r.status === 'CANCELLED' ? 'Huỷ theo chiến dịch' : 'Chờ duyệt'}
               </span>
             </button>
 
@@ -511,93 +631,93 @@ function OrderTable({
   if (rows.length === 0) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">Chưa có đơn đặt trước.</div>
   return (
     <div className="space-y-3">
-    {c.status === 'FULFILLING' && waitingPickup.length > 0 && (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p className="text-sm text-emerald-900">
-          <b>{waitingPickup.length}</b> đơn tự đến lấy đã đóng gói, chờ khách đến nhận
-          {notReminded.length > 0 ? <> · <b>{notReminded.length}</b> đơn chưa được nhắc</> : ' · đã nhắc tất cả'}
-        </p>
-        <button type="button" disabled={remindAll.isPending || notReminded.length === 0} onClick={() => remindAll.mutate(notReminded)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-          <Bell size={14} /> {remindAll.isPending ? 'Đang gửi…' : 'Gửi thông báo đến lấy hàng'}
-        </button>
-      </div>
-    )}
-    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <table className="w-full min-w-[820px] text-left text-sm">
-        <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
-          <tr>
-            <th className="px-4 py-3">Đơn</th>
-            <th className="px-4 py-3">Người nhận</th>
-            <th className="px-4 py-3">Thùng</th>
-            <th className="px-4 py-3 text-right">Cọc</th>
-            <th className="px-4 py-3 text-right">Phí giao</th>
-            <th className="px-4 py-3">Trạng thái</th>
-            <th className="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((p) => (
-            <tr key={p.preOrderId}>
-              <td className="px-4 py-3 font-bold text-gray-900">{p.code}</td>
-              <td className="px-4 py-3">
-                <p className="font-semibold text-gray-800">{p.recipientName || p.buyerName}</p>
-                {p.fulfillmentMethod === 'PICKUP' ? (
-                  <span className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Tự đến lấy</span>
-                ) : (
-                  <p className="max-w-[220px] truncate text-xs text-gray-500">{p.shippingAddress}</p>
-                )}
-              </td>
-              <td className="px-4 py-3 tabular-nums">
-                {p.crateQuantity} × {p.crateKg} kg
-                {p.originalCrateQuantity != null && (
-                  <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">giảm từ {p.originalCrateQuantity} thùng</span>
-                )}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {formatVnd(p.depositAmount)}
-                {Number(p.shortfallRefundAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-red-600">đã hoàn {formatVnd(p.shortfallRefundAmount)}</p>}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {p.fulfillmentMethod === 'PICKUP' ? '0đ' : formatVnd(p.shippingFee ?? 0)}
-                {p.shippingDistanceKm != null && <p className="text-[11px] text-gray-500">{p.shippingDistanceKm} km</p>}
-                {Number(p.shippingDiscountAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-emerald-700">gom đơn -{formatVnd(p.shippingDiscountAmount)}</p>}
-              </td>
-              <td className="px-4 py-3">
-                <span className="text-xs font-bold text-gray-700">{PRE_ORDER_STATUS[p.status]}</span>
-                {p.cancelReason && <p className="max-w-[220px] text-[11px] text-gray-500">{p.cancelReason}</p>}
-              </td>
-              <td className="px-4 py-3 text-right">
-                {p.status === 'DEPOSIT_PAID' && c.status === 'FULFILLING' && (
-                  <button type="button" disabled={pack.isPending} onClick={() => pack.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-                    <PackageCheck size={14} /> Đóng gói
-                  </button>
-                )}
-                {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
-                  <button type="button" disabled={pickedUp.isPending} onClick={() => pickedUp.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-                    <Check size={14} /> Khách đã lấy · thu {formatVnd(p.remainingAmount)}
-                  </button>
-                )}
-                {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
-                  <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
-                    <button type="button" disabled={remind.isPending} onClick={() => remind.mutate(p)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-800 disabled:opacity-50">
-                      <Bell size={12} /> {p.pickupRemindCount ? `Nhắc lại (${p.pickupRemindCount})` : 'Nhắc khách đến lấy'}
-                    </button>
-                    <button type="button" disabled={noShow.isPending || !p.pickupRemindCount} title={p.pickupRemindCount ? 'Khách không đến: đơn thất bại, giữ tiền cọc' : 'Cần nhắc khách ít nhất 1 lần trước'}
-                      onClick={() => { if (window.confirm(`Đánh dấu đơn ${p.code} khách không đến lấy? Khách sẽ mất cọc ${formatVnd(p.depositAmount)}.`)) noShow.mutate(p) }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-700 disabled:opacity-40">
-                      Khách không đến
-                    </button>
-                  </div>
-                )}
-                {p.pickupRemindedAt && p.status === 'PROCESSING' && (
-                  <p className="mt-1 text-[11px] text-gray-500">Đã nhắc lúc {new Date(p.pickupRemindedAt).toLocaleString('vi-VN')}</p>
-                )}
-              </td>
+      {c.status === 'FULFILLING' && waitingPickup.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-sm text-emerald-900">
+            <b>{waitingPickup.length}</b> đơn tự đến lấy đã đóng gói, chờ khách đến nhận
+            {notReminded.length > 0 ? <> · <b>{notReminded.length}</b> đơn chưa được nhắc</> : ' · đã nhắc tất cả'}
+          </p>
+          <button type="button" disabled={remindAll.isPending || notReminded.length === 0} onClick={() => remindAll.mutate(notReminded)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+            <Bell size={14} /> {remindAll.isPending ? 'Đang gửi…' : 'Gửi thông báo đến lấy hàng'}
+          </button>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Đơn</th>
+              <th className="px-4 py-3">Người nhận</th>
+              <th className="px-4 py-3">Thùng</th>
+              <th className="px-4 py-3 text-right">Cọc</th>
+              <th className="px-4 py-3 text-right">Phí giao</th>
+              <th className="px-4 py-3">Trạng thái</th>
+              <th className="px-4 py-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((p) => (
+              <tr key={p.preOrderId}>
+                <td className="px-4 py-3 font-bold text-gray-900">{p.code}</td>
+                <td className="px-4 py-3">
+                  <p className="font-semibold text-gray-800">{p.recipientName || p.buyerName}</p>
+                  {p.fulfillmentMethod === 'PICKUP' ? (
+                    <span className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Tự đến lấy</span>
+                  ) : (
+                    <p className="max-w-[220px] truncate text-xs text-gray-500">{p.shippingAddress}</p>
+                  )}
+                </td>
+                <td className="px-4 py-3 tabular-nums">
+                  {p.crateQuantity} × {p.crateKg} kg
+                  {p.originalCrateQuantity != null && (
+                    <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">giảm từ {p.originalCrateQuantity} thùng</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatVnd(p.depositAmount)}
+                  {Number(p.shortfallRefundAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-red-600">đã hoàn {formatVnd(p.shortfallRefundAmount)}</p>}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {p.fulfillmentMethod === 'PICKUP' ? '0đ' : formatVnd(p.shippingFee ?? 0)}
+                  {p.shippingDistanceKm != null && <p className="text-[11px] text-gray-500">{p.shippingDistanceKm} km</p>}
+                  {Number(p.shippingDiscountAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-emerald-700">gom đơn -{formatVnd(p.shippingDiscountAmount)}</p>}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs font-bold text-gray-700">{PRE_ORDER_STATUS[p.status]}</span>
+                  {p.cancelReason && <p className="max-w-[220px] text-[11px] text-gray-500">{p.cancelReason}</p>}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {p.status === 'DEPOSIT_PAID' && c.status === 'FULFILLING' && (
+                    <button type="button" disabled={pack.isPending} onClick={() => pack.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+                      <PackageCheck size={14} /> Đóng gói
+                    </button>
+                  )}
+                  {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
+                    <button type="button" disabled={pickedUp.isPending} onClick={() => pickedUp.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+                      <Check size={14} /> Khách đã lấy · thu {formatVnd(p.remainingAmount)}
+                    </button>
+                  )}
+                  {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
+                    <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                      <button type="button" disabled={remind.isPending} onClick={() => remind.mutate(p)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-800 disabled:opacity-50">
+                        <Bell size={12} /> {p.pickupRemindCount ? `Nhắc lại (${p.pickupRemindCount})` : 'Nhắc khách đến lấy'}
+                      </button>
+                      <button type="button" disabled={noShow.isPending || !p.pickupRemindCount} title={p.pickupRemindCount ? 'Khách không đến: đơn thất bại, giữ tiền cọc' : 'Cần nhắc khách ít nhất 1 lần trước'}
+                        onClick={() => { if (window.confirm(`Đánh dấu đơn ${p.code} khách không đến lấy? Khách sẽ mất cọc ${formatVnd(p.depositAmount)}.`)) noShow.mutate(p) }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-700 disabled:opacity-40">
+                        Khách không đến
+                      </button>
+                    </div>
+                  )}
+                  {p.pickupRemindedAt && p.status === 'PROCESSING' && (
+                    <p className="mt-1 text-[11px] text-gray-500">Đã nhắc lúc {new Date(p.pickupRemindedAt).toLocaleString('vi-VN')}</p>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -716,47 +836,108 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
 /* ─────────────────────────── Tạo chiến dịch ─────────────────────────── */
 
 /** Tạo chiến dịch mới; có `prefill` khi duyệt / gộp đơn đề xuất của shop (tạo xong mới đánh dấu đơn đã duyệt) */
-function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; onCreated: (id: number) => void; prefill?: ApprovePrefill }) {
+function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () => void; onCreated: (id: number) => void; prefill?: ApprovePrefill; editing?: CampaignResponse }) {
   const inDays = (n: number) => new Date(Date.now() + n * 86400000)
   const local = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString()
   const [f, setF] = useState({
     title: '', description: '', season: '', target: '', min: '', price: '', deposit: '30',
-    cutoff: local(inDays(7)).slice(0, 16), delivery: local(inDays(9)).slice(0, 10), site: '',
+    publish: local(new Date(Math.ceil(Date.now() / 3600000) * 3600000 + 3600000)).slice(0, 16), farmCutoff: local(inDays(5)).slice(0, 16), cutoff: local(inDays(7)).slice(0, 16), start: local(inDays(8)).slice(0, 10), end: local(inDays(14)).slice(0, 10), site: '',
     halfKg: '10', freeKg: '20', freeRadius: '10', groupMin: '5',
     ...prefill?.fields,
+    ...(editing ? fieldsOf(editing) : {}),
   })
-  const [pickupEnabled, setPickupEnabled] = useState(true)
-  const [address, setAddress] = useState<AddressValue>(prefill?.address ?? EMPTY_ADDRESS)
+  const [pickupEnabled, setPickupEnabled] = useState(editing ? editing.pickupEnabled !== false : true)
+  // Sửa chiến dịch: địa chỉ đã lưu là chuỗi ghép, tách lại như khi duyệt đề xuất
+  const seedAddress = prefill?.address ?? (editing?.collectionSiteAddress
+    ? { ...EMPTY_ADDRESS, detail: editing.collectionSiteAddress, lat: editing.collectionSiteLatitude ?? undefined, lng: editing.collectionSiteLongitude ?? undefined }
+    : undefined)
+  const [address, setAddress] = useState<AddressValue>(seedAddress ?? EMPTY_ADDRESS)
+  const [cover, setCover] = useState(editing?.coverImageUrl ?? prefill?.coverImageUrl ?? '')
+  const [coverUploading, setCoverUploading] = useState(false)
+  const coverRef = useRef<HTMLInputElement>(null)
+  const onCover = async (file?: File) => {
+    if (!file) return
+    setCoverUploading(true)
+    try {
+      const url = (await uploadService.uploadImage(file, 'campaigns')).result?.url
+      if (url) setCover(url)
+    } finally {
+      setCoverUploading(false)
+      if (coverRef.current) coverRef.current.value = ''
+    }
+  }
+  // Duyệt từ đề xuất: địa chỉ shop gửi là chuỗi đã ghép, tách lại thành Tỉnh/Phường để ô chọn hiện sẵn
+  const qcAddr = useQueryClient()
+  const seedDetail = seedAddress?.detail
+  useEffect(() => {
+    const a = seedAddress
+    if (!a?.detail || a.provinceCode != null) return
+    let alive = true
+    parseAddress(qcAddr, a.detail, { lat: a.lat, lng: a.lng }).then((v) => {
+      if (alive && v.provinceCode != null) setAddress((cur) => (cur.provinceCode == null && cur.detail === a.detail ? v : cur))
+    })
+    return () => { alive = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedDetail, qcAddr])
   const [note, setNote] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   useEscape(onClose)
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }))
+  const cutoffDay = f.cutoff ? f.cutoff.slice(0, 10) : ''
   const create = useMutation({
     mutationFn: () => {
       const body: CampaignUpsertRequest = {
         title: f.title.trim(), description: htmlToPlainText(f.description).trim() ? f.description : undefined, season: f.season.trim() || undefined,
         targetVolumeKg: Number(f.target), minThresholdKg: Number(f.min), rescuePricePerKg: Number(f.price),
-        depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, deliveryDate: f.delivery || undefined,
+        depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, startDate: f.start || undefined, endDate: f.end || undefined, publishAt: f.publish ? `${f.publish}:00` : undefined, farmCutoffAt: f.farmCutoff ? `${f.farmCutoff}:00` : undefined,
         collectionSiteName: f.site.trim() || undefined, collectionSiteAddress: composeAddress(address) || undefined,
         collectionSiteLatitude: address.lat, collectionSiteLongitude: address.lng,
         shipHalfKg: Number(f.halfKg) || undefined, shipFreeKg: Number(f.freeKg) || undefined,
         shipFreeRadiusKm: Number(f.freeRadius) || undefined, groupDiscountMinOrders: Number(f.groupMin) || undefined,
         pickupEnabled,
-        categoryId: prefill?.categoryId ?? undefined,
-        coverImageUrl: prefill?.coverImageUrl ?? undefined,
+        categoryId: editing ? editing.categoryId ?? undefined : prefill?.categoryId ?? undefined,
+        coverImageUrl: cover || undefined,
       }
+      if (editing) return adminCampaignService.update(editing.campaignId, body)
       if (prefill) return campaignProposalService.approve(prefill.proposalIds, body, note.trim() || undefined)
       return adminCampaignService.create(body)
     },
     onSuccess: (c) => onCreated(c.campaignId),
   })
+  // Duyệt từ đề xuất: 2 popup cạnh nhau, trái là thông tin gốc của shop, phải là bài đăng chiến dịch để đối soát
+  const sources = prefill?.proposals ?? []
+  const split = sources.length > 0
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="tao-cd-title" onClick={(e) => e.stopPropagation()} className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+    <div
+      className={`fixed inset-0 z-[1000] flex bg-black/50 ${split ? 'flex-col items-center gap-4 overflow-y-auto p-3 sm:p-6 lg:flex-row lg:items-stretch lg:justify-center lg:overflow-hidden' : 'items-end justify-center sm:items-center sm:p-6'}`}
+      onClick={onClose}
+    >
+      {split && (
+        <aside
+          aria-label="Thông tin gốc của đề xuất"
+          onClick={(e) => e.stopPropagation()}
+          className="flex w-full max-w-2xl shrink-0 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl lg:max-h-[94vh] lg:w-[440px] lg:max-w-none"
+        >
+          <div className="border-b border-gray-100 bg-[#f7faf4] px-5 py-4">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#4a7c2f]">Bước 1 · Đối chiếu</p>
+            <h3 className="text-lg font-black text-gray-900">
+              {sources.length > 1 ? `Thông tin gốc của ${sources.length} đề xuất` : 'Thông tin gốc shop đã gửi'}
+            </h3>
+            <p className="text-xs text-gray-500">Chỉ để xem, không sửa được</p>
+          </div>
+          <div className="overflow-y-auto p-5">
+            <ProposalSourcePanel proposals={sources} />
+          </div>
+        </aside>
+      )}
+      <div role="dialog" aria-modal="true" aria-labelledby="tao-cd-title" onClick={(e) => e.stopPropagation()} className={`flex w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl ${split ? 'shrink-0 rounded-3xl lg:max-h-[94vh]' : 'max-h-[94vh] rounded-t-3xl sm:rounded-3xl'}`}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 id="tao-cd-title" className="text-lg font-black text-gray-900">
-            {prefill ? (prefill.proposalIds.length > 1 ? `Gộp ${prefill.proposalIds.length} đề xuất thành 1 chiến dịch` : 'Duyệt đề xuất thành chiến dịch') : 'Tạo chiến dịch giải cứu'}
-          </h3>
+          <div>
+            {split && <p className="text-[11px] font-bold uppercase tracking-wide text-[#4a7c2f]">Bước 2 · Soạn bài đăng</p>}
+            <h3 id="tao-cd-title" className="text-lg font-black text-gray-900">
+              {editing ? 'Chỉnh sửa chiến dịch' : prefill ? (prefill.proposalIds.length > 1 ? `Gộp ${prefill.proposalIds.length} đề xuất thành 1 chiến dịch` : 'Bài đăng chiến dịch') : 'Tạo chiến dịch giải cứu'}
+            </h3>
+          </div>
           <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
         <form className="grid gap-3 overflow-y-auto p-5 sm:grid-cols-2" onSubmit={(e) => {
@@ -765,10 +946,63 @@ function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; on
             setFormError('Vui lòng chọn đủ Phường/Xã và nhập địa chỉ cụ thể của điểm tập kết.')
             return
           }
+          // Đã gửi lời kêu gọi rồi thì giờ đăng bài cũ được giữ nguyên
+          if (f.publish && !editing?.callPostedAt && new Date(f.publish).getTime() < Date.now() - 60000) {
+            setFormError('Ngày giờ đăng bài đã qua, hãy chọn thời điểm sắp tới.')
+            return
+          }
+          if (f.publish && f.cutoff && f.publish >= f.cutoff) {
+            setFormError('Ngày giờ đăng bài phải trước hạn chốt đơn đặt trước.')
+            return
+          }
+          // Thứ tự: đăng bài kêu gọi nhà vườn -> chốt góp hàng nhà vườn -> chốt đơn đặt trước
+          if (f.farmCutoff && f.publish && f.farmCutoff <= f.publish) {
+            setFormError('Hạn chốt góp hàng của nhà vườn phải sau ngày giờ đăng bài.')
+            return
+          }
+          if (f.farmCutoff && f.cutoff && f.farmCutoff >= f.cutoff) {
+            setFormError('Hạn chốt đơn đặt trước phải sau hạn chốt góp hàng của nhà vườn.')
+            return
+          }
+          // Thứ tự: chốt đơn đặt trước -> bắt đầu (ngày sau đó) -> kết thúc
+          if (f.start && f.cutoff && f.start <= f.cutoff.slice(0, 10)) {
+            setFormError('Ngày chốt đơn đặt trước phải trước ngày bắt đầu chiến dịch (ít nhất 1 ngày).')
+            return
+          }
+          if (f.end && f.cutoff && f.end <= f.cutoff.slice(0, 10)) {
+            setFormError('Ngày kết thúc chiến dịch phải sau hạn chốt đơn đặt trước.')
+            return
+          }
+          if (f.start && f.end && f.end < f.start) {
+            setFormError('Ngày kết thúc không được trước ngày bắt đầu chiến dịch.')
+            return
+          }
+          if (f.target && f.min && Number(f.min) > Number(f.target)) {
+            setFormError('Mục tiêu (kg) phải lớn hơn hoặc bằng ngưỡng tối thiểu.')
+            return
+          }
           setFormError(null)
           create.mutate()
         }}>
-          <TextField id="cd-title" label="Tên chiến dịch (hiện đúng như vậy cho người mua)" value={f.title} onChange={set('title')} wide required />
+          <TextField id="cd-title" label="Tên chiến dịch" value={f.title} onChange={set('title')} wide required />
+          <div className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
+            Ảnh bìa bài viết
+            <div className="flex items-center gap-3">
+              <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-[#eef5e7]">
+                {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <Sprout size={24} className="absolute inset-0 m-auto text-[#326318]" />}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading} className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 hover:bg-gray-50 disabled:opacity-50">
+                  {coverUploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />} {cover ? 'Đổi ảnh' : 'Tải ảnh lên'}
+                </button>
+                {cover && (
+                  <button type="button" onClick={() => setCover('')} className="rounded-xl px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50">Bỏ ảnh</button>
+                )}
+              </div>
+              <input ref={coverRef} type="file" accept="image/*" hidden onChange={(e) => onCover(e.target.files?.[0])} />
+            </div>
+            <span className="text-xs font-normal text-gray-500">Hiện ở đầu bài viết và ảnh nhỏ trong danh sách chiến dịch.</span>
+          </div>
           <div className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
             Bài viết giới thiệu
             <Suspense fallback={<div className="flex h-56 items-center justify-center rounded-xl border border-gray-200 text-xs font-normal text-gray-500"><Loader2 size={16} className="mr-2 animate-spin" /> Đang tải trình soạn thảo…</div>}>
@@ -776,11 +1010,26 @@ function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; on
             </Suspense>
           </div>
           <NumField id="cd-target" label="Mục tiêu (kg)" value={f.target} onChange={set('target')} />
-          <NumField id="cd-min" label="Ngưỡng tối thiểu (kg)" value={f.min} onChange={set('min')} />
+          <NumField id="cd-min" label={prefill ? 'Ngưỡng tối thiểu (kg) · tổng shop đã góp' : 'Ngưỡng tối thiểu (kg)'} value={f.min} onChange={set('min')} />
           <NumField id="cd-price" label="Giá giải cứu (đ/kg)" value={f.price} onChange={set('price')} />
           <NumField id="cd-deposit" label="Cọc (%)" value={f.deposit} onChange={set('deposit')} />
-          <TextField id="cd-cutoff" label="Hạn chốt đơn" type="datetime-local" value={f.cutoff} onChange={set('cutoff')} required />
-          <TextField id="cd-delivery" label="Ngày giao dự kiến" type="date" value={f.delivery} onChange={set('delivery')} />
+          <p className="text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Phía nhà vườn góp hàng</p>
+          <TextField id="cd-publish" label="Ngày giờ đăng bài kêu gọi nhà vườn" type="datetime-local" value={f.publish} onChange={set('publish')} required />
+          <TextField id="cd-farm-cutoff" label="Hạn chốt góp hàng (nhà vườn)" type="datetime-local" value={f.farmCutoff} onChange={set('farmCutoff')} required
+            min={f.publish || undefined}
+            error={f.farmCutoff && f.publish && f.farmCutoff <= f.publish ? 'Phải sau ngày giờ đăng bài' : undefined} />
+          <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Phía người mua đặt trước</p>
+          <TextField id="cd-cutoff" label="Hạn chốt đơn đặt trước" type="datetime-local" value={f.cutoff} onChange={set('cutoff')} required wide
+            min={f.farmCutoff || undefined}
+            error={f.cutoff && f.farmCutoff && f.cutoff <= f.farmCutoff ? 'Phải sau hạn chốt góp hàng của nhà vườn' : undefined} />
+          <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Thời gian chiến dịch</p>
+          <TextField id="cd-start" label="Ngày bắt đầu chiến dịch" type="date" value={f.start} onChange={set('start')} required
+            min={cutoffDay ? nextDay(cutoffDay) : undefined}
+            error={f.start && cutoffDay && f.start <= cutoffDay ? `Phải sau hạn chốt đơn đặt trước (từ ${fmtYmd(nextDay(cutoffDay))})` : undefined} />
+          <TextField id="cd-end" label="Ngày kết thúc chiến dịch" type="date" value={f.end} onChange={set('end')} required
+            min={f.start || (cutoffDay ? nextDay(cutoffDay) : undefined)}
+            error={f.end && cutoffDay && f.end <= cutoffDay ? 'Phải sau hạn chốt đơn đặt trước'
+              : f.end && f.start && f.end < f.start ? 'Không được trước ngày bắt đầu' : undefined} />
           <TextField id="cd-site" label="Điểm tập kết" value={f.site} onChange={set('site')} />
           <TextField id="cd-season" label="Mùa vụ" value={f.season} onChange={set('season')} />
           <div className="flex flex-col gap-2.5 sm:col-span-2">
@@ -808,9 +1057,9 @@ function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; on
             </label>
           )}
           {formError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{formError}</p>}
-          {create.isError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{getErrorMessage(create.error, 'Không tạo được chiến dịch.')}</p>}
+          {create.isError && <p className="text-sm font-semibold text-red-600 sm:col-span-2">{getErrorMessage(create.error, editing ? 'Không lưu được thay đổi.' : 'Không tạo được chiến dịch.')}</p>}
           <button type="submit" disabled={create.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 sm:col-span-2">
-            {create.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {prefill ? 'Duyệt & tạo chiến dịch (nháp)' : 'Tạo chiến dịch (nháp)'}
+            {create.isPending ? <Loader2 size={16} className="animate-spin" /> : editing ? <Check size={16} /> : <Plus size={16} />} {editing ? 'Lưu thay đổi' : prefill ? 'Duyệt & tạo chiến dịch' : 'Tạo chiến dịch'}
           </button>
         </form>
       </div>
@@ -821,11 +1070,12 @@ function CreateDialog({ onClose, onCreated, prefill }: { onClose: () => void; on
 
 /* ─────────────────────────── Chi tiết đơn đăng ký của nhà vườn ─────────────────────────── */
 
-const SHELF_LABEL: Record<string, string> = { DAYS_2_3: 'Mức 1 · 2 – 3 ngày sau chốt', DAYS_3_4: 'Mức 2 · 3 – 4 ngày sau chốt', DAYS_5_6: 'Mức 3 · 5 – 6 ngày sau chốt' }
+const SHELF_LABEL: Record<string, string> = { DAYS_2_3: '2 – 3 ngày sau chốt', DAYS_3_4: '3 – 4 ngày sau chốt', DAYS_5_6: '5 – 6 ngày sau chốt' }
 const REG_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: 'Chờ duyệt', tone: 'bg-amber-100 text-amber-800' },
   APPROVED: { label: 'Đã duyệt', tone: 'bg-emerald-100 text-emerald-800' },
   REJECTED: { label: 'Từ chối', tone: 'bg-red-100 text-red-700' },
+  CANCELLED: { label: 'Huỷ theo chiến dịch', tone: 'bg-gray-100 text-gray-600' },
 }
 const fmtDay = (v?: string | null) => (v ? new Date(v).toLocaleDateString('vi-VN') : '—')
 const fmtDateTime = (v?: string | null) => (v ? new Date(v).toLocaleString('vi-VN') : '—')
@@ -975,7 +1225,7 @@ function useEscape(onClose: () => void) {
 /** DRAFT đã đăng lời kêu gọi = bài đã công khai, đang gom hàng từ nhà vườn (chưa mở bán) */
 function StatusChip({ s, called }: { s: CampaignStatus; called?: boolean }) {
   const { label, tone } =
-    s === 'DRAFT' && called ? { label: 'Đã đăng · gom nhà vườn', tone: 'bg-lime-100 text-lime-800' } : STATUS[s]
+    s === 'DRAFT' && called ? { label: 'Đang kêu gọi nhà vườn', tone: 'bg-lime-100 text-lime-800' } : STATUS[s]
   return <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tone}`}>{label}</span>
 }
 
@@ -1006,11 +1256,65 @@ function NumField({ id, label, value, onChange, disabled }: { id: string; label:
   )
 }
 
-function TextField({ id, label, value, onChange, type = 'text', wide, required }: { id: string; label: string; value: string; onChange: (v: string) => void; type?: string; wide?: boolean; required?: boolean }) {
+// Ngày (yyyy-mm-dd) kế tiếp, tính theo UTC để không lệch múi giờ
+function nextDay(day: string) {
+  const d = new Date(day + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+const fmtYmd = (day: string) => day.split('-').reverse().join('/')
+
+// Đổ dữ liệu chiến dịch đã lưu vào form sửa (ngày giờ dạng yyyy-MM-ddTHH:mm cho ô datetime-local)
+function fieldsOf(c: CampaignResponse) {
+  const num = (v?: number | null) => (v == null ? '' : String(v))
+  return {
+    title: c.title ?? '', description: c.description ?? '', season: c.season ?? '',
+    target: num(c.targetVolumeKg), min: num(c.minThresholdKg), price: num(c.rescuePricePerKg),
+    deposit: c.depositPercent != null ? String(Math.round(Number(c.depositPercent) * 100)) : '30',
+    publish: c.publishAt ? c.publishAt.slice(0, 16) : '', farmCutoff: c.farmCutoffAt ? c.farmCutoffAt.slice(0, 16) : '', cutoff: c.cutoffAt ? c.cutoffAt.slice(0, 16) : '',
+    start: c.startDate ?? '', end: c.endDate ?? '', site: c.collectionSiteName ?? '',
+    halfKg: num(c.shipHalfKg) || '10', freeKg: num(c.shipFreeKg) || '20',
+    freeRadius: num(c.shipFreeRadiusKm) || '10', groupMin: num(c.groupDiscountMinOrders) || '5',
+  }
+}
+
+function CoverThumb({ url }: { url?: string | null }) {
+  return (
+    <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-[#eef5e7]">
+      {url ? <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <Sprout size={18} className="absolute inset-0 m-auto text-[#326318]" />}
+    </div>
+  )
+}
+
+// Sapo cho đầu bài: lấy chữ thuần từ bài viết (HTML), cắt gọn khoảng 240 ký tự
+function articleLead(html?: string | null) {
+  if (!html) return ''
+  const text = new DOMParser().parseFromString(html, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+  return text.length > 240 ? text.slice(0, 240).replace(/\s+\S*$/, '') + '…' : text
+}
+
+// "2026-11-26T00:05:00" -> { date: '26/11/2026', time: '00:05' }
+function splitDateTime(v: string) {
+  const d = new Date(v)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return { date: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }
+}
+
+function Fact({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-[#f6faf2] px-3 py-2.5">
+      <dt className="text-[11px] font-bold text-gray-500">{label}</dt>
+      <dd className={`mt-0.5 truncate text-base font-black tabular-nums ${strong ? 'text-[#326318]' : 'text-gray-900'}`}>{value}</dd>
+    </div>
+  )
+}
+
+function TextField({ id, label, value, onChange, type = 'text', wide, required, min, error }: { id: string; label: string; value: string; onChange: (v: string) => void; type?: string; wide?: boolean; required?: boolean; min?: string; error?: string }) {
   return (
     <label htmlFor={id} className={`flex flex-col gap-1.5 text-sm font-bold text-gray-700 ${wide ? 'sm:col-span-2' : ''}`}>
       {label}
-      <input id={id} type={type} required={required} value={value} onChange={(e) => onChange(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal" />
+      <input id={id} type={type} required={required} min={min} value={value} onChange={(e) => onChange(e.target.value)} className={`rounded-xl border px-3 py-2 text-sm font-normal ${error ? 'border-red-400' : 'border-gray-200'}`} />
+      {error && <span className="text-xs font-semibold text-red-600">{error}</span>}
     </label>
   )
 }
