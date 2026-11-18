@@ -17,6 +17,7 @@ export interface ComboCardItem {
   reviews: number
   sold: number
   stock: number
+  mealType?: string
 }
 
 export function normalizeComboCategory(kind?: string | null): string {
@@ -113,8 +114,8 @@ export function mapMysteryBoxToCard(
     price,
     original: price * 1.5,
     unit: 'túi',
-    rating: 4.9,
-    reviews: 120,
+    rating: Number((mystery as any).rating ?? (mystery as any).ratingAverage ?? 0),
+    reviews: Number((mystery as any).reviewCount ?? (mystery as any).totalReviews ?? 0),
     sold: soldQuantity,
     stock: Math.max(0, totalQuantity - soldQuantity) || 20,
   }
@@ -156,9 +157,10 @@ export function mapComboToCard(
     price,
     original: price * 1.4,
     unit: 'combo',
-    rating: 4.9,
-    reviews: 85,
+    rating: Number((combo as any).rating ?? (combo as any).ratingAverage ?? 0),
+    reviews: Number((combo as any).reviewCount ?? (combo as any).totalReviews ?? 0),
     sold: soldQuantity,
     stock: Math.max(0, totalQuantity - soldQuantity) || 15,
+    mealType: combo.mealType,
   }
 }

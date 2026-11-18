@@ -90,26 +90,11 @@ export const productService = {
         params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 100, ...params },
       })
       const items = (res.data.result?.content ?? []).map(normalizeProduct)
-      if (items.length > 0) {
-        return { code: 1000, result: items }
-      }
+      return { code: 1000, result: items }
     } catch (e) {
-      console.warn('Cannot fetch products from backend API, using local mock fallback:', e)
+      console.warn('Cannot fetch products from backend API:', e)
+      return { code: 1000, result: [] }
     }
-
-    // Fallback to local mock
-    let list = [...localFarmerProducts]
-    if (params?.categoryId) {
-      list = list.filter((p: any) => p.categoryId === params.categoryId || p.category?.categoryId === params.categoryId)
-    }
-    if (params?.shopId) {
-      list = list.filter((p: any) => Number(p.shopId ?? p.shopOwnerId ?? p.shop?.id) === params.shopId)
-    }
-    if (params?.keyword) {
-      const kw = params.keyword.toLowerCase()
-      list = list.filter((p: any) => (p.name || p.productName || '').toLowerCase().includes(kw))
-    }
-    return { code: 1000, result: list }
   },
 
   async getAllProducts(): Promise<ApiResponse<ProductResponse[]>> {
@@ -130,11 +115,9 @@ export const productService = {
         }
       }
     } catch (e) {
-      console.warn(`Cannot fetch product id ${id} from backend API, using local mock:`, e)
+      console.warn(`Cannot fetch product id ${id} from backend API:`, e)
     }
-
-    const found = localFarmerProducts.find((p) => p.id === id)
-    return { code: 1000, result: found ? normalizeProduct(found) : null }
+    return { code: 1000, result: null }
   },
 
   /** Lấy danh sách sản phẩm của nông dân/gian hàng hiện tại (hỗ trợ lọc status, phân trang) */

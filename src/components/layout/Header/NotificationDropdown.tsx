@@ -1,6 +1,18 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck, Trash2, Clock, ChevronRight, Inbox, MessageSquare } from 'lucide-react'
+import {
+  Bell,
+  CheckCheck,
+  Trash2,
+  Clock,
+  ChevronRight,
+  Inbox,
+  MessageSquare,
+  Truck,
+  Package,
+  Tag,
+  Wallet,
+} from 'lucide-react'
 import { useNotificationStore, useChatStore } from '@/stores'
 import type { NotificationItem } from '@/services/notification.types'
 
@@ -35,6 +47,42 @@ function formatRelativeTime(dateStr?: string): string {
   }
 }
 
+function getNotifVisual(item: NotificationItem) {
+  const type = (item.type ?? '').toUpperCase()
+  const text = `${item.title ?? ''} ${item.message ?? ''}`.toLowerCase()
+
+  if (
+    type.includes('ORDER') ||
+    type.includes('SHIPPER') ||
+    type.includes('DISPATCH') ||
+    text.includes('đơn hàng') ||
+    text.includes('vận chuyển') ||
+    text.includes('giao hàng')
+  ) {
+    return { icon: Truck, bg: 'bg-emerald-50 text-emerald-700' }
+  }
+
+  if (text.includes('sản phẩm') || text.includes('kho') || text.includes('đóng gói')) {
+    return { icon: Package, bg: 'bg-amber-50 text-amber-700' }
+  }
+
+  if (
+    text.includes('ví tiền') ||
+    text.includes('ký quỹ') ||
+    text.includes('rút tiền') ||
+    text.includes('nạp tiền') ||
+    text.includes('quyết toán')
+  ) {
+    return { icon: Wallet, bg: 'bg-sky-50 text-sky-700' }
+  }
+
+  if (text.includes('voucher') || text.includes('khuyến mãi') || text.includes('giảm giá')) {
+    return { icon: Tag, bg: 'bg-rose-50 text-rose-700' }
+  }
+
+  return { icon: Bell, bg: 'bg-[#326318]/10 text-[#326318]' }
+}
+
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   isOpen,
   onClose,
@@ -43,6 +91,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 }) => {
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement | null>(null)
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const {
     notifications,
     unreadCount,
@@ -124,6 +173,32 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         )}
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-[#f0ebd9] bg-[#fbf9f4]">
+        <button
+          type="button"
+          onClick={() => setFilter('all')}
+          className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold transition-colors cursor-pointer ${
+            filter === 'all'
+              ? 'bg-[#326318] text-white shadow-xs'
+              : 'text-[#636c5b] hover:bg-[#ede7da]'
+          }`}
+        >
+          Tất cả ({notifications.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('unread')}
+          className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold transition-colors cursor-pointer ${
+            filter === 'unread'
+              ? 'bg-[#326318] text-white shadow-xs'
+              : 'text-[#636c5b] hover:bg-[#ede7da]'
+          }`}
+        >
+          Chưa đọc ({unreadCount})
+        </button>
+      </div>
+
       {/* Quick Chat Alert Banner if there are unread messages */}
       {unreadTotal > 0 && (
         <div
@@ -177,67 +252,72 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
         ) : (
           notifications
-            .filter((item) => item && (item.title || item.message))
-            .map((item) => (
-            <div
-              key={item.id}
-              onClick={() => handleItemClick(item)}
-              className={`py-2 px-3 transition-colors flex items-start gap-2.5 cursor-pointer group ${
-                item.isRead ? 'bg-white hover:bg-[#faf7ef]' : 'bg-[#f4faee]/70 hover:bg-[#ebf6e3]'
-              }`}
-            >
-              {/* Unread indicator dot */}
-              <div className="shrink-0 mt-1">
+            .filter((item) => {
+              if (!item || (!item.title && !item.message)) return false
+              if (filter === 'unread') return !item.isRead
+              return true
+            })
+            .map((item) => {
+              const { icon: VisualIcon, bg: visualBg } = getNotifVisual(item)
+              return (
                 <div
-                  className={`size-2 rounded-full ${
-                    item.isRead ? 'bg-transparent' : 'bg-[#326318]'
-                  }`}
-                />
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-1 mb-0.5">
-                  <p
-                    className={`text-xs truncate ${
-                      item.isRead ? 'font-medium text-[#464f3e]' : 'font-extrabold text-[#171f11]'
-                    }`}
-                  >
-                    {item.title}
-                  </p>
-                  <span className="text-[9.5px] text-[#8a9184] shrink-0 font-medium flex items-center gap-0.5">
-                    <Clock size={9} />
-                    {formatRelativeTime(item.createAt || item.createdAt)}
-                  </span>
-                </div>
-
-                <p
-                  className={`text-[11px] line-clamp-2 leading-relaxed ${
-                    item.isRead ? 'text-[#737d6e]' : 'text-[#313b2a]'
+                  key={item.id}
+                  onClick={() => handleItemClick(item)}
+                  className={`py-2 px-3 transition-colors flex items-start gap-2.5 cursor-pointer group ${
+                    item.isRead ? 'bg-white hover:bg-[#faf7ef]' : 'bg-[#f4faee]/70 hover:bg-[#ebf6e3]'
                   }`}
                 >
-                  {item.message}
-                </p>
+                  {/* Visual Icon */}
+                  <div
+                    className={`size-7 rounded-lg shrink-0 flex items-center justify-center mt-0.5 ${visualBg}`}
+                  >
+                    <VisualIcon size={13} />
+                  </div>
 
-                {item.evidence && (
-                  <span className="inline-block mt-1 text-[9.5px] text-[#326318] font-bold">
-                    Có liên kết đính kèm →
-                  </span>
-                )}
-              </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-1 mb-0.5">
+                      <p
+                        className={`text-xs truncate ${
+                          item.isRead ? 'font-medium text-[#464f3e]' : 'font-extrabold text-[#171f11]'
+                        }`}
+                      >
+                        {item.title}
+                      </p>
+                      <span className="text-[9.5px] text-[#8a9184] shrink-0 font-medium flex items-center gap-0.5">
+                        <Clock size={9} />
+                        {formatRelativeTime(item.createAt || item.createdAt)}
+                      </span>
+                    </div>
 
-              {/* Delete button */}
-              <button
-                type="button"
-                onClick={(e) => handleDelete(e, item.id)}
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 text-[#8a9184] hover:text-red-500 transition-all shrink-0 cursor-pointer"
-                title="Xóa thông báo"
-                aria-label="Xóa thông báo"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ))
+                    <p
+                      className={`text-[11px] line-clamp-2 leading-relaxed ${
+                        item.isRead ? 'text-[#737d6e]' : 'text-[#313b2a]'
+                      }`}
+                    >
+                      {item.message}
+                    </p>
+
+                    {item.evidence && (
+                      <span className="inline-block mt-1 text-[9.5px] text-[#326318] font-bold">
+                        Có liên kết đính kèm →
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e, item.id)}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 text-[#8a9184] hover:text-red-500 transition-all shrink-0 cursor-pointer"
+                    title="Xóa thông báo"
+                    aria-label="Xóa thông báo"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )
+            })
         )}
       </div>
 

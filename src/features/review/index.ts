@@ -1,6 +1,8 @@
 export {
   reviewKeys,
   useProductReviews,
+  useMysteryBoxReviews,
+  useComboReviews,
   useShopReviews,
   useMyShopReviews,
   useShopReport,

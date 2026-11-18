@@ -10,6 +10,8 @@ export const reviewKeys = {
   all: ['reviews'] as const,
   product: (productId: number) => [...reviewKeys.all, 'product', productId] as const,
   shop: (shopId: number) => [...reviewKeys.all, 'shop', shopId] as const,
+  mysteryBox: (id: number) => [...reviewKeys.all, 'mystery-box', id] as const,
+  combo: (id: number) => [...reviewKeys.all, 'combo', id] as const,
   myShop: (page: number, size: number) => [...reviewKeys.all, 'my-shop', page, size] as const,
   shopReport: (shopId?: number) => [...reviewKeys.all, 'shop-report', shopId ?? 0] as const,
   my: ['reviews', 'my'] as const,
@@ -21,6 +23,22 @@ export function useProductReviews(productId: number | undefined) {
     queryKey: reviewKeys.product(productId ?? 0),
     queryFn: async () => (await reviewService.getByProductId(productId!)).result ?? [],
     enabled: productId != null && productId > 0,
+  })
+}
+
+export function useMysteryBoxReviews(mysteryBoxId: number | undefined) {
+  return useQuery({
+    queryKey: reviewKeys.mysteryBox(mysteryBoxId ?? 0),
+    queryFn: async () => (await reviewService.getByMysteryBoxId(mysteryBoxId!)).result ?? [],
+    enabled: mysteryBoxId != null && mysteryBoxId > 0,
+  })
+}
+
+export function useComboReviews(comboId: number | undefined) {
+  return useQuery({
+    queryKey: reviewKeys.combo(comboId ?? 0),
+    queryFn: async () => (await reviewService.getByComboId(comboId!)).result ?? [],
+    enabled: comboId != null && comboId > 0,
   })
 }
 
@@ -91,5 +109,16 @@ export function useReactToReview() {
         list?.map((r) => (r.id === reviewId ? updated : r)),
       )
     },
+  })
+}
+
+export function useFeaturedReviews(limit = 10) {
+  return useQuery({
+    queryKey: ['reviews', 'featured', limit],
+    queryFn: async () => {
+      const res = await reviewService.getFeaturedReviews(limit)
+      return res.result ?? { platformAverageRating: 5.0, platformTotalReviews: 0, reviews: [] }
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }
