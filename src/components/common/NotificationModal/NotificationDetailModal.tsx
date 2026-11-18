@@ -226,29 +226,41 @@ export const NotificationDetailModal: React.FC = () => {
             {noti.message}
           </div>
 
-          {/* Evidence / Attach Link */}
+          {/* Evidence / Attach Link / Image */}
           {noti.evidence && (() => {
+            const isImage =
+              /\.(jpeg|jpg|png|webp|gif)($|\?)/i.test(noti.evidence) ||
+              noti.evidence.includes('cloudinary.com')
             const safe = getSafeLink(noti.evidence)
             return (
-              <div className="p-3 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">Liên kết đính kèm</p>
-                  <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+              <div className="p-3.5 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">
+                      {isImage ? 'Hình ảnh đính kèm' : 'Liên kết đính kèm'}
+                    </p>
+                    <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+                  </div>
+                  {safe.isSafe && (
+                    <a
+                      href={safe.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
+                    >
+                      <span>{isImage ? 'Xem ảnh gốc' : 'Mở link'}</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
-                {safe.isSafe ? (
-                  <a
-                    href={safe.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
-                  >
-                    <span>Mở link</span>
-                    <ExternalLink size={12} />
-                  </a>
-                ) : (
-                  <span className="shrink-0 px-2.5 py-1 rounded bg-gray-100 text-[10px] text-gray-500 font-medium">
-                    Liên kết không an toàn
-                  </span>
+                {isImage && (
+                  <div className="rounded-xl overflow-hidden border border-[#dcebd3] max-h-60 bg-white flex items-center justify-center p-1">
+                    <img
+                      src={noti.evidence}
+                      alt="evidence"
+                      className="max-h-56 w-auto object-contain rounded-lg"
+                    />
+                  </div>
                 )}
               </div>
             )

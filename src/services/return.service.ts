@@ -8,7 +8,6 @@ import type {
   ShipperReturnActionRequest,
   ShopReturnRespondRequest,
 } from './return.types'
-import { mockDisputes } from '@/mocks/return.mock'
 
 export type * from './return.types'
 
@@ -34,43 +33,27 @@ export const returnService = {
    * Lấy danh sách khiếu nại dành cho Admin (Disputes)
    */
   async getDisputes(): Promise<ApiResponse<ReturnRequestResponse[]>> {
-    try {
-      const res = await axiosInstance.get('/returns/admin/disputes/list')
-      const result = unwrap<ReturnRequestResponse[]>(res)
-      if (Array.isArray(result) && result.length > 0) {
-        return { code: 200, result }
-      }
-      return { code: 200, result: [...mockDisputes] }
-    } catch {
-      return { code: 200, result: [...mockDisputes] }
-    }
+    const res = await axiosInstance.get('/returns/admin/disputes/list')
+    const result = unwrap<ReturnRequestResponse[]>(res)
+    return { code: 200, result: Array.isArray(result) ? result : [] }
   },
 
   /**
    * Tự động kiểm tra trạng thái payout khi hoàn tất PayOS
    */
   async autoCheckPayout(orderCode: number): Promise<ApiResponse<boolean>> {
-    try {
-      const res = await axiosInstance.get(`/returns/auto-check-payout/${orderCode}`)
-      const result = unwrap<boolean>(res)
-      return { code: 200, result: !!result, message: `Payout verified for order ${orderCode}` }
-    } catch {
-      return { code: 200, result: true, message: `Payout verified for order ${orderCode}` }
-    }
+    const res = await axiosInstance.get(`/returns/auto-check-payout/${orderCode}`)
+    const result = unwrap<boolean>(res)
+    return { code: 200, result: !!result, message: `Payout verified for order ${orderCode}` }
   },
 
   /**
    * Kiểm tra trạng thái hoàn tiền của 1 đơn khiếu nại
    */
   async checkPayoutStatus(id: number): Promise<ApiResponse<{ request: ReturnRequestResponse }>> {
-    try {
-      const res = await axiosInstance.get(`/returns/check-payout-status/${id}`)
-      const result = unwrap<{ request: ReturnRequestResponse }>(res)
-      return { code: 200, result }
-    } catch {
-      const d = mockDisputes.find((m) => m.id === id) || mockDisputes[0]
-      return { code: 200, result: { request: { ...d, status: 'COMPLETED' } } }
-    }
+    const res = await axiosInstance.get(`/returns/check-payout-status/${id}`)
+    const result = unwrap<{ request: ReturnRequestResponse }>(res)
+    return { code: 200, result }
   },
 
   /**
@@ -80,34 +63,9 @@ export const returnService = {
     id: number,
     payload: { accept: boolean; response: string; refundAmount: number },
   ): Promise<ApiResponse<{ request: ReturnRequestResponse; checkoutUrl?: string }>> {
-    try {
-      const res = await axiosInstance.post(`/returns/admin-action/${id}`, payload)
-      const result = unwrap<{ request: ReturnRequestResponse; checkoutUrl?: string }>(res)
-      return { code: 200, result }
-    } catch {
-      const target = mockDisputes.find((d) => d.id === id)
-      if (target) {
-        target.status = payload.accept ? 'COMPLETED' : 'REJECTED'
-        target.adminRemark = payload.response
-        target.refundAmount = payload.refundAmount
-      }
-      const updated = target || {
-        id,
-        orderId: 9999,
-        productName: 'Sản phẩm mẫu',
-        refundAmount: payload.refundAmount,
-        reason: 'Ghi chú',
-        status: (payload.accept ? 'COMPLETED' : 'REJECTED') as ReturnStatus,
-        createdAt: new Date().toISOString(),
-        adminRemark: payload.response,
-      }
-      return {
-        code: 200,
-        result: {
-          request: updated,
-        },
-      }
-    }
+    const res = await axiosInstance.post(`/returns/admin-action/${id}`, payload)
+    const result = unwrap<{ request: ReturnRequestResponse; checkoutUrl?: string }>(res)
+    return { code: 200, result }
   },
 
   /**

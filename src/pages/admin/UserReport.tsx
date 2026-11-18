@@ -119,11 +119,11 @@ const UserReport: React.FC = () => {
   const chartData = useMemo(
     () =>
       (report?.userReports ?? []).map((item) => ({
-        label: item.label || '',
-        buyers: item.totalBuyers ?? 0,
-        shops: item.totalShops ?? 0,
-        shippers: item.totalShipper ?? 0,
-        locked: item.totalUserLock ?? 0,
+        label: item.label || item.period || item.date || '',
+        buyers: item.totalBuyers ?? item.buyers ?? 0,
+        shops: item.totalShops ?? item.shops ?? 0,
+        shippers: item.totalShipper ?? item.shippers ?? 0,
+        locked: item.totalUserLock ?? item.locked ?? 0,
       })),
     [report?.userReports],
   )
@@ -137,7 +137,7 @@ const UserReport: React.FC = () => {
     return [
       { name: 'Người mua', value: buyers, color: PIE_COLORS[0] },
       { name: 'Cửa hàng', value: shops, color: PIE_COLORS[1] },
-      { name: 'Shipper', value: shippers, color: PIE_COLORS[4] },
+      { name: 'Người giao hàng', value: shippers, color: PIE_COLORS[4] },
       { name: 'Khác', value: others, color: PIE_COLORS[2] },
     ].filter((d) => d.value > 0)
   }, [report])
@@ -185,7 +185,7 @@ const UserReport: React.FC = () => {
       bg: 'bg-indigo-50',
     },
     {
-      label: 'Shipper',
+      label: 'Người giao hàng',
       value: report?.totalShipper,
       icon: Truck,
       color: 'text-violet-600',
@@ -255,7 +255,7 @@ const UserReport: React.FC = () => {
             Báo cáo người dùng
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            Thống kê người mua, cửa hàng, shipper và tài khoản bị khóa
+            Thống kê người mua, cửa hàng, người giao hàng và tài khoản bị khóa
           </p>
         </div>
         <button
@@ -439,7 +439,7 @@ const UserReport: React.FC = () => {
           <div>
             <h2 className="text-lg font-black text-gray-900 mb-1">Tăng trưởng theo thời gian</h2>
             <p className="text-xs text-gray-400">
-              Người mua, cửa hàng, shipper mới và tài khoản bị khóa theo từng kỳ
+              Người mua, cửa hàng, người giao hàng mới và tài khoản bị khóa theo từng kỳ
             </p>
           </div>
           <label className="flex items-center gap-2 shrink-0">
@@ -482,7 +482,7 @@ const UserReport: React.FC = () => {
                 />
                 <Bar
                   dataKey="shippers"
-                  name="Shipper mới"
+                  name="Người giao hàng mới"
                   fill={CHART_COLORS.shippers}
                   radius={[6, 6, 0, 0]}
                 />
@@ -522,7 +522,7 @@ const UserReport: React.FC = () => {
                 <Line
                   type="monotone"
                   dataKey="shippers"
-                  name="Shipper mới"
+                  name="Người giao hàng mới"
                   stroke={CHART_COLORS.shippers}
                   strokeWidth={2.5}
                   dot={{ r: 4 }}
