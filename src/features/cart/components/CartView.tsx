@@ -63,8 +63,8 @@ export const CartView: React.FC = () => {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-4">
         <Skeleton className="h-10 w-48 rounded-lg" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded-xl" />
       </div>
     )
   }
@@ -338,7 +338,7 @@ export const CartView: React.FC = () => {
               variant="primary"
               disabled={selectedItemIds.size === 0 || isUpdating || isRemoving}
               onClick={handleProceedToCheckout}
-              className="w-full justify-center gap-1.5 py-2.5 bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer disabled:opacity-40"
+              className="w-full justify-center gap-1.5 py-2.5 bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer disabled:opacity-40"
             >
               Tiến hành thanh toán ({money(totalAmount)})
               <ArrowRight size={14} />

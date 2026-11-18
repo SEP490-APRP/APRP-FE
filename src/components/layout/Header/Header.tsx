@@ -27,10 +27,14 @@ import {
   Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import type { AuthUser } from '@/types'
 import { useAuth, useChatStore, useNotificationStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
+import { useAllProducts, useCategories, useCombos } from '@/features/product'
+import { mysteryBoxService, type BuildCombo } from '@/services'
 import { ImageSearchModal } from '@/components/common/ImageSearchModal'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
 import mysteryPromoImg from '@/assets/mystery-box-promo.png'
@@ -55,6 +59,7 @@ export default function Header({
   onCart,
   onInfo,
 }: HeaderProps) {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false)
   const [openMobile, setOpenMobile] = useState(false)
@@ -160,9 +165,31 @@ export default function Header({
 
   const handleSelectCategory = (term: string, targetPath: string = '/nong-san-tuoi') => {
     closeDropdown()
-    onSearch(term)
-    if (location.hash !== `#${targetPath}`) {
-      location.hash = targetPath
+    const t = term.toLowerCase().trim()
+    if (t === 'rau ăn lá' || t === 'rau lá') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=1')
+    } else if (t === 'củ quả' || t === 'củ') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=2')
+    } else if (t === 'trái cây' || t === 'quả') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=3')
+    } else if (t === 'hữu cơ' || t === 'vietgap') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=4')
+    } else if (t === 'nấm' || t === 'nấm tươi' || t === 'đậu') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=5')
+    } else if (t === 'đặc sản' || t === 'vùng miền') {
+      onSearch('')
+      navigate('/nong-san-tuoi?categoryId=6')
+    } else if (t === 'tất cả' || t === '') {
+      onSearch('')
+      navigate(targetPath)
+    } else {
+      onSearch(term)
+      navigate(targetPath)
     }
   }
 
@@ -171,7 +198,7 @@ export default function Header({
     onSearch(query)
     closeDropdown()
     if (!route.startsWith('/nong-san-tuoi')) {
-      location.hash = '/nong-san-tuoi'
+      navigate('/nong-san-tuoi')
     }
   }
 
@@ -180,13 +207,12 @@ export default function Header({
     onSearch(keyword)
     closeDropdown()
     if (!route.startsWith('/nong-san-tuoi')) {
-      location.hash = '/nong-san-tuoi'
+      navigate('/nong-san-tuoi')
     }
   }
 
   const isFreshActive = route.startsWith('/nong-san-tuoi')
   const isComboActive = route.startsWith('/combo-tui-mu')
-  const isAiActive = route.startsWith('/cong-nghe-ai')
   const isFarmerActive = route.startsWith('/cau-chuyen-nong-dan')
   const isCampaignActive = route.startsWith('/chien-dich')
   const { data: openCampaigns } = useActiveCampaigns(0, 1)
@@ -198,26 +224,34 @@ export default function Header({
     route.startsWith('/register')
   const isHomeActive = route === '/' || route === ''
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'buyer':
-        return { label: 'Khách Mua', bg: 'bg-[#eaf5e1] text-[#2c5f11]', border: 'border-[#b9e49c]' }
-      case 'shop':
-        return { label: 'Nhà Vườn', bg: 'bg-[#fdf3e7] text-[#824413]', border: 'border-[#f3cc9f]' }
-      case 'shipper':
-        return { label: 'Tài Xế', bg: 'bg-[#e9f6f7] text-[#195962]', border: 'border-[#b1dfe4]' }
-      case 'admin':
-        return { label: 'Admin', bg: 'bg-[#f9edf9] text-[#79247d]', border: 'border-[#ebc5eb]' }
-      case 'staff':
-        return { label: 'Staff', bg: 'bg-[#eef2f8] text-[#2c4772]', border: 'border-[#cddbf0]' }
-      default:
-        return {
-          label: 'Thành viên',
-          bg: 'bg-[#eaf5e1] text-[#2c5f11]',
-          border: 'border-[#b9e49c]',
-        }
-    }
+  // Dynamic queries for live mega menus & category links
+  const { data: allProducts = [] } = useAllProducts()
+  const { data: allCategories = [] } = useCategories()
+  const combosQuery = useCombos()
+  const allCombos: BuildCombo[] = combosQuery.data?.content ?? (Array.isArray(combosQuery.data) ? combosQuery.data : [])
+  const { data: mysteryBoxes = [] } = useQuery({
+    queryKey: ['mystery-boxes', 'header'],
+    queryFn: async () => (await mysteryBoxService.getForBuyer()).content ?? [],
+  })
+
+  const getCatId = (p: any): number => {
+    if (typeof p.categoryId === 'number') return p.categoryId
+    if (typeof p.category === 'object' && p.category?.categoryId) return p.category.categoryId
+    return 0
   }
+
+  const leafProducts = allProducts.filter((p) => getCatId(p) === 1)
+  const rootProducts = allProducts.filter((p) => getCatId(p) === 2)
+  const fruitProducts = allProducts.filter((p) => getCatId(p) === 3)
+  const specialtyProducts = allProducts.filter((p) => [4, 5, 6].includes(getCatId(p)))
+
+  const minProducePrice = allProducts.length > 0
+    ? Math.min(...allProducts.map((p) => p.price ?? p.sellingPrice ?? 12000).filter((v) => v > 0))
+    : 12000
+
+  const minMysteryPrice = mysteryBoxes.length > 0
+    ? Math.min(...mysteryBoxes.map((b) => b.price).filter((v) => v > 0))
+    : (allCombos.length > 0 ? Math.min(...allCombos.map((c) => c.price).filter((v) => v > 0)) : 69000)
 
   return (
     <header className="site-header relative z-50">
@@ -260,56 +294,15 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="header-actions flex items-center gap-2">
-          {/* Vendor Button / Direct Portal Access based on Role */}
-          {user?.role === 'shop' ? (
-            <a
-              href="/shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Kênh Nhà Vườn</span>
-            </a>
-          ) : user?.role === 'admin' ? (
-            <a
-              href="/admin"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <ShieldCheck size={16} />
-              <span>Vào Admin</span>
-            </a>
-          ) : user?.role === 'shipper' ? (
-            <a
-              href="/shipper"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Truck size={16} />
-              <span>Cổng Shipper</span>
-            </a>
-          ) : (
-            <a
-              href="/dang-ky?role=shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Bán nông sản</span>
-            </a>
-          )}
-
-          {/* Cart Trigger (Chỉ dành cho khách mua) */}
-          {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
-            <button
-              className="icon-button cart-trigger"
-              aria-label={`Giỏ hàng, ${count} sản phẩm`}
-              onClick={onCart}
-            >
-              <ShoppingBasket />
-              {count > 0 && <span>{count}</span>}
-            </button>
-          )}
+          {/* Cart Trigger */}
+          <button
+            className="icon-button cart-trigger"
+            aria-label={`Giỏ hàng, ${count} sản phẩm`}
+            onClick={onCart}
+          >
+            <ShoppingBasket />
+            {count > 0 && <span>{count}</span>}
+          </button>
 
           {/* Notification Trigger & Popover */}
           {user && (
@@ -374,13 +367,8 @@ export default function Header({
                   )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
-                  <span className="text-xs font-bold text-[#1f241a] leading-tight max-w-[110px] truncate">
-                    {user.name}
-                  </span>
-                  <span
-                    className={`text-[10px] font-semibold px-1.5 rounded-full w-fit ${getRoleBadge(user.role).bg}`}
-                  >
-                    {getRoleBadge(user.role).label}
+                  <span className="text-xs font-bold text-[#1f241a] leading-tight max-w-[130px] truncate">
+                    {(user.name || '').replace(/\s*\(Khách mua\)/gi, '').trim()}
                   </span>
                 </div>
                 <ChevronDown size={14} className="text-[#5b6354]" />
@@ -435,122 +423,60 @@ export default function Header({
                         </div>
                         <div className="overflow-hidden">
                           <h4 className="font-extrabold text-xs text-[#20271c] truncate">
-                            {user.name}
+                            {(user.name || '').replace(/\s*\(Khách mua\)/gi, '').trim()}
                           </h4>
                           <p className="text-[11px] text-[#6d7567] truncate">{user.email}</p>
-                          <span
-                            className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(user.role).bg
-                              } ${getRoleBadge(user.role).border}`}
-                          >
-                            Vai trò: {getRoleBadge(user.role).label}
-                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-1 text-xs">
-                      {user.role === 'admin' && (
-                        <a
-                          href="/admin"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold flex items-center gap-2.5 border border-purple-200 transition-colors"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 text-purple-700">
-                            <ShieldCheck size={16} />
-                          </span>
-                          <span>Trung Tâm Quản Trị Admin</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/orders"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <ShoppingBag size={16} />
+                        </span>
+                        <span>Đơn Hàng Của Tôi</span>
+                      </Link>
 
-                      {user.role === 'shipper' && (
-                        <a
-                          href="/shipper"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl bg-[#e9f6f7] hover:bg-[#d8f0f2] text-[#195962] font-bold flex items-center gap-2.5 border border-[#b1dfe4] transition-colors"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-[#d5eff1] flex items-center justify-center shrink-0 text-[#195962]">
-                            <Truck size={16} />
-                          </span>
-                          <span>Cổng Giao Hàng Shipper</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/my-vouchers"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
+                          <Ticket size={16} />
+                        </span>
+                        <span>Kho Voucher Của Tôi</span>
+                      </Link>
 
-                      {user.role === 'shop' && (
-                        <>
-                          <a
-                            href="/shop"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl bg-[#fdf5eb] hover:bg-[#faeedd] text-[#8a4e1d] font-bold flex items-center gap-2.5 border border-[#f5ddbd] transition-colors"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#f8e5cf] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                              <Store size={16} />
-                            </span>
-                            <span>Kênh Nhà Vườn CapNong</span>
-                          </a>
-                          <a
-                            href="/shop/orders"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#f0ebd9] group-hover:bg-[#eadecc] flex items-center justify-center shrink-0 text-[#8a4e1d]">
-                              <FileText size={16} />
-                            </span>
-                            <span>Quản Lý Đơn Hàng Bán</span>
-                          </a>
-                        </>
-                      )}
+                      <Link
+                        to="/my-wallet"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
+                          <Wallet size={16} />
+                        </span>
+                        <span>Ví Của Tôi</span>
+                      </Link>
 
-                      {/* BUYER-ONLY LINKS: Chỉ hiển thị cho khách mua */}
-                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                        <>
-                          <a
-                            href="/orders"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                              <ShoppingBag size={16} />
-                            </span>
-                            <span>Đơn Hàng Của Tôi</span>
-                          </a>
+                      <Link
+                        to="/ke-hoach-an-uong"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                          <Sparkles size={16} />
+                        </span>
+                        <span>Kế Hoạch Ăn Uống (AI)</span>
+                      </Link>
 
-                          <a
-                            href="/my-vouchers"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#fef3db] group-hover:bg-[#fde9c0] flex items-center justify-center shrink-0 text-amber-700">
-                              <Ticket size={16} />
-                            </span>
-                            <span>Kho Voucher Của Tôi</span>
-                          </a>
-
-                          <a
-                            href="/my-wallet"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                              <Wallet size={16} />
-                            </span>
-                            <span>Ví Của Tôi</span>
-                          </a>
-
-                          <a
-                            href="/ke-hoach-an-uong"
-                            onClick={closeDropdown}
-                            className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                          >
-                            <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
-                              <Sparkles size={16} />
-                            </span>
-                            <span>Kế Hoạch Ăn Uống (AI)</span>
-                          </a>
-                        </>
-                      )}
-
-                      <a
-                        href={messagesHref}
+                      <Link
+                        to={messagesHref}
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center justify-between transition-colors group"
                       >
@@ -565,34 +491,32 @@ export default function Header({
                             {unreadTotal}
                           </span>
                         )}
-                      </a>
+                      </Link>
 
-                      <a
-                        href={user.role === 'shop' ? '/shop?tab=profile' : '/tai-khoan'}
+                      <Link
+                        to="/tai-khoan"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
                         <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
                           <User size={16} />
                         </span>
-                        <span>{user.role === 'shop' ? 'Hồ Sơ Nhà Vườn' : 'Hồ Sơ Cá Nhân'}</span>
-                      </a>
+                        <span>Hồ Sơ Cá Nhân</span>
+                      </Link>
 
-                      {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                        <a
-                          href="/tai-khoan?tab=health"
-                          onClick={closeDropdown}
-                          className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                        >
-                          <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                            <HeartPulse size={16} />
-                          </span>
-                          <span>Dinh Dưỡng & Dị Ứng</span>
-                        </a>
-                      )}
+                      <Link
+                        to="/tai-khoan?tab=health"
+                        onClick={closeDropdown}
+                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+                          <HeartPulse size={16} />
+                        </span>
+                        <span>Dinh Dưỡng & Dị Ứng</span>
+                      </Link>
 
-                      <a
-                        href="/change-password"
+                      <Link
+                        to="/change-password"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
                       >
@@ -600,8 +524,7 @@ export default function Header({
                           <Lock size={16} />
                         </span>
                         <span>Đổi mật khẩu</span>
-                      </a>
-
+                      </Link>
 
                       <hr className="my-1.5 border-[#ede8df]" />
 
@@ -632,51 +555,21 @@ export default function Header({
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <a
-                        href="/dang-nhap"
+                      <Link
+                        to="/dang-nhap"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-bold text-xs text-center transition-colors shadow-sm"
                       >
                         Đăng Nhập
-                      </a>
+                      </Link>
 
-                      <a
-                        href="/dang-ky"
+                      <Link
+                        to="/dang-ky"
                         onClick={closeDropdown}
                         className="w-full py-2.5 px-3 rounded-xl border border-[#326318] text-[#326318] hover:bg-[#f1faea] font-bold text-xs text-center transition-colors"
                       >
                         Đăng Ký Tài Khoản Mới
-                      </a>
-
-                      <div className="pt-2 border-t border-[#f0ebd9] flex flex-col gap-1 text-[11px]">
-                        <span className="font-bold text-[#8a4e1d] px-1 uppercase text-[10px]">
-                          Chọn vai trò đăng ký:
-                        </span>
-                        <a
-                          href="/dang-ky?role=buyer"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>1. Buyer (Khách mua nông sản)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                        <a
-                          href="/dang-ky?role=shop"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>2. Shop (Nhà vườn mở gian hàng)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                        <a
-                          href="/dang-ky?role=shipper"
-                          onClick={closeDropdown}
-                          className="py-1 px-2 rounded-lg hover:bg-[#faf7ef] text-[#4d5546] flex items-center justify-between font-medium"
-                        >
-                          <span>3. Shipper (Tài xế giao hàng)</span>
-                          <ArrowRight size={12} />
-                        </a>
-                      </div>
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -762,17 +655,7 @@ export default function Header({
               </a>
             </div>
 
-            {/* 4. Công nghệ AI */}
-            <a
-              href="/cong-nghe-ai"
-              className={`nav-pill ${isAiActive ? 'is-active' : ''}`}
-              aria-current={isAiActive ? 'page' : undefined}
-              onClick={closeDropdown}
-            >
-              Công nghệ AI
-            </a>
-
-            {/* 5. Kế hoạch ăn uống */}
+            {/* 4. Kế hoạch ăn uống */}
             <a
               href="/ke-hoach-an-uong"
               className={`nav-pill ${route.startsWith('/ke-hoach-an-uong') ? 'is-active' : ''}`}
@@ -814,28 +697,22 @@ export default function Header({
                       <span>Rau Ăn Lá</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Cải bó xôi hữu cơ', filter: 'Cải bó xôi' },
-                        { name: 'Bắp cải xanh cuộn', filter: 'Bắp cải' },
-                        { name: 'Rau mồng tơi tươi', filter: 'Rau mồng tơi' },
-                        { name: 'Xà lách xoăn Đà Lạt', filter: 'Xà lách' },
-                        { name: 'Rau muống sạch', filter: 'Rau muống' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.filter, '/nong-san-tuoi')}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {(leafProducts.length > 0 ? leafProducts : allProducts).slice(0, 5).map((item) => (
+                        <li key={item.productId ?? item.id}>
+                          <Link
+                            to={`/san-pham/${item.productId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.productName ?? item.name}
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
                         <button
                           type="button"
-                          onClick={() => handleSelectCategory('Rau ăn lá', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                          onClick={() => handleSelectCategory('Rau lá', '/nong-san-tuoi')}
+                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Xem tất cả rau lá</span>
                           <ArrowRight size={12} />
@@ -844,72 +721,60 @@ export default function Header({
                     </ul>
                   </div>
 
-                  {/* Col 2: Củ Quả Tươi */}
+                  {/* Col 2: Củ Tươi */}
                   <div className="flex flex-col gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#e65100]" />
-                      <span>Củ Quả Tươi</span>
+                      <span>Củ Tươi Ngon</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Cà rốt hai nhánh', filter: 'Cà rốt' },
-                        { name: 'Khoai lang mật Gia Lai', filter: 'Khoai lang' },
-                        { name: 'Cà chua bi hữu cơ', filter: 'Cà chua' },
-                        { name: 'Củ dền đỏ Đơn Dương', filter: 'Củ dền' },
-                        { name: 'Bí đỏ hồ lô Đắk Lắk', filter: 'Bí đỏ' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.filter, '/nong-san-tuoi')}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {(rootProducts.length > 0 ? rootProducts : allProducts).slice(0, 5).map((item) => (
+                        <li key={item.productId ?? item.id}>
+                          <Link
+                            to={`/san-pham/${item.productId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.productName ?? item.name}
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
                         <button
                           type="button"
-                          onClick={() => handleSelectCategory('Củ quả', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-[#e65100] hover:underline flex items-center gap-1"
+                          onClick={() => handleSelectCategory('Củ', '/nong-san-tuoi')}
+                          className="text-[11px] font-bold text-[#e65100] hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <span>Xem tất cả củ quả</span>
+                          <span>Xem tất cả củ</span>
                           <ArrowRight size={12} />
                         </button>
                       </li>
                     </ul>
                   </div>
 
-                  {/* Col 3: Hoa Quả Sạch */}
+                  {/* Col 3: Quả / Trái Cây */}
                   <div className="flex flex-col gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
-                      <span>Hoa Quả Sạch</span>
+                      <span>Quả / Trái Cây</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Bưởi da xanh ruột hồng', filter: 'Bưởi' },
-                        { name: 'Thanh long ruột đỏ', filter: 'Thanh long' },
-                        { name: 'Cam sành Hàm Yên', filter: 'Cam sành' },
-                        { name: 'Chuối già Nam Mỹ', filter: 'Chuối' },
-                        { name: 'Dưa hấu Long An', filter: 'Dưa hấu' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.filter, '/nong-san-tuoi')}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {(fruitProducts.length > 0 ? fruitProducts : allProducts).slice(0, 5).map((item) => (
+                        <li key={item.productId ?? item.id}>
+                          <Link
+                            to={`/san-pham/${item.productId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.productName ?? item.name}
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
                         <button
                           type="button"
                           onClick={() => handleSelectCategory('Trái cây', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-[#d97706] hover:underline flex items-center gap-1"
+                          className="text-[11px] font-bold text-[#d97706] hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Xem tất cả trái cây</span>
                           <ArrowRight size={12} />
@@ -918,35 +783,29 @@ export default function Header({
                     </ul>
                   </div>
 
-                  {/* Col 4: Hữu Cơ & Vùng Miền */}
+                  {/* Col 4: Hữu Cơ & Đặc Sản */}
                   <div className="flex flex-col gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#15803d]" />
-                      <span>Vùng Trồng &amp; AI</span>
+                      <span>Hữu Cơ &amp; Đặc Sản</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Nông sản Hữu cơ', filter: 'Hữu cơ' },
-                        { name: 'Nông trại Đà Lạt', filter: 'Đà Lạt' },
-                        { name: 'HTX Đơn Dương', filter: 'Đơn Dương' },
-                        { name: 'Vùng đất đỏ Gia Lai', filter: 'Gia Lai' },
-                        { name: 'Miệt vườn Bến Tre', filter: 'Bến Tre' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.filter, '/nong-san-tuoi')}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {(specialtyProducts.length > 0 ? specialtyProducts : allProducts).slice(0, 5).map((item) => (
+                        <li key={item.productId ?? item.id}>
+                          <Link
+                            to={`/san-pham/${item.productId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.productName ?? item.name}
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
                         <button
                           type="button"
                           onClick={() => handleSelectCategory('Tất cả', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Xem toàn bộ chợ</span>
                           <ArrowRight size={12} />
@@ -972,11 +831,13 @@ export default function Header({
                   </div>
 
                   <div className="relative z-10 mt-3 pt-2 border-t border-white/20 flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#ffea79]">Chỉ từ 15.000đ/kg</span>
+                    <span className="text-xs font-bold text-[#ffea79]">
+                      Chỉ từ {minProducePrice.toLocaleString('vi-VN')}đ{minProducePrice < 100000 ? '/kg' : ''}
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleSelectCategory('Tất cả', '/nong-san-tuoi')}
-                      className="px-3.5 py-1.5 rounded-full bg-white text-[#144217] hover:bg-[#ffea79] font-bold text-xs transition-colors shadow flex items-center gap-1"
+                      className="px-3.5 py-1.5 rounded-full bg-white text-[#144217] hover:bg-[#ffea79] font-bold text-xs transition-colors shadow flex items-center gap-1 cursor-pointer"
                     >
                       <span>Khám phá</span>
                       <ArrowRight size={13} />
@@ -1017,109 +878,113 @@ export default function Header({
                       <span>Túi Mù Nông Sản</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Túi Mù Thần Bí 5kg (79k)', id: 'mystery' },
-                        { name: 'Túi Mù Mini 3kg (49k)', id: 'mystery' },
-                        { name: 'Túi Mù Trái Cây Độc Đáo', id: 'mystery' },
-                        { name: 'Túi Mù Rau Củ Hỗn Hợp', id: 'mystery' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.name, '/combo-tui-mu')}
-                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {mysteryBoxes.slice(0, 5).map((item) => (
+                        <li key={item.mysteryId ?? item.id}>
+                          <Link
+                            to={`/mystery-box/${item.mysteryId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.boxType} ({item.price.toLocaleString('vi-VN')}đ)
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('', '/combo-tui-mu')}
+                        <Link
+                          to="/combo-tui-mu"
+                          onClick={closeDropdown}
                           className="text-[11px] font-bold text-[#8a4e1d] hover:underline flex items-center gap-1"
                         >
                           <span>Mở hộp bất ngờ ngay</span>
                           <ArrowRight size={12} />
-                        </button>
+                        </Link>
                       </li>
                     </ul>
                   </div>
 
-                  {/* Col 2: Combo Tiết Kiệm Gia Đình */}
+                  {/* Col 2: Combo Bữa Ăn & Tiết Kiệm */}
                   <div className="flex flex-col gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#8a4e1d] border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
                       <Sparkles size={14} className="text-[#2e7d32]" />
-                      <span>Combo Gia Đình</span>
+                      <span>Combo Bữa Ăn &amp; Gia Đình</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Combo Rau Xanh 5 Bữa (6kg)', id: 'green' },
-                        { name: 'Thùng Bếp Xanh Củ Quả 10kg', id: 'kitchen' },
-                        { name: 'Combo Tiệc Lẩu & Nướng (4.5kg)', id: 'hotpot' },
-                        { name: 'Combo Dinh Dưỡng Ăn Dặm', id: 'green' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCategory(item.name, '/combo-tui-mu')}
-                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                      {allCombos.slice(0, 5).map((item) => (
+                        <li key={item.comboId ?? item.id}>
+                          <Link
+                            to={`/combo/${item.comboId ?? item.id}`}
+                            onClick={closeDropdown}
+                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
                           >
-                            {item.name}
-                          </button>
+                            {item.comboName} ({item.price.toLocaleString('vi-VN')}đ)
+                          </Link>
                         </li>
                       ))}
                       <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('', '/combo-tui-mu')}
+                        <Link
+                          to="/combo-tui-mu"
+                          onClick={closeDropdown}
                           className="text-[11px] font-bold text-[#8a4e1d] hover:underline flex items-center gap-1"
                         >
                           <span>Xem tất cả combo</span>
                           <ArrowRight size={12} />
-                        </button>
+                        </Link>
                       </li>
                     </ul>
                   </div>
 
-                  {/* Col 3: Dịch Vụ & Ưu Đãi */}
+                  {/* Col 3: Phân Loại Bữa Ăn & Thực Đơn AI */}
                   <div className="flex flex-col gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#8a4e1d] border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
                       <ShieldCheck size={14} className="text-[#d97706]" />
-                      <span>Dịch Vụ &amp; Đăng Ký</span>
+                      <span>Phân Loại Theo Bữa &amp; AI</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {[
-                        { name: 'Tự thiết kế combo tuần', action: 'Tự thiết kế combo' },
-                        { name: 'Đăng ký giao rau định kỳ', action: 'Giao rau định kỳ' },
-                        { name: 'Gói tiếp tế Bếp ăn / Quán', action: 'Gói sỉ bếp ăn' },
-                        { name: 'Ví thưởng giới thiệu 50k', action: 'Ví thưởng giới thiệu' },
-                      ].map((item, idx) => (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              closeDropdown()
-                              onInfo(item.action)
-                            }}
-                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
-                          >
-                            {item.name}
-                          </button>
-                        </li>
-                      ))}
+                      <li>
+                        <Link
+                          to="/combo-tui-mu?mealType=BREAKFAST"
+                          onClick={closeDropdown}
+                          className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                        >
+                          Combo Bữa Sáng Tiện Lợi
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/combo-tui-mu?mealType=LUNCH"
+                          onClick={closeDropdown}
+                          className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                        >
+                          Combo Cơm Trưa Gia Đình
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/combo-tui-mu?mealType=DINNER"
+                          onClick={closeDropdown}
+                          className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                        >
+                          Combo Bữa Tối Thanh Nhiệt
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/ke-hoach-an-uong"
+                          onClick={closeDropdown}
+                          className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5"
+                        >
+                          Kế hoạch ăn uống AI cá nhân hóa
+                        </Link>
+                      </li>
                       <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeDropdown()
-                            onInfo('Tư vấn chọn combo')
-                          }}
+                        <Link
+                          to="/ke-hoach-an-uong"
+                          onClick={closeDropdown}
                           className="text-[11px] font-bold text-[#8a4e1d] hover:underline flex items-center gap-1"
                         >
-                          <span>Nhận tư vấn combo</span>
+                          <span>Khám phá thực đơn AI</span>
                           <ArrowRight size={12} />
-                        </button>
+                        </Link>
                       </li>
                     </ul>
                   </div>
@@ -1130,22 +995,27 @@ export default function Header({
                   <div className="relative z-10 flex flex-col gap-1.5">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-white/20 text-[#ffea79] px-2.5 py-0.5 rounded-full w-fit">
                       <Sparkles size={12} />
-                      <span>HOT DEAL -60%</span>
+                      <span>HỘP BÍ ẨN CAPNONG</span>
                     </span>
                     <h4 className="text-base font-extrabold text-white leading-tight">
                       Mở Túi Mù – Đón Bất Ngờ
                     </h4>
                     <p className="text-xs text-white/85 leading-snug line-clamp-2">
-                      Hộp quà 5kg nông sản tuyển chọn hái sớm, giá chỉ 79.000đ.
+                      Nông sản tươi tuyển chọn từ các nhà vườn chuẩn VietGAP, tiết kiệm chi phí tối đa.
                     </p>
                   </div>
 
                   <div className="relative z-10 mt-3 pt-2 border-t border-white/20 flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#ffea79]">79.000đ/túi 5kg</span>
+                    <span className="text-xs font-bold text-[#ffea79]">
+                      Chỉ từ {minMysteryPrice.toLocaleString('vi-VN')}đ
+                    </span>
                     <button
                       type="button"
-                      onClick={() => handleSelectCategory('', '/combo-tui-mu')}
-                      className="px-3.5 py-1.5 rounded-full bg-white text-[#6e3910] hover:bg-[#ffea79] font-bold text-xs transition-colors shadow flex items-center gap-1"
+                      onClick={() => {
+                        closeDropdown()
+                        navigate('/combo-tui-mu')
+                      }}
+                      className="px-3.5 py-1.5 rounded-full bg-white text-[#6e3910] hover:bg-[#ffea79] font-bold text-xs transition-colors shadow flex items-center gap-1 cursor-pointer"
                     >
                       <span>Mở túi ngay</span>
                       <ArrowRight size={13} />
@@ -1214,69 +1084,29 @@ export default function Header({
             </button>
             {mobileSubMenu === 'fresh' && (
               <div className="pl-4 pr-2 py-3 flex flex-col gap-2 bg-[#f0ece1] rounded-2xl my-1.5 text-xs">
-                <span className="font-bold text-primary uppercase text-[10px]">Rau Ăn Lá:</span>
+                <span className="font-bold text-primary uppercase text-[10px]">Danh mục nông sản:</span>
                 <div className="grid grid-cols-2 gap-1.5 text-[#384133]">
-                  <button
-                    onClick={() => handleSelectCategory('Cải bó xôi')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Cải bó xôi
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Bắp cải')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Bắp cải xanh
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Rau mồng tơi')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Rau mồng tơi
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Xà lách')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Xà lách Đà Lạt
-                  </button>
+                  {allCategories.map((cat) => (
+                    <button
+                      key={cat.categoryId}
+                      type="button"
+                      onClick={() => {
+                        closeDropdown()
+                        navigate(`/nong-san-tuoi?categoryId=${cat.categoryId}`)
+                      }}
+                      className="text-left py-1 hover:text-primary truncate"
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
                 </div>
-                <span className="font-bold text-primary uppercase text-[10px] mt-2">
-                  Củ Quả &amp; Trái Cây:
-                </span>
-                <div className="grid grid-cols-2 gap-1.5 text-[#384133]">
-                  <button
-                    onClick={() => handleSelectCategory('Cà rốt')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Cà rốt 2 nhánh
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Khoai lang')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Khoai lang mật
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Bưởi')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Bưởi da xanh
-                  </button>
-                  <button
-                    onClick={() => handleSelectCategory('Cà chua')}
-                    className="text-left py-1 hover:text-primary"
-                  >
-                    Cà chua bi
-                  </button>
-                </div>
-                <a
-                  href="/nong-san-tuoi"
+                <Link
+                  to="/nong-san-tuoi"
                   onClick={closeDropdown}
                   className="mt-2 text-center py-2 rounded-xl bg-primary text-white font-bold"
                 >
                   Xem tất cả nông sản →
-                </a>
+                </Link>
               </div>
             )}
           </div>
@@ -1286,61 +1116,65 @@ export default function Header({
             <button
               type="button"
               onClick={() => setMobileSubMenu(mobileSubMenu === 'combo' ? null : 'combo')}
-              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${isComboActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
-                }`}
+              className={`text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors flex items-center justify-between ${
+                isComboActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+              }`}
             >
               <span>Combo &amp; Túi mù</span>
               <ChevronDown
                 size={16}
-                className={`transition-transform duration-200 ${mobileSubMenu === 'combo' ? 'rotate-180 text-primary' : ''
-                  }`}
+                className={`transition-transform duration-200 ${
+                  mobileSubMenu === 'combo' ? 'rotate-180 text-primary' : ''
+                }`}
               />
             </button>
             {mobileSubMenu === 'combo' && (
               <div className="pl-4 pr-2 py-3 flex flex-col gap-2 bg-[#f0ece1] rounded-2xl my-1.5 text-xs">
-                <button
-                  onClick={() => handleSelectCategory('mystery', '/combo-tui-mu')}
-                  className="text-left py-1 hover:text-[#8a4e1d]"
-                >
-                  🎁 Túi Mù Thần Bí 5kg (79k)
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('green', '/combo-tui-mu')}
-                  className="text-left py-1 hover:text-[#8a4e1d]"
-                >
-                  🥬 Combo Rau Xanh 5 Bữa (139k)
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('kitchen', '/combo-tui-mu')}
-                  className="text-left py-1 hover:text-[#8a4e1d]"
-                >
-                  🥕 Thùng Bếp Xanh 10kg (199k)
-                </button>
-                <button
-                  onClick={() => handleSelectCategory('hotpot', '/combo-tui-mu')}
-                  className="text-left py-1 hover:text-[#8a4e1d]"
-                >
-                  🍲 Combo Tiệc Lẩu &amp; Nướng (119k)
-                </button>
-                <a
-                  href="/combo-tui-mu"
+                {mysteryBoxes.slice(0, 3).map((box) => (
+                  <button
+                    key={box.mysteryId ?? box.id}
+                    type="button"
+                    onClick={() => {
+                      closeDropdown()
+                      navigate(`/mystery-box/${box.mysteryId ?? box.id}`)
+                    }}
+                    className="text-left py-1 hover:text-[#8a4e1d] truncate"
+                  >
+                    🎁 {box.boxType} ({box.price.toLocaleString('vi-VN')}đ)
+                  </button>
+                ))}
+                {allCombos.slice(0, 3).map((combo) => (
+                  <button
+                    key={combo.comboId ?? combo.id}
+                    type="button"
+                    onClick={() => {
+                      closeDropdown()
+                      navigate(`/combo/${combo.comboId ?? combo.id}`)
+                    }}
+                    className="text-left py-1 hover:text-[#8a4e1d] truncate"
+                  >
+                    🍲 {combo.comboName} ({combo.price.toLocaleString('vi-VN')}đ)
+                  </button>
+                ))}
+                <Link
+                  to="/combo-tui-mu"
                   onClick={closeDropdown}
                   className="mt-2 text-center py-2 rounded-xl bg-[#8a4e1d] text-white font-bold"
                 >
                   Khám phá tất cả Combo &amp; Túi Mù →
-                </a>
+                </Link>
               </div>
             )}
           </div>
 
-          {/* 4. Công nghệ AI */}
+          {/* 4. Thực đơn AI */}
           <a
-            href="/cong-nghe-ai"
-            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${isAiActive ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
+            href="/ke-hoach-an-uong"
+            className={`text-left text-sm font-bold py-2.5 px-3.5 rounded-full transition-colors ${route.startsWith('/ke-hoach-an-uong') ? 'bg-[#4a7c2f] text-white' : 'text-[#42493c] hover:bg-[#e7efdf]'
               }`}
             onClick={closeDropdown}
           >
-            Công nghệ AI
+            Thực đơn AI
           </a>
 
           {/* 5. Câu chuyện nông dân */}
@@ -1366,11 +1200,11 @@ export default function Header({
                         user.name.charAt(0).toUpperCase()
                       )}
                     </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#20271c]">{user.name}</div>
-                      <div className="text-[11px] text-[#555d4e]">
-                        Vai trò: <strong>{getRoleBadge(user.role).label}</strong>
+                    <div className="overflow-hidden">
+                      <div className="font-bold text-xs text-[#20271c] truncate">
+                        {(user.name || '').replace(/\s*\(Khách mua\)/gi, '').trim()}
                       </div>
+                      <div className="text-[11px] text-[#555d4e] truncate">{user.email}</div>
                     </div>
                   </div>
                   <button
@@ -1386,48 +1220,44 @@ export default function Header({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 my-1">
-                  <a
-                    href="/tai-khoan"
+                  <Link
+                    to="/tai-khoan"
                     onClick={closeDropdown}
                     className="py-2 px-2.5 rounded-xl bg-white border border-[#326318] text-[#326318] font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <User size={13} />
                     <span>Hồ Sơ Của Tôi</span>
-                  </a>
-                  <a
-                    href="/my-vouchers"
+                  </Link>
+                  <Link
+                    to="/my-vouchers"
                     onClick={closeDropdown}
                     className="py-2 px-2.5 rounded-xl bg-white border border-amber-600 text-amber-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <Ticket size={13} />
                     <span>Kho Voucher</span>
-                  </a>
+                  </Link>
                 </div>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/orders"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <ShoppingBag size={14} className="text-emerald-700" />
-                    <span>Đơn Hàng Của Tôi</span>
-                  </a>
-                )}
+                <Link
+                  to="/orders"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <ShoppingBag size={14} className="text-emerald-700" />
+                  <span>Đơn Hàng Của Tôi</span>
+                </Link>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/my-wallet"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <Wallet size={14} />
-                    <span>Ví Của Tôi</span>
-                  </a>
-                )}
+                <Link
+                  to="/my-wallet"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <Wallet size={14} />
+                  <span>Ví Của Tôi</span>
+                </Link>
 
-                <a
-                  href={messagesHref}
+                <Link
+                  to={messagesHref}
                   onClick={closeDropdown}
                   className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between mb-1 shadow-xs"
                 >
@@ -1440,78 +1270,33 @@ export default function Header({
                       {unreadTotal}
                     </span>
                   )}
-                </a>
+                </Link>
 
-                {user.role !== 'shop' && user.role !== 'admin' && user.role !== 'shipper' && (
-                  <a
-                    href="/tai-khoan?tab=health"
-                    onClick={closeDropdown}
-                    className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
-                  >
-                    <HeartPulse size={14} className="text-rose-600" />
-                    <span>Dinh Dưỡng & Dị Ứng</span>
-                  </a>
-                )}
-
-                {user.role === 'admin' && (
-                  <a
-                    href="/admin"
-                    onClick={closeDropdown}
-                    className="py-2.5 px-3 rounded-xl bg-purple-50 text-purple-900 font-bold text-xs flex items-center gap-2 border border-purple-200"
-                  >
-                    <ShieldCheck size={16} className="text-purple-700" />
-                    <span>Quản Trị Hệ Thống Admin</span>
-                  </a>
-                )}
-
-                {user.role === 'shipper' && (
-                  <a
-                    href="/shipper"
-                    onClick={closeDropdown}
-                    className="py-2.5 px-3 rounded-xl bg-[#e9f6f7] text-[#195962] font-bold text-xs flex items-center gap-2 border border-[#b1dfe4]"
-                  >
-                    <Truck size={16} className="text-[#195962]" />
-                    <span>Cổng Giao Hàng Shipper</span>
-                  </a>
-                )}
-
-                {user.role === 'shop' && (
-                  <div className="grid grid-cols-2 gap-2 mt-0.5">
-                    <a
-                      href="/shop"
-                      onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-[#8a4e1d] text-white font-bold text-xs text-center shadow-sm flex items-center justify-center gap-1"
-                    >
-                      <Store size={13} />
-                      <span>Kênh Nhà Vườn</span>
-                    </a>
-                    <a
-                      href="/shop/orders"
-                      onClick={closeDropdown}
-                      className="py-2 px-2 rounded-xl bg-white border border-[#8a4e1d] text-[#8a4e1d] font-bold text-xs text-center flex items-center justify-center gap-1"
-                    >
-                      <FileText size={13} />
-                      <span>Quản Lý Đơn</span>
-                    </a>
-                  </div>
-                )}
+                <Link
+                  to="/tai-khoan?tab=health"
+                  onClick={closeDropdown}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
+                >
+                  <HeartPulse size={14} className="text-rose-600" />
+                  <span>Dinh Dưỡng & Dị Ứng</span>
+                </Link>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <a
-                  href="/dang-nhap"
+                <Link
+                  to="/dang-nhap"
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl bg-[#326318] text-white font-bold text-xs text-center shadow-sm"
                 >
                   Đăng Nhập
-                </a>
-                <a
-                  href="/dang-ky"
+                </Link>
+                <Link
+                  to="/dang-ky"
                   onClick={closeDropdown}
                   className="py-2.5 rounded-xl border border-[#326318] text-[#326318] bg-white font-bold text-xs text-center"
                 >
                   Đăng Ký
-                </a>
+                </Link>
               </div>
             )}
           </div>

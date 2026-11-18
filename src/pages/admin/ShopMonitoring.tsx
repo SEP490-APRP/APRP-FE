@@ -1,40 +1,85 @@
 import React, { useState } from 'react'
 import {
-  AlertTriangle,
   Search,
-  Filter,
-  Bell,
   Star,
   Loader2,
   AlertCircle,
-  X,
   Eye,
-  Mail,
   Store,
-  FolderOpen,
-  ExternalLink,
+  User,
   Flag,
   CheckCircle2,
+  Lock,
+  Unlock,
+  Phone,
+  Mail,
+  MapPin,
+  CreditCard,
+  ExternalLink,
+  X,
+  FileText,
+  TrendingUp,
+  Clock,
+  RefreshCw,
+  Award,
 } from 'lucide-react'
 import type { UserResponse, ShopRiskFlagResponse } from '@/services'
 import { userService } from '@/services'
 import { useFetchUser, useSetUserActive, useUsersByRole } from '@/features/user'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
-import { getErrorMessage } from '@/utils'
+import { getErrorMessage, ENV } from '@/utils'
 
-const PAGE_SIZE = 10
-
+const PAGE_SIZE = 20
 const SHOP_ROLES = ['SHOP']
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'FLAGGED'
+
+// Kiểm tra xem chuỗi có phải là đường dẫn / link hình ảnh hợp lệ không
+const isLikelyImageUrl = (str?: string | null): boolean => {
+  if (!str) return false
+  const trimmed = str.trim()
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:image/') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return true
+  }
+  return /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(trimmed)
+}
+
+// Chuẩn hóa URL hình ảnh (hỗ trợ cả full URL Cloudinary và relative path server)
+const formatImageUrl = (path?: string | null): string | null => {
+  if (!path) return null
+  const trimmed = path.trim()
+  if (!trimmed) return null
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:image/') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed
+  }
+  if (trimmed.includes('/') || trimmed.includes('.')) {
+    return `${ENV.API_ORIGIN}/${trimmed.replace(/^\//, '')}`
+  }
+  return null
+}
 
 const ShopMonitoring: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [page, setPage] = useState(0)
   const [selectedShop, setSelectedShop] = useState<UserResponse | null>(null)
-  const [modalLoading, setModalLoading] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [riskFlags, setRiskFlags] = useState<ShopRiskFlagResponse[]>([])
   const [loadingFlags, setLoadingFlags] = useState(false)
   const [resolvingFlagId, setResolvingFlagId] = useState<number | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null)
+  const [imageLoadError, setImageLoadError] = useState(false)
 
   const shopsQuery = useUsersByRole(SHOP_ROLES, null, page, PAGE_SIZE)
   const fetchUser = useFetchUser()
@@ -45,26 +90,28 @@ const ShopMonitoring: React.FC = () => {
   const loading = shopsQuery.isPending
   const error = shopsQuery.isError ? 'Không thể tải danh sách cửa hàng.' : null
 
-  const handleViewProfile = async (userId: number) => {
-    setModalLoading(true)
-    setSelectedShop(null)
+  // Khi admin bấm "Xem chi tiết" một shop
+  const handleSelectShop = async (shopId: number) => {
+    setDetailLoading(true)
     setRiskFlags([])
     try {
-      const user = await fetchUser(userId)
+      const user = await fetchUser(shopId)
       setSelectedShop(user)
-      try {
-        setLoadingFlags(true)
-        const flagsRes = await userService.getShopRiskFlags(userId)
-        setRiskFlags(flagsRes.result || [])
-      } catch (flagErr) {
-        console.error('Failed to load shop risk flags', flagErr)
-      } finally {
-        setLoadingFlags(false)
+      if (user) {
+        try {
+          setLoadingFlags(true)
+          const flagsRes = await userService.getShopRiskFlags(shopId)
+          setRiskFlags(flagsRes.result || [])
+        } catch (flagErr) {
+          console.error('Failed to load shop risk flags', flagErr)
+        } finally {
+          setLoadingFlags(false)
+        }
       }
     } catch {
       globalShowAlert('Không thể tải thông tin cửa hàng. Vui lòng thử lại.', 'Lỗi', 'error')
     } finally {
-      setModalLoading(false)
+      setDetailLoading(false)
     }
   }
 
@@ -92,580 +139,707 @@ const ShopMonitoring: React.FC = () => {
     }
   }
 
-  const closeModal = () => {
-    setSelectedShop(null)
-    setRiskFlags([])
-    setModalLoading(false)
-  }
-
   const handleDeactivate = async (userId: number) => {
-    if (!(await globalShowConfirm('Xác nhận', 'Bạn có chắc muốn khóa tạm thời cửa hàng này?')))
+    if (!(await globalShowConfirm('Khóa cửa hàng', 'Bạn có chắc chắn muốn tạm khóa cửa hàng này không?')))
       return
     try {
       await setActive.mutateAsync({ userId, active: false })
+      globalShowAlert('Đã tạm khóa cửa hàng thành công!', 'Thành công', 'success')
+      if (selectedShop?.id === userId) {
+        const updated = await fetchUser(userId)
+        setSelectedShop(updated)
+      }
+      void shopsQuery.refetch()
     } catch (err) {
       globalShowAlert(getErrorMessage(err, 'Không thể khóa cửa hàng'), 'Lỗi', 'error')
     }
   }
 
   const handleActivate = async (userId: number) => {
+    if (!(await globalShowConfirm('Mở khóa cửa hàng', 'Bạn có muốn mở khóa cho cửa hàng này hoạt động trở lại?')))
+      return
     try {
       await setActive.mutateAsync({ userId, active: true })
+      globalShowAlert('Đã mở khóa cửa hàng thành công!', 'Thành công', 'success')
+      if (selectedShop?.id === userId) {
+        const updated = await fetchUser(userId)
+        setSelectedShop(updated)
+      }
+      void shopsQuery.refetch()
     } catch (err) {
       globalShowAlert(getErrorMessage(err, 'Không thể mở khóa cửa hàng'), 'Lỗi', 'error')
     }
   }
 
+  // Filter client-side
   const filteredShops = shops.filter((s) => {
-    if (!searchTerm) return true
-    const term = searchTerm.toLowerCase()
-    return (
-      (s.shopName || '').toLowerCase().includes(term) ||
-      (s.fullName || '').toLowerCase().includes(term) ||
-      (s.email || '').toLowerCase().includes(term)
-    )
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase().trim()
+      const matchName = (s.shopName || '').toLowerCase().includes(term)
+      const matchOwner = (s.fullName || '').toLowerCase().includes(term)
+      const matchEmail = (s.email || '').toLowerCase().includes(term)
+      const matchPhone = (s.phoneNumber || s.phone || '').toLowerCase().includes(term)
+      const matchId = s.id.toString().includes(term)
+      if (!matchName && !matchOwner && !matchEmail && !matchPhone && !matchId) return false
+    }
+
+    if (statusFilter === 'ACTIVE') return s.status === 'ACTIVE'
+    if (statusFilter === 'INACTIVE') return s.status === 'INACTIVE'
+    if (statusFilter === 'FLAGGED') return (s.activeRiskFlags ?? 0) > 0
+
+    return true
   })
 
-  const inactiveShops = shops.filter((s) => s.status === 'INACTIVE')
+  // Quick stats
+  const totalCount = pageInfo?.totalElements ?? shops.length
+  const activeCount = shops.filter((s) => s.status === 'ACTIVE').length
+  const inactiveCount = shops.filter((s) => s.status === 'INACTIVE').length
+  const pendingCount = shops.filter((s) => s.status === 'PENDING').length
+  const flaggedCount = shops.filter((s) => (s.activeRiskFlags ?? 0) > 0).length
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-          Đang tải danh sách cửa hàng...
-        </p>
-      </div>
-    )
-  }
+  const shopsWithRating = shops.filter((s) => typeof s.ratingAverage === 'number' && s.ratingAverage > 0)
+  const avgRating =
+    shopsWithRating.length > 0
+      ? (shopsWithRating.reduce((sum, s) => sum + (s.ratingAverage || 0), 0) / shopsWithRating.length).toFixed(1)
+      : '5.0'
+
+  // Stat cards matching User Report (Image 2)
+  const statCards = [
+    {
+      label: 'CỬA HÀNG',
+      value: totalCount,
+      icon: Store,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50',
+    },
+    {
+      label: 'ĐANG HOẠT ĐỘNG',
+      value: activeCount,
+      icon: TrendingUp,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+    },
+    {
+      label: 'TÀI KHOẢN BỊ KHÓA',
+      value: inactiveCount,
+      icon: Lock,
+      color: 'text-red-600',
+      bg: 'bg-red-50',
+    },
+    {
+      label: 'CỜ RỦI RO VI PHẠM',
+      value: flaggedCount,
+      icon: Flag,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+    },
+    {
+      label: 'CHỜ DUYỆT KYC',
+      value: pendingCount,
+      icon: Clock,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
+    },
+    {
+      label: 'ĐÁNH GIÁ TRUNG BÌNH',
+      value: `${avgRating} ★`,
+      icon: Star,
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50',
+    },
+  ]
+
+  // Tìm URL ảnh chứng nhận/giấy phép thực sự của shop (nếu có)
+  const certCandidate =
+    selectedShop?.licenseImageUrl ||
+    selectedShop?.businessLicenseUrl ||
+    (isLikelyImageUrl(selectedShop?.achievement) ? selectedShop?.achievement : null)
+  const certImageUrl = formatImageUrl(certCandidate)
 
   return (
-    <div className="flex flex-col gap-8 p-8 animate-in fade-in duration-500">
-      {/* Warning cards for inactive shops */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {inactiveShops.length > 0 ? (
-          inactiveShops.slice(0, 2).map((shop, i) => (
-            <div
-              key={shop.id}
-              className={`${i === 0 ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'} border rounded-[40px] p-10 flex flex-col justify-between group overflow-hidden relative`}
-            >
-              <div className="flex items-start gap-4 relative z-10">
-                <div
-                  className={`size-12 ${i === 0 ? 'bg-red-500' : 'bg-orange-500'} text-white rounded-2xl flex items-center justify-center shadow-lg`}
-                >
-                  {i === 0 ? <AlertTriangle className="size-6" /> : <Bell className="size-6" />}
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`text-xl font-black ${i === 0 ? 'text-red-900' : 'text-orange-900'} leading-tight`}
-                  >
-                    {i === 0 ? 'CẢNH BÁO: SHOP BỊ KHÓA' : 'ĐANG THEO DÕI CHẶT CHẼ'}
-                  </h3>
-                </div>
-              </div>
-              <div className="mt-8 bg-white/50 backdrop-blur rounded-[32px] border border-gray-100 p-8 relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-black text-gray-900">
-                    {shop.shopName || shop.fullName || 'Shop N/A'}
-                  </h4>
-                  <span
-                    className={`text-[10px] font-black text-gray-400 font-bold uppercase tracking-widest`}
-                  >
-                    {shop.status === 'ACTIVE'
-                      ? 'Hoạt động'
-                      : shop.status === 'INACTIVE'
-                        ? 'Tạm ngưng'
-                        : shop.status === 'PENDING'
-                          ? 'Chờ duyệt'
-                          : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    Email: {shop.email}
-                  </span>
-                  <button
-                    onClick={() => handleActivate(shop.id)}
-                    className="px-4 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-xl hover:bg-blue-100 transition-colors"
-                  >
-                    Mở khóa
-                  </button>
-                </div>
-              </div>
+    <div className="flex flex-col gap-6 p-6 animate-in fade-in duration-300">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-[28px] border border-gray-100 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+            <Store className="size-7 text-primary" />
+            Giám sát Shop
+          </h1>
+          <p className="text-xs font-semibold text-gray-400 mt-1">
+            Theo dõi hoạt động kinh doanh, uy tín đánh giá và xử lý vi phạm chất lượng của các gian hàng
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void shopsQuery.refetch()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-600 font-bold text-xs hover:bg-gray-100 transition-colors shrink-0"
+        >
+          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+          Làm mới
+        </button>
+      </div>
+
+      {/* Stat Cards Grid (Exactly matching Image 2) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
+          >
+            <div className={`p-3 rounded-2xl ${card.bg}`}>
+              <card.icon className={`size-6 ${card.color}`} />
             </div>
-          ))
-        ) : (
-          <div className="col-span-2 bg-green-50 border border-green-100 rounded-[40px] p-10 text-center">
-            <p className="text-green-700 font-bold">
-              ✅ Tất cả cửa hàng đang hoạt động bình thường
-            </p>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                {card.label}
+              </p>
+              <p className="text-2xl font-black text-gray-900">{card.value}</p>
+            </div>
           </div>
-        )}
+        ))}
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-bold text-sm">
-          <AlertCircle className="size-5" /> {error}
+        <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 text-rose-700 font-bold text-sm">
+          <AlertCircle className="size-5 shrink-0" /> {error}
         </div>
       )}
 
-      {/* Shop Table */}
-      <div className="bg-white rounded-[40px] border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-10 py-8 border-b border-gray-50 flex flex-wrap items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <Filter className="size-5 text-gray-400" />
-            <h4 className="font-black text-gray-800 uppercase tracking-tight">
-              Danh sách cửa hàng ({filteredShops.length})
-            </h4>
-          </div>
-          <div className="relative w-full max-w-sm">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm tên shop, chủ shop..."
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl text-sm font-medium outline-none focus:ring-4 focus:ring-primary/5 focus:bg-white transition-all"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-300" />
-          </div>
-        </div>
+      {/* Main Grid: Danh sách chiếm 2/3 (hoặc 100% khi đóng), Khung chi tiết chiếm 1/3 khi mở */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Danh sách gian hàng */}
+        <div className={selectedShop ? 'lg:col-span-8' : 'lg:col-span-12'}>
+          <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm flex flex-col min-h-[640px]">
+            {/* Header, Search & Filter Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Store className="size-5 text-primary" />
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">
+                  Danh sách cửa hàng
+                </h3>
+                <span className="bg-gray-100 text-gray-700 text-xs font-black px-2.5 py-1 rounded-full ml-1">
+                  {filteredShops.length} Shop
+                </span>
+              </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50/50">
-              <tr>
-                <th className="px-10 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Cửa hàng
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Chủ shop
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-                  Email
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-                  Trạng thái
-                </th>
-                <th className="px-10 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
-                  Hành động
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-                  Chi tiết
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredShops.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-10 py-10 text-center text-gray-400 font-bold">
-                    Không tìm thấy cửa hàng nào.
-                  </td>
-                </tr>
+              {/* Search Box */}
+              <div className="relative w-full sm:w-72">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm theo tên shop, chủ shop, SĐT..."
+                  className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex flex-wrap gap-2 mb-5">
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  statusFilter === 'ALL'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Tất cả
+              </button>
+              <button
+                onClick={() => setStatusFilter('ACTIVE')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  statusFilter === 'ACTIVE'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Hoạt động
+              </button>
+              <button
+                onClick={() => setStatusFilter('INACTIVE')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  statusFilter === 'INACTIVE'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Bị khóa
+              </button>
+              <button
+                onClick={() => setStatusFilter('FLAGGED')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  statusFilter === 'FLAGGED'
+                    ? 'bg-gray-900 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Có cờ rủi ro
+              </button>
+            </div>
+
+            {/* List / Grid of Shop Cards */}
+            <div className="flex-1">
+              {loading && shops.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <span className="text-xs font-bold text-gray-400">Đang tải danh sách cửa hàng...</span>
+                </div>
+              ) : filteredShops.length === 0 ? (
+                <div className="text-center py-20 px-4">
+                  <Store className="size-12 text-gray-200 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-gray-400">Không tìm thấy cửa hàng nào phù hợp</p>
+                </div>
               ) : (
-                filteredShops.map((shop, i) => (
-                  <tr key={shop.id} className="hover:bg-gray-50/30 transition-colors">
-                    <td className="px-10 py-6">
-                      <div className="flex items-center gap-4">
-                        <div className="size-10 bg-gray-50 rounded-2xl flex items-center justify-center text-primary">
-                          <Store className="size-5" />
-                        </div>
+                <div
+                  className={`grid gap-3.5 ${
+                    selectedShop
+                      ? 'grid-cols-1 md:grid-cols-2'
+                      : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                  }`}
+                >
+                  {filteredShops.map((shop) => {
+                    const isSelected = selectedShop?.id === shop.id
+                    const isFlagged = (shop.activeRiskFlags ?? 0) > 0
+
+                    return (
+                      <div
+                        key={shop.id}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-500 bg-emerald-50/40 shadow-xs'
+                            : 'border-gray-200/80 bg-white hover:border-gray-300 hover:shadow-xs'
+                        }`}
+                      >
                         <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-black text-gray-900">
-                              {shop.shopName || 'Shop N/A'}
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-xs font-black text-gray-700">#{shop.id}</span>
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                              <Star className="size-3 fill-amber-500 text-amber-500" />
+                              <span>{shop.ratingAverage ? shop.ratingAverage.toFixed(1) : '5.0'}</span>
+                            </div>
+                          </div>
+
+                          <h4 className="font-bold text-gray-900 text-sm line-clamp-1 mb-1">
+                            {shop.shopName || shop.fullName || 'Gian hàng không tên'}
+                          </h4>
+
+                          <p className="text-xs text-gray-500 line-clamp-1 mb-1">
+                            Chủ shop: <span className="text-gray-700 font-semibold">{shop.fullName || 'N/A'}</span>
+                          </p>
+
+                          {shop.phoneNumber && (
+                            <p className="text-[11px] text-gray-400 mb-2">
+                              SĐT: {shop.phoneNumber}
                             </p>
-                            {typeof shop.activeRiskFlags === 'number' && shop.activeRiskFlags > 0 && (
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex flex-col gap-2.5">
+                          {/* Badges */}
+                          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                shop.status === 'ACTIVE'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-rose-100 text-rose-700'
+                              }`}
+                            >
+                              <span
+                                className={`size-1.5 rounded-full ${
+                                  shop.status === 'ACTIVE' ? 'bg-emerald-600' : 'bg-rose-600'
+                                }`}
+                              ></span>
+                              {shop.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm ngưng'}
+                            </span>
+
+                            {isFlagged && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200">
-                                <Flag size={10} className="fill-rose-600 text-rose-600" />
-                                {shop.activeRiskFlags} cờ vi phạm
+                                <Flag size={9} className="fill-rose-600 text-rose-600" />
+                                {shop.activeRiskFlags} cờ rủi ro
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                            ID: {shop.id}
-                          </p>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectShop(shop.id)}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              <Eye className="size-3.5" /> Xem chi tiết
+                            </button>
+
+                            {shop.status === 'ACTIVE' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeactivate(shop.id)}
+                                className="px-2.5 py-1.5 text-[11px] font-bold rounded-xl text-rose-600 hover:bg-rose-50 transition-colors"
+                              >
+                                Khóa
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleActivate(shop.id)}
+                                className="px-2.5 py-1.5 text-[11px] font-bold rounded-xl text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              >
+                                Mở khóa
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={shop.logoUrl || `https://picsum.photos/seed/o${i}/60/60`}
-                          className="size-8 rounded-full object-cover"
-                        />
-                        <span className="text-xs font-bold text-gray-700">
-                          {shop.fullName || 'N/A'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-6 text-center text-xs font-bold text-gray-600">
-                      {shop.email || 'N/A'}
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                      {/* Thêm whitespace-nowrap để chặn xuống dòng, w-max để thẻ co giãn theo chữ */}
-                      <span
-                        className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider whitespace-nowrap min-w-[100px] ${
-                          shop.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-700'
-                            : shop.status === 'INACTIVE'
-                              ? 'bg-red-100 text-red-600'
-                              : 'bg-orange-100 text-orange-600'
-                        }`}
-                      >
-                        {/* Thêm dấu chấm tròn nhỏ cho chuẩn giao diện Monitoring */}
-                        <span
-                          className={`size-1.5 rounded-full mr-2 ${
-                            shop.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'
-                          }`}
-                        ></span>
-
-                        {shop.status === 'ACTIVE'
-                          ? 'Hoạt động'
-                          : shop.status === 'INACTIVE'
-                            ? 'Tạm ngưng'
-                            : shop.status === 'PENDING'
-                              ? 'Chờ duyệt'
-                              : 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {shop.status === 'ACTIVE' ? (
-                          <button
-                            onClick={() => handleDeactivate(shop.id)}
-                            className="px-6 py-2.5 bg-red-50 text-red-500 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-red-100 transition-colors"
-                          >
-                            Khóa tạm thời
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleActivate(shop.id)}
-                            className="px-6 py-2.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-blue-100 transition-colors"
-                          >
-                            Mở khóa
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                      <button
-                        onClick={() => handleViewProfile(shop.id)}
-                        className="size-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors mx-auto"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                    )
+                  })}
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        <div className="p-10 bg-white border-t border-gray-50 flex items-center justify-between">
-          <p className="text-[10px] text-gray-400 font-bold italic">
-            * Hiển thị {filteredShops.length} cửa hàng.
-          </p>
-        </div>
-        {pageInfo && (
-          <Pagination
-            pageInfo={pageInfo}
-            onPageChange={(p) => {
-              setPage(p)
-            }}
-            className="px-10"
-          />
-        )}
-      </div>
-
-      {/* Shop Detail Modal */}
-      {(selectedShop || modalLoading) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white rounded-[32px] shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {modalLoading ? (
-              <div className="p-16 text-center">
-                <div className="inline-block size-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin mb-4" />
-                <p className="text-sm font-bold text-gray-400">Đang tải thông tin...</p>
+            {/* Pagination */}
+            {pageInfo && pageInfo.totalPages > 1 && (
+              <div className="pt-4 border-t border-gray-100 mt-4">
+                <Pagination
+                  pageInfo={pageInfo}
+                  onPageChange={(p) => setPage(p)}
+                  className="justify-center"
+                />
               </div>
-            ) : (
-              selectedShop && (
-                <>
-                  <button
-                    onClick={closeModal}
-                    className="absolute top-6 right-6 size-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors z-10"
-                  >
-                    <X className="size-5" />
-                  </button>
+            )}
+          </div>
+        </div>
 
-                  {/* Header */}
-                  <div className="p-10 border-b border-gray-100">
-                    <div className="flex items-center gap-6">
-                      {selectedShop.logoUrl ? (
-                        <img
-                          src={selectedShop.logoUrl}
-                          className="size-20 rounded-3xl object-cover shadow-md bg-gray-50 flex-shrink-0"
-                          alt="Logo"
-                        />
-                      ) : (
-                        <div className="size-20 rounded-3xl bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0">
-                          <Store className="size-10" />
-                        </div>
-                      )}
-                      <div>
-                        <span
-                          className={`inline-block mb-2 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${
-                            selectedShop.status === 'ACTIVE'
-                              ? 'bg-green-50 text-green-600'
-                              : selectedShop.status === 'INACTIVE'
-                                ? 'bg-red-50 text-red-500'
-                                : 'bg-orange-50 text-orange-600'
-                          }`}
-                        >
-                          {selectedShop.status === 'ACTIVE'
-                            ? 'Hoạt động'
-                            : selectedShop.status === 'INACTIVE'
-                              ? 'Tạm ngưng'
-                              : 'Chờ duyệt'}
-                        </span>
-                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                          {selectedShop.shopName || selectedShop.fullName || 'N/A'}
-                        </h3>
-                        <p className="text-gray-400 font-bold text-xs mt-1 uppercase tracking-widest">
-                          {selectedShop.role?.name === 'FARMER' ? 'Nông dân' : 'Chủ cửa hàng'} · ID:
-                          #{selectedShop.id}
-                        </p>
+        {/* Right Column: Khung hiển thị thông tin chi tiết (1/3 màn hình) */}
+        {selectedShop && (
+          <div className="lg:col-span-4 sticky top-6">
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
+              {/* Header: Mã shop | Tên gian hàng + Nút Đóng [X] */}
+              <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-3">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    Chi tiết gian hàng #{selectedShop.id}
+                  </span>
+                  <h3 className="font-bold text-gray-900 text-sm mt-1.5 leading-snug">
+                    {selectedShop.shopName || selectedShop.fullName || 'Gian hàng không tên'}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Chủ shop: <span className="font-semibold text-gray-800">{selectedShop.fullName || 'Chưa rõ'}</span>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedShop(null)}
+                  className="size-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                  title="Đóng bảng chi tiết"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {detailLoading ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="size-6 text-primary animate-spin" />
+                  <p className="text-xs font-bold text-gray-400">Đang cập nhật dữ liệu...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Block 1: CHỦ GIAN HÀNG & LIÊN HỆ */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                        <User className="size-3.5" />
+                      </div>
+                      <span className="text-xs font-black text-gray-800 tracking-wide uppercase">
+                        CHỦ GIAN HÀNG (OWNER)
+                      </span>
+                    </div>
+
+                    <div className="bg-[#ffedd5]/80 border border-orange-200/60 rounded-2xl p-3.5 text-xs font-semibold text-gray-800 leading-relaxed space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <User className="size-3.5 text-orange-600 shrink-0" />
+                        <span>Họ tên: <span className="font-bold">{selectedShop.fullName || 'Chưa cập nhật'}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="size-3.5 text-orange-600 shrink-0" />
+                        <span>SĐT: <span className="font-bold">{selectedShop.phoneNumber || selectedShop.phone || 'Chưa cập nhật'}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="size-3.5 text-orange-600 shrink-0" />
+                        <span className="truncate">Email: <span className="font-bold">{selectedShop.email || 'Chưa cập nhật'}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="size-3.5 text-orange-600 shrink-0" />
+                        <span>Tài khoản: <span className="font-bold">{selectedShop.bankAccount || selectedShop.bankAccountNumber || 'Chưa cung cấp'}</span></span>
+                      </div>
+                      <div className="flex items-start gap-2 pt-1 border-t border-orange-200/50">
+                        <MapPin className="size-3.5 text-orange-600 shrink-0 mt-0.5" />
+                        <span>Địa chỉ: <span className="font-bold">{selectedShop.address || 'Chưa cung cấp'}</span></span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Body */}
-                  <div className="p-10 space-y-6 max-h-[55vh] overflow-y-auto">
-                    <div>
-                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <Mail className="size-3.5" /> Thông tin liên hệ
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            CHỦ SHOP
-                          </p>
-                          <p className="font-bold text-gray-900 mt-1 text-sm">
-                            {selectedShop.fullName || 'N/A'}
-                          </p>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            SỐ ĐIỆN THOẠI
-                          </p>
-                          <p className="font-bold text-gray-900 mt-1 text-sm">
-                            {selectedShop.phoneNumber || 'N/A'}
-                          </p>
-                        </div>
+                  {/* Block 2: THÔNG TIN GIAN HÀNG */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <Store className="size-3.5" />
                       </div>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mt-3">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          EMAIL
-                        </p>
-                        <p
-                          className="font-bold text-gray-900 mt-1 text-sm truncate"
-                          title={selectedShop.email}
-                        >
-                          {selectedShop.email || 'N/A'}
-                        </p>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mt-3">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          ĐỊA CHỈ
-                        </p>
-                        <p className="font-bold text-gray-900 mt-1 text-sm">
-                          {selectedShop.address || 'Chưa cung cấp'}
-                        </p>
-                      </div>
+                      <span className="text-xs font-black text-gray-800 tracking-wide uppercase">
+                        NGƯỜI BÁN (SHOP OWNER)
+                      </span>
                     </div>
 
-                    <div>
-                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <Store className="size-3.5" /> Thông tin cửa hàng
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            ĐÁNH GIÁ TB
-                          </p>
-                          <p className="font-bold text-gray-900 mt-1 text-sm flex items-center gap-1">
-                            <Star className="size-3.5 text-yellow-500 fill-yellow-500" />
-                            {selectedShop.ratingAverage?.toFixed(1) ?? 'Chưa có'}
-                          </p>
+                    <div className="bg-[#dbeafe]/80 border border-blue-200/60 rounded-2xl p-3.5 text-xs font-semibold text-gray-800 leading-relaxed space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          Tên shop: <span className="font-bold text-gray-900">{selectedShop.shopName || selectedShop.fullName}</span>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            TÀI KHOẢN NGÂN HÀNG
-                          </p>
-                          <p className="font-bold text-gray-900 mt-1 text-sm">
-                            {selectedShop.bankAccount || 'Chưa cung cấp'}
-                          </p>
+                        <div className="flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-full border border-blue-200 text-amber-700 font-bold text-[11px]">
+                          <Star className="size-3 fill-amber-500 text-amber-500" />
+                          <span>{selectedShop.ratingAverage ? selectedShop.ratingAverage.toFixed(1) : '5.0'} / 5.0</span>
                         </div>
                       </div>
-                      {selectedShop.description && (
-                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mt-3">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            MÔ TẢ CỬA HÀNG
-                          </p>
-                          <p className="font-medium text-gray-700 mt-1 text-sm leading-relaxed">
-                            {selectedShop.description}
-                          </p>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Quản lý Cờ rủi ro chất lượng */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                          <Flag className="size-3.5 text-rose-600" /> Cờ rủi ro chất lượng (
-                          {riskFlags.filter((f) => f.isActive).length} cờ hiệu lực)
-                        </h4>
-                      </div>
-
-                      {loadingFlags ? (
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                          <Loader2 size={16} className="animate-spin text-primary" /> Đang tải danh sách cờ...
-                        </div>
-                      ) : riskFlags.length === 0 ? (
-                        <div className="p-3.5 bg-green-50/70 rounded-2xl border border-green-200 text-green-800 text-xs flex items-center gap-2">
-                          <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-                          <span>Shop hiện không có cờ vi phạm chất lượng nào.</span>
-                        </div>
+                      {selectedShop.description ? (
+                        <p className="text-gray-700 pt-1 border-t border-blue-200/60">
+                          Mô tả: {selectedShop.description}
+                        </p>
                       ) : (
-                        <div className="space-y-2.5">
-                          {riskFlags.map((flag) => (
-                            <div
-                              key={flag.id}
-                              className={`p-3.5 rounded-2xl border transition-all flex flex-col gap-2 ${
-                                flag.isActive
-                                  ? 'bg-red-50/70 border-red-200'
-                                  : 'bg-gray-50 border-gray-200 opacity-60'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                                      flag.isActive ? 'bg-red-200 text-red-900' : 'bg-gray-200 text-gray-700'
-                                    }`}
-                                  >
-                                    <Flag size={10} className={flag.isActive ? 'fill-red-700 text-red-700' : ''} />
-                                    {flag.isActive ? 'Đang hiệu lực' : 'Đã gỡ bỏ'}
-                                  </span>
-                                  <span className="font-mono text-xs font-bold text-gray-700">
-                                    Mã #{flag.id}
-                                  </span>
-                                  {flag.orderId && (
-                                    <span className="font-mono text-xs text-gray-500">
-                                      (Đơn #{flag.orderId})
-                                    </span>
-                                  )}
-                                </div>
+                        <p className="text-gray-500 italic pt-1 border-t border-blue-200/60">
+                          Chưa cập nhật mô tả cửa hàng.
+                        </p>
+                      )}
 
-                                {flag.isActive && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleResolveFlag(flag.id)}
-                                    disabled={resolvingFlagId === flag.id}
-                                    className="px-3 py-1 bg-white border border-red-300 text-red-700 hover:bg-red-600 hover:text-white rounded-xl text-[11px] font-black transition-colors shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
-                                  >
-                                    {resolvingFlagId === flag.id ? (
-                                      <Loader2 size={12} className="animate-spin" />
-                                    ) : (
-                                      <CheckCircle2 size={12} />
-                                    )}
-                                    Gỡ cờ
-                                  </button>
-                                )}
-                              </div>
+                      {/* Mã số giấy phép / MST nếu có */}
+                      {selectedShop.license && (
+                        <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between text-[11px]">
+                          <span className="text-gray-600 font-medium">Số GPKD / MST:</span>
+                          <span className="font-mono font-bold text-gray-900">{selectedShop.license}</span>
+                        </div>
+                      )}
 
-                              <p className="text-xs text-gray-800 font-medium">
-                                <span className="text-gray-500 font-normal">Lý do vi phạm: </span>
-                                {flag.reason}
-                              </p>
+                      {/* Tiêu chuẩn / Danh hiệu nếu là dạng chữ */}
+                      {selectedShop.achievement && !isLikelyImageUrl(selectedShop.achievement) && (
+                        <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                            <Award className="size-3 text-emerald-600" /> Tiêu chuẩn:
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 truncate">
+                            🌱 {selectedShop.achievement}
+                          </span>
+                        </div>
+                      )}
 
-                              <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-200/50">
-                                <span>Gắn cờ lúc: {new Date(flag.createdAt).toLocaleString('vi-VN')}</span>
-                                {flag.resolvedAt && (
-                                  <span className="text-green-700 font-bold">
-                                    Đã gỡ: {new Date(flag.resolvedAt).toLocaleString('vi-VN')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                      {/* Ảnh giấy tờ chứng nhận (nếu có URL hợp lệ) */}
+                      {certImageUrl && (
+                        <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-blue-800 font-bold text-[11px]">
+                            <FileText className="size-3.5" /> Giấy phép / Chứng nhận cơ sở
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImageLoadError(false)
+                              setPreviewImage({
+                                url: certImageUrl,
+                                title: `Hồ sơ chứng nhận - ${selectedShop.shopName || selectedShop.fullName}`,
+                              })
+                            }}
+                            className="text-[11px] font-black text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-300 hover:bg-blue-50 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <ExternalLink className="size-3" /> Xem ảnh
+                          </button>
                         </div>
                       )}
                     </div>
+                  </div>
 
-                    {selectedShop.achievement && (
-                      <div>
-                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <FolderOpen className="size-3.5" /> Giấy tờ / Chứng nhận
-                        </h4>
-                        <a
-                          href={selectedShop.achievement}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          <div className="h-36 w-full bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative group">
-                            <img
-                              src={selectedShop.achievement}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              alt="Giấy tờ"
-                            />
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <span className="text-white font-bold bg-black/50 px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5">
-                                <ExternalLink className="size-3.5" /> Phóng to
+                  {/* Block 3: CỜ RỦI RO CHẤT LƯỢNG */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                        <Flag className="size-3.5" />
+                      </div>
+                      <span className="text-xs font-black text-gray-800 tracking-wide uppercase">
+                        CỜ RỦI RO ({riskFlags.filter((f) => f.isActive).length} cờ hiệu lực)
+                      </span>
+                    </div>
+
+                    {loadingFlags ? (
+                      <div className="bg-gray-50 rounded-2xl p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                        <Loader2 className="size-3.5 animate-spin text-primary" /> Đang tải cờ...
+                      </div>
+                    ) : riskFlags.length === 0 ? (
+                      <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3 text-xs font-semibold text-emerald-900 flex items-center gap-2">
+                        <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                        <span>Không có cờ vi phạm chất lượng nào.</span>
+                      </div>
+                    ) : (
+                      <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-3 text-xs font-semibold text-gray-800 space-y-2.5">
+                        {riskFlags.map((flag) => (
+                          <div
+                            key={flag.id}
+                            className={`p-2.5 rounded-xl border transition-all ${
+                              flag.isActive
+                                ? 'bg-white border-rose-200 shadow-2xs'
+                                : 'bg-gray-50 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1.5 mb-1">
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  flag.isActive ? 'bg-rose-100 text-rose-800' : 'bg-gray-200 text-gray-700'
+                                }`}
+                              >
+                                {flag.isActive ? 'Hiệu lực' : 'Đã gỡ'}
                               </span>
+                              <span className="font-mono text-[11px] font-bold text-gray-600">
+                                #{flag.id} {flag.orderId ? `(Đơn #${flag.orderId})` : ''}
+                              </span>
+
+                              {flag.isActive && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResolveFlag(flag.id)}
+                                  disabled={resolvingFlagId === flag.id}
+                                  className="px-2 py-0.5 bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white rounded-md text-[10px] font-black transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  {resolvingFlagId === flag.id ? (
+                                    <Loader2 size={10} className="animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 size={10} />
+                                  )}
+                                  Gỡ cờ
+                                </button>
+                              )}
                             </div>
+
+                            <p className="text-[11px] text-gray-800 font-medium line-clamp-2">
+                              {flag.reason}
+                            </p>
                           </div>
-                        </a>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  {/* Footer */}
-                  <div className="p-8 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
-                    <button
-                      onClick={closeModal}
-                      className="px-6 py-3 bg-white border border-gray-200 text-gray-700 text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-gray-50 transition-all"
-                    >
-                      Đóng lại
-                    </button>
+                  {/* Block 4: GHI CHÚ & QUYẾT ĐỊNH ADMIN */}
+                  <div className="space-y-2 pt-1">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest block">
+                      GHI CHÚ & QUYẾT ĐỊNH ADMIN
+                    </span>
+
                     {selectedShop.status === 'ACTIVE' ? (
-                      <button
-                        onClick={() => {
-                          handleDeactivate(selectedShop.id)
-                          closeModal()
-                        }}
-                        className="px-8 py-3 bg-red-500 text-white text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
-                      >
-                        Khóa tạm thời
-                      </button>
+                      <div className="bg-[#dcfce7] border border-emerald-200 rounded-2xl p-3.5 space-y-3">
+                        <div>
+                          <h4 className="font-black text-xs text-gray-900">
+                            TRẠNG THÁI: Hoạt động bình thường
+                          </h4>
+                          <p className="text-[11px] font-medium text-gray-700 mt-0.5">
+                            Gian hàng được đăng bán sản phẩm và nhận đơn hàng.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeactivate(selectedShop.id)}
+                          className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Lock className="size-3.5" /> Khóa tạm thời
+                        </button>
+                      </div>
                     ) : (
-                      <button
-                        onClick={() => {
-                          handleActivate(selectedShop.id)
-                          closeModal()
-                        }}
-                        className="px-8 py-3 bg-blue-600 text-white text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
-                      >
-                        Mở khóa
-                      </button>
+                      <div className="bg-[#fee2e2] border border-rose-200 rounded-2xl p-3.5 space-y-3">
+                        <div>
+                          <h4 className="font-black text-xs text-rose-950">
+                            TRẠNG THÁI: Đang bị tạm khóa
+                          </h4>
+                          <p className="text-[11px] font-medium text-rose-900 mt-0.5">
+                            Gian hàng bị ngưng giao dịch trên hệ thống.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleActivate(selectedShop.id)}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Unlock className="size-3.5" /> Mở khóa gian hàng
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>
-              )
-            )}
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Lightbox / Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="relative max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setPreviewImage(null)
+                setImageLoadError(false)
+              }}
+              className="absolute top-4 right-4 size-9 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
+            >
+              <X className="size-5" />
+            </button>
+            <div>
+              <div className="flex items-center justify-between mb-3 pr-8">
+                <p className="text-xs font-black text-gray-800 uppercase tracking-wider">
+                  {previewImage.title}
+                </p>
+                <a
+                  href={previewImage.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink size={12} /> Mở tab mới
+                </a>
+              </div>
+
+              {imageLoadError ? (
+                <div className="w-full h-64 rounded-2xl bg-gray-50 border border-dashed border-gray-200 flex flex-col items-center justify-center p-6 text-center gap-2">
+                  <AlertCircle className="size-8 text-amber-500" />
+                  <p className="text-xs font-bold text-gray-700">
+                    Không thể hiển thị hình ảnh này
+                  </p>
+                  <p className="text-[11px] text-gray-400 font-mono break-all max-w-md">
+                    Đường dẫn ảnh: {previewImage.url}
+                  </p>
+                  <a
+                    href={previewImage.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink size={12} /> Bấm để mở ảnh trực tiếp
+                  </a>
+                </div>
+              ) : (
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.title}
+                  referrerPolicy="no-referrer"
+                  onError={() => setImageLoadError(true)}
+                  className="w-full max-h-[75vh] object-contain rounded-2xl bg-gray-50 border border-gray-100"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

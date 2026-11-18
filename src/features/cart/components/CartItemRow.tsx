@@ -49,7 +49,7 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
 
       {/* Ảnh sản phẩm */}
       <div
-        className={`rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#e8ece3] ${
+        className={`rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-[#e8ece3] ${
           compact ? 'w-14 h-14' : 'w-13 h-13 sm:w-14 sm:h-14'
         }`}
       >

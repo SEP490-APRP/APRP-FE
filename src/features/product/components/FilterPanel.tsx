@@ -8,13 +8,14 @@ import { useCategories } from '../hooks/useCategoryQueries'
 
 export const CATEGORIES = [
   { id: 'Tất cả', slug: 'tat-ca', label: 'Tất cả nông sản', bannerTitle: 'Tất cả sản phẩm' },
-  { id: 'Rau ăn lá', slug: 'rau-an-la', label: 'Rau ăn lá', bannerTitle: 'Rau ăn lá tươi sạch' },
-  { id: 'Củ quả', slug: 'cu-qua', label: 'Củ quả vườn', bannerTitle: 'Củ quả vườn tự nhiên' },
-  { id: 'Trái cây', slug: 'trai-cay', label: 'Trái cây', bannerTitle: 'Trái cây theo mùa' },
-  { id: 'Hữu cơ', slug: 'huu-co', label: 'Hữu cơ', bannerTitle: 'Nông sản hữu cơ' },
-  { id: 'Đà Lạt', slug: 'da-lat', label: 'Đặc sản Đà Lạt', bannerTitle: 'Nông sản Đà Lạt' },
+  { id: 'Rau lá', slug: 'rau-la', label: 'Rau lá', bannerTitle: 'Rau ăn lá tươi sạch' },
+  { id: 'Củ', slug: 'cu', label: 'Củ', bannerTitle: 'Củ tươi tự nhiên' },
+  { id: 'Quả / Trái cây', slug: 'trai-cay', label: 'Quả / Trái cây', bannerTitle: 'Trái cây theo mùa' },
+  { id: 'Nông sản hữu cơ VietGAP', slug: 'vietgap', label: 'Nông sản hữu cơ VietGAP', bannerTitle: 'Nông sản hữu cơ' },
+  { id: 'Nấm tươi & Đậu organic', slug: 'nam-dau', label: 'Nấm tươi & Đậu organic', bannerTitle: 'Nấm tươi & Đậu organic' },
+  { id: 'Đặc sản vùng miền', slug: 'dac-san', label: 'Đặc sản vùng miền', bannerTitle: 'Đặc sản vùng miền' },
 ] as const
-export type CategoryId = (typeof CATEGORIES)[number]['id']
+export type CategoryId = string
 
 export const PRICE_RANGES = [
   { id: 'all', label: 'Tất cả mức giá' },
@@ -27,30 +28,22 @@ export type PriceRangeId = (typeof PRICE_RANGES)[number]['id']
 export const REGIONS = [
   { id: 'all', label: 'Tất cả vùng trồng' },
   { id: 'Đà Lạt', label: 'Đà Lạt (Lâm Đồng)' },
-  { id: 'Gia Lai', label: 'Gia Lai' },
-  { id: 'Bến Tre', label: 'Bến Tre' },
-  { id: 'Đắk Lắk', label: 'Đắk Lắk' },
+  { id: 'Miền Tây', label: 'Miền Tây (Bến Tre, Tiền Giang, Đồng Tháp)' },
+  { id: 'Tây Nguyên', label: 'Tây Nguyên (Đắk Lắk, Gia Lai)' },
+  { id: 'Đông Nam Bộ', label: 'Đông Nam Bộ (Đồng Nai, TP.HCM)' },
 ] as const
 export type RegionId = (typeof REGIONS)[number]['id']
-
-export const AI_SCORES = [
-  { id: 0, label: 'Tất cả điểm AI' },
-  { id: 95, label: 'Từ 95% trở lên' },
-] as const
-export type MinScore = (typeof AI_SCORES)[number]['id']
 
 export type Filters = {
   category: CategoryId
   price: PriceRangeId
   region: RegionId
-  minScore: MinScore
 }
 
 export const DEFAULT_FILTERS: Filters = {
   category: 'Tất cả',
   price: 'all',
   region: 'all',
-  minScore: 0,
 }
 
 /** Đọc danh mục từ URL, VD: #/nong-san-tuoi?danh-muc=rau-an-la (link từ trang chủ). */
@@ -133,11 +126,18 @@ export function FilterPanel({
 }) {
   const { data: apiCategories = [] } = useCategories()
 
+  // Bỏ 'Combo & Túi mù' khỏi danh mục nông sản tươi (combo có trang riêng /combo-tui-mu)
+  const freshCategories = apiCategories.filter(
+    (c) =>
+      !c.name.toLowerCase().includes('combo') &&
+      !c.name.toLowerCase().includes('túi mù'),
+  )
+
   const categoryOptions =
-    apiCategories.length > 0
+    freshCategories.length > 0
       ? [
           { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
-          ...apiCategories.map((c) => ({ id: c.name as CategoryId, label: c.name })),
+          ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
         ]
       : CATEGORIES
 
@@ -168,13 +168,6 @@ export function FilterPanel({
         options={REGIONS}
         value={filters.region}
         onChange={set('region')}
-      />
-      <RadioGroup
-        legend="Điểm chất lượng AI"
-        name={`${idPrefix}-score`}
-        options={AI_SCORES}
-        value={filters.minScore}
-        onChange={set('minScore')}
       />
     </div>
   )

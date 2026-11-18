@@ -12,8 +12,12 @@ import {
   Loader2,
   ChevronRight,
   AlertTriangle,
+  Plus,
+  Star,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
-import { useShopOrders, useShopProfile } from '@/features/shop'
+import { useShopOrders, useShopProfile, useConfirmOrder, useCancelOrder } from '@/features/shop'
 import { useMyProducts, useMyCombos } from '@/features/product'
 import { useMyMysteryBoxes } from '@/features/mystery-box'
 import type { FarmerProduct, FarmerOrder } from './types'
@@ -23,10 +27,43 @@ interface DashboardProps {
   orders?: FarmerOrder[]
   onNavigate: (tab: string) => void
   onOpenAddProduct: () => void
+  onInfo?: (msg: string) => void
 }
 
-export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardProps) {
+export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: DashboardProps) {
   const [productTab, setProductTab] = useState<'NONG_SAN' | 'COMBO' | 'BLIND_BOX'>('NONG_SAN')
+  const [actionOrderId, setActionOrderId] = useState<number | null>(null)
+
+  const confirmMutation = useConfirmOrder()
+  const cancelMutation = useCancelOrder()
+
+  const handleQuickConfirm = async (orderId: number) => {
+    setActionOrderId(orderId)
+    try {
+      await confirmMutation.mutateAsync(orderId)
+      onInfo?.(`Đã nhận và xác nhận đơn hàng #${orderId}!`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Có lỗi khi xác nhận đơn hàng.'
+      onInfo?.(msg)
+    } finally {
+      setActionOrderId(null)
+    }
+  }
+
+  const handleQuickCancel = async (orderId: number) => {
+    const confirmed = window.confirm(`Bạn có chắc chắn muốn từ chối đơn hàng #${orderId}?`)
+    if (!confirmed) return
+    setActionOrderId(orderId)
+    try {
+      await cancelMutation.mutateAsync(orderId)
+      onInfo?.(`Đã từ chối đơn hàng #${orderId}.`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Có lỗi khi từ chối đơn hàng.'
+      onInfo?.(msg)
+    } finally {
+      setActionOrderId(null)
+    }
+  }
 
   // Real data queries from API
   const { data: shopOrdersData, isLoading: isLoadingOrders } = useShopOrders({ page: 0, size: 50 })
@@ -171,74 +208,104 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
         id="tour-overview-stats"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        {/* 1. Tổng đơn hàng */}
-        <div className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between">
-          <div className="text-[11px] font-bold text-[#7e8779] uppercase tracking-wider">
-            TỔNG ĐƠN HÀNG
+        {/* 1. Tổng đơn hàng (Clickable card dẫn sang tab đơn hàng) */}
+        <button
+          type="button"
+          onClick={() => onNavigate('orders')}
+          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
+              TỔNG ĐƠN HÀNG
+            </span>
+            <ChevronRight size={16} className="text-[#9ca3af] group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all" />
           </div>
           <div className="my-3">
-            <span className="text-3xl font-black text-[#1c2216]">
+            <span className="text-3xl sm:text-4xl font-black text-[#1c2216]">
               {isLoadingOrders ? '...' : totalOrdersCount}
             </span>
-            <p className="text-[11px] text-[#326318] font-bold mt-1">
-              {pendingOrdersCount > 0 ? `${pendingOrdersCount} đơn cần xử lý ngay` : 'Tất cả đơn đã được xử lý'}
-            </p>
+            {pendingOrdersCount > 0 ? (
+              <p className="text-xs sm:text-sm text-[#b45309] font-black mt-2 flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl w-fit">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <span>{pendingOrdersCount} đơn cần xử lý ngay →</span>
+              </p>
+            ) : (
+              <p className="text-xs sm:text-sm text-[#326318] font-bold mt-1.5">
+                Tất cả đơn đã được xử lý
+              </p>
+            )}
           </div>
-        </div>
+        </button>
 
-        {/* 2. Nông sản đang bán */}
-        <div className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between">
-          <div className="text-[11px] font-bold text-[#7e8779] uppercase tracking-wider">
-            SẢN PHẨM ĐANG BÁN
+        {/* 2. Nông sản đang bán (Clickable card) */}
+        <button
+          type="button"
+          onClick={() => onNavigate('products')}
+          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
+              SẢN PHẨM ĐANG BÁN
+            </span>
+            <ChevronRight size={16} className="text-[#9ca3af] group-hover:text-[#326318] group-hover:translate-x-0.5 transition-all" />
           </div>
           <div className="my-3">
-            <span className="text-3xl font-black text-[#1c2216]">
+            <span className="text-3xl sm:text-4xl font-black text-[#1c2216]">
               {isLoadingProducts ? '...' : activeFreshCount}
             </span>
-            <p className="text-[11px] text-[#326318] font-bold mt-1">
+            <p className="text-xs sm:text-sm text-[#326318] font-bold mt-1.5">
               {freshProducts.length} nông sản trong kho
             </p>
           </div>
-        </div>
+        </button>
 
-        {/* 3. Combo & Túi mù */}
-        <div className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between">
-          <div className="text-[11px] font-bold text-[#7e8779] uppercase tracking-wider">
-            COMBO &amp; TÚI MÙ
+        {/* 3. Combo & Túi mù (Clickable card) */}
+        <button
+          type="button"
+          onClick={() => onNavigate('combos')}
+          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#8a4e1d] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
+              COMBO &amp; TÚI MÙ
+            </span>
+            <ChevronRight size={16} className="text-[#9ca3af] group-hover:text-[#8a4e1d] group-hover:translate-x-0.5 transition-all" />
           </div>
           <div className="my-3">
-            <span className="text-3xl font-black text-[#1c2216]">
+            <span className="text-3xl sm:text-4xl font-black text-[#1c2216]">
               {isLoadingCombos || isLoadingBoxes ? '...' : combos.length + blindBoxes.length}
             </span>
-            <p className="text-[11px] text-[#8a4e1d] font-bold mt-1">
+            <p className="text-xs sm:text-sm text-[#8a4e1d] font-bold mt-1.5">
               {blindBoxes.length} túi mù · {combos.length} combo
             </p>
           </div>
-        </div>
+        </button>
 
-        {/* 4. Chất lượng shop / Xác thực VietGAP */}
-        <div className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between">
-          <div className="text-[11px] font-bold text-[#7e8779] uppercase tracking-wider">
-            CHẤT LƯỢNG GIAN HÀNG
+        {/* 4. Đánh giá từ khách (Thay thế vị trí thông tin tĩnh bằng chỉ số uy tín thiết thực) */}
+        <button
+          type="button"
+          onClick={() => onNavigate('reviews')}
+          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#ca8a04] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
+              ĐÁNH GIÁ TỪ KHÁCH
+            </span>
+            <ChevronRight size={16} className="text-[#9ca3af] group-hover:text-[#ca8a04] group-hover:translate-x-0.5 transition-all" />
           </div>
           <div className="my-3">
             <div className="flex items-center gap-2">
-              <span className="text-3xl font-black text-[#326318]">
-                {isKycApproved ? '100%' : 'Chờ duyệt'}
+              <span className="text-3xl sm:text-4xl font-black text-[#ca8a04]">
+                {Number(shopProfile?.rating || 4.8).toFixed(1)}
               </span>
-              {isKycApproved && <ShieldCheck size={24} className="text-[#326318]" />}
+              <Star size={24} className="text-[#eab308] fill-[#eab308]" />
+              <span className="text-sm font-bold text-[#6b7280]">/ 5.0</span>
             </div>
-            <div className="w-full bg-[#e8ece3] h-1.5 rounded-full mt-2 overflow-hidden">
-              <div
-                className="bg-[#326318] h-full rounded-full transition-all duration-500"
-                style={{ width: isKycApproved ? '100%' : '40%' }}
-              />
-            </div>
-            <p className="text-[11px] text-[#326318] font-extrabold mt-1">
-              {isKycApproved ? 'Đã xác thực KYC VietGAP' : 'Hồ sơ đang chờ xác thực'}
+            <p className="text-xs sm:text-sm text-[#4b5563] font-bold mt-1.5">
+              Được tin chọn bởi khách mua
             </p>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Main 2-Column Grid: Products Table + Orders Widget */}
@@ -248,22 +315,24 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
           id="tour-overview-products"
           className="lg:col-span-2 bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-5"
         >
-          <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f1f4ed]">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#326318]/10 flex items-center justify-center text-[#326318]">
-                <Package size={18} />
+              <div className="w-9 h-9 rounded-xl bg-[#326318]/10 flex items-center justify-center text-[#326318]">
+                <Package size={20} />
               </div>
-              <h3 className="text-base font-black text-[#1c2216] uppercase tracking-tight">
+              <h3 className="text-base sm:text-lg font-black text-[#1c2216] uppercase tracking-tight">
                 QUẢN LÝ SẢN PHẨM ({totalItemsCount})
               </h3>
             </div>
 
+            {/* Nút Đăng Bán Nông Sản Mới to bản, nổi bật, dễ bấm cho người lớn tuổi */}
             <button
               type="button"
               onClick={onOpenAddProduct}
-              className="text-xs font-bold text-[#326318] hover:underline flex items-center gap-1 cursor-pointer"
+              className="bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
             >
-              <span>+ Thêm nông sản</span>
+              <Plus size={16} className="text-[#ffea79]" />
+              <span>+ ĐĂNG BÁN NÔNG SẢN MỚI</span>
             </button>
           </div>
 
@@ -304,7 +373,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
           </div>
 
           {/* Table Header */}
-          <div className="grid grid-cols-12 text-[10px] font-extrabold text-[#8a9484] uppercase tracking-wider px-3">
+          <div className="grid grid-cols-12 text-xs font-bold text-[#4B5563] uppercase tracking-wider px-3 py-1.5 bg-[#f4f7f1] rounded-xl mb-1">
             <div className="col-span-5">SẢN PHẨM</div>
             <div className="col-span-3 text-center">GIÁ BÁN</div>
             <div className="col-span-2 text-center">TỒN KHO</div>
@@ -320,7 +389,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
           ) : productTab === 'NONG_SAN' ? (
             freshProducts.length === 0 ? (
               <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
-                Chưa có nông sản nào trong kho. Hãy bấm &quot;+ Thêm nông sản&quot; để đăng bán!
+                Chưa có nông sản nào trong kho. Hãy bấm &quot;+ ĐĂNG BÁN NÔNG SẢN MỚI&quot; để đăng bán!
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -341,19 +410,19 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                   return (
                     <div
                       key={pId}
-                      className="grid grid-cols-12 items-center p-3 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                      className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                     >
                       <div className="col-span-5 flex items-center gap-3">
                         <img
                           src={primaryImg}
                           alt={pName}
-                          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200"
+                          className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-200"
                         />
                         <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-[#1c2216] truncate">
+                          <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
                             {pName}
                           </div>
-                          <span className="text-[10px] text-[#8c9686]">
+                          <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">
                             {typeof item.category === 'object' && item.category !== null
                               ? item.category.name
                               : 'Nông sản vườn'}
@@ -362,18 +431,18 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                       </div>
 
                       <div className="col-span-3 text-center">
-                        <span className="text-xs font-black text-[#326318]">
+                        <span className="text-sm sm:text-base font-black text-[#2b5619]">
                           {pPrice.toLocaleString('vi-VN')}đ
                         </span>
                       </div>
 
-                      <div className="col-span-2 text-center text-xs font-bold text-[#1c2216]">
+                      <div className="col-span-2 text-center text-xs sm:text-sm font-bold text-[#1c2216]">
                         {pStock} {pUnit}
                       </div>
 
                       <div className="col-span-2 flex items-center justify-end">
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.color}`}
+                          className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
                         >
                           <span>{statusBadge.label}</span>
                         </span>
@@ -395,43 +464,43 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                   return (
                     <div
                       key={combo.comboId}
-                      className="grid grid-cols-12 items-center p-3 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                      className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                     >
                       <div className="col-span-5 flex items-center gap-3">
                         {combo.imageUrl ? (
                           <img
                             src={combo.imageUrl}
                             alt={combo.comboName}
-                            className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200"
+                            className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-200"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-xl bg-[#195962]/10 text-[#195962] flex items-center justify-center font-bold shrink-0">
-                            <UtensilsCrossed size={18} />
+                          <div className="w-12 h-12 rounded-xl bg-[#195962]/10 text-[#195962] flex items-center justify-center font-bold shrink-0">
+                            <UtensilsCrossed size={20} />
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-[#1c2216] truncate">
+                          <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
                             {combo.comboName}
                           </div>
-                          <span className="text-[10px] text-[#8c9686]">
+                          <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">
                             {combo.mealType || 'Set món ăn'}
                           </span>
                         </div>
                       </div>
 
                       <div className="col-span-3 text-center">
-                        <span className="text-xs font-black text-[#195962]">
+                        <span className="text-sm sm:text-base font-black text-[#195962]">
                           {combo.price.toLocaleString('vi-VN')}đ
                         </span>
                       </div>
 
-                      <div className="col-span-2 text-center text-xs font-bold text-[#1c2216]">
+                      <div className="col-span-2 text-center text-xs sm:text-sm font-bold text-[#1c2216]">
                         {combo.totalQuantity} combo
                       </div>
 
                       <div className="col-span-2 flex items-center justify-end">
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.color}`}
+                          className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
                         >
                           <span>{statusBadge.label}</span>
                         </span>
@@ -450,33 +519,34 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
               {blindBoxes.slice(0, 5).map((box) => (
                 <div
                   key={box.mysteryId || box.id}
-                  className="grid grid-cols-12 items-center p-3 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                  className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                 >
                   <div className="col-span-5 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#8a4e1d]/10 text-[#8a4e1d] flex items-center justify-center font-bold text-base shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-[#8a4e1d]/10 text-[#8a4e1d] flex items-center justify-center font-bold text-lg shrink-0">
                       🎁
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-[#1c2216] truncate">
+                      <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
                         {box.boxType}
                       </div>
-                      <span className="text-[10px] text-[#8c9686]">Túi mù giải cứu</span>
+                      <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">Túi mù giải cứu</span>
                     </div>
                   </div>
 
                   <div className="col-span-3 text-center">
-                    <span className="text-xs font-black text-[#8a4e1d]">
+                    <span className="text-sm sm:text-base font-black text-[#8a4e1d]">
                       {box.price.toLocaleString('vi-VN')}đ
                     </span>
                   </div>
 
-                  <div className="col-span-2 text-center text-xs font-bold text-[#1c2216]">
+                  <div className="col-span-2 text-center text-xs sm:text-sm font-bold text-[#1c2216]">
                     {box.totalQuantity || 0} hộp
                   </div>
 
                   <div className="col-span-2 flex items-center justify-end">
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${box.isActive
+                      className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        box.isActive
                           ? 'bg-[#eaf5e1] text-[#326318] border-[#b8e19c]'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
                         }`}
@@ -493,10 +563,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <button
               type="button"
               onClick={() => onNavigate('products')}
-              className="text-xs font-black text-[#326318] hover:underline uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1 mx-auto"
+              className="text-xs sm:text-sm font-black text-[#2b5619] hover:underline uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 mx-auto py-2"
             >
               <span>Xem Toàn Bộ Sản Phẩm Trong Kho ({totalItemsCount})</span>
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>
@@ -507,14 +577,14 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
           className="bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-5"
         >
           <div className="flex items-center gap-2 pb-3 border-b border-[#f1f4ed]">
-            <div className="w-8 h-8 rounded-xl bg-[#326318]/10 flex items-center justify-center text-[#326318]">
+            <div className="w-8 h-8 rounded-xl bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
               <ShoppingCart size={18} />
             </div>
             <div>
               <h3 className="text-base font-black text-[#1c2216] uppercase tracking-tight">
                 ĐƠN HÀNG MỚI NHẤT
               </h3>
-              <p className="text-[10px] text-[#889282]">
+              <p className="text-xs font-semibold text-[#4B5563]">
                 {pendingOrdersCount > 0
                   ? `Có ${pendingOrdersCount} đơn cần xác nhận & đóng gói`
                   : 'Cập nhật từ hệ thống'}
@@ -524,15 +594,17 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
 
           {isLoadingOrders ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-gray-400">
-              <Loader2 size={24} className="animate-spin text-[#326318]" />
+              <Loader2 size={24} className="animate-spin text-[#2b5619]" />
               <span className="text-xs font-medium">Đang tải đơn hàng...</span>
             </div>
           ) : realOrders.length > 0 ? (
             <div className="space-y-3">
               {realOrders.slice(0, 4).map((ord) => {
-                const ordId = (ord as any).orderId ?? ord.id
+                const ordId = Number((ord as any).orderId ?? ord.id)
                 const recipient = (ord as any).recipientName || ord.buyerName || 'Khách hàng'
                 const statusBadge = getOrderStatusBadge(ord.status)
+                const isNeedsAction = ord.status === 'PENDING' || ord.status === 'PAID'
+                const isActingOnThis = actionOrderId === ordId
                 const formattedTime = ord.createdAt
                   ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
@@ -545,30 +617,67 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
                 return (
                   <div
                     key={ordId}
-                    className="p-3.5 rounded-2xl bg-[#fafcf9] border border-[#edf1e8] space-y-1.5 hover:border-[#326318]/30 transition-colors"
+                    className={`p-4 rounded-2xl bg-[#fafcf9] border transition-colors space-y-2 ${
+                      isNeedsAction
+                        ? 'border-amber-200 bg-[#fffdfa]'
+                        : 'border-[#edf1e8] hover:border-[#2b5619]/30'
+                    }`}
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-black text-[#1c2216]">#{ordId}</span>
+                      <span className="text-sm font-black text-[#1c2216]">#{ordId}</span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.color}`}
+                        className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
                       >
                         {statusBadge.label}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-[#4d5646] font-semibold truncate">
+                    <div className="text-xs sm:text-sm text-[#1c2216] font-bold truncate">
                       {recipient}
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] pt-1">
-                      <span className="text-[#8c9686] text-[10px] flex items-center gap-1">
-                        <Clock size={11} />
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      <span className="text-[#4B5563] text-xs font-medium flex items-center gap-1.5">
+                        <Clock size={13} className="text-[#6b7280]" />
                         <span>{formattedTime}</span>
                       </span>
-                      <span className="font-black text-[#326318]">
+                      <span className="text-sm sm:text-base font-black text-[#2b5619]">
                         {Number(ord.totalAmount || 0).toLocaleString('vi-VN')}đ
                       </span>
                     </div>
+
+                    {/* Quick Action Buttons cho đơn cần xác nhận (PENDING / PAID) */}
+                    {isNeedsAction && (
+                      <div className="pt-2 flex items-center gap-2 border-t border-[#f0f3eb] mt-1">
+                        <button
+                          type="button"
+                          disabled={isActingOnThis}
+                          onClick={() => handleQuickConfirm(ordId)}
+                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {isActingOnThis && confirmMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <CheckCircle2 size={15} />
+                          )}
+                          <span>Nhận đơn</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isActingOnThis}
+                          onClick={() => handleQuickCancel(ordId)}
+                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          title="Từ chối đơn hàng"
+                        >
+                          {isActingOnThis && cancelMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <XCircle size={15} />
+                          )}
+                          <span>Từ chối</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -577,16 +686,16 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
             <div className="py-12 px-4 rounded-2xl bg-[#fafcf9] border border-dashed border-[#dce2d6] text-center flex flex-col items-center justify-center gap-2">
               <ShoppingBag size={28} className="text-[#a4ad9f]" />
               <p className="text-xs font-bold text-[#717a6c]">Chưa có đơn hàng nào.</p>
-              <span className="text-[10px] text-[#9ba495]">Đơn mới sẽ xuất hiện tại đây</span>
+              <span className="text-xs text-[#9ba495]">Đơn mới sẽ xuất hiện tại đây</span>
             </div>
           )}
 
           <button
             type="button"
             onClick={() => onNavigate('orders')}
-            className="w-full py-3.5 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs uppercase tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm uppercase tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <ShoppingCart size={15} />
+            <ShoppingCart size={16} />
             <span>Xem Tất Cả Đơn Hàng ({totalOrdersCount})</span>
           </button>
         </div>
@@ -599,14 +708,14 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
       >
         <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#326318]/10 flex items-center justify-center text-[#326318]">
+            <div className="w-8 h-8 rounded-xl bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
               <Building2 size={18} />
             </div>
             <div>
               <h3 className="text-base font-black text-[#1c2216] uppercase tracking-tight">
                 TỔNG QUAN TÀI CHÍNH GIAN HÀNG
               </h3>
-              <p className="text-[10px] text-[#889282]">
+              <p className="text-xs font-semibold text-[#4B5563]">
                 Dòng tiền thực tế tính toán từ các đơn hàng của gian hàng
               </p>
             </div>
@@ -615,46 +724,46 @@ export default function Dashboard({ onNavigate, onOpenAddProduct }: DashboardPro
           <button
             type="button"
             onClick={() => onNavigate('wallet')}
-            className="text-xs font-bold text-[#326318] hover:underline cursor-pointer flex items-center gap-1"
+            className="text-xs sm:text-sm font-bold text-[#2b5619] hover:underline cursor-pointer flex items-center gap-1"
           >
             <span>Chi tiết ví &amp; rút tiền</span>
-            <ChevronRight size={14} />
+            <ChevronRight size={15} />
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-2xl bg-[#f7faf5] border border-[#e2ebd9]">
-            <span className="text-[11px] font-bold text-[#6f7869] uppercase">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#f7faf5] border border-[#e2ebd9]">
+            <span className="text-xs sm:text-sm font-bold text-[#4B5563] uppercase tracking-wide">
               Doanh Thu Đã Hoàn Thành
             </span>
-            <div className="text-2xl font-black text-[#326318] mt-1 whitespace-nowrap">
-              {completedRevenue.toLocaleString('vi-VN')}&nbsp;đ
+            <div className="text-2xl sm:text-3xl font-black text-[#2b5619] mt-1.5 whitespace-nowrap">
+              {completedRevenue.toLocaleString('vi-VN')} đ
             </div>
-            <span className="text-[10px] text-[#86927f]">
+            <span className="text-xs text-[#4B5563] font-semibold mt-1 block">
               Từ {completedOrders.length} đơn hàng đã giao thành công
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#fdfaf3] border border-[#f3e6cf]">
-            <span className="text-[11px] font-bold text-[#8a4e1d] uppercase">
-              Đang Chờ Quyết Toán
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#fdfaf3] border border-[#f3e6cf]">
+            <span className="text-xs sm:text-sm font-bold text-[#8a4e1d] uppercase tracking-wide">
+              Tiền Sắp Về Ví
             </span>
-            <div className="text-2xl font-black text-[#8a4e1d] mt-1 whitespace-nowrap">
-              {pendingSettlementRevenue.toLocaleString('vi-VN')}&nbsp;đ
+            <div className="text-2xl sm:text-3xl font-black text-[#8a4e1d] mt-1.5 whitespace-nowrap">
+              {pendingSettlementRevenue.toLocaleString('vi-VN')} đ
             </div>
-            <span className="text-[10px] text-[#86927f]">
+            <span className="text-xs text-[#4B5563] font-semibold mt-1 block">
               Từ {shippingOrPendingOrders.length} đơn hàng đang xử lý / vận chuyển
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#f5f8fc] border border-[#d6e3f5]">
-            <span className="text-[11px] font-bold text-[#2d5c99] uppercase">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#f5f8fc] border border-[#d6e3f5]">
+            <span className="text-xs sm:text-sm font-bold text-[#2d5c99] uppercase tracking-wide">
               Tổng Giá Trị Đơn Hàng
             </span>
-            <div className="text-2xl font-black text-[#2d5c99] mt-1 whitespace-nowrap">
-              {totalSalesRevenue.toLocaleString('vi-VN')}&nbsp;đ
+            <div className="text-2xl sm:text-3xl font-black text-[#2d5c99] mt-1.5 whitespace-nowrap">
+              {totalSalesRevenue.toLocaleString('vi-VN')} đ
             </div>
-            <span className="text-[10px] text-[#86927f]">
+            <span className="text-xs text-[#4B5563] font-semibold mt-1 block">
               Tổng doanh số tích lũy của gian hàng
             </span>
           </div>

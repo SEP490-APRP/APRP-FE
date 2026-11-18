@@ -1,6 +1,6 @@
 import axiosInstance from '@/services/api/axiosInstance'
 import { unwrap } from '@/services/api/apiUtils'
-import type { VoucherResponse, VoucherCreateRequest } from './voucher.types'
+import type { VoucherResponse, VoucherCreateRequest, VoucherUpdateRequest } from './voucher.types'
 
 export type * from './voucher.types'
 
@@ -117,6 +117,12 @@ export const voucherService = {
   async deleteAdminVoucher(voucherId: number): Promise<void> {
     const res = await axiosInstance.delete(`/admin/vouchers/${voucherId}`)
     return unwrap<void>(res)
+  },
+
+  // 10.2. ADMIN: Cập nhật voucher (tăng số lượng, gia hạn HSD, ...)
+  async updateAdminVoucher(voucherId: number, data: VoucherUpdateRequest): Promise<VoucherResponse> {
+    const res = await axiosInstance.put(`/admin/vouchers/${voucherId}`, data)
+    return unwrap<VoucherResponse>(res)
   },
 
   // 11. Compatibility methods for storefront shop voucher queries
