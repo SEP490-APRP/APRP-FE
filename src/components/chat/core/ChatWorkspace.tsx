@@ -192,6 +192,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               isOtherTyping={isOtherTyping}
               canModerateAnyMessage={canModerateAnyMessage}
               onDeleteMessage={handleDeleteMessage}
+              onQuickReply={(text) => void handleSendMessage(text, 'TEXT')}
             />
 
             {/* Thanh nhập tin nhắn */}

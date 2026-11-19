@@ -23,6 +23,23 @@ const UNIT_OPTIONS = [
   { value: 'thùng', label: 'thùng' },
 ]
 
+const PRESET_REGIONS = [
+  'Đà Lạt (Lâm Đồng)',
+  'Gia Lai',
+  'Bến Tre',
+  'Đắk Lắk',
+  'Mộc Châu (Sơn La)',
+  'Tiền Giang',
+  'Đồng Nai',
+  'Bình Thuận',
+  'Miền Tây',
+]
+
+const REGION_OPTIONS = [
+  ...PRESET_REGIONS.map((r) => ({ value: r, label: r })),
+  { value: 'KHAC', label: 'Vùng khác (Tự nhập...)' },
+]
+
 interface EditProductModalProps {
   product: ProductResponse
   isOpen: boolean
@@ -89,13 +106,18 @@ export function EditProductModal({
       expiryDate: formattedExpiry,
       description: product.description || '',
       discountPercent: product.discountPercent || 0,
-      region: product.region || 'Đà Lạt & Lâm Đồng',
+      region: product.origin || product.region || 'Đà Lạt (Lâm Đồng)',
     },
   })
+
+  const currentRegion = watch('region') || 'Đà Lạt (Lâm Đồng)'
+  const [isCustomRegion, setIsCustomRegion] = useState(false)
 
   // Đồng bộ lại toàn bộ Form khi product thay đổi hoặc khi modal mở ra
   useEffect(() => {
     if (isOpen && product) {
+      const reg = product.origin || product.region || 'Đà Lạt (Lâm Đồng)'
+      setIsCustomRegion(!PRESET_REGIONS.includes(reg) && reg !== '')
       const currentExpiry =
         normalizeExpiryDate(product.expiryDate) ||
         (() => {
@@ -113,7 +135,7 @@ export function EditProductModal({
         expiryDate: currentExpiry,
         description: product.description || '',
         discountPercent: product.discountPercent || 0,
-        region: product.region || 'Đà Lạt & Lâm Đồng',
+        region: reg,
       })
     }
   }, [product, isOpen, reset, defaultCategoryId])
@@ -170,6 +192,7 @@ export function EditProductModal({
           expiryDate: values.expiryDate,
           discountPercent: values.discountPercent,
           status: nextStatus,
+          origin: values.region,
         },
       })
       const isResubmitting = product.status === 'REJECTED' || product.status === 'INACTIVE'
@@ -345,6 +368,39 @@ export function EditProductModal({
                 className={INPUT_CLASS}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="edit-region" className="block text-xs font-bold text-[#353d2f] mb-1">
+              Vùng trồng / Xuất xứ *
+            </label>
+            <CustomSelect
+              id="edit-region"
+              value={isCustomRegion ? 'KHAC' : currentRegion}
+              onChange={(val) => {
+                if (val === 'KHAC') {
+                  setIsCustomRegion(true)
+                  setValue('region', '', { shouldValidate: true, shouldDirty: true })
+                } else {
+                  setIsCustomRegion(false)
+                  setValue('region', String(val), { shouldValidate: true, shouldDirty: true })
+                }
+              }}
+              options={REGION_OPTIONS}
+              placeholder="Chọn vùng trồng"
+              error={!!errors.region}
+            />
+            {isCustomRegion && (
+              <input
+                type="text"
+                value={watch('region') || ''}
+                onChange={(e) => setValue('region', e.target.value, { shouldValidate: true, shouldDirty: true })}
+                placeholder="Nhập tên vùng trồng / tỉnh thành cụ thể (VD: Đức Trọng, Lâm Đồng)"
+                className={`${INPUT_CLASS} mt-2`}
+                autoFocus
+              />
+            )}
+            <FieldError message={errors.region?.message} />
           </div>
 
           <div>

@@ -157,8 +157,24 @@ export function ReferralRedirectRoute() {
 }
 
 export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
+  const { user } = useAuth()
   const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
+
+  // Nếu người dùng đã đăng nhập, tự động chuyển về portal tương ứng (tránh trường hợp bấm back rơi lại vào form đăng nhập)
+  if (user) {
+    const role = user.role?.toLowerCase()
+    const target =
+      role === 'admin'
+        ? '/admin'
+        : role === 'shop'
+          ? '/shop'
+          : role === 'shipper'
+            ? '/shipper'
+            : '/'
+    return <Navigate to={target} replace />
+  }
+
   const initialRole =
     search.includes('role=shop') || search.includes('ban-nong-san')
       ? 'shop'
@@ -185,33 +201,33 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
 
           // Nếu user là shop, admin hoặc shipper mà đích đến trước đó là storefront/buyer page, chuyển thẳng về portal
           if (user.role === 'shop' && !isTargetingShop) {
-            navigate('/shop')
+            navigate('/shop', { replace: true })
             return
           }
           if (user.role === 'admin' && !isTargetingAdmin) {
-            navigate('/admin')
+            navigate('/admin', { replace: true })
             return
           }
           if (user.role === 'shipper' && !isTargetingShipper) {
-            navigate('/shipper')
+            navigate('/shipper', { replace: true })
             return
           }
 
           // Nếu route trước đó không phù hợp với quyền của tài khoản vừa đăng nhập, chuyển về trang chủ của role đó
           if (isTargetingAdmin && user.role !== 'admin') {
-            navigate(user.role === 'shop' ? '/shop' : user.role === 'shipper' ? '/shipper' : '/')
+            navigate(user.role === 'shop' ? '/shop' : user.role === 'shipper' ? '/shipper' : '/', { replace: true })
             return
           }
           if (isTargetingShop && user.role !== 'shop') {
-            navigate(user.role === 'admin' ? '/admin' : user.role === 'shipper' ? '/shipper' : '/')
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shipper' ? '/shipper' : '/', { replace: true })
             return
           }
           if (isTargetingShipper && user.role !== 'shipper') {
-            navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/')
+            navigate(user.role === 'admin' ? '/admin' : user.role === 'shop' ? '/shop' : '/', { replace: true })
             return
           }
 
-          navigate(fromLocation)
+          navigate(fromLocation, { replace: true })
         } else {
           navigate(
             user.role === 'admin'
@@ -221,6 +237,7 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
                 : user.role === 'shipper'
                   ? '/shipper'
                   : '/',
+            { replace: true },
           )
         }
       }}
@@ -229,6 +246,12 @@ export function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
 }
 
 export function ForgotPasswordRoute() {
+  const { user } = useAuth()
+  if (user) {
+    const role = user.role?.toLowerCase()
+    const target = role === 'admin' ? '/admin' : role === 'shop' ? '/shop' : role === 'shipper' ? '/shipper' : '/'
+    return <Navigate to={target} replace />
+  }
   return <ForgotPasswordPage />
 }
 

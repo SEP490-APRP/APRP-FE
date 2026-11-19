@@ -20,6 +20,7 @@ import {
   X,
   Package,
   Flag,
+  ShieldCheck,
 } from 'lucide-react'
 import { useShopDisputes, useShopRespondDispute } from '@/features/order'
 import type { ReturnRequestResponse, ReturnStatus } from '@/services/return.types'
@@ -160,46 +161,73 @@ export default function FarmerDisputes() {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e8ece3] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#8a4e1d]/10 text-[#8a4e1d] flex items-center justify-center shrink-0">
-            <Gavel size={28} />
+      <div className="bg-white rounded-lg p-5 sm:p-6 border border-[#e8ece3] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-lg bg-[#2b5619]/10 text-[#2b5619] border border-[#2b5619]/20 flex items-center justify-center shrink-0 shadow-2xs">
+            <Gavel size={22} />
           </div>
           <div>
-            <h3 className="text-xl sm:text-2xl font-black text-[#1c2216]">Trung Tâm Trợ Giúp &amp; Khiếu Nại</h3>
-            <p className="text-xs sm:text-sm text-[#7e8779] mt-0.5">
+            <h3 className="text-xl font-black text-[#1c2216]">Trung Tâm Trợ Giúp &amp; Khiếu Nại</h3>
+            <p className="text-xs text-[#7e8779] mt-0.5">
               Xử lý các yêu cầu trả hàng, hoàn tiền và hòa giải tranh chấp với khách hàng
             </p>
           </div>
         </div>
 
-        {/* Thẻ đếm nhanh */}
+        {/* Thẻ đếm nhanh tương tác */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-center">
-            <span className="block text-base font-black">{countPending}</span>
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Cần xử lý</span>
-          </div>
-          <div className="px-4 py-2.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-center">
-            <span className="block text-base font-black">{countDisputed}</span>
-            <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Tranh chấp</span>
-          </div>
-          <div className="px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center">
-            <span className="block text-base font-black">{countCompleted}</span>
-            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Hoàn tất</span>
-          </div>
-          <div className="px-4 py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-900 text-center">
-            <span className="block text-base font-black flex items-center justify-center gap-1">
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+              statusFilter === 'PENDING'
+                ? 'bg-amber-100/90 border-amber-300 ring-2 ring-amber-400/50 shadow-xs'
+                : 'bg-amber-50 hover:bg-amber-100/70 border-amber-200 text-amber-900'
+            }`}
+          >
+            <span className="block text-base sm:text-lg font-black text-amber-900">{countPending}</span>
+            <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Cần xử lý</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'DISPUTED' ? 'ALL' : 'DISPUTED')}
+            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+              statusFilter === 'DISPUTED'
+                ? 'bg-rose-100/90 border-rose-300 ring-2 ring-rose-400/50 shadow-xs'
+                : 'bg-rose-50 hover:bg-rose-100/70 border-rose-200 text-rose-900'
+            }`}
+          >
+            <span className="block text-base sm:text-lg font-black text-rose-900">{countDisputed}</span>
+            <span className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Tranh chấp</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
+            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+              statusFilter === 'COMPLETED'
+                ? 'bg-emerald-100/90 border-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
+                : 'bg-emerald-50 hover:bg-emerald-100/70 border-emerald-200 text-emerald-900'
+            }`}
+          >
+            <span className="block text-base sm:text-lg font-black text-emerald-900">{countCompleted}</span>
+            <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Hoàn tất</span>
+          </button>
+
+          <div className="px-3.5 py-1.5 rounded-lg min-w-[76px] bg-red-50 border border-red-200 text-red-900 text-center">
+            <span className="block text-base sm:text-lg font-black flex items-center justify-center gap-1">
               <Flag size={14} className="text-red-600 fill-red-600" />
               {countRiskFlags}
             </span>
-            <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider">Cờ vi phạm</span>
+            <span className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider">Cờ vi phạm</span>
           </div>
         </div>
       </div>
 
       {/* Bộ lọc và Tìm kiếm */}
-      <div className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-lg p-4 sm:p-5 border border-[#e8ece3] shadow-2xs space-y-3.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Thanh tìm kiếm */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-stone-400" />
@@ -208,7 +236,7 @@ export default function FarmerDisputes() {
               placeholder="Tìm theo mã đơn, tên khách, tên sản phẩm..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-semibold focus:bg-white focus:border-[#326318] focus:ring-2 focus:ring-[#326318]/20 transition-all outline-none"
+              className="w-full pl-10 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs font-semibold focus:bg-white focus:border-[#326318] focus:ring-2 focus:ring-[#326318]/20 transition-all outline-none"
             />
           </div>
 
@@ -225,8 +253,8 @@ export default function FarmerDisputes() {
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab.key
-                    ? 'bg-[#326318] text-white shadow-xs'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab.key
+                    ? 'bg-[#326318] text-white shadow-2xs'
                     : 'bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-stone-900'
                   }`}
               >
@@ -243,12 +271,22 @@ export default function FarmerDisputes() {
             <span className="text-xs font-medium">Đang tải danh sách khiếu nại...</span>
           </div>
         ) : filteredDisputes.length === 0 ? (
-          <div className="py-14 text-center rounded-2xl bg-[#fafcf9] border border-[#e5edd9] space-y-2">
-            <RotateCcw size={32} className="text-[#326318]/50 mx-auto" />
-            <div className="text-sm font-bold text-[#1c2216]">Không tìm thấy yêu cầu hoàn trả nào</div>
-            <p className="text-xs text-[#717b6b]">
-              Gian hàng của bạn hiện không có đơn khiếu nại nào theo bộ lọc đang chọn.
-            </p>
+          <div className="py-16 px-4 text-center rounded-lg bg-[#fafcf9] border border-[#e2e8dc] space-y-3">
+            <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-2xs">
+              <ShieldCheck size={26} />
+            </div>
+            <div>
+              <h4 className="text-base font-black text-[#1c2216]">
+                {statusFilter === 'ALL'
+                  ? 'Gian Hàng Hoạt Động Rất Uy Tín'
+                  : 'Không Có Yêu Cầu Hoàn Trả Nào'}
+              </h4>
+              <p className="text-xs text-[#6e7868] max-w-md mx-auto mt-1 leading-relaxed">
+                {statusFilter === 'ALL'
+                  ? 'Tuyệt vời! Hiện tại bạn không có đơn khiếu nại hay tranh chấp nào từ người mua. Hãy tiếp tục duy trì chất lượng đóng gói và bảo quản nông sản nhé.'
+                  : `Hiện không có khiếu nại nào ở trạng thái này. Bạn có thể bấm "Tất cả" để xem toàn bộ danh sách.`}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -264,18 +302,18 @@ export default function FarmerDisputes() {
                     setSelectedDispute(item)
                     setShopResponseText(item.shopResponse || '')
                   }}
-                  className="p-4 sm:p-5 rounded-2xl border border-stone-200/80 hover:border-[#326318]/50 bg-white hover:bg-[#fafcf9] transition-all cursor-pointer group flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="p-3.5 sm:p-4 rounded-lg border border-stone-200/80 hover:border-[#326318]/50 bg-white hover:bg-[#fafcf9] transition-all cursor-pointer group flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   {/* Trái: Thông tin sản phẩm & đơn hàng */}
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
                     <img
                       src={item.productImage || '/images/default-produce.png'}
                       alt={item.productName || 'Nông sản'}
-                      className="w-16 h-16 rounded-xl object-cover border border-stone-200 shrink-0 bg-white"
+                      className="w-14 h-14 rounded-lg object-cover border border-stone-200 shrink-0 bg-white"
                     />
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-bold text-stone-500">
+                        <span className="text-xs font-bold text-stone-600">
                           Đơn #{item.orderId}
                         </span>
                         <span className="text-stone-300">•</span>
@@ -319,7 +357,7 @@ export default function FarmerDisputes() {
                           <img
                             key={i}
                             src={url}
-                            alt="Evidence"
+                            alt="Bằng chứng khiếu nại"
                             className="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-xs"
                           />
                         ))}
@@ -361,26 +399,26 @@ export default function FarmerDisputes() {
             }
           }}
         >
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp relative">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp relative">
             {/* Nút đóng */}
             <button
               type="button"
               onClick={() => setSelectedDispute(null)}
               disabled={respondMutation.isPending}
               aria-label="Đóng"
-              className="absolute right-4 top-4 p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer z-10"
+              className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer z-10"
             >
               <X size={18} />
             </button>
 
             {/* Header Modal */}
-            <div className="p-6 border-b border-stone-100 flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
-                <RotateCcw size={24} />
+            <div className="p-5 sm:p-6 border-b border-stone-100 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                <RotateCcw size={20} />
               </div>
               <div className="pr-6">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-lg font-black text-[#1c2216]">
+                  <h3 className="text-base sm:text-lg font-black text-[#1c2216]">
                     Chi tiết yêu cầu hoàn hàng #{selectedDispute.id}
                   </h3>
                   {(() => {
@@ -399,14 +437,14 @@ export default function FarmerDisputes() {
             </div>
 
             {/* Nội dung scrollable */}
-            <div className="p-6 space-y-5 overflow-y-auto flex-1 text-left">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-left">
               {/* Thẻ sản phẩm & Số tiền */}
-              <div className="p-4 rounded-2xl bg-[#fafcf9] border border-[#e3ebdc] flex items-center justify-between gap-4">
+              <div className="p-3.5 rounded-lg bg-[#fafcf9] border border-[#e3ebdc] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <img
                     src={selectedDispute.productImage || '/images/default-produce.png'}
                     alt={selectedDispute.productName || 'Sản phẩm'}
-                    className="w-14 h-14 rounded-xl object-cover border border-[#d6e0cc] bg-white shrink-0"
+                    className="w-12 h-12 rounded-lg object-cover border border-[#d6e0cc] bg-white shrink-0"
                   />
                   <div>
                     <h4 className="text-xs font-bold text-[#1c2216]">
@@ -423,7 +461,7 @@ export default function FarmerDisputes() {
 
                 <div className="text-right shrink-0">
                   <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Số tiền hoàn</span>
-                  <span className="text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
+                  <span className="text-base sm:text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
                     {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                   </span>
                 </div>
@@ -431,7 +469,7 @@ export default function FarmerDisputes() {
 
               {/* Thông tin khách hàng & Lý do khiếu nại */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+                <div className="p-3.5 rounded-lg bg-stone-50 border border-stone-200 space-y-1.5">
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
                     Thông tin người mua
                   </span>
@@ -450,7 +488,7 @@ export default function FarmerDisputes() {
                   )}
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+                <div className="p-3.5 rounded-lg bg-stone-50 border border-stone-200 space-y-1.5">
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
                     Lý do khách gửi yêu cầu
                   </span>
@@ -487,7 +525,7 @@ export default function FarmerDisputes() {
                           <div
                             key={idx}
                             onClick={() => setActiveMediaUrl(url)}
-                            className="relative group rounded-xl overflow-hidden border border-stone-200 aspect-square bg-stone-100 cursor-pointer"
+                            className="relative group rounded-lg overflow-hidden border border-stone-200 aspect-square bg-stone-100 cursor-pointer"
                           >
                             {isVideo ? (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-stone-900 text-white p-2">
@@ -497,7 +535,7 @@ export default function FarmerDisputes() {
                             ) : (
                               <img
                                 src={url}
-                                alt="Evidence"
+                                alt="Bằng chứng khiếu nại"
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               />
                             )}
@@ -514,7 +552,7 @@ export default function FarmerDisputes() {
 
               {/* Phản hồi từ Admin nếu có */}
               {selectedDispute.adminRemark && (
-                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1.5">
+                <div className="p-3.5 rounded-lg bg-indigo-50/70 border border-indigo-200 text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-indigo-900">Phán quyết từ Quản trị viên (Admin):</span>
                     {(selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'ADMIN_APPROVED') && (
@@ -530,7 +568,7 @@ export default function FarmerDisputes() {
 
               {/* Lựa chọn phương thức thanh toán cước hoàn (Shop chịu 100%) */}
               {(selectedDispute.status === 'PENDING' || selectedDispute.status === 'ADMIN_APPROVED') && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+                <div className="p-3.5 rounded-lg bg-emerald-50/70 border border-emerald-200 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-emerald-950">
                       Phí ship hoàn trả hàng: <span className="text-emerald-700">Shop chịu 100% (~20.000 đ)</span>
@@ -543,7 +581,7 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('WALLET')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'WALLET'
+                      className={`p-2.5 rounded-lg border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'WALLET'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
                         }`}
@@ -554,7 +592,7 @@ export default function FarmerDisputes() {
                     <button
                       type="button"
                       onClick={() => setShippingPaymentMethod('COD')}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'COD'
+                      className={`p-2.5 rounded-lg border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'COD'
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                           : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
                         }`}
@@ -568,7 +606,7 @@ export default function FarmerDisputes() {
 
               {/* Hướng dẫn khi Admin đã phê duyệt */}
               {selectedDispute.status === 'ADMIN_APPROVED' && (
-                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 space-y-2">
+                <div className="p-3.5 rounded-lg bg-indigo-50 border border-indigo-200 space-y-2">
                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
                     <Gavel size={16} className="text-indigo-600 shrink-0" />
                     <span>Admin đã phê duyệt khiếu nại của khách hàng</span>
@@ -592,19 +630,19 @@ export default function FarmerDisputes() {
                     value={shopResponseText}
                     onChange={(e) => setShopResponseText(e.target.value)}
                     placeholder="Nhập ghi chú phản hồi cho khách hàng hoặc lý do nếu từ chối..."
-                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#326318] focus:ring-2 focus:ring-[#326318]/20 transition-all"
+                    className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:bg-white focus:border-[#326318] focus:ring-2 focus:ring-[#326318]/20 transition-all"
                   />
                 </div>
               )}
             </div>
 
             {/* Chân Modal: Nút hành động */}
-            <div className="p-4 sm:p-5 border-t border-stone-100 bg-[#fafcf9] flex flex-wrap items-center justify-end gap-2.5">
+            <div className="p-3.5 sm:p-4 border-t border-stone-100 bg-[#fafcf9] flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedDispute(null)}
                 disabled={respondMutation.isPending}
-                className="py-2.5 px-4 rounded-xl border border-stone-200 text-stone-700 hover:bg-white text-xs font-bold transition-all cursor-pointer"
+                className="py-2 px-3.5 rounded-lg border border-stone-200 text-stone-700 hover:bg-white text-xs font-bold transition-all cursor-pointer"
               >
                 Đóng
               </button>
@@ -616,7 +654,7 @@ export default function FarmerDisputes() {
                     type="button"
                     onClick={() => handleRespond(false)}
                     disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="py-2 px-3.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     <XCircle size={15} />
                     <span>Từ chối (Khiếu nại Admin)</span>
@@ -627,7 +665,7 @@ export default function FarmerDisputes() {
                     type="button"
                     onClick={() => handleRespond(true, false)}
                     disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="py-2 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     <DollarSign size={15} />
                     <span>Hoàn tiền (Không lấy lại hàng)</span>
@@ -638,7 +676,7 @@ export default function FarmerDisputes() {
                     type="button"
                     onClick={() => handleRespond(true, true)}
                     disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="py-2 px-3.5 rounded-lg bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     {respondMutation.isPending ? (
                       <Loader2 size={15} className="animate-spin" />
@@ -657,7 +695,7 @@ export default function FarmerDisputes() {
                     type="button"
                     onClick={() => handleRespond(true, false)}
                     disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="py-2 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     <DollarSign size={15} />
                     <span>Hoàn tiền ngay (Không lấy hàng)</span>
@@ -668,7 +706,7 @@ export default function FarmerDisputes() {
                     type="button"
                     onClick={() => handleRespond(true, true)}
                     disabled={respondMutation.isPending}
-                    className="py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    className="py-2 px-3.5 rounded-lg bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                   >
                     {respondMutation.isPending ? (
                       <Loader2 size={15} className="animate-spin" />

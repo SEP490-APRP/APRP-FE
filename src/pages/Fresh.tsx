@@ -109,7 +109,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
           image,
           category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
           farm: p.shop?.shopName || 'Nhà vườn CapNong',
-          region: 'Đà Lạt',
+          region: p.origin || p.shop?.address || 'Đà Lạt (Lâm Đồng)',
           flaw: 'Ngoại hình tự nhiên',
           score: 96,
           stock: p.stockQuantity ?? p.stock ?? 100,
@@ -129,6 +129,11 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
             p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
             filters.category.toLowerCase().includes(p.category.toLowerCase()),
         )
+      }
+
+      if (filters.region && filters.region !== 'all') {
+        const rLower = filters.region.toLowerCase()
+        filtered = filtered.filter((p) => p.region.toLowerCase().includes(rLower))
       }
 
       filtered = filtered.filter((p) => p.price >= min && p.price <= max)

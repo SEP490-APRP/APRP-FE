@@ -37,6 +37,7 @@ import {
 import freshFarmerBanner from '@/assets/fresh-farmer-banner.jpg'
 import comboGreenImg from '@/assets/combo-green.jpg'
 import comboMysteryImg from '@/assets/combo-mystery.jpg'
+import { formatMealType } from '@/services/combo.types'
 import { useAddToCart } from '@/features/cart'
 import { CustomSelect } from '@/components/common/CustomSelect'
 
@@ -1213,7 +1214,7 @@ const ShopProducts: React.FC<ShopProductsProps> = ({
                             />
                             <div className="absolute top-3 left-3 bg-leaf-700/90 backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider shadow-xs">
                               <Layers className="size-3 text-leaf-200" />
-                              <span>{combo.type || 'Combo nông sản'}</span>
+                              <span>{formatMealType(combo.type || (combo as any).mealType)}</span>
                             </div>
                             {isOutOfStock ? (
                               <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">

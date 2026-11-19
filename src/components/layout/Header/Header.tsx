@@ -28,8 +28,9 @@ import {
 } from 'lucide-react'
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import type { AuthUser } from '@/types'
-import { useAuth, useChatStore, useNotificationStore } from '@/stores'
+import { useAuth, useChatStore, useNotificationStore, useUiStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
+import CartDropdown from './CartDropdown'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
 import { ImageSearchModal } from '@/components/common/ImageSearchModal'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
@@ -74,6 +75,7 @@ export default function Header({
 
   const { token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+  const { cartOpen, openCart, closeCart } = useUiStore()
 
   const totalAlerts = (unreadCount || 0) + (unreadTotal || 0)
   const [isBellRinging, setIsBellRinging] = useState(false)
@@ -298,16 +300,29 @@ export default function Header({
             </a>
           )}
 
-          {/* Cart Trigger (Chỉ dành cho khách mua) */}
+          {/* Cart Trigger & Popover Dropdown (Chỉ dành cho khách mua) */}
           {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
-            <button
-              className="icon-button cart-trigger"
-              aria-label={`Giỏ hàng, ${count} sản phẩm`}
-              onClick={onCart}
-            >
-              <ShoppingBasket />
-              {count > 0 && <span>{count}</span>}
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                className="icon-button cart-trigger relative"
+                aria-label={`Giỏ hàng, ${count} sản phẩm`}
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setAccountMenuOpen(false)
+                  setNotifOpen(false)
+                  if (cartOpen) {
+                    closeCart()
+                  } else {
+                    openCart()
+                  }
+                }}
+              >
+                <ShoppingBasket />
+                {count > 0 && <span>{count}</span>}
+              </button>
+              <CartDropdown isOpen={cartOpen} onClose={closeCart} />
+            </div>
           )}
 
           {/* Notification Trigger & Popover */}
