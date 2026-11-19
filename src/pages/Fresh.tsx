@@ -115,7 +115,6 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     if (!apiProducts || apiProducts.length === 0) {
       return []
     }
-    }
 
     let filtered = apiProducts.map((p) => {
       const price = p.sellingPrice ?? p.price ?? 0
