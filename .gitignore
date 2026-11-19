@@ -33,3 +33,6 @@ dist-ssr
 
 # Ghi chu rieng cho Claude Code, khong dua len git
 CLAUDE.md
+
+# File tam cua o dia ao (FUSE), khong dua len git
+.fuse_hidden*

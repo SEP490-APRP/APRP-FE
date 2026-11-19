@@ -5,16 +5,20 @@ import {
   CalendarClock,
   Camera,
   CheckCircle2,
+  ClipboardList,
   Clock,
   Flame,
   HandCoins,
   ImagePlus,
+  Lightbulb,
   Loader2,
   MapPin,
+  Megaphone,
   Navigation,
   Package,
   ShieldCheck,
   Sprout,
+  Users,
   X,
   XCircle,
 } from 'lucide-react'
@@ -30,14 +34,15 @@ import { formatKg, formatVnd, timeLeftLabel } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
 import CampaignProposals from './CampaignProposals'
+import { campaignProposalService } from '@/services/campaignProposal.service'
 
 const FARMER_KEEP_RATE = 0.9 // nhà vườn nhận 90% sau phí dịch vụ 10% (khớp capnong.wallet.farmer-fee-rate)
 
 // 3 mức bảo quản, số ngày tính từ NGÀY CHỐT chiến dịch (vd chốt ngày 20: mức 1 tươi tới 22–23, mức 2 tới 23–24, mức 3 tới 25–26)
 export const SHELF_LIFE: { id: ShelfLifeTier; level: number; min: number; max: number; label: string; hint: string; tone: string }[] = [
-  { id: 'DAYS_2_3', level: 1, min: 2, max: 3, label: 'Mức 1 · 2 – 3 ngày', hint: 'Rau ăn lá, quả chín mềm: dễ dập héo, giao gấp', tone: 'text-[#b3261e] bg-[#fdecea]' },
-  { id: 'DAYS_3_4', level: 2, min: 3, max: 4, label: 'Mức 2 · 3 – 4 ngày', hint: 'Cà chua, dưa leo, bắp: giữ được vài ngày ở nơi mát', tone: 'text-[#8a5a00] bg-[#fff3d6]' },
-  { id: 'DAYS_5_6', level: 3, min: 5, max: 6, label: 'Mức 3 · 5 – 6 ngày', hint: 'Củ, quả vỏ dày (bí, khoai, dưa hấu): bảo quản lâu', tone: 'text-[#2b5619] bg-[#e7f3de]' },
+  { id: 'DAYS_2_3', level: 1, min: 2, max: 3, label: '2 – 3 ngày', hint: 'Rau ăn lá, quả chín mềm: dễ dập héo, giao gấp', tone: 'text-[#b3261e] bg-[#fdecea]' },
+  { id: 'DAYS_3_4', level: 2, min: 3, max: 4, label: '3 – 4 ngày', hint: 'Cà chua, dưa leo, bắp: giữ được vài ngày ở nơi mát', tone: 'text-[#8a5a00] bg-[#fff3d6]' },
+  { id: 'DAYS_5_6', level: 3, min: 5, max: 6, label: '5 – 6 ngày', hint: 'Củ, quả vỏ dày (bí, khoai, dưa hấu): bảo quản lâu', tone: 'text-[#2b5619] bg-[#e7f3de]' },
 ]
 const SHELF_MAX_DAYS: Record<ShelfLifeTier, number> = { DAYS_2_3: 3, DAYS_3_4: 4, DAYS_5_6: 6 } // khớp ShelfLifeTier.maxDays ở BE
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return localIsoDate(d) }
@@ -57,6 +62,9 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
   const [registering, setRegistering] = useState<CampaignResponse | null>(null)
   const calls = useQuery({ queryKey: keys.calls, queryFn: () => campaignService.getOpenFarmCalls(), retry: 1 })
   const mine = useQuery({ queryKey: keys.mine, queryFn: () => campaignService.getMyRegistrations(), retry: 1 })
+  // Lời mời cùng đề xuất chiến dịch từ shop lân cận (cùng key với tab Đề xuất để làm mới cùng lúc)
+  const invites = useQuery({ queryKey: ['campaign-proposals', 'invites'], queryFn: () => campaignProposalService.getInvites(), retry: 1 })
+  const pendingInvites = (invites.data ?? []).filter((p) => p.myInvite?.status === 'PENDING')
   // Một shop có thể góp nhiều lô vào cùng chiến dịch
   const myByCampaign = useMemo(() => {
     const m = new Map<number, FarmRegistrationResponse[]>()
@@ -66,36 +74,69 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col gap-4 border-b border-[#f1f4ed] pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="flex items-center gap-2 text-2xl font-black text-[#1c2216]">
-            <Flame size={22} className="text-[#e8590c]" /> Chiến dịch giải cứu
-          </h3>
-          <p className="text-xs text-[#7e8779]">
-            Góp lô hàng dư vào chiến dịch của CapNong. Khi được duyệt, bạn mang hàng tới điểm gom để cân và nhận tiền theo
-            giá đã chốt.
-          </p>
-        </div>
-        <div className="inline-flex flex-wrap rounded-full bg-[#f4f7f1] p-1 text-xs font-bold">
-          {(
-            [
-              ['calls', 'Đang kêu gọi', calls.data?.length],
-              ['mine', 'Đăng ký của tôi', mine.data?.length],
-              ['propose', 'Đề xuất chiến dịch', undefined],
-            ] as const
-          ).map(([id, label, n]) => (
+      <div>
+        <h3 className="flex items-center gap-2 text-2xl font-black text-[#1c2216]">
+          <Flame size={22} className="text-[#e8590c]" /> Chiến dịch giải cứu
+        </h3>
+        <p className="mt-1 text-sm text-[#5d6657]">Chọn việc bạn muốn làm:</p>
+      </div>
+
+      {/* 3 việc khác nhau: mỗi thẻ có biểu tượng, tên và một dòng giải thích để shop phân biệt */}
+      <div role="tablist" aria-label="Chiến dịch giải cứu" className="grid gap-3 sm:grid-cols-3">
+        {(
+          [
+            { id: 'calls', icon: Megaphone, title: 'Đang kêu gọi', desc: 'Chiến dịch CapNong đang cần hàng, đăng ký góp lô', n: calls.data?.length ?? 0, alert: 0 },
+            { id: 'mine', icon: ClipboardList, title: 'Đăng ký của tôi', desc: 'Lô hàng bạn đã góp: duyệt, cân hàng, chi trả', n: mine.data?.length ?? 0, alert: 0 },
+            { id: 'propose', icon: Lightbulb, title: 'Đề xuất chiến dịch', desc: 'Tự đề xuất mở chiến dịch, rủ shop lân cận', n: null, alert: pendingInvites.length },
+          ] as const
+        ).map(({ id, icon: Icon, title, desc, n, alert }) => {
+          const on = view === id
+          return (
             <button
               key={id}
               type="button"
+              role="tab"
+              aria-selected={on}
               onClick={() => setView(id)}
-              className={`rounded-full px-4 py-2 transition ${view === id ? 'bg-[#326318] text-white shadow' : 'text-[#326318]'}`}
+              className={`relative flex items-start gap-3 rounded-2xl border-2 p-4 text-left transition ${on ? 'border-[#326318] bg-[#f1f7ec] shadow-sm' : 'border-[#e8ece3] bg-white hover:border-[#b9d6a3] hover:bg-[#fafcf8]'}`}
             >
-              {label}
-              {n != null && <span className="ml-1.5 opacity-75">{n}</span>}
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${on ? 'bg-[#326318] text-white' : 'bg-[#f1f5ec] text-[#4a7c2f]'}`}>
+                <Icon size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className={`text-sm font-black ${on ? 'text-[#1f3d0f]' : 'text-[#1c2216]'}`}>{title}</span>
+                  {n != null && <span className="rounded-full bg-[#e7efe0] px-2 py-0.5 text-[11px] font-bold text-[#3c6224]">{n}</span>}
+                </span>
+                <span className="mt-0.5 block text-xs leading-snug text-[#6b7465]">{desc}</span>
+              </span>
+              {alert > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e8590c] px-1.5 text-[11px] font-black text-white shadow" aria-label={`${alert} lời mời mới`}>
+                  {alert}
+                </span>
+              )}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
+
+      {view !== 'propose' && pendingInvites.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setView('propose')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e8590c] text-white"><Users size={18} /></span>
+          <span className="min-w-0 flex-1 text-sm text-amber-900">
+            <b>Bạn có {pendingInvites.length} lời mời cùng đề xuất chiến dịch</b>
+            <span className="block text-xs">
+              {pendingInvites[0].initiatorShopName} rủ bạn góp hàng giải cứu {pendingInvites[0].productName}
+              {pendingInvites.length > 1 ? ` và ${pendingInvites.length - 1} lời mời khác` : ''}. Bấm để xem chi tiết và trả lời.
+            </span>
+          </span>
+          <span className="shrink-0 rounded-full bg-[#326318] px-3 py-1.5 text-xs font-bold text-white">Xem lời mời</span>
+        </button>
+      )}
 
       {view === 'propose' ? (
         <CampaignProposals onInfo={onInfo} />
@@ -168,7 +209,7 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3d6] px-2.5 py-0.5 text-[11px] font-extrabold text-[#8a5a00]">
-                <Clock size={12} /> {timeLeftLabel(c.cutoffAt)}
+                <Clock size={12} /> {timeLeftLabel(c.farmCutoffAt ?? c.cutoffAt)}
               </span>
             )}
           </div>
@@ -195,7 +236,7 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
         <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
           <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
           <BigStat label="Còn cần gom" value={formatKg(remaining)} unit={`/ ${formatKg(c.targetVolumeKg)}`} />
-          <BigStat label="Hạn đăng ký" value={fmtDate(c.cutoffAt)} />
+          <BigStat label="Hạn góp hàng" value={fmtDate(c.farmCutoffAt ?? c.cutoffAt)} />
         </dl>
       )}
 
@@ -302,10 +343,14 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
   const deliveryDate = topUp && (!baseDelivery || baseDelivery < tomorrow) ? tomorrow : baseDelivery
   const priceDiff = c.rescuePricePerKg > 0 && priceNum > 0 ? (priceNum - c.rescuePricePerKg) / c.rescuePricePerKg : 0
 
-  // Mốc tính bảo quản = ngày chốt (lô bổ sung thu hoạch sau ngày chốt thì tính từ ngày thu hoạch)
+  // Ngày thu hoạch phải trước ngày bắt đầu chiến dịch (chiến dịch cũ chưa có ngày bắt đầu: không sau ngày chốt)
+  // Mốc tính bảo quản = ngày kết thúc chiến dịch (lô bổ sung thu hoạch sau mốc đó thì tính từ ngày thu hoạch)
   const cutoffDate = localIsoDate(new Date(c.cutoffAt))
-  const harvestMax = topUp ? addDays(today, 2) : cutoffDate
-  const anchor = harvestDate && harvestDate > cutoffDate ? harvestDate : cutoffDate
+  const startDate = c.startDate ? c.startDate.slice(0, 10) : null
+  const endDate = c.endDate ? c.endDate.slice(0, 10) : null
+  const harvestMax = topUp ? addDays(today, 2) : startDate ? addDays(startDate, -1) : cutoffDate
+  const baseAnchor = endDate ?? cutoffDate
+  const anchor = harvestDate && harvestDate > baseAnchor ? harvestDate : baseAnchor
   const freshUntil = (t: ShelfLifeTier) => addDays(anchor, SHELF_MAX_DAYS[t])
   const errors = {
     product: !productName.trim() ? 'Nhập tên sản phẩm' : null,
@@ -313,13 +358,14 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
     harvest: !harvestDate
       ? 'Chọn ngày thu hoạch'
       : harvestDate > harvestMax
-        ? topUp ? `Lô bổ sung thu hoạch chậm nhất ${fmtDate(harvestMax)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(harvestMax)}`
+        ? topUp ? `Lô bổ sung thu hoạch chậm nhất ${fmtDate(harvestMax)}`
+          : startDate ? `Ngày thu hoạch phải trước ngày bắt đầu chiến dịch ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(harvestMax)}`
         : null,
     images: images.length === 0 ? 'Thêm ít nhất 1 ảnh lô hàng' : null,
     shelf: !shelf
       ? 'Chọn thời gian bảo quản'
       : deliveryDate && deliveryDate > freshUntil(shelf)
-        ? `${shelfLabel(shelf)} chỉ giữ tươi tới ${fmtDate(freshUntil(shelf))}, nhưng ngày giao là ${fmtDate(deliveryDate)}. Chọn mức bảo quản cao hơn.`
+        ? `${shelfLabel(shelf)} chỉ giữ tươi tới ${fmtDate(freshUntil(shelf))}, nhưng ngày giao là ${fmtDate(deliveryDate)}. Chọn độ bền dài hơn.`
         : null,
     price: !(priceNum > 0) ? 'Nhập giá đề xuất' : null,
     commit: !committed ? 'Bạn cần tick cam kết' : null,
@@ -451,7 +497,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   <input
                     type="number"
                     min={1}
-                    step="0.5"
+                    step="any"
                     inputMode="decimal"
                     value={kg}
                     onChange={(e) => setKg(e.target.value)}
@@ -472,21 +518,32 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
                 />
                 <span className="mt-1 block text-[11px] font-medium text-[#7e8779]">
-                  Ngày nào cũng được, chậm nhất {fmtDate(harvestMax)}{topUp ? '' : ' (ngày chốt)'}
+                  Chậm nhất {fmtDate(harvestMax)}{topUp ? '' : startDate ? ` (trước ngày bắt đầu ${fmtDate(startDate)})` : ' (ngày chốt)'}
                 </span>
                 {err('harvest')}
               </label>
             </div>
 
             {/* Mốc thời gian để shop chọn ngày thu hoạch phù hợp */}
-            <ol className="mt-4 grid gap-2 rounded-2xl border border-[#e3ecd9] bg-[#f6faf2] p-3.5 text-xs sm:grid-cols-3">
+            <ol className="mt-4 grid gap-x-2 gap-y-3 rounded-2xl border border-[#e3ecd9] bg-[#f6faf2] p-3.5 text-xs sm:grid-cols-2">
               <li className="flex gap-2">
                 <CalendarClock size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
                 <span>
-                  <span className="block font-bold text-[#1c2216]">Hạn đăng ký</span>
-                  <span className="text-[#5d6657]">{fmtDate(c.cutoffAt)}</span>
+                  <span className="block font-bold text-[#1c2216]">Hạn góp hàng</span>
+                  <span className="text-[#5d6657]">{fmtDate(c.farmCutoffAt ?? c.cutoffAt)}</span>
                 </span>
               </li>
+              {(startDate || endDate) && (
+                <li className="flex gap-2">
+                  <CalendarClock size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+                  <span>
+                    <span className="block font-bold text-[#1c2216]">Chiến dịch diễn ra</span>
+                    <span className="text-[#5d6657]">
+                      {startDate && `Từ ${fmtDate(startDate)}`}{startDate && endDate ? ' ' : ''}{endDate && `đến ${fmtDate(endDate)}`}
+                    </span>
+                  </span>
+                </li>
+              )}
               <li className="flex gap-2">
                 <MapPin size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
                 <span>
@@ -505,7 +562,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
               </li>
             </ol>
             <p className="mt-2 text-[11px] leading-relaxed text-[#7e8779]">
-              Ngày thu hoạch không được sau ngày chốt {fmtDate(cutoffDate)}. Mức bảo quản ở bước 4 tính từ ngày chốt, và hàng phải còn tươi
+              {startDate ? `Ngày thu hoạch phải trước ngày bắt đầu chiến dịch ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(cutoffDate)}`}. Độ bền ở bước 4 tính từ ngày kết thúc chiến dịch{endDate ? ` ${fmtDate(endDate)}` : ''}, và hàng phải còn tươi
               tới ngày giao{deliveryDate ? ` ${fmtDate(deliveryDate)}` : ''}.
             </p>
           </Step>
@@ -543,7 +600,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
           </Step>
 
           {/* 4. Bảo quản */}
-          <Step n={4} title="Mức bảo quản (tính từ ngày chốt)" icon={Clock} hint={`Ngày chốt ${fmtDate(cutoffDate)}: chọn mức hàng của bạn còn tươi tới.`}>
+          <Step n={4} title="Độ bền sau khi kết thúc chiến dịch" icon={Clock} hint={`Chiến dịch kết thúc ${fmtDate(baseAnchor)}: tính từ ngày đó, hàng của bạn còn tươi thêm bao nhiêu ngày?`}>
             <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Thời gian bảo quản">
               {SHELF_LIFE.map((s) => (
                 <button
@@ -577,7 +634,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   <input
                     type="number"
                     min={1}
-                    step="100"
+                    step="any"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 pr-14 text-sm font-medium"
@@ -630,13 +687,16 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
           </div>
 
           <footer className="flex flex-col gap-3 border-t border-[#eef2ea] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-[#5d6657]">
-              Sau khi gửi, CapNong sẽ liên hệ thương lượng giá và duyệt lô hàng trước {fmtDate(c.cutoffAt)}.
-            </p>
+            <div className="min-w-0 space-y-0.5 text-xs leading-relaxed text-[#5d6657]">
+              <p className="flex items-center gap-1.5 font-bold text-[#1c2216]">
+                <CalendarClock size={14} className="shrink-0 text-[#4a7c2f]" /> Hạn góp hàng: {fmtDate(c.farmCutoffAt ?? c.cutoffAt)}
+              </p>
+              <p>CapNong sẽ liên hệ thương lượng giá và duyệt lô hàng trước {fmtDate(c.cutoffAt)}.</p>
+            </div>
             <button
               type="submit"
               disabled={submit.isPending || uploading}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#326318] px-6 py-3 text-sm font-extrabold text-white shadow-md transition hover:bg-[#244a10] disabled:opacity-60"
+              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#326318] px-6 py-3 text-sm font-extrabold text-white shadow-md transition hover:bg-[#244a10] disabled:opacity-60"
             >
               {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
               Gửi đăng ký
@@ -744,7 +804,7 @@ function RegistrationRow({ r }: { r: FarmRegistrationResponse }) {
           <Mini label="Điểm gom" value={r.collectionSiteName || '—'} />
         </dl>
         {r.reviewNote && <p className="mt-3 rounded-xl bg-[#f4f7f1] px-3 py-2 text-xs text-[#5d6657]">CapNong: {r.reviewNote}</p>}
-        {r.status !== 'REJECTED' && (
+        {r.status !== 'REJECTED' && r.status !== 'CANCELLED' && (
           <ol className="mt-4 flex items-center gap-2 text-[11px] font-bold">
             {steps.map((s, i) => (
               <li key={s.label} className="flex flex-1 items-center gap-2">
@@ -791,6 +851,7 @@ function StatusChip({ status }: { status: FarmRegistrationResponse['status'] }) 
     PENDING: { t: 'Chờ duyệt & thương lượng giá', c: 'bg-[#fff3d6] text-[#8a5a00]', I: Clock },
     APPROVED: { t: 'Đã duyệt', c: 'bg-[#e7f3de] text-[#2b5619]', I: CheckCircle2 },
     REJECTED: { t: 'Bị từ chối', c: 'bg-[#fdecea] text-[#b3261e]', I: XCircle },
+    CANCELLED: { t: 'Chiến dịch đã huỷ', c: 'bg-gray-100 text-gray-600', I: XCircle },
   }[status]
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${map.c}`}>

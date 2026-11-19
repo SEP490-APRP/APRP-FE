@@ -106,7 +106,7 @@ function ClaimCard({ c, campaignId, onNotice }: { c: DamageClaim; campaignId: nu
           <div className="grid gap-2 sm:grid-cols-[140px_1fr]">
             <label className="text-xs font-bold text-gray-700">
               Kg chấp nhận
-              <input type="number" step="0.1" min={0.1} max={c.claimedKg} value={kg} onChange={(e) => setKg(e.target.value)}
+              <input type="number" step="any" min={0.1} max={c.claimedKg} value={kg} onChange={(e) => setKg(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
             </label>
             <label className="text-xs font-bold text-gray-700">

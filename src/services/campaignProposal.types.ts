@@ -38,6 +38,9 @@ export interface CampaignProposal {
   story?: string | null
   harvestFrom?: string | null
   harvestTo?: string | null
+  /** Ngày shop đề xuất mở bán / kết thúc chiến dịch */
+  proposedOpenDate?: string | null
+  proposedCloseDate?: string | null
   shelfLifeTier?: ShelfLifeTier | null
   desiredPricePerKg?: number | null
   marketPricePerKg?: number | null
@@ -70,6 +73,8 @@ export interface CampaignProposalRequest {
   estimatedKg?: number | null
   harvestFrom?: string | null
   harvestTo?: string | null
+  proposedOpenDate?: string | null
+  proposedCloseDate?: string | null
   shelfLifeTier?: ShelfLifeTier | null
   desiredPricePerKg?: number | null
   marketPricePerKg?: number | null

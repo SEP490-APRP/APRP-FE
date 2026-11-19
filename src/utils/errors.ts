@@ -80,6 +80,12 @@ const ENGLISH_MESSAGE_TRANSLATIONS: Record<string, string> = {
     'Vui lòng nhập lý do từ chối',
 }
 
+const VIETNAMESE_CHARS = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i
+/** Câu có từ tiếng Anh và không có dấu tiếng Việt */
+function looksEnglish(msg: string): boolean {
+  return !VIETNAMESE_CHARS.test(msg) && /(the|is|not|error|failed|found|invalid|required|cannot|must|exception|request|timeout|unauthorized|forbidden)/i.test(msg)
+}
+
 export function getErrorMessage(
   error: unknown,
   fallback = 'Đã có lỗi xảy ra. Vui lòng thử lại.',
@@ -122,6 +128,10 @@ export function getErrorMessage(
       }
 
       if (rawMsg.includes('Failed to fetch') || rawMsg.includes('Network Error')) {
+        return fallback
+      }
+      // Web chỉ hiện tiếng Việt: câu tiếng Anh chưa dịch (lỗi hệ thống, thư viện) -> dùng câu dự phòng tiếng Việt
+      if (looksEnglish(rawMsg)) {
         return fallback
       }
       return rawMsg

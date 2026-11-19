@@ -80,7 +80,7 @@ export function DamageClaimDialog({ p, onClose, onDone }: { p: PreOrderResponse;
             <input
               type="number"
               inputMode="decimal"
-              step="0.1"
+              step="any"
               min={0.1}
               value={kg}
               onChange={(e) => setKg(e.target.value)}
