@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2, Sparkles, Percent, Truck, Calculator, AlertTriangle, Info } from 'lucide-react'
+import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2, Sparkles, Percent, Truck, Calculator, AlertTriangle, Info, Search, Ticket } from 'lucide-react'
 import {
   voucherService,
   type VoucherResponse,
@@ -18,6 +18,8 @@ interface VouchersProps {
   onInfo?: (msg: string) => void
 }
 
+type VoucherStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
+
 export default function Vouchers({ onInfo }: VouchersProps) {
   const [vouchers, setVouchers] = useState<VoucherResponse[]>([])
   const [loading, setLoading] = useState(false)
@@ -26,6 +28,10 @@ export default function Vouchers({ onInfo }: VouchersProps) {
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<VoucherStatusFilter>('ALL')
 
   // Form State
   const [voucherCode, setVoucherCode] = useState('')
@@ -80,6 +86,46 @@ export default function Vouchers({ onInfo }: VouchersProps) {
       status,
     }
   }, [minOrderValue, voucherType, discountValue, maxDiscount])
+
+  // Thống kê nhanh chỉ số Voucher
+  const counts = useMemo(() => {
+    const now = new Date()
+    let active = 0
+    let inactive = 0
+    let expired = 0
+    let totalUsed = 0
+
+    vouchers.forEach((vc) => {
+      const isExpired = Boolean(vc.expiryDate && new Date(vc.expiryDate) < now)
+      const isActive = vc.active !== false && !isExpired
+      if (isExpired) expired++
+      else if (isActive) active++
+      else inactive++
+      totalUsed += vc.usedCount || 0
+    })
+
+    return { total: vouchers.length, active, inactive, expired, totalUsed }
+  }, [vouchers])
+
+  // Danh sách voucher sau khi lọc & tìm kiếm
+  const filteredVouchers = useMemo(() => {
+    const now = new Date()
+    return vouchers.filter((vc) => {
+      const isExpired = Boolean(vc.expiryDate && new Date(vc.expiryDate) < now)
+      const isActive = vc.active !== false && !isExpired
+
+      if (statusFilter === 'ACTIVE' && !isActive) return false
+      if (statusFilter === 'INACTIVE' && (vc.active !== false || isExpired)) return false
+      if (statusFilter === 'EXPIRED' && !isExpired) return false
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const codeMatch = vc.voucherCode.toLowerCase().includes(q)
+        return codeMatch
+      }
+      return true
+    })
+  }, [vouchers, statusFilter, searchQuery])
 
 
   const loadVouchers = async () => {
@@ -184,10 +230,11 @@ export default function Vouchers({ onInfo }: VouchersProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
         <div>
-          <h3 className="text-2xl font-black text-[#1c2216]">
-            Mã Giảm Giá &amp; Khuyến Mãi Của Shop
+          <h3 className="text-2xl font-black text-[#1c2216] flex items-center gap-2">
+            <Ticket className="text-[#326318]" size={24} />
+            <span>Mã Giảm Giá &amp; Khuyến Mãi Của Shop</span>
           </h3>
-          <p className="text-xs text-[#7e8779]">
+          <p className="text-xs text-[#555f4d] mt-0.5">
             Tạo và quản lý các mã giảm giá dành cho khách mua nông sản tại shop của bạn
           </p>
         </div>
@@ -195,10 +242,11 @@ export default function Vouchers({ onInfo }: VouchersProps) {
         <button
           type="button"
           onClick={() => setShowCreateModal((prev) => !prev)}
-          className={`px-5 py-2.5 rounded-full font-extrabold text-xs uppercase shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all ${showCreateModal
+          className={`px-4 py-2.5 rounded-lg font-bold text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all shrink-0 ${
+            showCreateModal
               ? 'bg-stone-200 hover:bg-stone-300 text-stone-700'
               : 'bg-[#326318] hover:bg-[#254b12] text-white'
-            }`}
+          }`}
         >
           {showCreateModal ? (
             <>
@@ -214,9 +262,114 @@ export default function Vouchers({ onInfo }: VouchersProps) {
         </button>
       </div>
 
+      {/* Thống kê nhanh chỉ số Voucher */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-3.5 rounded-lg border border-[#e8ece3] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#717a6c] uppercase block">Tổng mã voucher</span>
+            <span className="text-xl font-black text-[#1c2216]">{counts.total}</span>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-stone-100 text-stone-600 flex items-center justify-center">
+            <Ticket size={18} />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-lg border border-[#e8ece3] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#717a6c] uppercase block">Đang hoạt động</span>
+            <span className="text-xl font-black text-[#326318]">{counts.active}</span>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-[#326318] flex items-center justify-center">
+            <Check size={18} />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-lg border border-[#e8ece3] shadow-xs flex items-center justify-between col-span-2 sm:col-span-1">
+          <div>
+            <span className="text-[11px] font-bold text-[#717a6c] uppercase block">Lượt khách đã dùng</span>
+            <span className="text-xl font-black text-amber-700">{counts.totalUsed}</span>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <Tag size={18} />
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar: Bộ lọc trạng thái + Tìm kiếm mã voucher */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2 rounded-lg border border-[#e8ece3] shadow-xs">
+        {/* Segmented Filter Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              statusFilter === 'ALL'
+                ? 'bg-[#326318] text-white shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+          >
+            Tất cả ({counts.total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('ACTIVE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              statusFilter === 'ACTIVE'
+                ? 'bg-[#326318] text-white shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+          >
+            Đang chạy ({counts.active})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('INACTIVE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              statusFilter === 'INACTIVE'
+                ? 'bg-[#326318] text-white shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+          >
+            Tạm dừng ({counts.inactive})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('EXPIRED')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              statusFilter === 'EXPIRED'
+                ? 'bg-[#326318] text-white shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+          >
+            Hết hạn ({counts.expired})
+          </button>
+        </div>
+
+        {/* Ô tìm kiếm */}
+        <div className="relative w-full sm:w-64 shrink-0">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm theo mã voucher..."
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-stone-200 bg-stone-50/60 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#326318] focus:border-[#326318] transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs cursor-pointer"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Main Layout: Danh sách voucher bên trái, Khung tạo voucher bên phải */}
       <div className="flex flex-col lg:flex-row items-start gap-6">
-        {/* Cột Trái: Danh sách Voucher (tự động dồn qua trái khi mở khung tạo) */}
+        {/* Cột Trái: Danh sách Voucher */}
         <div className={`w-full transition-all duration-300 ${showCreateModal ? 'lg:flex-1 min-w-0' : 'w-full'}`}>
           {loading ? (
             <CapNongLoading
@@ -225,133 +378,158 @@ export default function Vouchers({ onInfo }: VouchersProps) {
               subMessage="Kênh khuyến mãi & ưu đãi nhà vườn CapNong"
               size="md"
             />
-          ) : vouchers.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-[#e8ece3] space-y-3">
-              <Gift size={40} className="mx-auto text-stone-300" />
-              <h4 className="font-bold text-stone-700">Chưa có mã giảm giá nào</h4>
+          ) : filteredVouchers.length === 0 ? (
+            <div className="bg-white rounded-lg p-10 text-center border border-dashed border-[#e8ece3] space-y-3">
+              <Gift size={36} className="mx-auto text-stone-300" />
+              <h4 className="font-bold text-sm text-stone-700">
+                {searchQuery || statusFilter !== 'ALL' ? 'Không tìm thấy voucher phù hợp' : 'Chưa có mã giảm giá nào'}
+              </h4>
               <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                Hãy tạo voucher đầu tiên để thu hút người mua và tăng số lượng đơn hàng nông sản.
+                {searchQuery || statusFilter !== 'ALL'
+                  ? 'Thử thay đổi từ khóa tìm kiếm hoặc chuyển sang tab trạng thái khác.'
+                  : 'Hãy tạo voucher đầu tiên để thu hút người mua và tăng số lượng đơn hàng nông sản.'}
               </p>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => setShowCreateModal(true)}
-                className="mt-2 text-xs py-2 px-5 bg-[#326318] hover:bg-[#254b12] text-white rounded-full"
-              >
-                Tạo Voucher ngay
-              </Button>
+              {!(searchQuery || statusFilter !== 'ALL') && (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => setShowCreateModal(true)}
+                  className="mt-2 text-xs py-2 px-5 bg-[#326318] hover:bg-[#254b12] text-white rounded-lg"
+                >
+                  Tạo Voucher ngay
+                </Button>
+              )}
             </div>
           ) : (
-            <div className={`grid gap-4 ${showCreateModal ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-              {vouchers.map((vc) => {
+            <div className={`grid gap-3.5 ${showCreateModal ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+              {filteredVouchers.map((vc) => {
                 const isPercent = vc.voucherType === 'PERCENTAGE'
                 const discountLabel = isPercent
                   ? `Giảm ${vc.discountValue}%`
                   : vc.voucherType === 'FREE_SHIPPING'
-                    ? 'Freeship'
+                    ? 'Freeship (Miễn phí ship)'
                     : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`
 
-                const isExpired = vc.expiryDate && new Date(vc.expiryDate) < new Date()
+                const isExpired = Boolean(vc.expiryDate && new Date(vc.expiryDate) < new Date())
                 const isActive = vc.active !== false && !isExpired
+                const usedPct = vc.claimLimit ? Math.min(100, Math.round(((vc.usedCount || 0) / vc.claimLimit) * 100)) : 0
 
                 return (
                   <div
                     key={vc.voucherId}
-                    className={`bg-white rounded-3xl p-5 border transition-all flex items-start justify-between gap-3 shadow-xs ${isActive ? 'border-[#e8ece3] hover:border-[#326318]/40' : 'border-gray-200 bg-gray-50/50 opacity-70'
-                      }`}
+                    className={`bg-white rounded-lg p-4 border transition-all flex flex-col justify-between gap-3 shadow-xs relative ${
+                      isActive
+                        ? 'border-[#e8ece3] hover:border-[#326318]/40'
+                        : 'border-stone-200 bg-stone-50/60 opacity-75'
+                    }`}
                   >
-                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                      <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold shrink-0 ${isActive ? 'bg-[#326318]/10 text-[#326318]' : 'bg-gray-100 text-gray-400'
+                    {/* Top Row: Mã + Badges + Actions */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                            isActive ? 'bg-[#326318]/10 text-[#326318]' : 'bg-stone-100 text-stone-400'
                           }`}
-                      >
-                        <Gift size={24} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-base font-black text-[#1c2216] font-mono tracking-wide">
-                            {vc.voucherCode}
-                          </h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                            Voucher Shop
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                          >
-                            {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING' ? 'Freeship Shop' : 'Đơn hàng'}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-gray-200 text-gray-600'
-                              }`}
-                          >
-                            {isExpired ? 'Hết hạn' : isActive ? 'Đang bật' : 'Đã tắt'}
-                          </span>
-                          {vc.isPublic && (
-                            <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
-                              Công khai
+                        >
+                          <Gift size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-black text-[#1c2216] font-mono tracking-wide">
+                              {vc.voucherCode}
                             </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                                  ? 'bg-sky-100 text-sky-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {vc.voucherTarget === 'SHIPPING' || vc.voucherType === 'FREE_SHIPPING'
+                                ? 'Freeship Shop'
+                                : 'Đơn hàng'}
+                            </span>
+                            {!vc.isPublic && (
+                              <span className="text-[10px] font-semibold bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md border border-stone-200">
+                                Ẩn
+                              </span>
+                            )}
+                            {isExpired && (
+                              <span className="text-[10px] font-bold bg-rose-50 text-rose-700 px-2 py-0.5 rounded-md border border-rose-200">
+                                Hết hạn
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-bold text-[#8a4e1d] mt-1">
+                            {discountLabel}
+                            {vc.minOrderValue ? ` · Đơn từ ${Number(vc.minOrderValue).toLocaleString('vi-VN')}đ` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Action: Enterprise Toggle Switch */}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-2">
+                          {!vc.active && (
+                            <button
+                              type="button"
+                              disabled={deletingId === vc.voucherId}
+                              onClick={() => handleDeleteVoucher(vc.voucherId, vc.voucherCode)}
+                              title="Xóa vĩnh viễn voucher đã tạm dừng"
+                              className="p-1.5 rounded-lg transition-all cursor-pointer text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+                            >
+                              {deletingId === vc.voucherId ? (
+                                <Loader2 size={15} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={15} />
+                              )}
+                            </button>
                           )}
-                        </div>
 
-                        <div className="text-xs font-bold text-[#8a4e1d] mt-1">
-                          {discountLabel}
-                          {vc.minOrderValue ? ` (Đơn từ ${Number(vc.minOrderValue).toLocaleString('vi-VN')}đ)` : ''}
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={isActive}
+                            disabled={togglingId === vc.voucherId}
+                            onClick={() => handleToggleStatus(vc.voucherId)}
+                            title={isActive ? 'Gạt để tạm dừng voucher' : 'Gạt để kích hoạt lại voucher'}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-[#326318] focus:ring-offset-1 disabled:opacity-60 ${
+                              isActive ? 'bg-[#326318]' : 'bg-stone-300'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                                isActive ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
                         </div>
-
-                        <div className="text-[11px] text-[#869080] mt-1.5 space-y-0.5">
-                          <p>
-                            Đã dùng: <strong>{vc.usedCount || 0}</strong> / Giới hạn: {vc.claimLimit || '∞'}
-                          </p>
-                          <p>
-                            HSD:{' '}
-                            {vc.expiryDate
-                              ? new Date(vc.expiryDate).toLocaleDateString('vi-VN')
-                              : 'Vô thời hạn'}
-                          </p>
-                        </div>
+                        <span className={`text-[10px] font-bold ${isActive ? 'text-[#326318]' : 'text-stone-400'}`}>
+                          {togglingId === vc.voucherId ? 'Đang lưu...' : isActive ? 'Đang bật' : 'Tạm dừng'}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Nút xóa chỉ hiện khi voucher đã tạm dừng (!vc.active) */}
-                      {!vc.active && (
-                        <button
-                          type="button"
-                          disabled={deletingId === vc.voucherId}
-                          onClick={() => handleDeleteVoucher(vc.voucherId, vc.voucherCode)}
-                          title="Xóa vĩnh viễn voucher đã tạm dừng"
-                          className="p-2.5 rounded-2xl transition-all cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-2xs"
-                        >
-                          {deletingId === vc.voucherId ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      )}
-
-                      {/* Nút bật / tắt */}
-                      <button
-                        type="button"
-                        disabled={togglingId === vc.voucherId}
-                        onClick={() => handleToggleStatus(vc.voucherId)}
-                        title={vc.active ? 'Bấm để tắt voucher' : 'Bấm để kích hoạt voucher'}
-                        className={`p-2.5 rounded-2xl transition-all cursor-pointer ${vc.active
-                          ? 'bg-red-50 hover:bg-red-100 text-red-600'
-                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                          }`}
-                      >
-                        {togglingId === vc.voucherId ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Power size={16} />
-                        )}
-                      </button>
+                    {/* Bottom Row: Tiến độ sử dụng + HSD */}
+                    <div className="pt-2 border-t border-[#f1f4ed] space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-[#555f4d]">
+                        <span>
+                          Đã dùng: <strong>{vc.usedCount || 0}</strong> / {vc.claimLimit || '∞'}
+                        </span>
+                        <span>
+                          HSD: {vc.expiryDate ? new Date(vc.expiryDate).toLocaleDateString('vi-VN') : 'Vô thời hạn'}
+                        </span>
+                      </div>
+                      {vc.claimLimit ? (
+                        <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              usedPct >= 90 ? 'bg-rose-500' : 'bg-[#326318]'
+                            }`}
+                            style={{ width: `${usedPct}%` }}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )
@@ -360,17 +538,17 @@ export default function Vouchers({ onInfo }: VouchersProps) {
           )}
         </div>
 
-        {/* Cột Phải: Khung Tạo Voucher Mới (Hiện trực tiếp trong trang, không có popup che) */}
+        {/* Cột Phải: Khung Tạo Voucher Mới */}
         {showCreateModal && (
-          <div className="w-full lg:w-[480px] xl:w-[520px] shrink-0 bg-white rounded-3xl border border-stone-200 shadow-lg flex flex-col overflow-hidden animate-fadeIn sticky top-4">
+          <div className="w-full lg:w-[480px] xl:w-[520px] shrink-0 bg-white rounded-lg border border-stone-200 shadow-md flex flex-col overflow-hidden animate-fadeIn sticky top-4">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4.5 border-b border-stone-100 bg-[#fafcf9]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#fafcf9]">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#326318] flex items-center justify-center border border-emerald-100/80 shadow-inner">
-                  <Gift size={22} />
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 text-[#326318] flex items-center justify-center border border-emerald-100/80 shadow-inner">
+                  <Gift size={20} />
                 </div>
                 <div>
-                  <h3 id="create-voucher-title" className="font-black text-base sm:text-lg text-[#1c2216]">
+                  <h3 id="create-voucher-title" className="font-black text-base text-[#1c2216]">
                     Tạo Mã Giảm Giá Mới
                   </h3>
                   <p className="text-xs text-stone-500">
@@ -383,7 +561,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                 onClick={() => !isSubmitting && setShowCreateModal(false)}
                 disabled={isSubmitting}
                 aria-label="Đóng"
-                className="text-stone-400 hover:text-stone-700 p-2 rounded-full hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-50"
+                className="text-stone-400 hover:text-stone-700 p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <X size={18} />
               </button>
@@ -392,32 +570,29 @@ export default function Vouchers({ onInfo }: VouchersProps) {
             {/* Form Body (Scrollable) */}
             <form onSubmit={handleCreateVoucher} className="p-5 sm:p-6 overflow-y-auto space-y-5 max-h-[calc(100vh-120px)]">
               {/* 1. Thẻ xem trước Voucher trực tiếp (Live Preview Ticket) */}
-              <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-4 shadow-xs relative overflow-hidden">
-                <div className="absolute top-2 right-2 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="rounded-lg border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-4 shadow-xs relative overflow-hidden">
+                <div className="absolute top-2 right-2 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md uppercase tracking-wider">
                   Xem trước voucher
                 </div>
-                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                   <span className="font-mono text-xs font-black uppercase tracking-wider text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-200">
                     {voucherCode.trim() ? voucherCode.trim() : 'MÃ_VOUCHER'}
                   </span>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                    Voucher Shop
-                  </span>
                   {voucherType === 'FREE_SHIPPING' ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-100 text-sky-800">
                       Freeship Shop
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
                       Đơn hàng
                     </span>
                   )}
                   {isPublic ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Công khai
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200">
                       Mã riêng (ẩn)
                     </span>
                   )}
@@ -459,11 +634,11 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                 </div>
                 <div className="relative">
                   <Input
-                    placeholder="VD: GIAM20K, RAUSACH15, FREESHIP"
+                    placeholder="VD: GIAM20K, RAUSACH15, MIENPHISHIP"
                     value={voucherCode}
                     onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                     required
-                    className="uppercase font-mono font-bold text-sm h-11 tracking-wider bg-stone-50/60 border-stone-200 focus:bg-white focus:ring-2 focus:ring-[#326318]/20 focus:border-[#326318] rounded-xl"
+                    className="uppercase font-mono font-bold text-sm h-11 tracking-wider bg-stone-50/60 border-stone-200 focus:bg-white focus:ring-2 focus:ring-[#326318]/20 focus:border-[#326318] rounded-lg"
                   />
                 </div>
               </div>
@@ -473,14 +648,14 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                 <label className="block text-xs font-bold text-stone-800 mb-1.5">
                   Loại hình giảm giá <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2 p-1 bg-stone-100/80 rounded-2xl border border-stone-200/60">
+                <div className="grid grid-cols-3 gap-2 p-1 bg-stone-100/80 rounded-lg border border-stone-200/60">
                   <button
                     type="button"
                     onClick={() => {
                       setVoucherType('FIXED_AMOUNT')
                       if (discountValue > 500000) setDiscountValue(20000)
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'FIXED_AMOUNT'
+                    className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'FIXED_AMOUNT'
                         ? 'bg-white text-[#326318] shadow-sm font-black'
                         : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -494,7 +669,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       setVoucherType('PERCENTAGE')
                       if (discountValue > 100) setDiscountValue(10)
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'PERCENTAGE'
+                    className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'PERCENTAGE'
                         ? 'bg-white text-[#326318] shadow-sm font-black'
                         : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -508,13 +683,13 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       setVoucherType('FREE_SHIPPING')
                       setVoucherTarget('SHIPPING')
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'FREE_SHIPPING'
+                    className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${voucherType === 'FREE_SHIPPING'
                         ? 'bg-white text-[#326318] shadow-sm font-black'
                         : 'text-stone-600 hover:text-stone-900'
                       }`}
                   >
                     <Truck size={14} />
-                    <span>Freeship</span>
+                    <span>Miễn phí vận chuyển</span>
                   </button>
                 </div>
               </div>
@@ -529,7 +704,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                     type="button"
                     disabled={voucherType === 'FREE_SHIPPING'}
                     onClick={() => setVoucherTarget('ORDER')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-semibold text-left transition-all cursor-pointer ${voucherTarget === 'ORDER' && voucherType !== 'FREE_SHIPPING'
+                    className={`py-2.5 px-3.5 rounded-lg border text-xs font-semibold text-left transition-all cursor-pointer ${voucherTarget === 'ORDER' && voucherType !== 'FREE_SHIPPING'
                         ? 'border-[#326318] bg-[#f4f7f1] text-[#326318] font-bold ring-1 ring-[#326318]'
                         : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
                       } disabled:opacity-40 disabled:cursor-not-allowed`}
@@ -539,7 +714,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   <button
                     type="button"
                     onClick={() => setVoucherTarget('SHIPPING')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-semibold text-left transition-all cursor-pointer ${voucherTarget === 'SHIPPING' || voucherType === 'FREE_SHIPPING'
+                    className={`py-2.5 px-3.5 rounded-lg border text-xs font-semibold text-left transition-all cursor-pointer ${voucherTarget === 'SHIPPING' || voucherType === 'FREE_SHIPPING'
                         ? 'border-[#326318] bg-[#f4f7f1] text-[#326318] font-bold ring-1 ring-[#326318]'
                         : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
                       }`}
@@ -566,7 +741,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       value={discountValue || ''}
                       onChange={(e) => setDiscountValue(Number(e.target.value))}
                       required
-                      className="h-10 text-xs font-bold rounded-xl pr-12"
+                      className="h-10 text-xs font-bold rounded-lg pr-12"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
                       {voucherType === 'PERCENTAGE' ? '%' : 'đ'}
@@ -592,7 +767,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                         onChange={(e) =>
                           setMaxDiscount(e.target.value ? Number(e.target.value) : undefined)
                         }
-                        className="h-10 text-xs font-bold rounded-xl pr-12"
+                        className="h-10 text-xs font-bold rounded-lg pr-12"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
                         đ
@@ -618,7 +793,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       step="any"
                       value={minOrderValue ?? ''}
                       onChange={(e) => setMinOrderValue(Number(e.target.value))}
-                      className="h-10 text-xs font-bold rounded-xl pr-12"
+                      className="h-10 text-xs font-bold rounded-lg pr-12"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
                       đ
@@ -634,7 +809,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
 
               {/* Hộp Cảnh Báo & Dự Toán Thực Nhận Của Shop (Không tính hoa hồng sàn) */}
               <div
-                className={`p-3.5 rounded-2xl border text-xs space-y-2.5 transition-all ${shopRevenueEstimate.status === 'ZERO'
+                className={`p-3.5 rounded-lg border text-xs space-y-2.5 transition-all ${shopRevenueEstimate.status === 'ZERO'
                     ? 'bg-rose-50/80 border-rose-200 text-rose-950'
                     : shopRevenueEstimate.status === 'HIGH_DISCOUNT'
                       ? 'bg-amber-50/70 border-amber-200/80 text-amber-950'
@@ -671,7 +846,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 py-2 px-2.5 bg-white/80 rounded-xl border border-stone-200/60 text-[11px]">
+                <div className="grid grid-cols-3 gap-2 py-2 px-2.5 bg-white/80 rounded-lg border border-stone-200/60 text-[11px]">
                   <div>
                     <span className="text-stone-500 block text-[10px]">Đơn tối thiểu:</span>
                     <span className="font-bold text-stone-900 whitespace-nowrap">
@@ -749,7 +924,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                     value={claimLimit}
                     onChange={(e) => setClaimLimit(Number(e.target.value))}
                     required
-                    className="h-10 text-xs font-bold rounded-xl"
+                    className="h-10 text-xs font-bold rounded-lg"
                   />
                   <span className="text-[10px] text-stone-400 mt-0.5 block">
                     Tổng số lần voucher có thể được nhận
@@ -766,7 +941,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                     value={perUserLimit}
                     onChange={(e) => setPerUserLimit(Number(e.target.value))}
                     required
-                    className="h-10 text-xs font-bold rounded-xl"
+                    className="h-10 text-xs font-bold rounded-lg"
                   />
                   <span className="text-[10px] text-stone-400 mt-0.5 block">
                     Số lần dùng tối đa cho 1 tài khoản
@@ -822,14 +997,14 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
                   required
-                  className="h-10 text-xs font-medium rounded-xl border-stone-200"
+                  className="h-10 text-xs font-medium rounded-lg border-stone-200"
                 />
               </div>
 
               {/* 8. Tùy chọn hiển thị công khai */}
               <div
                 onClick={() => setIsPublic(!isPublic)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${isPublic
+                className={`p-3.5 rounded-lg border transition-all cursor-pointer flex items-start gap-3 ${isPublic
                     ? 'bg-emerald-50/50 border-emerald-200 ring-1 ring-emerald-300/60'
                     : 'bg-stone-50 border-stone-200'
                   }`}
@@ -859,7 +1034,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   variant="outline"
                   onClick={() => setShowCreateModal(false)}
                   disabled={isSubmitting}
-                  className="text-xs py-2.5 px-5 rounded-xl border-stone-200 text-stone-600 hover:bg-stone-50 font-bold cursor-pointer disabled:opacity-50"
+                  className="text-xs py-2.5 px-5 rounded-lg border-stone-200 text-stone-600 hover:bg-stone-50 font-bold cursor-pointer disabled:opacity-50"
                 >
                   Hủy bỏ
                 </Button>
@@ -867,7 +1042,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                   type="submit"
                   variant="primary"
                   disabled={isSubmitting}
-                  className="text-xs py-2.5 px-6 bg-[#326318] hover:bg-[#254b12] text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  className="text-xs py-2.5 px-6 bg-[#326318] hover:bg-[#254b12] text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <>

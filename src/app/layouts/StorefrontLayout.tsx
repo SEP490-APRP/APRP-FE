@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
 import { allProducts, type Cart } from '@/mocks/catalog'
-import { CartModal, useAddToCart, useMyCart } from '@/features/cart'
+import { useAddToCart, useMyCart } from '@/features/cart'
 import { useReferralClaim } from '@/features/referral'
 import { cartCount, useAuth, useCartStore, useUiStore, useChatStore } from '@/stores'
 import { authService } from '@/services'
@@ -220,8 +220,6 @@ export default function StorefrontLayout() {
           )}
         </div>
       )}
-
-      {cartOpen && <CartModal />}
 
       {info && (
         <Modal title={info} onClose={hideInfo}>

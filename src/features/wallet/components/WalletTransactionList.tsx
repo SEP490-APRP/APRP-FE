@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Clock } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ChevronDown, Clock, History } from 'lucide-react'
 import {
   formatBackendDate,
   formatVnd,
@@ -44,21 +44,33 @@ function refsOf(description?: string) {
 export function WalletTransactionList({
   items,
   isLoading,
-  emptyText = 'Chưa có giao dịch nào. Tiền sẽ về ví khi khách xác nhận đã nhận hàng.',
+  emptyText = 'Chưa có giao dịch biến động nào. Doanh thu tiền bán nông sản sẽ tự động được ghi nhận tại đây khi đơn hoàn tất.',
 }: WalletTransactionListProps) {
   const [openId, setOpenId] = useState<number | null>(null)
   if (isLoading) {
     return (
       <div className="space-y-3 py-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-12 rounded-2xl bg-[#f3f6ef] animate-pulse" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-16 rounded-2xl bg-[#f3f6ef] animate-pulse" />
         ))}
       </div>
     )
   }
+
   if (items.length === 0) {
-    return <p className="py-6 text-center text-xs text-[#858f7e]">{emptyText}</p>
+    return (
+      <div className="py-12 px-4 text-center rounded-2xl bg-[#fafbfa] border border-dashed border-[#e3e8dd]">
+        <div className="w-12 h-12 rounded-full bg-[#f0f4ec] text-[#6b7b64] flex items-center justify-center mx-auto mb-3">
+          <History size={24} />
+        </div>
+        <h5 className="text-sm font-bold text-[#2d3429]">Chưa có biến động số dư</h5>
+        <p className="text-xs text-[#788472] mt-1.5 max-w-sm mx-auto leading-relaxed">
+          {emptyText}
+        </p>
+      </div>
+    )
   }
+
   return (
     <div className="divide-y divide-[#f1f4ed]">
       {items.map((tx) => {
@@ -74,12 +86,16 @@ export function WalletTransactionList({
               type="button"
               aria-expanded={open}
               onClick={() => setOpenId(open ? null : tx.id)}
-              className="flex w-full items-center justify-between gap-3 py-3.5 text-left hover:bg-[#fafcf8]"
+              className="flex w-full items-center justify-between gap-3 py-3.5 px-2 rounded-xl text-left hover:bg-[#fafbfa] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`w-9 h-9 shrink-0 rounded-2xl flex items-center justify-center ${
-                    isHold ? 'bg-amber-50 text-amber-600' : isIn ? 'bg-[#eaf5e1] text-[#326318]' : 'bg-[#fdeeed] text-[#c5221f]'
+                  className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${
+                    isHold
+                      ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                      : isIn
+                        ? 'bg-[#eaf5e1] text-[#2b5619] border border-[#cbe5bd]'
+                        : 'bg-[#fdeeed] text-[#c5221f] border border-[#fac8c6]'
                   }`}
                 >
                   {isHold ? <Clock size={18} /> : isIn ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
@@ -94,19 +110,23 @@ export function WalletTransactionList({
                     </span>
                   </h5>
                   {tx.description && (
-                    <p className="text-[11px] text-[#6e7767] truncate" title={tx.description}>
+                    <p className="text-[11px] text-[#6e7767] truncate mt-0.5" title={tx.description}>
                       {tx.description}
                     </p>
                   )}
-                  <span className="text-[10px] text-[#858f7e]">{formatBackendDate(tx.createdAt)}</span>
+                  <span className="text-[10px] text-[#858f7e] mt-0.5 inline-block">{formatBackendDate(tx.createdAt)}</span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <div className="text-right">
-                  <div className={`text-sm font-black ${isHold ? 'text-amber-600' : isIn ? 'text-[#326318]' : 'text-[#c5221f]'}`}>
+                  <div
+                    className={`text-sm font-black ${
+                      isHold ? 'text-amber-600' : isIn ? 'text-[#2b5619]' : 'text-[#c5221f]'
+                    }`}
+                  >
                     {formatVnd(tx.amount, true)}
                   </div>
-                  <div className="text-[10px] text-[#858f7e]">
+                  <div className="text-[10px] text-[#858f7e] mt-0.5">
                     {tx.reserve
                       ? `Số dư: ${formatVnd(tx.balanceAfter)}`
                       : isHold
@@ -118,7 +138,7 @@ export function WalletTransactionList({
               </div>
             </button>
             {open && (
-              <dl className="mb-3 grid gap-x-6 gap-y-2 rounded-2xl bg-[#f7faf4] p-4 text-xs sm:grid-cols-2">
+              <dl className="mb-3 grid gap-x-6 gap-y-2 rounded-2xl bg-[#f7faf4] border border-[#e8efe2] p-4 text-xs sm:grid-cols-2">
                 <Info label="Nguồn tiền" value={src.label} />
                 <Info label="Loại bút toán" value={WALLET_TX_LABEL[tx.type] ?? tx.type} />
                 {refs.campaign && <Info label="Chiến dịch" value={refs.campaign} />}

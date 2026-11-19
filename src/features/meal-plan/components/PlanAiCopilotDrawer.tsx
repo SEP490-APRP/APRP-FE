@@ -19,6 +19,7 @@ import type {
   PlanCopilotActionDto,
   CopilotChatMessage,
 } from '@/services'
+import { formatMealType } from '@/services'
 import { useCopilotChat, useCopilotApply } from '../hooks/useMealPlanQueries'
 import { useUiStore } from '@/stores/useUiStore'
 
@@ -358,7 +359,7 @@ export default function PlanAiCopilotDrawer({
                             {msg.suggestedAction.newComboName}
                           </span>
                           <span className="rounded-md bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
-                            Ngày {msg.suggestedAction.dayIndex} - {msg.suggestedAction.mealType}
+                            Ngày {msg.suggestedAction.dayIndex} - {formatMealType(msg.suggestedAction.mealType)}
                           </span>
                         </div>
                         {msg.suggestedAction.reason && (

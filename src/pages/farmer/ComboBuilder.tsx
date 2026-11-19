@@ -494,7 +494,7 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
               <div className="flex items-center gap-2">
                 {imageUrl && (
                   <div className="relative shrink-0 w-9 h-9 rounded-xl overflow-hidden border border-[#e4ebd9] bg-[#f4f7f1]">
-                    <img src={imageUrl} alt="Combo preview" className="w-full h-full object-cover" />
+                    <img src={imageUrl} alt="Xem trước combo" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <input

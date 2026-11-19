@@ -20,6 +20,7 @@ import {
 import { useShopOrders, useShopProfile, useConfirmOrder, useCancelOrder } from '@/features/shop'
 import { useMyProducts, useMyCombos } from '@/features/product'
 import { useMyMysteryBoxes } from '@/features/mystery-box'
+import { formatMealType } from '@/services/combo.types'
 import type { FarmerProduct, FarmerOrder } from './types'
 
 interface DashboardProps {
@@ -78,6 +79,16 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
   const pendingOrdersCount = realOrders.filter(
     (o) => o.status === 'PENDING' || o.status === 'PAID',
   ).length
+
+  // Sắp xếp đơn hàng: Đơn khẩn cấp cần nhận (PENDING/PAID) luôn ghim lên đầu tiên
+  const sortedOrders = [...realOrders].sort((a, b) => {
+    const isActionA = a.status === 'PENDING' || a.status === 'PAID' ? 0 : 1
+    const isActionB = b.status === 'PENDING' || b.status === 'PAID' ? 0 : 1
+    if (isActionA !== isActionB) return isActionA - isActionB
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return timeB - timeA
+  })
 
   // Real products, combos, blind boxes
   const freshProducts = myProductsData?.content || []
@@ -154,7 +165,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
     <div className="space-y-8 animate-fadeIn">
       {/* Cảnh báo Cờ rủi ro chất lượng cho Shop */}
       {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags >= 3 && (
-        <div className="p-5 rounded-3xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3.5 shadow-sm">
+        <div className="p-5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3.5 shadow-sm">
           <AlertTriangle className="shrink-0 text-rose-600 mt-1" size={22} />
           <div className="flex-1 text-sm">
             <div className="flex items-center gap-2 font-bold text-rose-900 text-base">
@@ -169,7 +180,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             <div className="mt-3 flex items-center gap-3">
               <button
                 onClick={() => onNavigate('disputes')}
-                className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+                className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-xs"
               >
                 Xem chi tiết khiếu nại &amp; Thu hồi hàng
               </button>
@@ -179,7 +190,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
       )}
 
       {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags > 0 && shopProfile.activeRiskFlags < 3 && (
-        <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3.5 shadow-sm">
+        <div className="p-5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3.5 shadow-sm">
           <AlertTriangle className="shrink-0 text-amber-600 mt-1" size={22} />
           <div className="flex-1 text-sm">
             <div className="flex items-center gap-2 font-bold text-amber-900 text-base">
@@ -194,7 +205,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             <div className="mt-3 flex items-center gap-3">
               <button
                 onClick={() => onNavigate('disputes')}
-                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-xs"
               >
                 Kiểm tra mục khiếu nại
               </button>
@@ -212,7 +223,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         <button
           type="button"
           onClick={() => onNavigate('orders')}
-          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+          className="bg-white rounded-lg p-5 border border-[#e8ece3] shadow-2xs flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-xs transition-all cursor-pointer group active:scale-[0.99]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
@@ -225,7 +236,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
               {isLoadingOrders ? '...' : totalOrdersCount}
             </span>
             {pendingOrdersCount > 0 ? (
-              <p className="text-xs sm:text-sm text-[#b45309] font-black mt-2 flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl w-fit">
+              <p className="text-xs sm:text-sm text-[#b45309] font-black mt-2 flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg w-fit">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                 <span>{pendingOrdersCount} đơn cần xử lý ngay →</span>
               </p>
@@ -241,7 +252,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         <button
           type="button"
           onClick={() => onNavigate('products')}
-          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+          className="bg-white rounded-lg p-5 border border-[#e8ece3] shadow-2xs flex flex-col justify-between text-left hover:border-[#326318] hover:shadow-xs transition-all cursor-pointer group active:scale-[0.99]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
@@ -263,7 +274,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         <button
           type="button"
           onClick={() => onNavigate('combos')}
-          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#8a4e1d] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+          className="bg-white rounded-lg p-5 border border-[#e8ece3] shadow-2xs flex flex-col justify-between text-left hover:border-[#8a4e1d] hover:shadow-xs transition-all cursor-pointer group active:scale-[0.99]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
@@ -285,7 +296,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         <button
           type="button"
           onClick={() => onNavigate('reviews')}
-          className="bg-white rounded-3xl p-5 border border-[#e8ece3] shadow-sm flex flex-col justify-between text-left hover:border-[#ca8a04] hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+          className="bg-white rounded-lg p-5 border border-[#e8ece3] shadow-2xs flex flex-col justify-between text-left hover:border-[#ca8a04] hover:shadow-xs transition-all cursor-pointer group active:scale-[0.99]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">
@@ -313,11 +324,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         {/* Left 2 Columns: Quản Lý Sản Phẩm Thực Tế */}
         <div
           id="tour-overview-products"
-          className="lg:col-span-2 bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-5"
+          className="lg:col-span-2 bg-white rounded-lg p-5 sm:p-6 border border-[#e8ece3] shadow-2xs space-y-5"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f1f4ed]">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-[#326318]/10 flex items-center justify-center text-[#326318]">
+              <div className="w-8 h-8 rounded-lg bg-[#326318]/10 flex items-center justify-center text-[#326318]">
                 <Package size={20} />
               </div>
               <h3 className="text-base sm:text-lg font-black text-[#1c2216] uppercase tracking-tight">
@@ -329,10 +340,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             <button
               type="button"
               onClick={onOpenAddProduct}
-              className="bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+              className="bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
             >
               <Plus size={16} className="text-[#ffea79]" />
-              <span>+ ĐĂNG BÁN NÔNG SẢN MỚI</span>
+              <span> ĐĂNG BÁN NÔNG SẢN MỚI</span>
             </button>
           </div>
 
@@ -373,7 +384,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
           </div>
 
           {/* Table Header */}
-          <div className="grid grid-cols-12 text-xs font-bold text-[#4B5563] uppercase tracking-wider px-3 py-1.5 bg-[#f4f7f1] rounded-xl mb-1">
+          <div className="grid grid-cols-12 text-xs font-bold text-[#4B5563] uppercase tracking-wider px-3 py-1.5 bg-[#f4f7f1] rounded-lg mb-1">
             <div className="col-span-5">SẢN PHẨM</div>
             <div className="col-span-3 text-center">GIÁ BÁN</div>
             <div className="col-span-2 text-center">TỒN KHO</div>
@@ -388,11 +399,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             </div>
           ) : productTab === 'NONG_SAN' ? (
             freshProducts.length === 0 ? (
-              <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
+              <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-lg border border-dashed border-[#e2e8dc]">
                 Chưa có nông sản nào trong kho. Hãy bấm &quot;+ ĐĂNG BÁN NÔNG SẢN MỚI&quot; để đăng bán!
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {freshProducts.slice(0, 5).map((item) => {
                   const pId = item.productId || item.id
                   const pName = item.productName || item.name || 'Nông sản'
@@ -410,19 +421,19 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                   return (
                     <div
                       key={pId}
-                      className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                      className="grid grid-cols-12 items-center p-3 sm:p-3.5 rounded-lg bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                     >
-                      <div className="col-span-5 flex items-center gap-3">
+                      <div className="col-span-5 flex items-center gap-2.5">
                         <img
                           src={primaryImg}
                           alt={pName}
-                          className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-200"
+                          className="w-11 h-11 rounded-lg object-cover shrink-0 border border-gray-200"
                         />
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
+                          <div className="text-sm font-extrabold text-[#1c2216] truncate">
                             {pName}
                           </div>
-                          <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">
+                          <span className="text-xs font-semibold text-[#4B5563]">
                             {typeof item.category === 'object' && item.category !== null
                               ? item.category.name
                               : 'Nông sản vườn'}
@@ -442,7 +453,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
 
                       <div className="col-span-2 flex items-center justify-end">
                         <span
-                          className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
+                          className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${statusBadge.color}`}
                         >
                           <span>{statusBadge.label}</span>
                         </span>
@@ -454,27 +465,27 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             )
           ) : productTab === 'COMBO' ? (
             combos.length === 0 ? (
-              <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
+              <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-lg border border-dashed border-[#e2e8dc]">
                 Chưa có combo nào. Hãy vào Quản lý sản phẩm để tạo combo món ăn tiện lợi!
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {combos.slice(0, 5).map((combo) => {
                   const statusBadge = getProductStatusBadge(combo.status)
                   return (
                     <div
                       key={combo.comboId}
-                      className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                      className="grid grid-cols-12 items-center p-3 sm:p-3.5 rounded-lg bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                     >
                       <div className="col-span-5 flex items-center gap-3">
                         {combo.imageUrl ? (
                           <img
                             src={combo.imageUrl}
                             alt={combo.comboName}
-                            className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-200"
+                            className="w-12 h-12 rounded-lg object-cover shrink-0 border border-gray-200"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-xl bg-[#195962]/10 text-[#195962] flex items-center justify-center font-bold shrink-0">
+                          <div className="w-12 h-12 rounded-lg bg-[#195962]/10 text-[#195962] flex items-center justify-center font-bold shrink-0">
                             <UtensilsCrossed size={20} />
                           </div>
                         )}
@@ -482,9 +493,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
                             {combo.comboName}
                           </div>
-                          <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">
-                            {combo.mealType || 'Set món ăn'}
-                          </span>
+                          <div className="mt-0.5">
+                            <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-[#e8ede4] text-[#2b5619]">
+                              {formatMealType(combo.mealType || combo.type)}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -511,25 +524,25 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
               </div>
             )
           ) : blindBoxes.length === 0 ? (
-            <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-2xl border border-dashed border-[#e2e8dc]">
+            <div className="py-10 text-center text-gray-400 text-xs bg-[#fafcf9] rounded-lg border border-dashed border-[#e2e8dc]">
               Chưa có túi mù nào. Hãy bấm tạo Túi Mù để giải cứu nhanh cuối ngày!
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {blindBoxes.slice(0, 5).map((box) => (
                 <div
                   key={box.mysteryId || box.id}
-                  className="grid grid-cols-12 items-center p-3.5 sm:p-4 rounded-2xl bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
+                  className="grid grid-cols-12 items-center p-3 sm:p-3.5 rounded-lg bg-[#fafcf9] hover:bg-[#f4f7f1] transition-colors border border-[#edf1e8]"
                 >
-                  <div className="col-span-5 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#8a4e1d]/10 text-[#8a4e1d] flex items-center justify-center font-bold text-lg shrink-0">
+                  <div className="col-span-5 flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-lg bg-[#8a4e1d]/10 text-[#8a4e1d] flex items-center justify-center font-bold text-base shrink-0">
                       🎁
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
+                      <div className="text-sm font-extrabold text-[#1c2216] truncate">
                         {box.boxType}
                       </div>
-                      <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">Túi mù giải cứu</span>
+                      <span className="text-xs font-semibold text-[#4B5563]">Túi mù giải cứu</span>
                     </div>
                   </div>
 
@@ -545,7 +558,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
 
                   <div className="col-span-2 flex items-center justify-end">
                     <span
-                      className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                      className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${
                         box.isActive
                           ? 'bg-[#eaf5e1] text-[#326318] border-[#b8e19c]'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
@@ -574,10 +587,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         {/* Right Column: Quản Lý Đơn Hàng Thực Tế */}
         <div
           id="tour-overview-orders"
-          className="bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-5"
+          className="bg-white rounded-lg p-5 sm:p-6 border border-[#e8ece3] shadow-2xs space-y-4"
         >
           <div className="flex items-center gap-2 pb-3 border-b border-[#f1f4ed]">
-            <div className="w-8 h-8 rounded-xl bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
+            <div className="w-8 h-8 rounded-lg bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
               <ShoppingCart size={18} />
             </div>
             <div>
@@ -597,9 +610,9 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
               <Loader2 size={24} className="animate-spin text-[#2b5619]" />
               <span className="text-xs font-medium">Đang tải đơn hàng...</span>
             </div>
-          ) : realOrders.length > 0 ? (
-            <div className="space-y-3">
-              {realOrders.slice(0, 4).map((ord) => {
+          ) : sortedOrders.length > 0 ? (
+            <div className="space-y-2.5">
+              {sortedOrders.slice(0, 4).map((ord) => {
                 const ordId = Number((ord as any).orderId ?? ord.id)
                 const recipient = (ord as any).recipientName || ord.buyerName || 'Khách hàng'
                 const statusBadge = getOrderStatusBadge(ord.status)
@@ -617,14 +630,22 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                 return (
                   <div
                     key={ordId}
-                    className={`p-4 rounded-2xl bg-[#fafcf9] border transition-colors space-y-2 ${
+                    className={`p-3.5 rounded-lg border transition-all space-y-2 ${
                       isNeedsAction
-                        ? 'border-amber-200 bg-[#fffdfa]'
-                        : 'border-[#edf1e8] hover:border-[#2b5619]/30'
+                        ? 'border-amber-300 bg-amber-50/50 shadow-2xs ring-1 ring-amber-300/60'
+                        : 'border-[#edf1e8] bg-[#fafcf9] hover:border-[#2b5619]/30'
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-sm font-black text-[#1c2216]">#{ordId}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-black text-[#1c2216]">#{ordId}</span>
+                        {isNeedsAction && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white flex items-center gap-1 shadow-xs animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                            <span>Cần nhận</span>
+                          </span>
+                        )}
+                      </div>
                       <span
                         className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
                       >
@@ -653,7 +674,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           type="button"
                           disabled={isActingOnThis}
                           onClick={() => handleQuickConfirm(ordId)}
-                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
                         >
                           {isActingOnThis && confirmMutation.isPending ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -666,7 +687,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           type="button"
                           disabled={isActingOnThis}
                           onClick={() => handleQuickCancel(ordId)}
-                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs sm:text-sm rounded-lg flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
                           title="Từ chối đơn hàng"
                         >
                           {isActingOnThis && cancelMutation.isPending ? (
@@ -683,7 +704,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
               })}
             </div>
           ) : (
-            <div className="py-12 px-4 rounded-2xl bg-[#fafcf9] border border-dashed border-[#dce2d6] text-center flex flex-col items-center justify-center gap-2">
+            <div className="py-12 px-4 rounded-lg bg-[#fafcf9] border border-dashed border-[#dce2d6] text-center flex flex-col items-center justify-center gap-2">
               <ShoppingBag size={28} className="text-[#a4ad9f]" />
               <p className="text-xs font-bold text-[#717a6c]">Chưa có đơn hàng nào.</p>
               <span className="text-xs text-[#9ba495]">Đơn mới sẽ xuất hiện tại đây</span>
@@ -693,7 +714,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
           <button
             type="button"
             onClick={() => onNavigate('orders')}
-            className="w-full py-3.5 rounded-2xl bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm uppercase tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 rounded-lg bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm uppercase tracking-wide shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <ShoppingCart size={16} />
             <span>Xem Tất Cả Đơn Hàng ({totalOrdersCount})</span>
@@ -704,11 +725,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
       {/* Bottom Card: Chi Tiết Tài Chính Thực Tế (Tính từ đơn hàng) */}
       <div
         id="tour-overview-finance-cards"
-        className="bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-4"
+        className="bg-white rounded-lg p-5 sm:p-6 border border-[#e8ece3] shadow-2xs space-y-4"
       >
         <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
+            <div className="w-8 h-8 rounded-lg bg-[#2b5619]/10 flex items-center justify-center text-[#2b5619]">
               <Building2 size={18} />
             </div>
             <div>
@@ -732,7 +753,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#f7faf5] border border-[#e2ebd9]">
+          <div className="p-4 sm:p-5 rounded-lg bg-[#f7faf5] border border-[#e2ebd9]">
             <span className="text-xs sm:text-sm font-bold text-[#4B5563] uppercase tracking-wide">
               Doanh Thu Đã Hoàn Thành
             </span>
@@ -744,7 +765,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#fdfaf3] border border-[#f3e6cf]">
+          <div className="p-4 sm:p-5 rounded-lg bg-[#fdfaf3] border border-[#f3e6cf]">
             <span className="text-xs sm:text-sm font-bold text-[#8a4e1d] uppercase tracking-wide">
               Tiền Sắp Về Ví
             </span>
@@ -756,7 +777,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#f5f8fc] border border-[#d6e3f5]">
+          <div className="p-4 sm:p-5 rounded-lg bg-[#f5f8fc] border border-[#d6e3f5]">
             <span className="text-xs sm:text-sm font-bold text-[#2d5c99] uppercase tracking-wide">
               Tổng Giá Trị Đơn Hàng
             </span>

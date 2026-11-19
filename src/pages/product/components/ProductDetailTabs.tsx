@@ -138,6 +138,12 @@ export const ProductDetailTabs = forwardRef<HTMLDivElement, ProductDetailTabsPro
                       <span className="font-bold text-ink ml-1.5">{farmName}</span>
                     </div>
                     <div>
+                      <span className="text-ink-muted">Vùng trồng:</span>
+                      <span className="font-bold text-ink ml-1.5">
+                        {product.origin || (product as any).region || 'Đà Lạt & Lâm Đồng'}
+                      </span>
+                    </div>
+                    <div>
                       <span className="text-ink-muted">Hạn sử dụng:</span>
                       <span className="font-bold text-ink ml-1.5">
                         {product.expiryDate

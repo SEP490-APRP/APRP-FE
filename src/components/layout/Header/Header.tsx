@@ -9,6 +9,7 @@ import {
   X,
   Zap,
   ChevronDown,
+  ChevronRight,
   ArrowRight,
   Sparkles,
   Gift,
@@ -30,8 +31,9 @@ import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { AuthUser } from '@/types'
-import { useAuth, useChatStore, useNotificationStore } from '@/stores'
+import { useAuth, useChatStore, useNotificationStore, useUiStore } from '@/stores'
 import NotificationDropdown from './NotificationDropdown'
+import CartDropdown from './CartDropdown'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
 import { useAllProducts, useCategories, useCombos } from '@/features/product'
 import { mysteryBoxService, type BuildCombo } from '@/services'
@@ -79,21 +81,21 @@ export default function Header({
 
   const { token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+  const { cartOpen, openCart, closeCart } = useUiStore()
 
-  const totalAlerts = (unreadCount || 0) + (unreadTotal || 0)
   const [isBellRinging, setIsBellRinging] = useState(false)
-  const prevTotalAlertsRef = useRef(totalAlerts)
+  const prevUnreadCountRef = useRef(unreadCount || 0)
 
   useEffect(() => {
-    if (totalAlerts > prevTotalAlertsRef.current) {
+    if ((unreadCount || 0) > (prevUnreadCountRef.current || 0)) {
       setIsBellRinging(true)
       const timer = setTimeout(() => {
         setIsBellRinging(false)
       }, 2000)
       return () => clearTimeout(timer)
     }
-    prevTotalAlertsRef.current = totalAlerts
-  }, [totalAlerts])
+    prevUnreadCountRef.current = unreadCount || 0
+  }, [unreadCount])
 
   const messagesHref =
     user?.role === 'shop'
@@ -294,15 +296,53 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="header-actions flex items-center gap-2">
-          {/* Cart Trigger */}
-          <button
-            className="icon-button cart-trigger"
-            aria-label={`Giỏ hàng, ${count} sản phẩm`}
-            onClick={onCart}
-          >
-            <ShoppingBasket />
-            {count > 0 && <span>{count}</span>}
-          </button>
+          {/* Cart Trigger & Popover Dropdown (Chỉ dành cho khách mua) */}
+          {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="icon-button cart-trigger relative"
+                aria-label={`Giỏ hàng, ${count} sản phẩm`}
+                onClick={() => {
+                  setActiveDropdown(null)
+                  setAccountMenuOpen(false)
+                  setNotifOpen(false)
+                  if (cartOpen) {
+                    closeCart()
+                  } else {
+                    openCart()
+                  }
+                }}
+              >
+                <ShoppingBasket />
+                {count > 0 && <span>{count}</span>}
+              </button>
+              <CartDropdown isOpen={cartOpen} onClose={closeCart} />
+            </div>
+          )}
+
+          {/* Message Trigger (Tin nhắn trực tiếp) */}
+          {user && (
+            <Link
+              to={messagesHref}
+              className="icon-button relative"
+              aria-label={`Tin nhắn, ${unreadTotal} chưa đọc`}
+              title={unreadTotal > 0 ? `${unreadTotal} tin nhắn chưa đọc` : 'Tin nhắn'}
+              onClick={() => {
+                setActiveDropdown(null)
+                setAccountMenuOpen(false)
+                setNotifOpen(false)
+                closeCart()
+              }}
+            >
+              <MessageSquare size={20} />
+              {unreadTotal > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white font-extrabold text-[10px] flex items-center justify-center border-2 border-white">
+                  {unreadTotal > 99 ? '99+' : unreadTotal}
+                </span>
+              )}
+            </Link>
+          )}
 
           {/* Notification Trigger & Popover */}
           {user && (
@@ -310,22 +350,18 @@ export default function Header({
               <button
                 type="button"
                 className="icon-button relative"
-                aria-label={`Thông báo và tin nhắn, ${totalAlerts} chưa đọc`}
-                title={
-                  totalAlerts > 0
-                    ? `${unreadCount} thông báo, ${unreadTotal} tin nhắn chưa đọc`
-                    : 'Thông báo'
-                }
+                aria-label={`Thông báo hệ thống, ${unreadCount} chưa đọc`}
+                title={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Thông báo'}
                 onClick={() => {
                   setActiveDropdown(null)
                   setAccountMenuOpen(false)
                   setNotifOpen(!notifOpen)
                 }}
               >
-                <Bell className={isBellRinging ? 'animate-bell-ring text-[#326318]' : ''} />
-                {totalAlerts > 0 && (
+                <Bell className={isBellRinging ? 'animate-bell-ring text-[#326318]' : ''} size={20} />
+                {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white font-extrabold text-[10px] flex items-center justify-center border-2 border-white">
-                    {totalAlerts > 99 ? '99+' : totalAlerts}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </button>
@@ -347,7 +383,7 @@ export default function Header({
                   setAccountMenuOpen(!accountMenuOpen)
                 }}
                 className="flex items-center gap-2 py-1.5 px-3 rounded-full bg-[#f0ebd9] hover:bg-[#e7e1cc] border border-[#d6cfbe] transition-colors relative"
-                aria-label={`Tài khoản cá nhân${unreadTotal > 0 ? `, ${unreadTotal} tin nhắn mới` : ''}`}
+                aria-label="Tài khoản cá nhân"
               >
                 <div className="relative shrink-0">
                   <div className="w-7 h-7 rounded-full bg-[#326318] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
@@ -357,14 +393,6 @@ export default function Header({
                       user.name.charAt(0).toUpperCase()
                     )}
                   </div>
-                  {unreadTotal > 0 && (
-                    <span
-                      className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-black border-2 border-white shadow-xs animate-bounce"
-                      title={`${unreadTotal} tin nhắn mới`}
-                    >
-                      {unreadTotal > 9 ? '9+' : unreadTotal}
-                    </span>
-                  )}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
                   <span className="text-xs font-bold text-[#1f241a] leading-tight max-w-[130px] truncate">
@@ -431,6 +459,53 @@ export default function Header({
                     </div>
 
                     <div className="flex flex-col gap-1 text-xs">
+                      {/* Lối vào Portal chuyên biệt theo vai trò người dùng */}
+                      {user.role === 'shop' && (
+                        <Link
+                          to="/shop"
+                          onClick={closeDropdown}
+                          className="w-full text-left py-2 px-2.5 rounded-xl bg-[#2b5619]/10 hover:bg-[#2b5619]/20 text-[#2b5619] font-bold flex items-center justify-between transition-colors border border-[#2b5619]/20 mb-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-[#2b5619] text-white flex items-center justify-center shrink-0">
+                              <Store size={15} />
+                            </span>
+                            <span>Kênh Quản Lý Nhà Vườn</span>
+                          </div>
+                          <ChevronRight size={14} />
+                        </Link>
+                      )}
+                      {user.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={closeDropdown}
+                          className="w-full text-left py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold flex items-center justify-between transition-colors border border-purple-200 mb-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
+                              <ShieldCheck size={15} />
+                            </span>
+                            <span>Trung Tâm Quản Trị Admin</span>
+                          </div>
+                          <ChevronRight size={14} />
+                        </Link>
+                      )}
+                      {user.role === 'shipper' && (
+                        <Link
+                          to="/shipper"
+                          onClick={closeDropdown}
+                          className="w-full text-left py-2 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold flex items-center justify-between transition-colors border border-amber-200 mb-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0">
+                              <Truck size={15} />
+                            </span>
+                            <span>Cổng Giao Hàng Shipper</span>
+                          </div>
+                          <ChevronRight size={14} />
+                        </Link>
+                      )}
+
                       <Link
                         to="/orders"
                         onClick={closeDropdown}
@@ -465,35 +540,6 @@ export default function Header({
                       </Link>
 
                       <Link
-                        to="/ke-hoach-an-uong"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 text-amber-700">
-                          <Sparkles size={16} />
-                        </span>
-                        <span>Kế Hoạch Ăn Uống (AI)</span>
-                      </Link>
-
-                      <Link
-                        to={messagesHref}
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center justify-between transition-colors group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                            <MessageSquare size={16} />
-                          </span>
-                          <span>Tin Nhắn Của Tôi</span>
-                        </div>
-                        {unreadTotal > 0 && (
-                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
-                            {unreadTotal}
-                          </span>
-                        )}
-                      </Link>
-
-                      <Link
                         to="/tai-khoan"
                         onClick={closeDropdown}
                         className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
@@ -501,29 +547,7 @@ export default function Header({
                         <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
                           <User size={16} />
                         </span>
-                        <span>Hồ Sơ Cá Nhân</span>
-                      </Link>
-
-                      <Link
-                        to="/tai-khoan?tab=health"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                          <HeartPulse size={16} />
-                        </span>
-                        <span>Dinh Dưỡng & Dị Ứng</span>
-                      </Link>
-
-                      <Link
-                        to="/change-password"
-                        onClick={closeDropdown}
-                        className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-[#f3eee2] text-[#333a2d] font-semibold flex items-center gap-2.5 transition-colors group"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-[#eaf4e5] group-hover:bg-[#d8ebd1] flex items-center justify-center shrink-0 text-[#326318]">
-                          <Lock size={16} />
-                        </span>
-                        <span>Đổi mật khẩu</span>
+                        <span>Hồ Sơ & Cài Đặt</span>
                       </Link>
 
                       <hr className="my-1.5 border-[#ede8df]" />
@@ -1219,67 +1243,71 @@ export default function Header({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 my-1">
+                <div className="flex flex-col gap-1.5 my-1">
+                  {user.role === 'shop' && (
+                    <Link
+                      to="/shop"
+                      onClick={closeDropdown}
+                      className="w-full py-2 px-3 rounded-xl bg-[#2b5619] text-white font-bold text-xs text-center flex items-center justify-center gap-1.5 mb-0.5"
+                    >
+                      <Store size={14} />
+                      <span>Kênh Quản Lý Nhà Vườn</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    to="/orders"
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5"
+                  >
+                    <ShoppingBag size={14} className="text-emerald-700" />
+                    <span>Đơn Hàng Của Tôi</span>
+                  </Link>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Link
+                      to="/my-vouchers"
+                      onClick={closeDropdown}
+                      className="py-2 px-2.5 rounded-xl bg-white border border-amber-500 text-amber-800 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <Ticket size={13} />
+                      <span>Kho Voucher</span>
+                    </Link>
+                    <Link
+                      to="/my-wallet"
+                      onClick={closeDropdown}
+                      className="py-2 px-2.5 rounded-xl bg-white border border-[#326318] text-[#326318] font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <Wallet size={13} />
+                      <span>Ví Của Tôi</span>
+                    </Link>
+                  </div>
+
+                  <Link
+                    to={messagesHref}
+                    onClick={closeDropdown}
+                    className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between shadow-xs"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-[#326318]" />
+                      <span>Tin Nhắn Của Tôi</span>
+                    </div>
+                    {unreadTotal > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                        {unreadTotal}
+                      </span>
+                    )}
+                  </Link>
+
                   <Link
                     to="/tai-khoan"
                     onClick={closeDropdown}
-                    className="py-2 px-2.5 rounded-xl bg-white border border-[#326318] text-[#326318] font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
+                    className="w-full py-2 px-3 rounded-xl bg-[#f4f8f1] text-[#2b5619] font-bold text-xs text-center border border-[#d2e3cc] flex items-center justify-center gap-1.5"
                   >
-                    <User size={13} />
-                    <span>Hồ Sơ Của Tôi</span>
-                  </Link>
-                  <Link
-                    to="/my-vouchers"
-                    onClick={closeDropdown}
-                    className="py-2 px-2.5 rounded-xl bg-white border border-amber-600 text-amber-700 font-bold text-xs text-center flex items-center justify-center gap-1.5 shadow-xs"
-                  >
-                    <Ticket size={13} />
-                    <span>Kho Voucher</span>
+                    <User size={14} />
+                    <span>Hồ Sơ & Cài Đặt</span>
                   </Link>
                 </div>
-
-                <Link
-                  to="/orders"
-                  onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold text-xs text-center border border-emerald-300 flex items-center justify-center gap-1.5 mb-1"
-                >
-                  <ShoppingBag size={14} className="text-emerald-700" />
-                  <span>Đơn Hàng Của Tôi</span>
-                </Link>
-
-                <Link
-                  to="/my-wallet"
-                  onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs text-center border border-[#326318] flex items-center justify-center gap-1.5 mb-1"
-                >
-                  <Wallet size={14} />
-                  <span>Ví Của Tôi</span>
-                </Link>
-
-                <Link
-                  to={messagesHref}
-                  onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-white text-[#326318] font-bold text-xs border border-[#326318] flex items-center justify-between mb-1 shadow-xs"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <MessageSquare size={14} className="text-[#326318]" />
-                    <span>Tin Nhắn Của Tôi</span>
-                  </div>
-                  {unreadTotal > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white">
-                      {unreadTotal}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  to="/tai-khoan?tab=health"
-                  onClick={closeDropdown}
-                  className="w-full py-2 px-3 rounded-xl bg-rose-50 text-rose-900 font-bold text-xs text-center border border-rose-200 flex items-center justify-center gap-1.5 mb-1"
-                >
-                  <HeartPulse size={14} className="text-rose-600" />
-                  <span>Dinh Dưỡng & Dị Ứng</span>
-                </Link>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">

@@ -103,12 +103,7 @@ export const CartView: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 py-5">
       {/* Tiêu đề & Chọn tất cả */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Giỏ hàng của bạn</h1>
-          <span className="text-xs text-ink-muted">
-            {totalAllCount} sản phẩm trong giỏ
-          </span>
-        </div>
+        <h1 className="text-xl font-bold text-ink">Giỏ hàng của bạn</h1>
 
         {totalAllCount > 0 && (
           <div className="flex items-center gap-4">
@@ -119,19 +114,19 @@ export const CartView: React.FC = () => {
                 checked={isAllMasterSelected}
                 onChange={toggleSelectAll}
               />
-              <span>Chọn tất cả ({totalAllCount} món)</span>
+              <span>Chọn tất cả ({totalAllCount})</span>
             </label>
 
             <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
-              {selectedItemIds.size > 0 && (
+              {selectedItemIds.size > 0 && !isAllMasterSelected && (
                 <span className="text-xs text-[#326318] font-bold bg-[#e8f3de] px-2.5 py-0.5 rounded-full">
-                  Đã chọn {totalSelectedCount} món
+                  Đã chọn {totalSelectedCount}
                 </span>
               )}
               <span className="text-stone-200 select-none">|</span>
               {isConfirmingClearAll ? (
                 <div className="flex items-center gap-2 text-xs bg-red-50 border border-red-200 text-red-700 px-2.5 py-1 rounded-lg animate-fadeIn">
-                  <span>Xác nhận xóa sạch toàn bộ giỏ?</span>
+                  <span>Xóa toàn bộ giỏ?</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -158,10 +153,10 @@ export const CartView: React.FC = () => {
                   onClick={() => setIsConfirmingClearAll(true)}
                   disabled={isRemoving}
                   className="text-stone-400 hover:text-red-600 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium disabled:opacity-40"
-                  title="Xóa sạch toàn bộ sản phẩm trong giỏ hàng"
+                  title="Xóa tất cả sản phẩm trong giỏ hàng"
                 >
                   <Trash2 size={14} />
-                  <span>Xóa sạch toàn bộ</span>
+                  <span>Xóa tất cả</span>
                 </button>
               )}
             </div>
@@ -174,16 +169,17 @@ export const CartView: React.FC = () => {
         <div className="lg:col-span-2 space-y-3.5">
           {/* Thông báo đa nhà vườn nếu có */}
           {cart.shopCarts.length > 1 && (
-            <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl px-3.5 py-2.5 flex items-center gap-2.5 text-emerald-800 text-xs">
-              <Store size={15} className="shrink-0 text-emerald-700" />
-              <div className="flex-1 leading-snug">
-                <span className="font-semibold">Đơn hàng gồm nông sản từ {cart.shopCarts.length} nhà vườn:</span>{' '}
-                <span className="text-emerald-700">Từng nhà vườn sẽ đóng gói và giao kiện riêng để đảm bảo độ tươi mới.</span>
+            <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl px-3.5 py-2 flex items-center gap-2 text-emerald-800 text-xs">
+              <Store size={14} className="shrink-0 text-emerald-700" />
+              <div className="flex-1">
+                <span className="font-semibold">Đơn từ {cart.shopCarts.length} nhà vườn:</span>{' '}
+                <span className="text-emerald-700">Đóng gói &amp; giao riêng để đảm bảo độ tươi mới.</span>
               </div>
             </div>
           )}
 
           {cart.shopCarts.map((shop) => {
+            const shopTotalQty = shop.items.reduce((sum, i) => sum + i.quantity, 0)
             const availableItems = shop.items.filter(
               (i) => i.available !== false && (i as any).isAvailable !== false,
             )
@@ -226,12 +222,12 @@ export const CartView: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
                     <span className="text-xs text-ink-muted whitespace-nowrap">
-                      {shop.items.length} món
+                      {shopTotalQty} món
                     </span>
                     <span className="text-stone-200 select-none">|</span>
                     {confirmingShopId === shop.shopId ? (
                       <div className="flex items-center gap-2 text-xs bg-red-50 border border-red-200 text-red-700 px-2.5 py-1 rounded-lg animate-fadeIn whitespace-nowrap">
-                        <span>Xác nhận xóa hết {shop.items.length} món?</span>
+                        <span>Xóa hết {shopTotalQty} món?</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -258,15 +254,15 @@ export const CartView: React.FC = () => {
                         onClick={() => setConfirmingShopId(shop.shopId)}
                         disabled={isRemoving || isShopRemoving(shop.items)}
                         className="text-stone-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer disabled:opacity-40 whitespace-nowrap"
-                        title={`Xóa tất cả ${shop.items.length} món của ${shop.shopName}`}
-                        aria-label={`Xóa tất cả sản phẩm của ${shop.shopName}`}
+                        title={`Xóa các món của ${shop.shopName}`}
+                        aria-label={`Xóa các món của ${shop.shopName}`}
                       >
                         {isShopRemoving(shop.items) ? (
-                          <Loader2 size={14} className="animate-spin text-red-500" />
+                          <Loader2 size={13} className="animate-spin text-red-500" />
                         ) : (
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         )}
-                        <span>Xóa toàn bộ shop</span>
+                        <span>Xóa shop</span>
                       </button>
                     )}
                   </div>
@@ -314,8 +310,10 @@ export const CartView: React.FC = () => {
 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between items-center text-ink-muted gap-2">
-                <span className="whitespace-nowrap">Số lượng đã chọn:</span>
-                <span className="font-semibold text-ink whitespace-nowrap shrink-0">{totalSelectedCount} món</span>
+                <span className="whitespace-nowrap">Số lượng:</span>
+                <span className="font-semibold text-ink whitespace-nowrap shrink-0">
+                  {totalSelectedCount} món
+                </span>
               </div>
               <div className="flex justify-between items-center text-ink-muted gap-2">
                 <span className="whitespace-nowrap">Tạm tính hàng:</span>

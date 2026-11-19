@@ -23,6 +23,23 @@ const UNIT_OPTIONS = [
   { value: 'thùng', label: 'thùng' },
 ]
 
+const PRESET_REGIONS = [
+  'Đà Lạt (Lâm Đồng)',
+  'Gia Lai',
+  'Bến Tre',
+  'Đắk Lắk',
+  'Mộc Châu (Sơn La)',
+  'Tiền Giang',
+  'Đồng Nai',
+  'Bình Thuận',
+  'Miền Tây',
+]
+
+const REGION_OPTIONS = [
+  ...PRESET_REGIONS.map((r) => ({ value: r, label: r })),
+  { value: 'KHAC', label: 'Vùng khác (Tự nhập...)' },
+]
+
 interface AddProductProps {
   onAddProduct?: (prod: FarmerProduct) => void
   onClose: () => void
@@ -80,10 +97,13 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       expiryDate: defaultExpiry,
       description: '',
       discountPercent: 0,
-      region: 'Đà Lạt & Lâm Đồng',
+      region: 'Đà Lạt (Lâm Đồng)',
       farmingType: 'Hữu cơ Organic',
     },
   })
+
+  const currentRegion = watch('region') || 'Đà Lạt (Lâm Đồng)'
+  const [isCustomRegion, setIsCustomRegion] = useState(() => !PRESET_REGIONS.includes(currentRegion))
 
   const handleAiSuggestDescription = async () => {
     const currentName = getValues('name')?.trim()
@@ -151,6 +171,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
         expiryDate: values.expiryDate,
         description: values.description,
         discountPercent: values.discountPercent,
+        origin: values.region,
       })
 
       const newProductId = res.result?.productId ?? res.result?.id
@@ -283,7 +304,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               />
               {previewUrl ? (
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#c3d1b8] shrink-0">
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={previewUrl} alt="Ảnh xem trước" className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className="w-16 h-16 rounded-xl bg-[#f4f7f1] text-[#7e8779] flex items-center justify-center shrink-0">
@@ -416,6 +437,39 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
                 className={INPUT_CLASS}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="product-region" className="block text-xs font-bold text-[#353d2f] mb-1">
+              Vùng trồng / Xuất xứ *
+            </label>
+            <CustomSelect
+              id="product-region"
+              value={isCustomRegion ? 'KHAC' : currentRegion}
+              onChange={(val) => {
+                if (val === 'KHAC') {
+                  setIsCustomRegion(true)
+                  setValue('region', '', { shouldValidate: true })
+                } else {
+                  setIsCustomRegion(false)
+                  setValue('region', String(val), { shouldValidate: true })
+                }
+              }}
+              options={REGION_OPTIONS}
+              placeholder="Chọn vùng trồng"
+              error={!!errors.region}
+            />
+            {isCustomRegion && (
+              <input
+                type="text"
+                value={watch('region') || ''}
+                onChange={(e) => setValue('region', e.target.value, { shouldValidate: true })}
+                placeholder="Nhập tên vùng trồng / tỉnh thành cụ thể (VD: Đức Trọng, Lâm Đồng)"
+                className={`${INPUT_CLASS} mt-2`}
+                autoFocus
+              />
+            )}
+            <FieldError message={errors.region?.message} />
           </div>
 
           <div>

@@ -22,12 +22,12 @@ export const ChatConversationItem: React.FC<ChatConversationItemProps> = ({
     <button
       type="button"
       onClick={() => onSelect(conv)}
-      className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition cursor-pointer border-l-4 ${
+      className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition cursor-pointer border-l-4 ${
         isSelected
-          ? 'bg-[#f2f7ee] border-l-[#326318]'
+          ? 'bg-[#eef6ea] border-l-[#2b5619] shadow-2xs'
           : hasUnread
-          ? 'bg-[#f7faf4] border-l-emerald-400 hover:bg-[#f2f7ee]'
-          : 'border-l-transparent hover:bg-gray-50'
+          ? 'bg-[#f7faf4] border-l-emerald-500 hover:bg-[#eef6ea]/70'
+          : 'border-l-transparent hover:bg-[#f6f9f4]'
       }`}
     >
       {/* Avatar with online dot */}

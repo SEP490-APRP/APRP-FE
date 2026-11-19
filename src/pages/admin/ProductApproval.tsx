@@ -292,6 +292,16 @@ const ProductApproval: React.FC = () => {
                     </p>
                   </div>
                 )}
+                {selectedProduct.origin && (
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
+                      Vùng trồng / Xuất xứ
+                    </label>
+                    <p className="text-sm font-bold text-gray-900">
+                      {selectedProduct.origin}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
                     Mô tả
