@@ -94,6 +94,7 @@ export default function FarmerDisputes() {
   const [selectedDispute, setSelectedDispute] = useState<ReturnRequestResponse | null>(null)
   const [shopResponseText, setShopResponseText] = useState<string>('')
   const [shippingPaymentMethod, setShippingPaymentMethod] = useState<'WALLET' | 'COD'>('WALLET')
+  const [resolveReturnGoods, setResolveReturnGoods] = useState<boolean>(false)
   const [activeMediaUrl, setActiveMediaUrl] = useState<string | null>(null)
 
   const { data: disputes = [], isLoading, refetch } = useShopDisputes()
@@ -302,6 +303,8 @@ export default function FarmerDisputes() {
                   onClick={() => {
                     setSelectedDispute(item)
                     setShopResponseText(item.shopResponse || '')
+                    setShippingPaymentMethod('WALLET')
+                    setResolveReturnGoods(Boolean(item.isReturnGoods))
                   }}
                   className="p-3.5 sm:p-4 rounded-lg border border-stone-200/80 hover:border-[#326318]/50 bg-white hover:bg-[#fafcf9] transition-all cursor-pointer group flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
@@ -568,55 +571,123 @@ export default function FarmerDisputes() {
                 </div>
               )}
 
-              {/* Lựa chọn phương thức thanh toán cước hoàn (Shop chịu 100%) */}
+              {/* Lựa chọn phương thức xử lý & thanh toán cước phí */}
               {(selectedDispute.status === 'PENDING' || selectedDispute.status === 'ADMIN_APPROVED') && (
-                <div className="p-3.5 rounded-lg bg-emerald-50/70 border border-emerald-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-emerald-950">
-                      Phí ship hoàn trả hàng: <span className="text-emerald-700">Shop chịu 100% (~20.000 đ)</span>
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#f7faf4] border border-[#dce7d4] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-[#1c2216] uppercase tracking-wide">
+                      Phương án xử lý từ Shop
+                    </span>
+                    <span className="text-[11px] text-stone-500">
+                      Khách đề xuất:{' '}
+                      <strong className="text-stone-800">
+                        {selectedDispute.isReturnGoods ? 'Đổi trả hàng vật lý' : 'Hoàn tiền không lấy hàng'}
+                      </strong>
                     </span>
                   </div>
-                  <p className="text-[11px] text-emerald-800">
-                    Nếu Shop đồng ý lấy lại hàng, vui lòng chọn phương thức chi trả cước phí:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setShippingPaymentMethod('WALLET')}
-                      className={`p-2.5 rounded-lg border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'WALLET'
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                        }`}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Option 1: Hoàn tiền ngay, không thu hồi hàng */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setResolveReturnGoods(false)}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        !resolveReturnGoods
+                          ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30 shadow-2xs'
+                          : 'bg-white border-stone-200 hover:border-stone-300'
+                      }`}
                     >
-                      <div className="text-[11px]">Trừ Ví sàn</div>
-                      <div className="text-[10px] font-normal opacity-90">Trừ từ số dư ví ngay</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShippingPaymentMethod('COD')}
-                      className={`p-2.5 rounded-lg border text-left font-bold transition-all cursor-pointer ${shippingPaymentMethod === 'COD'
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                        }`}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="resolveReturnGoods"
+                          checked={!resolveReturnGoods}
+                          onChange={() => setResolveReturnGoods(false)}
+                          className="text-amber-600 focus:ring-amber-500 accent-amber-600 pointer-events-none"
+                        />
+                        <span className="text-xs font-bold text-stone-900">Hoàn tiền ngay</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 mt-1 pl-5 leading-relaxed">
+                        Không thu hồi hàng (hàng dập hỏng), hoàn tiền cho khách ngay, <strong>Shop không mất phí ship</strong>.
+                      </p>
+                    </div>
+
+                    {/* Option 2: Thu hồi hàng về vườn, shipper lấy */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setResolveReturnGoods(true)}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        resolveReturnGoods
+                          ? 'bg-[#2b5619]/10 border-[#2b5619] ring-2 ring-[#2b5619]/30 shadow-2xs'
+                          : 'bg-white border-stone-200 hover:border-stone-300'
+                      }`}
                     >
-                      <div className="text-[11px]">Tiền mặt COD</div>
-                      <div className="text-[10px] font-normal opacity-90">Đưa shipper khi nhận hàng</div>
-                    </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="resolveReturnGoods"
+                          checked={resolveReturnGoods}
+                          onChange={() => setResolveReturnGoods(true)}
+                          className="text-[#2b5619] focus:ring-[#2b5619] accent-[#2b5619] pointer-events-none"
+                        />
+                        <span className="text-xs font-bold text-stone-900">Thu hồi hàng về vườn</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 mt-1 pl-5 leading-relaxed">
+                        Shipper đến lấy hàng mang về cho Shop (Shop chịu phí vận chuyển hoàn ~20.000 đ).
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Chi trả cước phí - chỉ hiện khi chọn Thu hồi hàng */}
+                  {resolveReturnGoods && (
+                    <div className="pt-2.5 border-t border-[#dce7d4] space-y-2 animate-fadeIn">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-emerald-950">
+                          Hình thức thanh toán cước hoàn (~20.000 đ):
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setShippingPaymentMethod('WALLET')}
+                          className={`p-2 rounded-lg border text-left font-bold transition-all cursor-pointer ${
+                            shippingPaymentMethod === 'WALLET'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="text-[11px]">Trừ Ví sàn</div>
+                          <div className="text-[10px] font-normal opacity-90">Trừ từ số dư ví ngay</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShippingPaymentMethod('COD')}
+                          className={`p-2 rounded-lg border text-left font-bold transition-all cursor-pointer ${
+                            shippingPaymentMethod === 'COD'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="text-[11px]">Tiền mặt COD</div>
+                          <div className="text-[10px] font-normal opacity-90">Đưa shipper khi nhận hàng</div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Hướng dẫn khi Admin đã phê duyệt */}
               {selectedDispute.status === 'ADMIN_APPROVED' && (
-                <div className="p-3.5 rounded-lg bg-indigo-50 border border-indigo-200 space-y-2">
+                <div className="p-3.5 rounded-lg bg-indigo-50 border border-indigo-200 space-y-1.5">
                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
                     <Gavel size={16} className="text-indigo-600 shrink-0" />
-                    <span>Admin đã phê duyệt khiếu nại của khách hàng</span>
+                    <span>Admin đã phê duyệt yêu cầu từ khách hàng</span>
                   </div>
                   <p className="text-[11px] text-indigo-800 leading-relaxed">
-                    Gian hàng có <strong>24 giờ</strong> để đưa ra phương án xử lý hàng hoàn trả ở phía dưới:
-                    <br />• <strong>Không lấy lại hàng:</strong> Hoàn tiền ngay cho người mua (không tốn phí ship hoàn).
-                    <br />• <strong>Lấy lại hàng &amp; Chịu phí ship:</strong> Shipper sẽ lấy hàng hoàn trả về cho gian hàng (Shop chịu phí vận chuyển hoàn).
+                    Vui lòng chọn 1 trong 2 phương án xử lý ở trên để hoàn tất thủ tục khiếu nại.
                   </p>
                 </div>
               )}
@@ -628,7 +699,7 @@ export default function FarmerDisputes() {
                     <span className="text-[10px] text-stone-400">Không bắt buộc</span>
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={shopResponseText}
                     onChange={(e) => setShopResponseText(e.target.value)}
                     placeholder="Nhập ghi chú phản hồi cho khách hàng hoặc lý do nếu từ chối..."
@@ -638,87 +709,58 @@ export default function FarmerDisputes() {
               )}
             </div>
 
-            {/* Chân Modal: Nút hành động */}
-            <div className="p-3.5 sm:p-4 border-t border-stone-100 bg-[#fafcf9] flex flex-wrap items-center justify-end gap-2">
+            {/* Chân Modal: Nút hành động chuẩn mực */}
+            <div className="p-3.5 sm:p-4 border-t border-stone-100 bg-[#fafcf9] flex items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedDispute(null)}
                 disabled={respondMutation.isPending}
-                className="py-2 px-3.5 rounded-lg border border-stone-200 text-stone-700 hover:bg-white text-xs font-bold transition-all cursor-pointer"
+                className="py-2 px-3.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-white text-xs font-bold transition-all cursor-pointer"
               >
                 Đóng
               </button>
 
-              {selectedDispute.status === 'PENDING' && (
-                <>
-                  {/* Từ chối -> Chuyển DISPUTED lên Admin */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(false)}
-                    disabled={respondMutation.isPending}
-                    className="py-2 px-3.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    <XCircle size={15} />
-                    <span>Từ chối (Khiếu nại Admin)</span>
-                  </button>
-
-                  {/* Đồng ý hoàn tiền không cần trả hàng */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, false)}
-                    disabled={respondMutation.isPending}
-                    className="py-2 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    <DollarSign size={15} />
-                    <span>Hoàn tiền (Không lấy lại hàng)</span>
-                  </button>
-
-                  {/* Đồng ý nhận hàng hoàn vật lý */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, true)}
-                    disabled={respondMutation.isPending}
-                    className="py-2 px-3.5 rounded-lg bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    {respondMutation.isPending ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      <CheckCircle2 size={15} />
+              <div className="flex items-center gap-2">
+                {(selectedDispute.status === 'PENDING' || selectedDispute.status === 'ADMIN_APPROVED') && (
+                  <>
+                    {/* Từ chối -> Chuyển DISPUTED lên Admin (chỉ khi PENDING) */}
+                    {selectedDispute.status === 'PENDING' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRespond(false)}
+                        disabled={respondMutation.isPending}
+                        className="py-2 px-3.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        <XCircle size={15} />
+                        <span>Từ chối yêu cầu</span>
+                      </button>
                     )}
-                    <span>Đồng ý trả hàng (Giao shipper)</span>
-                  </button>
-                </>
-              )}
 
-              {selectedDispute.status === 'ADMIN_APPROVED' && (
-                <>
-                  {/* Không lấy lại hàng -> Hoàn tiền ngay */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, false)}
-                    disabled={respondMutation.isPending}
-                    className="py-2 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    <DollarSign size={15} />
-                    <span>Hoàn tiền ngay (Không lấy hàng)</span>
-                  </button>
-
-                  {/* Lấy lại hàng -> Shop chịu phí ship */}
-                  <button
-                    type="button"
-                    onClick={() => handleRespond(true, true)}
-                    disabled={respondMutation.isPending}
-                    className="py-2 px-3.5 rounded-lg bg-[#326318] hover:bg-[#274f13] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  >
-                    {respondMutation.isPending ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      <CheckCircle2 size={15} />
-                    )}
-                    <span>Lấy lại hàng &amp; Chịu phí ship</span>
-                  </button>
-                </>
-              )}
+                    {/* Nút Đồng ý giải quyết theo phương án đã chọn */}
+                    <button
+                      type="button"
+                      onClick={() => handleRespond(true, resolveReturnGoods)}
+                      disabled={respondMutation.isPending}
+                      className={`py-2 px-4 rounded-lg text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ${
+                        !resolveReturnGoods
+                          ? 'bg-amber-600 hover:bg-amber-700'
+                          : 'bg-[#2b5619] hover:bg-[#1e3d12]'
+                      }`}
+                    >
+                      {respondMutation.isPending ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={15} />
+                      )}
+                      <span>
+                        {!resolveReturnGoods
+                          ? 'Đồng ý hoàn tiền ngay'
+                          : 'Đồng ý thu hồi hàng (Shipper)'}
+                      </span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>,
