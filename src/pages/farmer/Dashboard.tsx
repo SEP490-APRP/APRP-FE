@@ -493,9 +493,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           <div className="text-sm sm:text-base font-extrabold text-[#1c2216] truncate">
                             {combo.comboName}
                           </div>
-                          <span className="text-xs sm:text-sm font-semibold text-[#4B5563]">
-                            {formatMealType(combo.mealType || combo.type)}
-                          </span>
+                          <div className="mt-0.5">
+                            <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-[#e8ede4] text-[#2b5619]">
+                              {formatMealType(combo.mealType || combo.type)}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
