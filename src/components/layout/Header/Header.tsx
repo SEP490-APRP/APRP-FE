@@ -296,45 +296,6 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="header-actions flex items-center gap-2">
-          {/* Vendor Button / Direct Portal Access based on Role */}
-          {user?.role === 'shop' ? (
-            <a
-              href="/shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Kênh Nhà Vườn</span>
-            </a>
-          ) : user?.role === 'admin' ? (
-            <a
-              href="/admin"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <ShieldCheck size={16} />
-              <span>Vào Admin</span>
-            </a>
-          ) : user?.role === 'shipper' ? (
-            <a
-              href="/shipper"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Truck size={16} />
-              <span>Cổng Shipper</span>
-            </a>
-          ) : (
-            <a
-              href="/dang-ky?role=shop"
-              className="btn btn-gold vendor-button hidden sm:inline-flex"
-              onClick={closeDropdown}
-            >
-              <Store size={16} />
-              <span>Bán nông sản</span>
-            </a>
-          )}
-
           {/* Cart Trigger & Popover Dropdown (Chỉ dành cho khách mua) */}
           {user?.role !== 'shop' && user?.role !== 'admin' && user?.role !== 'shipper' && (
             <div className="relative">
