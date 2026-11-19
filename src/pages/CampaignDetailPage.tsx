@@ -109,7 +109,7 @@ export default function CampaignDetailPage() {
 
 /** Nhà vườn còn đăng ký góp hàng được: lời kêu gọi đã đăng (DRAFT) hoặc đang mở bán, và chưa qua hạn chốt */
 const acceptsFarms = (c: CampaignResponse) =>
-  ((c.status === 'DRAFT' && !!c.callPostedAt) || c.status === 'ACTIVE') && Date.parse(c.cutoffAt) > Date.now()
+  ((c.status === 'DRAFT' && !!c.callPostedAt) || c.status === 'ACTIVE') && Date.parse(c.farmCutoffAt ?? c.cutoffAt) > Date.now()
 
 function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
   const progress = useReadingProgress()
@@ -171,7 +171,7 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
       </header>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="mx-auto w-full min-w-0 max-w-3xl">
             {/* Thân bài: giữ đúng định dạng soạn trong CKEditor */}
             {richHtml ? (
@@ -209,7 +209,7 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
                 </InfoStep>
               </InfoCard>
               <InfoCard icon={ShieldCheck} title="Tiền cọc an toàn">
-                <InfoStep n={1}>Cọc trước {depositPct}% qua PayOS, CapNong giữ hộ.</InfoStep>
+                <InfoStep n={1}>Cọc trước {depositPct}% tổng đơn (tiền hàng + phí giao) qua PayOS, CapNong giữ hộ.</InfoStep>
                 <InfoStep n={2}>Phần còn lại trả khi nhận hàng.</InfoStep>
                 <InfoStep n={3}>Chưa đủ {formatKg(c.minThresholdKg)} tới ngày chốt: tự huỷ, hoàn 100% cọc về ví.</InfoStep>
                 <InfoStep n={4}>Không nhận hàng (vắng nhà, từ chối nhận, không tới điểm lấy) thì không được hoàn cọc.</InfoStep>
@@ -222,62 +222,59 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
             {/* Vị trí điểm tập kết: chốt cuối bài */}
             {hasLocation && <LocationSection c={c} />}
 
-            {/* Hết bài: phần tham gia cho người mua và nhà vườn */}
-            <div className="my-12 flex items-center gap-4 text-xs font-bold uppercase tracking-[0.2em] text-[#a39b8a]" aria-hidden>
-              <span className="h-px flex-1 bg-[#e4ddcc]" />
-              Cùng tham gia
-              <span className="h-px flex-1 bg-[#e4ddcc]" />
+            {/* Màn nhỏ: phần tham gia ở cuối bài (màn rộng đã nằm ở cột phải) */}
+            <div className="lg:hidden">
+              <div className="my-12 flex items-center gap-4 text-xs font-bold uppercase tracking-[0.2em] text-[#a39b8a]" aria-hidden>
+                <span className="h-px flex-1 bg-[#e4ddcc]" />
+                Cùng tham gia
+                <span className="h-px flex-1 bg-[#e4ddcc]" />
+              </div>
+              <JoinSection c={c} farmOpen={farmOpen} variant="cards" />
             </div>
-
-            <JoinSection c={c} farmOpen={farmOpen} />
 
             <a href="/chien-dich" className="mt-10 inline-flex items-center gap-2 text-sm font-bold text-[#2b5619] hover:underline">
               <ArrowLeft size={16} /> Xem các chiến dịch khác
             </a>
           </div>
 
-          {/* Cột phải: tóm tắt nhanh, bám theo khi cuộn */}
+          {/* Cột phải (kiểu trang gây quỹ): tiến độ + Cùng tham gia, bám theo khi cuộn */}
           <aside className="hidden lg:block">
-            <div className="sticky top-24 flex flex-col gap-4 rounded-3xl border border-[#e4ddcc] bg-white p-5 shadow-sm">
-              <p className="text-xs font-extrabold uppercase tracking-wider text-[#4a7c2f]">Tóm tắt chiến dịch</p>
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xl font-black text-[#1c1c18]">{Math.round(pct)}%</span>
-                  <span className="text-xs text-[#6b7363]">
-                    {formatKg(c.bookedVolumeKg)} / {formatKg(c.targetVolumeKg)}
+            <div className="sticky top-24 flex flex-col gap-4">
+              <section className="rounded-3xl border border-[#e4ddcc] bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-[#6b7363]">Mục tiêu chiến dịch</p>
+                    <p className="text-2xl font-black tabular-nums text-[#1c1c18]">{formatKg(c.targetVolumeKg)}</p>
+                  </div>
+                  <span className="rounded-full bg-[#f2f9ed] px-2.5 py-1 text-xs font-extrabold text-[#2b5619]">
+                    {c.status === 'ACTIVE' || farmOpen ? timeLeftLabel(c.cutoffAt) : STATUS_LABEL[c.status]}
                   </span>
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-[#ede8df]">
+                <div className="mt-4 h-2.5 rounded-full bg-[#ede8df]">
                   <div className="h-full rounded-full bg-[#4a7c2f]" style={{ width: `${pct}%` }} />
                 </div>
-              </div>
-              <dl className="flex flex-col gap-2 text-sm">
-                <SideRow label="Giá giải cứu" value={`${formatVnd(c.rescuePricePerKg)}/kg`} />
-                <SideRow label="Chốt đơn" value={fmtDate(c.cutoffAt) ?? '—'} />
-                {c.deliveryDate && <SideRow label="Giao dự kiến" value={fmtDate(c.deliveryDate) ?? '—'} />}
-                <SideRow label="Thời gian" value={c.status === 'ACTIVE' || farmOpen ? timeLeftLabel(c.cutoffAt) : STATUS_LABEL[c.status]} />
-              </dl>
-              {c.status === 'ACTIVE' && (
-                <a
-                  href="#dat-truoc"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4a7c2f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2b5619]"
-                >
-                  <ShoppingBasket size={16} /> Đặt trước thùng
-                </a>
-              )}
-              {farmOpen && (
-                <a
-                  href="#nha-vuon"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-[#4a7c2f] px-4 py-2.5 text-sm font-bold text-[#2b5619] hover:bg-[#f2f9ed]"
-                >
-                  <Sprout size={16} /> Nhà vườn góp hàng
-                </a>
-              )}
-              {hasLocation && (
-                <a href="#vi-tri" className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-[#6b7363] hover:text-[#2b5619]">
-                  <MapPin size={14} /> Xem vị trí điểm tập kết
-                </a>
-              )}
+                <div className="mt-2 flex items-baseline justify-between text-sm">
+                  <span>
+                    Đã đặt <b className="tabular-nums text-[#2b5619]">{formatKg(c.bookedVolumeKg)}</b>
+                  </span>
+                  <b className="tabular-nums text-[#1c1c18]">{Math.round(pct)}%</b>
+                </div>
+                <dl className="mt-4 grid grid-cols-3 divide-x divide-[#ede8df] rounded-2xl bg-[#faf7ef] py-3 text-center">
+                  <SideStat label="Giá giải cứu" value={`${formatVnd(c.rescuePricePerKg)}`} />
+                  <SideStat label="Lô nhà vườn" value={String(c.approvedLotCount ?? c.approvedFarmCount ?? 0)} />
+                  <SideStat label="Chốt đơn" value={fmtDate(c.cutoffAt)?.slice(0, 5) ?? '—'} />
+                </dl>
+                {hasLocation && (
+                  <a href="#vi-tri" className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-[#6b7363] hover:text-[#2b5619]">
+                    <MapPin size={14} /> {c.collectionSiteName || 'Xem vị trí điểm tập kết'}
+                  </a>
+                )}
+              </section>
+
+              <section className="rounded-3xl border border-[#e4ddcc] bg-white p-5 shadow-sm">
+                <p className="mb-3 text-base font-black text-[#1c1c18]">Cùng tham gia</p>
+                <JoinSection c={c} farmOpen={farmOpen} variant="side" />
+              </section>
             </div>
           </aside>
         </div>
@@ -509,7 +506,8 @@ function LocationSection({ c }: { c: CampaignResponse }) {
 
 /* ─────────────────────────── Cùng tham gia: 2 cột người mua | nhà vườn ─────────────────────────── */
 
-function JoinSection({ c, farmOpen }: { c: CampaignResponse; farmOpen: boolean }) {
+function JoinSection({ c, farmOpen, variant }: { c: CampaignResponse; farmOpen: boolean; variant: 'cards' | 'side' }) {
+  const compact = variant === 'side'
   const { user } = useAuth()
   const canOrder = c.status === 'ACTIVE' && user?.role === 'buyer'
   const [ordering, setOrdering] = useState(false)
@@ -517,12 +515,14 @@ function JoinSection({ c, farmOpen }: { c: CampaignResponse; farmOpen: boolean }
   // Link "#dat-truoc" (cột tóm tắt, trang danh sách) mở popup đặt trước thay vì cuộn tới form
   useEffect(() => {
     const sync = () => {
-      if (window.location.hash === '#dat-truoc' && canOrder) setOrdering(true)
+      // Có 2 khối tham gia (cột phải ở màn rộng, cuối bài ở màn nhỏ): chỉ khối đang hiện mở popup
+      const wide = window.matchMedia('(min-width: 1024px)').matches
+      if (window.location.hash === '#dat-truoc' && canOrder && wide === compact) setOrdering(true)
     }
     sync()
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
-  }, [canOrder])
+  }, [canOrder, compact])
 
   const close = () => {
     setOrdering(false)
@@ -531,9 +531,9 @@ function JoinSection({ c, farmOpen }: { c: CampaignResponse; farmOpen: boolean }
 
   return (
     <>
-      <div className="grid gap-5 md:grid-cols-2">
-        <BuyerJoinCard c={c} onOrder={canOrder ? () => setOrdering(true) : undefined} />
-        <FarmJoinBox c={c} open={farmOpen} />
+      <div className={compact ? 'flex flex-col gap-3' : 'grid gap-5 md:grid-cols-2'}>
+        <BuyerJoinCard c={c} compact={compact} onOrder={canOrder ? () => setOrdering(true) : undefined} />
+        <FarmJoinBox c={c} compact={compact} open={farmOpen} />
       </div>
       {ordering && canOrder && <PreOrderModal c={c} onClose={close} />}
     </>
@@ -584,9 +584,14 @@ function JoinCard({
   badgeIcon: BadgeIcon,
   title,
   points,
+  compact,
+  summary,
   children,
 }: {
   id?: string
+  compact?: boolean
+  /** Dòng tóm tắt ngắn cho bản gọn ở cột phải (mặc định lấy ý đầu tiên) */
+  summary?: string
   image: string
   badge: string
   badgeIcon: typeof Sprout
@@ -594,6 +599,27 @@ function JoinCard({
   points: string[]
   children: ReactNode
 }) {
+  // Bản gọn cho cột phải: ảnh nhỏ + tiêu đề + ý chính, nút hành động bên dưới
+  if (compact) {
+    return (
+      <section className="flex flex-col gap-3 rounded-2xl border border-[#ede8df] bg-[#fcfaf5] p-3.5">
+        <div className="flex items-center gap-3">
+          <img src={image} alt="" loading="lazy" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#4a7c2f]">
+              <BadgeIcon size={12} /> {badge}
+            </span>
+            <p className="text-sm font-black leading-tight text-[#1c1c18]">{title}</p>
+            <p className="mt-0.5 text-xs leading-snug text-[#6b7363]">{summary ?? points[0]}</p>
+          </div>
+        </div>
+        {/* Cột hẹp: nút và hộp thông báo nhỏ lại, chữ không bị rớt dòng */}
+        <div className="[&_a]:whitespace-nowrap [&_a]:py-2.5 [&_button]:whitespace-nowrap [&_button]:py-2.5 [&_p]:p-3 [&_p]:text-xs [&_p]:leading-relaxed">
+          {children}
+        </div>
+      </section>
+    )
+  }
   return (
     <section id={id} className="flex scroll-mt-24 flex-col overflow-hidden rounded-3xl border border-[#e4ddcc] bg-white shadow-sm">
       <div className="relative h-40 overflow-hidden">
@@ -619,7 +645,7 @@ function JoinCard({
   )
 }
 
-function BuyerJoinCard({ c, onOrder }: { c: CampaignResponse; onOrder?: () => void }) {
+function BuyerJoinCard({ c, onOrder, compact }: { c: CampaignResponse; onOrder?: () => void; compact?: boolean }) {
   const { user } = useAuth()
   const depositPct = Math.round(Number(c.depositPercent ?? 0) * 100)
   const remainingKg = Math.max(0, Number(c.remainingVolumeKg ?? c.targetVolumeKg - c.bookedVolumeKg))
@@ -634,13 +660,15 @@ function BuyerJoinCard({ c, onOrder }: { c: CampaignResponse; onOrder?: () => vo
   return (
     <JoinCard
       id="dat-truoc"
+      compact={compact}
+      summary={`${formatVnd(c.rescuePricePerKg)}/kg · còn ${formatKg(remainingKg)}`}
       image={comboImg}
       badge="Người mua"
       badgeIcon={ShoppingBasket}
       title="Đặt trước một thùng"
       points={[
         `Thùng 5 / 10 / 15 kg, giá ${formatVnd(c.rescuePricePerKg)}/kg`,
-        `Cọc ${depositPct}% qua PayOS, còn lại trả khi nhận`,
+        `Cọc ${depositPct}% tổng đơn (gồm phí giao), còn lại trả khi nhận`,
         'Không đủ ngưỡng thì hoàn 100% cọc',
       ]}
     >
@@ -655,7 +683,7 @@ function BuyerJoinCard({ c, onOrder }: { c: CampaignResponse; onOrder?: () => vo
         </a>
       ) : user.role === 'buyer' ? (
         <button type="button" onClick={onOrder} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#4a7c2f] px-5 py-3 text-sm font-bold text-white hover:bg-[#2b5619]">
-          <ShoppingBasket size={16} /> Đặt trước ngay · còn {formatKg(remainingKg)}
+          <ShoppingBasket size={16} /> {compact ? 'Đặt trước ngay' : `Đặt trước ngay · còn ${formatKg(remainingKg)}`}
         </button>
       ) : (
         <p className="rounded-2xl bg-[#f5f1e6] p-3.5 text-sm text-[#42493c]">Chỉ tài khoản người mua mới đặt trước được.</p>
@@ -664,7 +692,7 @@ function BuyerJoinCard({ c, onOrder }: { c: CampaignResponse; onOrder?: () => vo
   )
 }
 
-function FarmJoinBox({ c, open }: { c: CampaignResponse; open: boolean }) {
+function FarmJoinBox({ c, open, compact }: { c: CampaignResponse; open: boolean; compact?: boolean }) {
   const { user } = useAuth()
   const [registering, setRegistering] = useState(false)
   const [done, setDone] = useState(false)
@@ -673,6 +701,8 @@ function FarmJoinBox({ c, open }: { c: CampaignResponse; open: boolean }) {
   return (
     <JoinCard
       id="nha-vuon"
+      compact={compact}
+      summary={`Giá tới ${formatVnd(c.rescuePricePerKg)}/kg`}
       image={farmerImg}
       badge="Nhà vườn"
       badgeIcon={Sprout}
@@ -753,27 +783,34 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
 
   const totalKg = crate * qty
   const total = totalKg * Number(c.rescuePricePerKg ?? 0)
-  const deposit = total * Number(c.depositPercent ?? 0)
+  const depositPctLabel = Math.round(Number(c.depositPercent ?? 0) * 100)
   const remainingKg = Math.max(0, Number(c.remainingVolumeKg ?? c.targetVolumeKg - c.bookedVolumeKg))
   const overLimit = totalKg > remainingKg
 
   // Báo giá phí giao từ server (khoảng cách thật tới điểm tập kết + tổng kg)
-  const quoteReady = method === 'PICKUP' || (addr.lat != null && addr.lng != null)
+  // Có ghim toạ độ thì dùng; bản đồ không tải được thì gửi địa chỉ đầy đủ để server tự tìm toạ độ
+  const addressComplete = !!addr.provinceName && !!addr.wardName && !!addr.detail.trim()
+  const quoteReady = method === 'PICKUP' || (addr.lat != null && addr.lng != null) || addressComplete
+  const quoteAddress = useDebounced(address, 600)
   const quote = useQuery({
-    queryKey: ['campaign-ship-quote', c.campaignId, totalKg, method, addr.lat, addr.lng],
+    queryKey: ['campaign-ship-quote', c.campaignId, totalKg, method, addr.lat, addr.lng, addr.lat == null ? quoteAddress : ''],
     queryFn: () =>
       campaignService.quoteShipping(c.campaignId, {
         totalKg,
         method,
         lat: addr.lat,
         lng: addr.lng,
-        address: address || undefined,
+        address: (addr.lat == null ? quoteAddress : address) || undefined,
       }),
-    enabled: quoteReady,
+    enabled: quoteReady && (addr.lat != null || quoteAddress === address),
     staleTime: 60_000,
   })
   const shipFee = method === 'PICKUP' ? 0 : quote.data?.shippingFee ?? null
-  const payOnReceive = total - deposit + (shipFee ?? 0)
+  // Cọc = % cọc x (tiền hàng + phí giao), khớp cách BE tính
+  const feeKnown = method === 'PICKUP' || shipFee != null
+  const grandTotal = total + (shipFee ?? 0)
+  const deposit = Math.round(grandTotal * Number(c.depositPercent ?? 0))
+  const payOnReceive = grandTotal - deposit
 
   const [confirming, setConfirming] = useState(false)
   // Trả cọc bằng ví trước, phần còn lại qua PayOS
@@ -941,28 +978,52 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
             </div>
           </div>
 
-          <dl className="rounded-2xl bg-[#f5f1e6] p-4 text-sm">
-            <Row label={`${qty} thùng × ${crate} kg`} value={formatKg(totalKg)} />
-            <Row label="Tạm tính" value={formatVnd(total)} />
-            <Row label={`Cọc ngay (${Math.round(Number(c.depositPercent) * 100)}%)`} value={formatVnd(deposit)} strong />
-            <Row
-              label={method === 'PICKUP' ? 'Phí giao (tự đến lấy)' : quote.data?.distanceKm != null ? `Phí giao (${quote.data.distanceKm} km)` : 'Phí giao'}
-              value={
-                method === 'PICKUP'
-                  ? '0đ'
-                  : !quoteReady
-                    ? 'Chọn địa chỉ để tính'
-                    : quote.isFetching && shipFee == null
-                      ? 'Đang tính…'
-                      : shipFee === 0
-                        ? 'Miễn phí'
-                        : shipFee != null
-                          ? formatVnd(shipFee)
-                          : '—'
-              }
-            />
-            <Row label="Trả khi nhận hàng" value={formatVnd(payOnReceive)} />
-          </dl>
+          {/* Tóm tắt tiền: tiền hàng + phí giao = tổng đơn; cọc và phần trả khi nhận tách riêng */}
+          <section aria-label="Tóm tắt tiền" className="overflow-hidden rounded-2xl border border-[#e4ddcc] bg-white text-sm">
+            <dl className="flex flex-col gap-1 px-4 py-3">
+              <div className="flex items-center justify-between py-1">
+                <dt className="text-[#42493c]">
+                  Tiền hàng <span className="text-xs text-[#7e8779]">· {qty} thùng × {crate} kg ({formatKg(totalKg)})</span>
+                </dt>
+                <dd className="font-bold tabular-nums text-[#1c1c18]">{formatVnd(total)}</dd>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <dt className="text-[#42493c]">
+                  {method === 'PICKUP' ? 'Phí giao (tự đến lấy)' : 'Phí giao'}
+                  {method === 'DELIVERY' && quote.data?.distanceKm != null && <span className="text-xs text-[#7e8779]"> · {quote.data.distanceKm} km</span>}
+                </dt>
+                <dd className="font-bold tabular-nums text-[#1c1c18]">
+                  {method === 'PICKUP'
+                    ? '0đ'
+                    : !quoteReady
+                      ? 'Chọn địa chỉ'
+                      : quote.isFetching && shipFee == null
+                        ? 'Đang tính…'
+                        : shipFee === 0
+                          ? 'Miễn phí'
+                          : shipFee != null
+                            ? formatVnd(shipFee)
+                            : '—'}
+                </dd>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-dashed border-[#e4ddcc] pt-2">
+                <dt className="font-bold text-[#1c1c18]">Tổng đơn</dt>
+                <dd className="text-base font-black tabular-nums text-[#1c1c18]">{feeKnown ? formatVnd(grandTotal) : '—'}</dd>
+              </div>
+            </dl>
+            <div className="grid grid-cols-2 border-t border-[#e4ddcc]">
+              <div className="bg-[#fff6e0] px-4 py-3">
+                <p className="text-xs font-bold text-[#8a5a00]">Cọc ngay hôm nay</p>
+                <p className="text-xl font-black tabular-nums text-[#c27c00]">{feeKnown ? formatVnd(deposit) : '—'}</p>
+                <p className="text-[11px] text-[#8a5a00]">{depositPctLabel}% tổng đơn</p>
+              </div>
+              <div className="border-l border-[#e4ddcc] bg-[#f2f9ed] px-4 py-3">
+                <p className="text-xs font-bold text-[#2b5619]">Trả khi nhận hàng</p>
+                <p className="text-xl font-black tabular-nums text-[#2b5619]">{feeKnown ? formatVnd(payOnReceive) : '—'}</p>
+                <p className="text-[11px] text-[#2b5619]">Phần còn lại</p>
+              </div>
+            </div>
+          </section>
           {method === 'DELIVERY' && quote.data && (
             <div className="-mt-2 flex flex-col gap-1 text-xs">
               {quote.data.discountPercent > 0 && quote.data.baseFee != null && (
@@ -1152,7 +1213,7 @@ function ConfirmPreOrder({
                 </TimelineItem>
                 {method === 'PICKUP' ? (
                   <TimelineItem icon={PackageCheck} title="Đóng gói xong: CapNong báo bạn tới lấy">
-                    Bạn nhận 2 thông báo: khi bắt đầu nhận hàng từ nhà vườn và khi đơn đóng gói xong. Tới lấy và trả {formatVnd(total - deposit)} còn lại. Không tới lấy sau khi đã được nhắc thì đơn bị huỷ và mất cọc.
+                    Bạn nhận 2 thông báo: khi bắt đầu nhận hàng từ nhà vườn và khi đơn đóng gói xong. Tới lấy và trả {formatVnd(total + shipFee - deposit)} còn lại. Không tới lấy sau khi đã được nhắc thì đơn bị huỷ và mất cọc.
                   </TimelineItem>
                 ) : (
                   <TimelineItem icon={Truck} title={c.deliveryDate ? `Giao dự kiến từ ${fmtDate(c.deliveryDate)}` : 'Giao sau khi gom hàng'}>
@@ -1167,13 +1228,14 @@ function ConfirmPreOrder({
           <aside className="flex h-fit flex-col gap-4 rounded-2xl border border-[#e4ddcc] bg-white p-4 md:sticky md:top-0">
             <h3 className="text-base font-black text-[#1c1c18]">Thanh toán</h3>
             <dl className="flex flex-col gap-2 text-sm">
-              <Row label="Tạm tính" value={formatVnd(total)} />
+              <Row label="Tiền hàng" value={formatVnd(total)} />
               <Row
                 label={method === 'PICKUP' ? 'Phí giao (tự đến lấy)' : distanceKm != null ? `Phí giao (${distanceKm} km)` : 'Phí giao hàng'}
                 value={shipFee === 0 ? (method === 'PICKUP' ? '0đ' : 'Miễn phí') : formatVnd(shipFee)}
               />
+              <Row label="Tổng đơn" value={formatVnd(total + shipFee)} />
               <div className="my-1 border-t border-dashed border-[#e4ddcc]" />
-              <Row label={`Cọc ngay (${pct}%)`} value={formatVnd(deposit)} strong />
+              <Row label={`Cọc ngay (${pct}% tổng đơn)`} value={formatVnd(deposit)} strong />
               {walletUse > 0 && <Row label="· Trừ ví CapNong" value={`-${formatVnd(walletUse)}`} />}
               {walletUse > 0 && <Row label="· Chuyển khoản PayOS" value={formatVnd(payosDue)} />}
               <Row label="Trả khi nhận hàng" value={formatVnd(total - deposit + shipFee)} />
@@ -1339,6 +1401,25 @@ function splitParagraphs(text?: string | null) {
     .split(/\n\s*\n|\r?\n/)
     .map((p) => p.trim())
     .filter(Boolean)
+}
+
+/** Giá trị trễ một nhịp (gõ địa chỉ xong mới gọi báo giá, không gọi mỗi phím) */
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms)
+    return () => clearTimeout(t)
+  }, [value, ms])
+  return v
+}
+
+function SideStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-1">
+      <dd className="truncate text-sm font-black tabular-nums text-[#1c1c18]">{value}</dd>
+      <dt className="mt-0.5 text-[11px] font-semibold text-[#6b7363]">{label}</dt>
+    </div>
+  )
 }
 
 function SideRow({ label, value }: { label: string; value: string }) {

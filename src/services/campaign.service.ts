@@ -123,6 +123,10 @@ export const adminCampaignService = {
   async create(body: CampaignUpsertRequest): Promise<CampaignResponse> {
     return unwrap(await axiosInstance.post('/admin/campaigns', body))
   },
+  /** Sửa chiến dịch (BE chỉ cho sửa khi còn ở trạng thái Chuẩn bị) */
+  async update(id: number, body: CampaignUpsertRequest): Promise<CampaignResponse> {
+    return unwrap(await axiosInstance.put(`/admin/campaigns/${id}`, body))
+  },
   async registrations(id: number): Promise<FarmRegistrationResponse[]> {
     return unwrap(await axiosInstance.get(`/admin/campaigns/${id}/registrations`))
   },
