@@ -19,13 +19,13 @@ export const categoryService = {
     try {
       const response = await axiosInstance.get<ApiResponse<CategoryResponse[]>>('/categories')
       const result = response.data.result
-      if (Array.isArray(result) && result.length > 0) {
+      if (Array.isArray(result)) {
         return response.data
       }
-    } catch {
-      // Graceful fallback nếu server đang tắt hoặc DB chưa có category
+    } catch (e) {
+      console.warn('Cannot fetch categories from backend API:', e)
     }
-    return { code: 1000, result: [...MOCK_CATEGORIES] }
+    return { code: 1000, result: [] }
   },
 
   async getById(id: number): Promise<ApiResponse<CategoryResponse | null>> {
@@ -34,10 +34,9 @@ export const categoryService = {
       if (response.data.result) {
         return response.data
       }
-    } catch {
-      // fallback
+    } catch (e) {
+      console.warn(`Cannot fetch category id ${id} from backend API:`, e)
     }
-    const found = MOCK_CATEGORIES.find((c) => c.categoryId === id) ?? null
-    return { code: 1000, result: found }
+    return { code: 1000, result: null }
   },
 }

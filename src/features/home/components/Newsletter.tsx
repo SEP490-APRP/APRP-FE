@@ -1,15 +1,10 @@
-﻿import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Mail,
-  CheckCircle2,
   Truck,
   ShoppingBag,
   ArrowRight,
   ShieldCheck,
   Sparkles,
-  Zap,
-  Store,
-  Gift,
 } from 'lucide-react'
 import fullBannerImg from '@/assets/full-ecosystem-banner.jpg'
 
@@ -17,24 +12,7 @@ interface NewsletterProps {
   onInfo?: (title: string) => void
 }
 
-export default function Newsletter({ onInfo }: NewsletterProps) {
-  const [contactInput, setContactInput] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    const value = contactInput.trim()
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)
-    const isPhone = /^(\+84|0)(3|5|7|8|9)\d{8}$/.test(value.replace(/[\s.-]/g, ''))
-    if (!isEmail && !isPhone) {
-      setError('Vui lòng nhập email hoặc số điện thoại Việt Nam hợp lệ (VD: 0912 345 678).')
-      return
-    }
-    setError('')
-    setSubmitted(true)
-  }
-
+export default function Newsletter({ onInfo: _onInfo }: NewsletterProps) {
   return (
     <section
       id="dang-ky-dong-hanh"
@@ -62,12 +40,12 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
             <span>Đồng Hành Cùng Hệ Sinh Thái Nông Sản CapNong</span>
           </div>
 
-          {/* Main Headline - No awkward line breaks or detached words */}
+          {/* Main Headline */}
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md">
             Chung Tay Giải Cứu Nông Sản Việt
           </h2>
 
-          {/* Subheading in clean sans-serif with proper Vietnamese fonts */}
+          {/* Subheading */}
           <div className="text-lg sm:text-2xl md:text-3xl font-extrabold text-[#ffea79] tracking-tight">
             Ngon Lành · Tử Tế · Tiết Kiệm
           </div>
@@ -81,7 +59,7 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
 
         {/* 3 Pillars Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-          {/* 1. Khách Hàng (Buyer) */}
+          {/* 1. Nông sản tươi sạch */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#ffea79]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#ffea79] text-[#331c00] flex items-center justify-center font-bold shadow-md">
@@ -89,57 +67,57 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#ffea79]">
-                  01 · Người Tiêu Dùng
+                  01 · Nông Sản Tươi Lành
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Khách Hàng (Buyer)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Tiết Kiệm Mỗi Ngày</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                Tiết kiệm 40% – 60% chi phí rau củ quả tươi hái sớm mỗi ngày, nhận ngay voucher
-                50.000đ cho đơn đầu tiên.
+                Tiết kiệm 40% – 60% chi phí nông sản tươi hái sớm mỗi ngày trực tiếp từ nhà vườn,
+                chung tay giảm thiểu lãng phí thực phẩm.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=buyer"
+              <Link
+                to="/nong-san-tuoi"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffea79] group-hover:text-white transition-colors"
               >
-                <span>Đăng ký mua nông sản</span>
+                <span>Khám phá nông sản tươi</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
           </div>
 
-          {/* 2. Nhà Vườn (Shop) */}
+          {/* 2. Minh Bạch & Bảo Chứng */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#a4e876]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#a4e876] text-[#0f2e03] flex items-center justify-center font-bold shadow-md">
-                <Store size={24} />
+                <ShieldCheck size={24} />
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#a4e876]">
-                  02 · Nông Dân &amp; HTX
+                  02 · Nguồn Gốc Rõ Ràng
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Nhà Vườn (Shop)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Bảo Chứng Chất Lượng</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                Tiêu thụ 100% nông sản xấu mã với giá công bằng, miễn phí sàn 0% tháng đầu, thu gom
-                tận ruộng 24h.
+                100% nông sản có nhật ký canh tác từ nhà vườn thật, kiểm tra điểm độ tươi AI và chính
+                sách hỗ trợ đổi trả an tâm tuyệt đối.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=shop"
+              <Link
+                to="/cau-chuyen-nong-dan"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#a4e876] group-hover:text-white transition-colors"
               >
-                <span>Mở gian hàng nhà vườn</span>
+                <span>Đọc nhật ký nhà vườn</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
           </div>
 
-          {/* 3. Tài Xế (Shipper) */}
+          {/* 3. Giao Tươi Thần Tốc */}
           <div className="bg-black/30 hover:bg-black/40 backdrop-blur-md border border-white/20 hover:border-[#ffba41]/60 rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between group shadow-xl">
             <div className="flex flex-col gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#ffba41] text-[#3d2000] flex items-center justify-center font-bold shadow-md">
@@ -147,107 +125,25 @@ export default function Newsletter({ onInfo }: NewsletterProps) {
               </div>
               <div>
                 <span className="text-caption font-bold uppercase tracking-wider text-[#ffba41]">
-                  03 · Vận Chuyển Xanh
+                  03 · Giao Hàng Xanh
                 </span>
-                <h3 className="text-xl font-black text-white mt-0.5">Tài Xế (Shipper)</h3>
+                <h3 className="text-xl font-black text-white mt-0.5">Giao Nhanh 2–4 Giờ</h3>
               </div>
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                Thu nhập linh hoạt 8 – 15 triệu/tháng, thuật toán AI tối ưu tuyến đường chặng ngắn,
-                nhận đơn giao tươi liền tay.
+                Giao hàng nhanh bằng thùng giấy tái chế giữ trọn độ ẩm và vị giòn ngọt của nông sản
+                vừa thu hoạch sáng sớm.
               </p>
             </div>
 
             <div className="pt-5 mt-3 border-t border-white/15">
-              <a
-                href="/dang-ky?role=shipper"
+              <Link
+                to="/nong-san-tuoi"
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#ffba41] group-hover:text-white transition-colors"
               >
-                <span>Tham gia đội tài xế</span>
+                <span>Đặt nông sản giao hôm nay</span>
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
             </div>
-          </div>
-        </div>
-
-        {/* Quick Email / Phone Subscription & Benefit Bar */}
-        <div className="bg-black/45 backdrop-blur-md border border-white/20 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto w-full shadow-2xl">
-          {submitted ? (
-            <div
-              role="status"
-              className="flex items-center justify-center gap-3 text-center py-2 text-[#a4e876] animate-fadeIn"
-            >
-              <CheckCircle2 size={24} className="shrink-0" />
-              <div className="text-sm sm:text-base font-bold text-white">
-                Cảm ơn bạn! CapNong đã ghi nhận thông tin. Đây là bản trải nghiệm nên chưa gửi
-                voucher thật.
-              </div>
-            </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit}
-              noValidate
-              className="flex flex-col sm:flex-row items-start gap-3"
-            >
-              <div className="relative flex-1 w-full">
-                <label htmlFor="newsletter-contact" className="sr-only">
-                  Email hoặc số điện thoại
-                </label>
-                <Mail
-                  size={18}
-                  className="absolute left-4 top-[1.6rem] -translate-y-1/2 text-white/70"
-                  aria-hidden
-                />
-                <input
-                  id="newsletter-contact"
-                  type="text"
-                  inputMode="email"
-                  autoComplete="email"
-                  required
-                  value={contactInput}
-                  onChange={(e) => {
-                    setContactInput(e.target.value)
-                    if (error) setError('')
-                  }}
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? 'newsletter-error' : undefined}
-                  placeholder="Email hoặc số điện thoại"
-                  className="w-full h-[3.2rem] pl-11 pr-4 rounded-2xl bg-white/15 border border-white/30 text-white placeholder-white/70 text-sm focus:outline-none focus:bg-white/25 focus:border-[#ffea79] transition-all aria-[invalid=true]:border-[#ffb4ab]"
-                />
-                {error && (
-                  <p
-                    id="newsletter-error"
-                    role="alert"
-                    className="mt-2 text-caption font-semibold text-[#ffd6d0]"
-                  >
-                    {error}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                className="w-full sm:w-auto h-[3.2rem] px-7 rounded-2xl bg-[#ffba41] hover:bg-[#ffce77] text-[#2c2416] font-extrabold text-xs sm:text-sm uppercase tracking-wide transition-all shadow-lg hover:shadow-xl shrink-0 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Nhận Voucher 50K</span>
-                <ArrowRight size={16} />
-              </button>
-            </form>
-          )}
-
-          {/* Micro trust badges */}
-          <div className="mt-4 pt-3 border-t border-white/15 flex flex-wrap items-center justify-between text-caption text-white/75 gap-2">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-[#a4e876]" />
-              Cam kết bảo mật thông tin 100%
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Gift size={14} className="text-[#ffea79]" />
-              Tặng Voucher 50.000đ đơn đầu tiên
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Zap size={14} className="text-[#a4e876]" />
-              Giao rau củ tươi trong ngày
-            </span>
           </div>
         </div>
       </div>

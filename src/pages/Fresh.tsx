@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
-  Leaf,
-  MapPin,
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  Truck,
   X,
 } from 'lucide-react'
-import { filterProducts, type Cart } from '@/mocks/catalog'
 import freshFarmerBanner from '../assets/fresh-farmer-banner.jpg'
 import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
@@ -24,9 +21,23 @@ import {
   filtersFromHash,
   ProductGrid,
   useAllProducts,
+  useCategories,
   type Filters,
 } from '@/features/product'
-import { cn } from '@/utils'
+
+type Cart = {
+  items?: Readonly<Record<string, number>>
+}
+
+function getProduceRegion(address?: string): string {
+  if (!address) return 'Đà Lạt'
+  const a = address.toLowerCase()
+  if (a.includes('đà lạt') || a.includes('lâm đồng')) return 'Đà Lạt'
+  if (a.includes('tiền giang') || a.includes('bến tre') || a.includes('đồng tháp') || a.includes('miền tây') || a.includes('cần thơ')) return 'Miền Tây'
+  if (a.includes('đắk lắk') || a.includes('gia lai') || a.includes('tây nguyên')) return 'Tây Nguyên'
+  if (a.includes('đồng nai') || a.includes('hồ chí minh') || a.includes('bình dương') || a.includes('đông nam')) return 'Đông Nam Bộ'
+  return 'Đà Lạt'
+}
 
 const PAGE_SIZE = 16
 
@@ -47,42 +58,49 @@ type FreshProps = {
   cart?: Cart
 }
 
-const HIGHLIGHTS = [
-  {
-    icon: Leaf,
-    title: 'AI thẩm định độ tươi',
-    text: 'Minh bạch điểm độ tươi trên từng lô hàng.',
-    tone: 'bg-leaf-50 text-leaf-600',
-  },
-  {
-    icon: MapPin,
-    title: 'Trực tiếp từ nhà vườn',
-    text: 'Biết rõ người trồng và nhật ký canh tác.',
-    tone: 'bg-sun-100 text-soil-600',
-  },
-  {
-    icon: Truck,
-    title: 'Giao nhanh 2–4 giờ',
-    text: 'Đóng thùng tái chế, giữ trọn độ giòn ngọt.',
-    tone: 'bg-sky-50 text-sky-700',
-  },
-] as const
-
 export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshProps) {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { data: apiCategories = [] } = useCategories()
   const [filters, setFilters] = useState<Filters>(() => filtersFromHash())
 
-  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL
+  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL & searchParams
   useEffect(() => {
+    const kw = searchParams.get('keyword')
+    if (kw && kw !== query) {
+      setQuery(kw)
+    }
+
+    const catId = searchParams.get('categoryId')
+    const danhMuc = searchParams.get('danh-muc')
+
+    if (catId) {
+      const catIdNum = Number(catId)
+      const foundCat = apiCategories.find((c) => c.categoryId === catIdNum)
+      if (foundCat) {
+        setFilters((prev) => ({ ...prev, category: foundCat.name }))
+      }
+    } else if (danhMuc) {
+      const match = CATEGORIES.find((c) => c.slug === danhMuc)
+      if (match) setFilters((prev) => ({ ...prev, category: match.id }))
+    }
+
     const sync = () => {
       if (location.hash.includes('danh-muc=')) setFilters(filtersFromHash())
     }
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
-  }, [])
+  }, [searchParams, apiCategories])
+
   const [sort, setSort] = useState<SortId>('featured')
   const [currentPage, setCurrentPage] = useState(0)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const { data: apiProducts, isLoading: isProductsLoading } = useAllProducts()
+  const {
+    data: apiProducts = [],
+    isLoading: isProductsLoading,
+    error: productsError,
+    refetch,
+  } = useAllProducts()
 
   // Tự động quay về trang 1 khi thay đổi bộ lọc, từ khóa tìm kiếm hoặc kiểu sắp xếp
   useEffect(() => {
@@ -94,68 +112,68 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     const min = range && 'min' in range ? range.min : 0
     const max = range && 'max' in range ? range.max : Number.POSITIVE_INFINITY
 
-    if (apiProducts && apiProducts.length > 0) {
-      let filtered = apiProducts.map((p) => {
-        const price = p.sellingPrice ?? p.price ?? 0
-        const original = p.discountPercent
-          ? Math.round(price / (1 - p.discountPercent / 100))
-          : price
-        const image = p.primaryImageUrl || p.imageUrl || p.image || ''
-        return {
-          id: String(p.productId || p.id),
-          name: p.productName || p.name || 'Nông sản',
-          price,
-          original,
-          image,
-          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
-          farm: p.shop?.shopName || 'Nhà vườn CapNong',
-          region: p.origin || p.shop?.address || 'Đà Lạt (Lâm Đồng)',
-          flaw: 'Ngoại hình tự nhiên',
-          score: 96,
-          stock: p.stockQuantity ?? p.stock ?? 100,
-          rescued: 50,
-          unit: p.unit || 'kg',
-        }
-      })
-
-      if (query.trim()) {
-        const q = query.toLowerCase()
-        filtered = filtered.filter((p) => p.name.toLowerCase().includes(q))
-      }
-
-      if (filters.category && filters.category !== 'Tất cả') {
-        filtered = filtered.filter(
-          (p) =>
-            p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
-            filters.category.toLowerCase().includes(p.category.toLowerCase()),
-        )
-      }
-
-      if (filters.region && filters.region !== 'all') {
-        const rLower = filters.region.toLowerCase()
-        filtered = filtered.filter((p) => p.region.toLowerCase().includes(rLower))
-      }
-
-      filtered = filtered.filter((p) => p.price >= min && p.price <= max)
-
-      if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
-      else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
-      else if (sort === 'harvested') filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      else if (sort === 'featured') filtered.sort((a, b) => (b.rescued ?? 0) - (a.rescued ?? 0))
-
-      return filtered
+    if (!apiProducts || apiProducts.length === 0) {
+      return []
+    }
     }
 
-    const fallbackList = filterProducts(query, filters.category, sort).filter(
-      (p) =>
-        p.price >= min &&
-        p.price <= max &&
-        (filters.region === 'all' || p.region.includes(filters.region)),
-    )
-    if (sort === 'harvested') fallbackList.sort((a, b) => b.score - a.score)
-    else if (sort === 'featured') fallbackList.sort((a, b) => b.rescued - a.rescued)
+    let filtered = apiProducts.map((p) => {
+      const price = p.sellingPrice ?? p.price ?? 0
+      const original = p.discountPercent
+        ? Math.round(price / (1 - p.discountPercent / 100))
+        : price
+      const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+      const catName =
+        typeof p.category === 'object' && p.category
+          ? p.category.name
+          : typeof p.category === 'string'
+            ? p.category
+            : 'Rau củ'
 
-    return fallbackList
+      return {
+        id: String(p.productId || p.id),
+        name: p.productName || p.name || 'Nông sản',
+        price,
+        original,
+        image,
+        category: catName,
+        farm: p.shop?.shopName || 'Nhà vườn CapNong',
+        region: getProduceRegion(p.shop?.address),
+        flaw: 'Ngoại hình tự nhiên',
+        score: 96,
+        stock: p.stockQuantity ?? p.stock ?? 0,
+        rescued: 50,
+        unit: p.unit || 'kg',
+      }
+    })
+
+    if (query.trim()) {
+      const q = query.toLowerCase()
+      filtered = filtered.filter((p) => p.name.toLowerCase().includes(q))
+    }
+
+    if (filters.category && filters.category !== 'Tất cả') {
+      filtered = filtered.filter(
+        (p) =>
+          p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
+          filters.category.toLowerCase().includes(p.category.toLowerCase()),
+      )
+    }
+
+    filtered = filtered.filter((p) => p.price >= min && p.price <= max)
+
+    if (filters.region !== 'all') {
+      filtered = filtered.filter(
+        (p) => p.region === filters.region || p.region.includes(filters.region),
+      )
+    }
+
+    if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
+    else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
+    else if (sort === 'harvested') filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    else if (sort === 'featured') filtered.sort((a, b) => (b.rescued ?? 0) - (a.rescued ?? 0))
+
+    return filtered
   }, [query, filters, sort, apiProducts])
 
   const totalPages = Math.ceil(items.length / PAGE_SIZE)
@@ -216,12 +234,12 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
           >
             <ol className="flex items-center gap-2">
               <li>
-                <a
-                  href="/"
+                <Link
+                  to="/"
                   className="rounded hover:text-sun-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sun-300"
                 >
                   Trang chủ
-                </a>
+                </Link>
               </li>
               <li aria-hidden>›</li>
               <li aria-current="page" className="font-bold text-sun-300">
@@ -354,8 +372,10 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               products={pagedItems}
               onAdd={onAdd}
               columns="wide"
-              status={isProductsLoading ? 'loading' : 'success'}
-              cart={cart}
+              status={isProductsLoading ? 'loading' : productsError ? 'error' : 'success'}
+              error={productsError ? 'Không thể kết nối máy chủ để tải nông sản. Vui lòng bấm thử lại.' : undefined}
+              onRetry={() => refetch()}
+              cart={cart?.items}
               priorityCount={4}
               empty={{
                 title: 'Không tìm thấy nông sản phù hợp',
@@ -412,35 +432,12 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               <Button
                 variant="accent"
                 size="lg"
-                onClick={() => onInfo('AI gợi ý thực đơn')}
+                onClick={() => navigate('/ke-hoach-an-uong')}
                 leftIcon={<Sparkles size={16} aria-hidden />}
               >
                 AI gợi ý thực đơn
               </Button>
             </aside>
-
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-              {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
-                <li
-                  key={title}
-                  className="flex items-start gap-3 rounded-xl border border-line bg-white p-4 shadow-card"
-                >
-                  <span
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                      tone,
-                    )}
-                    aria-hidden
-                  >
-                    <Icon size={20} />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-ink">{title}</h3>
-                    <p className="mt-0.5 text-caption leading-relaxed text-ink-muted">{text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
       </div>

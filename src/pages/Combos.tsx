@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mysteryBoxService, comboService } from '@/services'
 import {
@@ -7,7 +7,10 @@ import {
   Check,
   Sparkles,
   ShoppingBasket,
+  ShoppingCart,
+  Eye,
   ArrowUpDown,
+  ArrowRight,
   Filter,
   Plus,
   RotateCcw,
@@ -38,249 +41,7 @@ interface CombosProps {
 
 type ComboItem = ComboCardItem
 
-// Danh sách 12 Combo & Túi mù phong phú với ảnh thật sắc nét (dùng khi API không có kết nối hoặc dùng mock)
-const ALL_COMBOS: ComboItem[] = [
-  {
-    id: 'mystery-1',
-    realId: 1,
-    itemType: 'MYSTERY_BOX',
-    name: 'Hộp Củ Bí Ẩn Đà Lạt',
-    image: 'https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=600&auto=format&fit=crop',
-    badgeDiscount: '-50%',
-    badgeWeight: 'Túi 5kg củ',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Gia đình 2–3 người',
-    feature: 'Gồm 4-5 loại củ tươi ngon ngẫu nhiên thu hoạch sáng sớm từ vườn organic Đà Lạt',
-    price: 89000,
-    original: 180000,
-    unit: 'túi',
-    rating: 4.9,
-    reviews: 348,
-    sold: 145,
-    stock: 35,
-  },
-  {
-    id: 'mystery-2',
-    realId: 2,
-    itemType: 'MYSTERY_BOX',
-    name: 'Hộp Trái Cây Dinh Dưỡng',
-    image: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=600&auto=format&fit=crop',
-    badgeDiscount: '-40%',
-    badgeWeight: 'Hộp 4kg quả',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Gia đình 3–4 người',
-    feature: 'Giỏ quả tươi ngọt thanh, giàu vitamin C và chất xơ tự nhiên thu hái trong ngày',
-    price: 129000,
-    original: 215000,
-    unit: 'hộp',
-    rating: 4.8,
-    reviews: 215,
-    sold: 180,
-    stock: 28,
-  },
-  {
-    id: 'mystery-3',
-    realId: 3,
-    itemType: 'MYSTERY_BOX',
-    name: 'Hộp Củ Quả Miền Tây',
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&auto=format&fit=crop',
-    badgeDiscount: '-50%',
-    badgeWeight: 'Túi 5kg rau củ',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Gia đình 3–5 người',
-    feature: 'Rau củ đặc sản miệt vườn tươi xanh mát, phù hợp nấu canh ngọt và xào gia đình',
-    price: 75000,
-    original: 150000,
-    unit: 'túi',
-    rating: 4.9,
-    reviews: 182,
-    sold: 210,
-    stock: 40,
-  },
-  {
-    id: 'mystery-4',
-    realId: 5,
-    itemType: 'MYSTERY_BOX',
-    name: 'Hộp Nông Sản Nấm & Đậu Chay',
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
-    badgeDiscount: '-40%',
-    badgeWeight: 'Hộp 4kg thanh đạm',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Nhóm 2–4 người',
-    feature: 'Nấm đùi gà, nấm rơm búp tươi và đậu non organic cho bữa ăn chay thanh tịnh, ngọt vị',
-    price: 99000,
-    original: 165000,
-    unit: 'hộp',
-    rating: 4.9,
-    reviews: 164,
-    sold: 95,
-    stock: 25,
-  },
-  {
-    id: 'combo-hotpot',
-    realId: 15,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Lẩu Nấm & Rau Vườn Cuối Tuần',
-    image: comboHotpotImg || 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop',
-    badgeDiscount: '-32%',
-    badgeWeight: '4.5kg rau nấm',
-    badgeHighlight: 'Cuối tuần',
-    category: 'Combo',
-    portion: 'Nhóm 4–6 người',
-    feature: 'Nấm đùi gà, ngô ngọt Tiền Giang, búp nấm rơm, đậu hũ non & cải ngọt non sum vầy',
-    price: 149000,
-    original: 220000,
-    unit: 'combo',
-    rating: 4.9,
-    reviews: 164,
-    sold: 164,
-    stock: 20,
-  },
-  {
-    id: 'combo-salad',
-    realId: 2,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Salad Eat Clean Đà Lạt',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop',
-    badgeDiscount: '-40%',
-    badgeWeight: '3kg rau salad',
-    badgeHighlight: 'Eat Clean',
-    category: 'Combo',
-    portion: 'Gia đình 2–3 người',
-    feature: 'Xà lách mỡ, cà chua bi ngọt, cải bó xôi và ớt chuông đỏ giàu vitamin C chống lão hóa',
-    price: 75000,
-    original: 125000,
-    unit: 'combo',
-    rating: 4.8,
-    reviews: 142,
-    sold: 188,
-    stock: 30,
-  },
-  {
-    id: 'combo-detox',
-    realId: 1,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Detox Củ Quả Sáng',
-    image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=600&auto=format&fit=crop',
-    badgeDiscount: '-39%',
-    badgeWeight: '3.5kg củ quả',
-    badgeHighlight: 'Bữa sáng',
-    category: 'Combo',
-    portion: 'Cá nhân & Gia đình',
-    feature: 'Cà rốt tươi ngọt, cải ngọt giòn mát, khoai lang bùi ngọt và xà lách sạch ép nước thanh lọc',
-    price: 70000,
-    original: 115000,
-    unit: 'combo',
-    rating: 4.8,
-    reviews: 118,
-    sold: 156,
-    stock: 22,
-  },
-  {
-    id: 'combo-soup',
-    realId: 3,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Hầm Súp Củ Quả Đà Lạt',
-    image: comboGreenImg || 'https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop',
-    badgeDiscount: '-37%',
-    badgeWeight: '4kg củ quả',
-    badgeHighlight: 'Bữa trưa',
-    category: 'Combo',
-    portion: 'Gia đình 3–4 người',
-    feature: 'Khoai tây ruột vàng, cà rốt hữu cơ, khoai lang mật và cải bó xôi hầm nước ngọt tự nhiên',
-    price: 85000,
-    original: 135000,
-    unit: 'combo',
-    rating: 4.9,
-    reviews: 135,
-    sold: 140,
-    stock: 18,
-  },
-  {
-    id: 'combo-kitchen',
-    realId: 18,
-    itemType: 'BUILD_COMBO',
-    name: 'Thùng Bếp Xanh Củ Quả 10kg',
-    image: comboKitchenImg || 'https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop',
-    badgeDiscount: '-37%',
-    badgeWeight: '10kg tổng hợp',
-    badgeHighlight: 'Thùng lớn',
-    category: 'Combo',
-    portion: 'Quán ăn & Bếp tập thể',
-    feature: 'Khoai lang, củ dền, bí đỏ, bắp cải & cà chua chất lượng chuẩn bếp nấu cho cả tuần',
-    price: 219000,
-    original: 350000,
-    unit: 'thùng',
-    rating: 4.9,
-    reviews: 182,
-    sold: 182,
-    stock: 15,
-  },
-  {
-    id: 'combo-canh',
-    realId: 23,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Canh Mát Giải Nhiệt Trưa Hè',
-    image: 'https://images.unsplash.com/photo-1543339308-43e59d6b73a6?w=600&auto=format&fit=crop',
-    badgeDiscount: '-38%',
-    badgeWeight: '3.5kg rau củ',
-    badgeHighlight: 'Bữa trưa',
-    category: 'Combo',
-    portion: 'Gia đình 3–4 người',
-    feature: 'Mồng tơi non, rau ngót vườn hữu cơ, củ cải trắng ngọt mát và bắp ngọt Tiền Giang thanh nhiệt',
-    price: 65000,
-    original: 105000,
-    unit: 'combo',
-    rating: 4.8,
-    reviews: 95,
-    sold: 120,
-    stock: 25,
-  },
-  {
-    id: 'combo-smoothie',
-    realId: 24,
-    itemType: 'BUILD_COMBO',
-    name: 'Combo Sinh Tố & Detox Xế Chiều Miền Tây',
-    image: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=600&auto=format&fit=crop',
-    badgeDiscount: '-36%',
-    badgeWeight: '3kg trái cây',
-    badgeHighlight: 'Bữa phụ',
-    category: 'Combo',
-    portion: 'Gia đình 2–4 người',
-    feature: 'Xoài cát Hòa Lộc thơm nức, chuối già Nam Mỹ hữu cơ và cam sành Tiền Giang mọng nước',
-    price: 79000,
-    original: 125000,
-    unit: 'combo',
-    rating: 4.9,
-    reviews: 110,
-    sold: 105,
-    stock: 20,
-  },
-  {
-    id: 'mystery-8',
-    realId: 8,
-    itemType: 'MYSTERY_BOX',
-    name: 'Hộp Trái Cây Miệt Vườn Siêu Ngọt',
-    image: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=600&auto=format&fit=crop',
-    badgeDiscount: '-34%',
-    badgeWeight: 'Hộp 5kg đặc sản',
-    badgeHighlight: 'Túi mù',
-    category: 'Túi mù',
-    portion: 'Gia đình 4–6 người',
-    feature: 'Bưởi da xanh Bến Tre, xoài cát Hòa Lộc, bơ sáp Đắk Lắk và dưa hấu đỏ ruột ngọt lịm',
-    price: 165000,
-    original: 250000,
-    unit: 'hộp',
-    rating: 4.9,
-    reviews: 88,
-    sold: 76,
-    stock: 16,
-  },
-]
+const ALL_COMBOS: ComboItem[] = []
 
 const COMBO_CATEGORIES = [
   {
@@ -386,12 +147,6 @@ function ComboCard({
           {combo.feature}
         </p>
 
-        {/* Trạng thái sẵn sàng bằng dòng chữ xanh bên dưới */}
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse shrink-0" />
-          <span className="whitespace-nowrap">Sẵn sàng giao trong ngày</span>
-        </div>
-
         {/* Hàng giá tiền & Tiết kiệm: đặt giá gốc gạch ngang bên dưới giá bán chính để nhường chiều ngang */}
         <div className="flex items-center justify-between gap-2 mt-auto pt-2.5 border-t border-gray-100">
           <div className="flex flex-col">
@@ -423,20 +178,33 @@ function ComboCard({
           </div>
         </div>
 
-        {/* Nút thêm vào giỏ */}
-        <button
-          type="button"
-          onClick={() =>
-            onAdd(
-              combo.realId ?? combo.id,
-              combo.itemType ?? (combo.id.startsWith('mystery') ? 'MYSTERY_BOX' : 'BUILD_COMBO'),
-            )
-          }
-          className="w-full mt-1 py-2.5 px-4 bg-[#4a7c2f] hover:bg-[#3b6624] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-        >
-          <ShoppingBasket size={16} />
-          <span>{combo.category === 'Túi mù' ? 'Thêm Túi Mù Vào Giỏ' : 'Thêm Combo Vào Giỏ'}</span>
-        </button>
+        {/* Nút hành động: 1 nút Chi tiết + 1 nút Thêm vào giỏ */}
+        <div className="mt-2.5 flex items-center gap-2 pt-2.5 border-t border-gray-100">
+          <Link
+            to={detailUrl}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg border border-[#326318]/40 bg-[#f8faf6] text-[#326318] hover:bg-[#326318] hover:text-white text-xs font-bold transition-all text-center group/btn"
+          >
+            <Eye size={14} className="shrink-0 transition-transform group-hover/btn:scale-110" />
+            <span className="truncate">Chi tiết</span>
+          </Link>
+
+          <button
+            type="button"
+            disabled={combo.stock <= 0}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onAdd(
+                combo.realId ?? combo.id,
+                combo.itemType ?? (combo.id.startsWith('mystery') ? 'MYSTERY_BOX' : 'BUILD_COMBO'),
+              )
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-[0.98] disabled:bg-[#d6dccf] disabled:text-[#838d7b] disabled:cursor-not-allowed disabled:shadow-none text-center cursor-pointer"
+          >
+            <ShoppingCart size={14} className="shrink-0" />
+            <span className="truncate">{combo.stock <= 0 ? 'Hết hàng' : 'Thêm giỏ'}</span>
+          </button>
+        </div>
       </div>
     </article>
   )
@@ -444,10 +212,29 @@ function ComboCard({
 
 export default function Combos({ onAdd, onInfo }: CombosProps) {
   const navigate = useNavigate()
-  const [category, setCategory] = useState('all')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [category, setCategory] = useState(() => searchParams.get('category') || (searchParams.get('type') === 'mystery' ? 'mystery' : 'all'))
   const [sort, setSort] = useState('featured')
   const [priceRange, setPriceRange] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
+
+  const mealTypeParam = searchParams.get('mealType')
+
+  useEffect(() => {
+    const cat = searchParams.get('category')
+    const meal = searchParams.get('mealType')
+    const type = searchParams.get('type')
+    if (cat) {
+      setCategory(cat)
+      setCurrentPage(1)
+    } else if (type === 'mystery') {
+      setCategory('mystery')
+      setCurrentPage(1)
+    } else if (meal) {
+      setCategory('family')
+      setCurrentPage(1)
+    }
+  }, [searchParams])
 
   const { data: mysteryBoxesData } = useQuery({
     queryKey: ['mystery-boxes'],
@@ -472,12 +259,7 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
       list.push(mapComboToCard(c, comboGreenImg))
     })
 
-    const meaningfulList = list.filter((item) => isMeaningfulComboName(item.name))
-    if (meaningfulList.length > 0) return meaningfulList
-    return ALL_COMBOS.map((item) => ({
-      ...item,
-      category: item.category === 'Túi mù' ? 'Túi mù' : 'Combo',
-    }))
+    return list.filter((item) => isMeaningfulComboName(item.name))
   }, [mysteryBoxesData, combosData])
 
   // Filter pipeline
@@ -494,6 +276,16 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
   } else if (category === 'bulk') {
     filteredCombos = filteredCombos.filter(
       (c) => c.name.toLowerCase().includes('thùng') || c.category === 'Thùng lớn' || c.price >= 200000,
+    )
+  }
+
+  if (mealTypeParam) {
+    const mt = mealTypeParam.toUpperCase()
+    filteredCombos = filteredCombos.filter(
+      (c) =>
+        c.mealType?.toUpperCase() === mt ||
+        c.badgeHighlight?.toUpperCase().includes(mt) ||
+        (c.portion && c.portion.toUpperCase().includes(mt))
     )
   }
 
@@ -526,6 +318,9 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
     setSort('featured')
     setPriceRange('all')
     setCurrentPage(1)
+    if (searchParams.toString()) {
+      setSearchParams({})
+    }
   }
 
   const hasActiveFilters = category !== 'all' || priceRange !== 'all'
@@ -831,27 +626,27 @@ export default function Combos({ onAdd, onInfo }: CombosProps) {
                 </div>
               )}
 
-              {/* Callout giới thiệu chương trình cộng đồng */}
-              <div className="bg-gradient-to-r from-[#244e18] via-[#1d4213] to-[#14330d] text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl border border-white/10 relative overflow-hidden mt-4">
+              {/* Callout Chiến dịch Đồng hành cùng Nông dân */}
+              <div className="bg-gradient-to-r from-[#1e4815] via-[#16390e] to-[#0f280a] text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl border border-white/10 relative overflow-hidden mt-4">
                 <div className="relative z-10 flex flex-col gap-1.5 text-center sm:text-left">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-[#ffea79] text-xs font-bold w-fit mx-auto sm:mx-0">
                     <Sparkles size={13} />
-                    <span>Cộng Đồng Tiêu Dùng Xanh</span>
+                    <span>Đồng Hành Cùng Nông Dân Việt</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-white">
-                    Rủ bạn bè cùng giải cứu nông sản
+                    Chung tay cùng các chiến dịch giải cứu nông sản
                   </h2>
-                  <p className="text-xs sm:text-sm text-white/80 max-w-md">
-                    Nhận ngay Voucher 30.000đ cho mỗi người bạn giới thiệu thành công đơn hàng Combo đầu tiên.
+                  <p className="text-xs sm:text-sm text-white/85 max-w-lg leading-relaxed">
+                    Mỗi combo và hộp bí ẩn bạn lựa chọn đều góp phần giảm thiểu nông sản tồn đọng sau thu hoạch cho các hợp tác xã và nhà vườn liên kết.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onInfo('Chương trình giới thiệu bạn bè')}
-                  className="relative z-10 shrink-0 bg-[#ffea79] hover:bg-[#ffd84d] text-[#1d4213] px-6 py-3 rounded-2xl font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                <Link
+                  to="/chien-dich"
+                  className="relative z-10 shrink-0 bg-[#ffea79] hover:bg-[#ffd84d] text-[#14330d] px-6 py-3 rounded-2xl font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <span>Khám phá chương trình</span>
-                </button>
+                  <span>Khám phá các chiến dịch</span>
+                  <ArrowRight size={14} />
+                </Link>
               </div>
             </main>
           </div>
