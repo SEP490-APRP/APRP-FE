@@ -56,7 +56,7 @@ describe('shipperErrorMessage', () => {
   })
 
   it('mã lạ thì dùng message của BE, không có thì dùng câu dự phòng', () => {
-    expect(shipperErrorMessage({ data: { code: 9999, message: 'Lỗi BE' } }, 'dự phòng')).toBe('Lỗi BE')
+    expect(shipperErrorMessage({ data: { code: 8888, message: 'Lỗi BE' } }, 'dự phòng')).toBe('Lỗi BE')
     expect(shipperErrorMessage(new Error(), 'dự phòng')).toBe('dự phòng')
   })
 })

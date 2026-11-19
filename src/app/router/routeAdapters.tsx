@@ -50,6 +50,8 @@ const DEFAULT_SHOP_ID = '101'
 
 export function HomeRoute() {
   const { user } = useAuth()
+  const { onAdd, onInfo, cart } = useStorefront()
+
   if (user?.role === 'shop') {
     return <Navigate to="/shop" replace />
   }
@@ -59,7 +61,6 @@ export function HomeRoute() {
   if (user?.role === 'shipper') {
     return <Navigate to="/shipper" replace />
   }
-  const { onAdd, onInfo, cart } = useStorefront()
   return <Home onAdd={onAdd} onInfo={onInfo} cart={cart} />
 }
 
