@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Download,
   Search,
@@ -814,24 +815,25 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
       )}
 
       {/* 6. Modal Chi Tiết Đơn Hàng */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg max-w-xl w-full p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
-              <div className="flex items-center gap-2.5">
-                <FileText className="text-[#326318]" size={20} />
-                <h4 className="text-base font-black text-[#1c2216]">
-                  Chi Tiết Đơn Hàng #ORD-{selectedOrder.orderId ?? selectedOrder.id}
-                </h4>
+      {selectedOrder &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-lg max-w-xl w-full p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
+                <div className="flex items-center gap-2.5">
+                  <FileText className="text-[#326318]" size={20} />
+                  <h4 className="text-base font-black text-[#1c2216]">
+                    Chi Tiết Đơn Hàng #ORD-{selectedOrder.orderId ?? selectedOrder.id}
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="size-7 rounded-lg bg-[#f4f7f1] hover:bg-[#eaf0e6] flex items-center justify-center text-[#555d4e] cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="size-7 rounded-lg bg-[#f4f7f1] hover:bg-[#eaf0e6] flex items-center justify-center text-[#555d4e] cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
 
             <div className="space-y-3.5 text-xs">
               <div className="p-3.5 rounded-lg bg-[#fafcf9] border border-[#edf3e8] space-y-1.5">
@@ -916,50 +918,53 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 7. Modal Xác Nhận Hủy Đơn */}
-      {cancelModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-5 space-y-3.5 shadow-2xl text-center">
-            <AlertTriangle className="size-9 text-rose-500 mx-auto" />
-            <h4 className="text-base font-black text-[#1c2216]">
-              Xác Nhận Hủy Đơn #ORD-{cancelModalOrder.orderId ?? cancelModalOrder.id}?
-            </h4>
-            <p className="text-xs text-[#7e8779]">
-              Khi hủy, số lượng nông sản sẽ được tự động hoàn trả về kho hàng của bạn.
-            </p>
+      {cancelModalOrder &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-lg max-w-sm w-full p-5 space-y-3.5 shadow-2xl text-center">
+              <AlertTriangle className="size-9 text-rose-500 mx-auto" />
+              <h4 className="text-base font-black text-[#1c2216]">
+                Xác Nhận Hủy Đơn #ORD-{cancelModalOrder.orderId ?? cancelModalOrder.id}?
+              </h4>
+              <p className="text-xs text-[#7e8779]">
+                Khi hủy, số lượng nông sản sẽ được tự động hoàn trả về kho hàng của bạn.
+              </p>
 
-            <div className="text-left text-xs space-y-1">
-              <label className="text-[11px] font-bold text-[#454c3e]">Lý do hủy đơn:</label>
-              <CustomSelect
-                value={cancelReason}
-                onChange={(val) => setCancelReason(String(val))}
-                options={CANCEL_REASON_OPTIONS}
-              />
-            </div>
+              <div className="text-left text-xs space-y-1">
+                <label className="text-[11px] font-bold text-[#454c3e]">Lý do hủy đơn:</label>
+                <CustomSelect
+                  value={cancelReason}
+                  onChange={(val) => setCancelReason(String(val))}
+                  options={CANCEL_REASON_OPTIONS}
+                />
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setCancelModalOrder(null)}
-                className="flex-1 py-2 px-3.5 rounded-lg border border-gray-200 text-xs font-bold text-[#424a3c] hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCancel}
-                disabled={cancelMutation.isPending}
-                className="flex-1 py-2 px-3.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {cancelMutation.isPending ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Xác Nhận Hủy'}
-              </button>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelModalOrder(null)}
+                  className="flex-1 py-2 px-3.5 rounded-lg border border-gray-200 text-xs font-bold text-[#424a3c] hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  Quay lại
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCancel}
+                  disabled={cancelMutation.isPending}
+                  className="flex-1 py-2 px-3.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {cancelMutation.isPending ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Xác Nhận Hủy'}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* 8. Modal Bản Đồ Google Maps Tracking */}
       {trackingModalOrder && (

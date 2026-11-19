@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Gavel,
   Search,
@@ -388,56 +389,57 @@ export default function FarmerDisputes() {
       </div>
 
       {/* Modal Chi Tiết & Phản Hồi Khiếu Nại */}
-      {selectedDispute && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !respondMutation.isPending) {
-              setSelectedDispute(null)
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp relative">
-            {/* Nút đóng */}
-            <button
-              type="button"
-              onClick={() => setSelectedDispute(null)}
-              disabled={respondMutation.isPending}
-              aria-label="Đóng"
-              className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer z-10"
-            >
-              <X size={18} />
-            </button>
+      {selectedDispute &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !respondMutation.isPending) {
+                setSelectedDispute(null)
+              }
+            }}
+          >
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp relative">
+              {/* Nút đóng */}
+              <button
+                type="button"
+                onClick={() => setSelectedDispute(null)}
+                disabled={respondMutation.isPending}
+                aria-label="Đóng"
+                className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer z-10"
+              >
+                <X size={18} />
+              </button>
 
-            {/* Header Modal */}
-            <div className="p-5 sm:p-6 border-b border-stone-100 flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
-                <RotateCcw size={20} />
-              </div>
-              <div className="pr-6">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-black text-[#1c2216]">
-                    Chi tiết yêu cầu hoàn hàng #{selectedDispute.id}
-                  </h3>
-                  {(() => {
-                    const st = STATUS_CONFIG[selectedDispute.status] || STATUS_CONFIG.PENDING
-                    return (
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${st.badgeClass}`}>
-                        {st.label}
-                      </span>
-                    )
-                  })()}
+              {/* Header Modal */}
+              <div className="p-5 sm:p-6 border-b border-stone-100 flex items-start gap-3.5 shrink-0 bg-white">
+                <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                  <RotateCcw size={20} />
                 </div>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Đơn hàng gốc #{selectedDispute.orderId} • Người mua: {selectedDispute.buyerName || 'Khách'}
-                </p>
+                <div className="pr-6">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-[#1c2216]">
+                      Chi tiết yêu cầu hoàn hàng #{selectedDispute.id}
+                    </h3>
+                    {(() => {
+                      const st = STATUS_CONFIG[selectedDispute.status] || STATUS_CONFIG.PENDING
+                      return (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${st.badgeClass}`}>
+                          {st.label}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Đơn hàng gốc #{selectedDispute.orderId} • Người mua: {selectedDispute.buyerName || 'Khách'}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Nội dung scrollable */}
-            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-left">
+              {/* Nội dung scrollable */}
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-left min-h-0">
               {/* Thẻ sản phẩm & Số tiền */}
               <div className="p-3.5 rounded-lg bg-[#fafcf9] border border-[#e3ebdc] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -719,32 +721,35 @@ export default function FarmerDisputes() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal phóng to ảnh / video */}
-      {activeMediaUrl && (
-        <div
-          role="dialog"
-          className="fixed inset-0 z-[250] bg-black/90 flex items-center justify-center p-4 animate-fadeIn"
-          onClick={() => setActiveMediaUrl(null)}
-        >
-          <button
-            type="button"
+      {activeMediaUrl &&
+        createPortal(
+          <div
+            role="dialog"
+            className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-4 animate-fadeIn"
             onClick={() => setActiveMediaUrl(null)}
-            className="absolute top-5 right-5 p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors"
           >
-            <X size={20} />
-          </button>
-          <div className="max-w-4xl max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            {activeMediaUrl.toLowerCase().includes('.mp4') || activeMediaUrl.toLowerCase().includes('video') ? (
-              <video src={activeMediaUrl} controls autoPlay className="max-h-[85vh] max-w-full rounded-2xl" />
-            ) : (
-              <img src={activeMediaUrl} alt="Phóng to" className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl" />
-            )}
-          </div>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => setActiveMediaUrl(null)}
+              className="absolute top-5 right-5 p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <div className="max-w-4xl max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              {activeMediaUrl.toLowerCase().includes('.mp4') || activeMediaUrl.toLowerCase().includes('video') ? (
+                <video src={activeMediaUrl} controls autoPlay className="max-h-[85vh] max-w-full rounded-2xl" />
+              ) : (
+                <img src={activeMediaUrl} alt="Phóng to" className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl" />
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
