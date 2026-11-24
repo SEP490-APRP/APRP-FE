@@ -44,7 +44,6 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
 }) => {
   const [selectedReason, setSelectedReason] = useState<string>(RETURN_REASONS[0])
   const [customReason, setCustomReason] = useState<string>('')
-  const [refundAmount, setRefundAmount] = useState<number>(0)
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState<boolean>(false)
   const [uploadProgress, setUploadProgress] = useState<string>('')
@@ -55,18 +54,17 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
   const orderDetailId = item?.orderDetailId ?? item?.id
   const itemUnitPrice = Number(item?.unitPrice || 0)
   const itemQty = Number(item?.quantity || 1)
-  const maxRefundAmount = itemUnitPrice * itemQty
+  const refundAmount = itemUnitPrice * itemQty
 
   // Reset khi mở modal
   useEffect(() => {
     if (isOpen && item) {
       setSelectedReason(RETURN_REASONS[0])
       setCustomReason('')
-      setRefundAmount(maxRefundAmount)
       setEvidenceUrls([])
       setErrorMessage(null)
     }
-  }, [isOpen, item, maxRefundAmount])
+  }, [isOpen, item])
 
   // Thoát bằng Escape
   useEffect(() => {
@@ -139,11 +137,6 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
       selectedReason === 'Lý do khác' && customReason.trim()
         ? `Lý do khác: ${customReason.trim()}`
         : selectedReason
-
-    if (refundAmount <= 0 || refundAmount > maxRefundAmount) {
-      setErrorMessage(`Số tiền yêu cầu hoàn phải từ 1.000\u00A0đ đến tối đa ${maxRefundAmount.toLocaleString('vi-VN')}\u00A0đ`)
-      return
-    }
 
     try {
       await createReturnMutation.mutateAsync({
@@ -271,26 +264,15 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
             </span>
           </div>
 
-          {/* Số tiền yêu cầu hoàn */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#343b2e] flex items-center justify-between">
-              <span>Số tiền yêu cầu hoàn lại:</span>
-              <span className="text-[10px] text-stone-400">Tối đa {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ</span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min={1000}
-                max={maxRefundAmount}
-                value={refundAmount}
-                onChange={(e) => setRefundAmount(Number(e.target.value))}
-                disabled={createReturnMutation.isPending}
-                className="w-full p-2.5 pr-12 bg-white border border-stone-200 rounded-xl text-xs font-bold text-emerald-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">
-                VNĐ
-              </span>
+          {/* Số tiền hoàn trả (cố định theo số tiền đã thanh toán cho sản phẩm) */}
+          <div className="p-3.5 bg-stone-50 border border-stone-200/80 rounded-2xl flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-[#343b2e] block">Số tiền hoàn lại:</span>
+              <span className="text-[11px] text-stone-500">(Số tiền bạn đã thanh toán cho nông sản này)</span>
             </div>
+            <span className="text-base font-black text-emerald-700">
+              {refundAmount.toLocaleString('vi-VN')}&nbsp;đ
+            </span>
           </div>
 
           {/* Tải ảnh / video bằng chứng */}

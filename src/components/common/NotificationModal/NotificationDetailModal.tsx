@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
-import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag } from 'lucide-react'
+import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag, AlertTriangle } from 'lucide-react'
 import { router } from '@/app/router'
-import { useNotificationStore } from '@/stores'
+import { useNotificationStore, useAuth } from '@/stores'
 
 export function formatNotificationDate(dateValue?: any): string {
   if (!dateValue) return 'Vừa xong'
@@ -71,6 +71,9 @@ export function getSafeLink(rawUrl?: string): { isSafe: boolean; href: string } 
 }
 
 export const NotificationDetailModal: React.FC = () => {
+  const { user } = useAuth()
+  const userRole = (user?.role || '').toLowerCase()
+
   const navigate = (path: string) => {
     try {
       void router.navigate(path)
@@ -112,6 +115,14 @@ export const NotificationDetailModal: React.FC = () => {
     }
   }
 
+  const isDisputeRelated =
+    type.includes('RETURN') ||
+    type.includes('DISPUTE') ||
+    type.includes('ADMIN_APPROVED') ||
+    textContent.includes('khiếu nại') ||
+    textContent.includes('hoàn trả') ||
+    textContent.includes('trả hàng') ||
+    textContent.includes('hoàn tiền')
   const isOrderRelated = Boolean(targetOrderId) || type.includes('ORDER')
   const isWalletRelated =
     textContent.includes('ví tiền') ||
@@ -120,34 +131,76 @@ export const NotificationDetailModal: React.FC = () => {
     textContent.includes('ký quỹ')
   const isVoucherRelated = textContent.includes('voucher') || textContent.includes('khuyến mãi')
 
-  const hasSmartAction = isOrderRelated || isWalletRelated || isVoucherRelated
+  const hasSmartAction = isDisputeRelated || isOrderRelated || isWalletRelated || isVoucherRelated
 
   let smartActionTitle = 'Xem chi tiết'
   let SmartActionIcon = Bell
-  if (targetOrderId) {
+
+  if (isDisputeRelated) {
+    SmartActionIcon = AlertTriangle
+    if (userRole === 'shop') {
+      smartActionTitle = 'Đến mục Khiếu nại & Trợ giúp'
+    } else if (userRole === 'admin') {
+      smartActionTitle = 'Đến Trung tâm khiếu nại Admin'
+    } else {
+      smartActionTitle = targetOrderId ? `Xem đơn hàng #${targetOrderId}` : 'Xem đơn hàng của tôi'
+    }
+  } else if (targetOrderId) {
     smartActionTitle = `Xem chi tiết đơn hàng #${targetOrderId}`
     SmartActionIcon = Truck
   } else if (isOrderRelated) {
-    smartActionTitle = 'Đến danh sách đơn hàng'
+    smartActionTitle = userRole === 'shop' ? 'Đến quản lý đơn hàng' : 'Đến danh sách đơn hàng'
     SmartActionIcon = Truck
   } else if (isWalletRelated) {
-    smartActionTitle = 'Đến ví của tôi'
+    smartActionTitle = userRole === 'shop' ? 'Đến ví nhà vườn' : 'Đến ví của tôi'
     SmartActionIcon = Wallet
   } else if (isVoucherRelated) {
-    smartActionTitle = 'Xem kho voucher của tôi'
+    smartActionTitle = userRole === 'shop' ? 'Quản lý voucher' : 'Xem kho voucher của tôi'
     SmartActionIcon = Tag
   }
 
   const handlePrimaryAction = () => {
     closeDetail()
-    if (targetOrderId) {
-      navigate(`/orders?search=${targetOrderId}`)
+    if (isDisputeRelated) {
+      if (userRole === 'shop') {
+        navigate(targetOrderId ? `/shop?tab=disputes&search=${targetOrderId}` : '/shop?tab=disputes')
+      } else if (userRole === 'admin') {
+        navigate(targetOrderId ? `/admin/disputes?search=${targetOrderId}` : '/admin/disputes')
+      } else {
+        navigate(targetOrderId ? `/orders?search=${targetOrderId}` : '/orders')
+      }
+    } else if (targetOrderId) {
+      if (userRole === 'shop') {
+        navigate(`/shop?tab=orders&search=${targetOrderId}`)
+      } else if (userRole === 'admin') {
+        navigate(`/admin/orders?search=${targetOrderId}`)
+      } else if (userRole === 'shipper') {
+        navigate('/shipper')
+      } else {
+        navigate(`/orders?search=${targetOrderId}`)
+      }
     } else if (isOrderRelated) {
-      navigate('/orders')
+      if (userRole === 'shop') {
+        navigate('/shop?tab=orders')
+      } else if (userRole === 'admin') {
+        navigate('/admin/orders')
+      } else if (userRole === 'shipper') {
+        navigate('/shipper')
+      } else {
+        navigate('/orders')
+      }
     } else if (isWalletRelated) {
-      navigate('/my-wallet')
+      if (userRole === 'shop') {
+        navigate('/shop?tab=wallet')
+      } else {
+        navigate('/my-wallet')
+      }
     } else if (isVoucherRelated) {
-      navigate('/my-vouchers')
+      if (userRole === 'shop') {
+        navigate('/shop?tab=vouchers')
+      } else {
+        navigate('/my-vouchers')
+      }
     }
   }
 

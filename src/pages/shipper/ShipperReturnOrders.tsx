@@ -57,6 +57,36 @@ const RETURN_STATUS_CONFIG: Record<
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
     icon: AlertTriangle,
   },
+  PENDING: {
+    label: 'Chờ duyệt',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    icon: Clock,
+  },
+  SHOP_APPROVED: {
+    label: 'Shop đã duyệt',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: CheckCircle2,
+  },
+  ADMIN_APPROVED: {
+    label: 'Admin đã duyệt',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: CheckCircle2,
+  },
+  APPROVED: {
+    label: 'Đã duyệt',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: CheckCircle2,
+  },
+  REJECTED: {
+    label: 'Từ chối trả hàng',
+    badgeClass: 'bg-stone-100 text-stone-700 border-stone-200',
+    icon: XCircle,
+  },
+  CANCELLED: {
+    label: 'Đã hủy',
+    badgeClass: 'bg-stone-100 text-stone-500 border-stone-200',
+    icon: XCircle,
+  },
 }
 
 export const ShipperReturnOrders: React.FC = () => {

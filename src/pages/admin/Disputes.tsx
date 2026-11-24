@@ -139,17 +139,18 @@ const Disputes: React.FC = () => {
 
   const handleAdminAction = async (accept: boolean, refundPct: number = 100) => {
     if (!selectedDispute) return
-    if (!adminRemark.trim()) {
-      globalShowAlert('Vui lòng nhập ghi chú của Admin', 'Nhắc nhở', 'warning')
-      return
-    }
+    const finalRemark =
+      adminRemark.trim() ||
+      (accept
+        ? `Admin đã phê duyệt hoàn tiền ${refundPct}% cho người mua.`
+        : 'Admin đã từ chối yêu cầu khiếu nại.')
 
     try {
       const amount = (selectedDispute.refundAmount || 0) * (refundPct / 100)
       const res = await disputeAction.mutateAsync({
         id: selectedDispute.id,
         accept,
-        response: adminRemark,
+        response: finalRemark,
         refundAmount: amount,
       })
 
@@ -161,8 +162,8 @@ const Disputes: React.FC = () => {
 
         globalShowAlert(
           accept
-            ? 'Đã duyệt khiếu nại! Yêu cầu được cập nhật thành công.'
-            : 'Đã từ chối khiếu nại.',
+            ? `Đã duyệt chấp thuận khiếu nại! Yêu cầu đã được chuyển cho Shop để lựa chọn thu hồi hàng hoặc hoàn tiền ngay.`
+            : 'Đã từ chối khiếu nại thành công.',
           'Thành công',
           'success',
         )
@@ -170,9 +171,11 @@ const Disputes: React.FC = () => {
         setSelectedDispute(res.result.request)
         fetchDisputes()
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Action failed:', err)
-      globalShowAlert('Thao tác thất bại. Vui lòng thử lại!', 'Lỗi', 'error')
+      const errObj = err as { data?: { message?: string }; message?: string }
+      const msg = errObj?.data?.message || errObj?.message || 'Thao tác thất bại. Vui lòng thử lại!'
+      globalShowAlert(msg, 'Lỗi', 'error')
     }
   }
 
@@ -358,6 +361,10 @@ const Disputes: React.FC = () => {
                           <span className="text-blue-600 flex items-center gap-1">
                             <CheckCircle2 className="size-3.5" /> SHOP ĐÃ DUYỆT
                           </span>
+                        ) : item.status === 'ADMIN_APPROVED' ? (
+                          <span className="text-indigo-600 flex items-center gap-1">
+                            <CheckCircle2 className="size-3.5" /> ADMIN ĐÃ DUYỆT
+                          </span>
                         ) : item.status === 'DISPUTED' ? (
                           <span className="text-amber-500 flex items-center gap-1">
                             <AlertTriangle className="size-3.5" /> TRANH CHẤP
@@ -539,8 +546,32 @@ const Disputes: React.FC = () => {
                   LỰA CHỌN & QUYẾT ĐỊNH ADMIN
                 </h5>
 
-                {/* Nếu đơn đã được xử lý xong: Đã phê duyệt hoàn tiền */}
-                {selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'APPROVED' ? (
+                {/* Trạng thái Admin đã duyệt, chờ Shop chọn phương án thu hồi hay hoàn tiền */}
+                {selectedDispute.status === 'ADMIN_APPROVED' ? (
+                  <div className="p-4 bg-sky-50 border border-sky-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
+                    <p className="text-xs font-black text-sky-950">
+                      KẾT QUẢ XỬ LÝ: Admin đã duyệt chấp thuận khiếu nại
+                    </p>
+                    <p className="text-xs text-sky-900 font-medium leading-relaxed">
+                      Đã chuyển thông báo cho Shop. Shop có 24h để lựa chọn: Thu hồi hàng về vườn (tạo đơn cho Shipper lấy) hoặc Hoàn tiền ngay cho khách.
+                    </p>
+                    <p className="text-[10px] text-sky-800/80 font-medium pt-0.5">
+                      Thời gian: {formatDateTime(selectedDispute.updatedAt || selectedDispute.createdAt)}
+                    </p>
+                  </div>
+                ) : selectedDispute.status === 'RETURN_SHIPPING' || selectedDispute.status === 'RETURN_DELIVERED' ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
+                    <p className="text-xs font-black text-amber-950">
+                      TIẾN TRÌNH: Đang thu hồi & chuyển hoàn hàng về cho Shop
+                    </p>
+                    <p className="text-xs text-amber-900 font-medium leading-relaxed">
+                      Shop đã chọn thu hồi hàng. Đơn hàng hoàn đã được tạo để Shipper tiếp nhận vận chuyển về địa chỉ nhà vườn.
+                    </p>
+                    <p className="text-[10px] text-amber-800/80 font-medium pt-0.5">
+                      Thời gian: {formatDateTime(selectedDispute.updatedAt || selectedDispute.createdAt)}
+                    </p>
+                  </div>
+                ) : selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'APPROVED' ? (
                   <div className="p-4 bg-[#dcfce7] border border-emerald-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
                     <p className="text-xs font-black text-emerald-950">
                       KẾT QUẢ XỬ LÝ: Đã phê duyệt hoàn tiền 100% (
@@ -578,7 +609,7 @@ const Disputes: React.FC = () => {
                     <textarea
                       value={adminRemark}
                       onChange={(e) => setAdminRemark(e.target.value)}
-                      placeholder="Nhập lý do cho quyết định của bạn..."
+                      placeholder="Nhập lý do cho quyết định của bạn (không bắt buộc)..."
                       className="w-full h-20 p-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-medium outline-none focus:bg-white focus:border-primary transition-all resize-none"
                     />
 
