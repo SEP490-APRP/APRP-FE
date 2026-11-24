@@ -79,6 +79,13 @@ export interface OrderResponse {
   shopLongitude?: number
   createdAt: string
   pickedUpAt?: string
+  deliveredAt?: string
+  deliveryProofUrls?: string[]
+  failReason?: string
+  failNote?: string
+  failCallAttempts?: number
+  failProofUrls?: string[]
+  failedAt?: string
   items: OrderItem[]
   shopOwner?: OrderShopInfo
 }

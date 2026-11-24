@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useOrderDetails } from '../hooks/useBuyerOrder'
 import { OrderStatusBadge } from './OrderStatusBadge'
+import { DeliveryProofSection } from './DeliveryProofSection'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { Button } from '@/components/ui/Button'
 import type { OrderItem, OrderStatus } from '@/types/order.types'
@@ -465,6 +466,18 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              <DeliveryProofSection
+                status={order.status}
+                shipperName={order.shipperName}
+                deliveredAt={order.deliveredAt}
+                deliveryProofUrls={order.deliveryProofUrls}
+                failedAt={order.failedAt}
+                failReason={order.failReason}
+                failNote={order.failNote}
+                failCallAttempts={order.failCallAttempts}
+                failProofUrls={order.failProofUrls}
+              />
             </>
           )}
         </div>

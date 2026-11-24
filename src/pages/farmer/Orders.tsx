@@ -41,6 +41,7 @@ const CANCEL_REASON_OPTIONS = [
 import type { OrderResponse, OrderStatus } from '@/types/order.types'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { OrderSettlementCard } from '@/features/wallet'
+import { DeliveryProofSection } from '@/features/order/components/DeliveryProofSection'
 import { CapNongLoading } from '@/components/ui/Loading'
 import { needsPickupCode, pickupCode } from '@/utils/orderCode'
 
@@ -886,6 +887,17 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                   {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                 </strong>
               </div>
+              <DeliveryProofSection
+                status={selectedOrder.status}
+                shipperName={selectedOrder.shipperName}
+                deliveredAt={selectedOrder.deliveredAt}
+                deliveryProofUrls={selectedOrder.deliveryProofUrls}
+                failedAt={selectedOrder.failedAt}
+                failReason={selectedOrder.failReason}
+                failNote={selectedOrder.failNote}
+                failCallAttempts={selectedOrder.failCallAttempts}
+                failProofUrls={selectedOrder.failProofUrls}
+              />
               {(selectedOrder.orderId ?? selectedOrder.id) &&
                 !['CANCELLED', 'FAILED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
                   <div className="p-3.5 rounded-lg bg-white border border-[#e8ece3]">

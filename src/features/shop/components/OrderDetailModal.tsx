@@ -17,6 +17,7 @@ import { OrderStatusBadge } from './OrderStatusBadge'
 import { useConfirmOrder, useReadyOrder, useCancelOrder } from '../hooks/useShopOrders'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { OrderSettlementCard } from '@/features/wallet'
+import { DeliveryProofSection } from '@/features/order/components/DeliveryProofSection'
 
 interface OrderDetailModalProps {
   order: OrderResponse
@@ -140,6 +141,18 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
               <OrderSettlementCard orderId={orderId} viewer="SHOP" />
             </div>
           )}
+
+          <DeliveryProofSection
+            status={order.status}
+            shipperName={order.shipperName}
+            deliveredAt={order.deliveredAt}
+            deliveryProofUrls={order.deliveryProofUrls}
+            failedAt={order.failedAt}
+            failReason={order.failReason}
+            failNote={order.failNote}
+            failCallAttempts={order.failCallAttempts}
+            failProofUrls={order.failProofUrls}
+          />
 
           {/* Banner PAID */}
           {order.status === 'PAID' && (
