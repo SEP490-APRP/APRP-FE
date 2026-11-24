@@ -12,7 +12,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { MyWithdrawalList, useMyWallet, useMyWalletTransactions, WalletTransactionList } from '@/features/wallet'
-import { useShopProfile } from '@/features/shop'
+import { ShopPageHeader, useShopProfile } from '@/features/shop'
 import { formatVnd } from '@/services/wallet.service'
 
 interface WalletProps {
@@ -42,34 +42,31 @@ export default function Wallet({ onOpenWithdraw }: WalletProps) {
   return (
     <div className="w-full space-y-6 animate-fadeIn pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216]">Ví Tiền &amp; Quyết Toán Nhà Vườn</h3>
-          <p className="text-xs text-[#6e7767] mt-1 leading-relaxed">
-            Doanh thu bán nông sản được tự động quyết toán về ví sau khi hoàn tất đơn hàng, hỗ trợ rút tiền nhanh về mọi ngân hàng.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={refresh}
-            className="p-2.5 rounded-full border border-[#e8ece3] text-[#2b5619] hover:bg-[#f3f6ef] cursor-pointer transition-colors"
-            title="Tải lại dữ liệu ví"
-          >
-            <RefreshCw size={16} className={walletQuery.isFetching ? 'animate-spin' : ''} />
-          </button>
-          <button
-            id="tour-wallet-withdraw-btn"
-            type="button"
-            onClick={onOpenWithdraw}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#2b5619] hover:bg-[#1f3f12] text-white font-bold text-xs uppercase tracking-wider shadow-sm cursor-pointer transition-all"
-          >
-            <ArrowUpRight size={16} />
-            <span>Rút Tiền Về Ngân Hàng</span>
-          </button>
-        </div>
-      </div>
+      <ShopPageHeader
+        title="Ví Tiền & Quyết Toán Nhà Vườn"
+        subtitle="Doanh thu bán nông sản được tự động quyết toán về ví sau khi hoàn tất đơn hàng, hỗ trợ rút tiền nhanh về mọi ngân hàng"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={refresh}
+              className="p-2 rounded-lg border border-[#d6dcce] bg-white hover:bg-[#f4f7f1] text-[#2b5619] cursor-pointer transition-colors shadow-2xs"
+              title="Tải lại dữ liệu ví"
+            >
+              <RefreshCw size={15} className={walletQuery.isFetching ? 'animate-spin' : ''} />
+            </button>
+            <button
+              id="tour-wallet-withdraw-btn"
+              type="button"
+              onClick={onOpenWithdraw}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2b5619] hover:bg-[#1f3f12] text-white font-bold text-xs shadow-2xs cursor-pointer transition-all"
+            >
+              <ArrowUpRight size={15} />
+              <span>Rút Tiền Về Ngân Hàng</span>
+            </button>
+          </>
+        }
+      />
 
       {walletQuery.error && (
         <div className="rounded-2xl bg-[#fdeeed] text-[#c5221f] text-xs font-bold p-4 flex items-center gap-2">

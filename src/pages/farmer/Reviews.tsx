@@ -14,6 +14,7 @@ import {
 } from '@/features/review'
 import { globalShowAlert } from '@/components/common/Popup'
 import { Button } from '@/components/ui/Button'
+import { ShopPageHeader } from '@/features/shop'
 import type { ReviewResponse } from '@/services/review.types'
 import type { FarmerReview } from './types'
 
@@ -140,28 +141,23 @@ export default function Reviews({
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      {/* 1. Header Trang Tinh Giản */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-[#e8ece3] gap-2">
-        <div>
-          <h2 className="text-xl font-black text-[#1c2216] tracking-tight">
-            Đánh Giá &amp; Phản Hồi Từ Khách Hàng
-          </h2>
-          <p className="text-[11px] text-[#6e7768] mt-0.5">
-            Lắng nghe và phản hồi đánh giá thực tế từ khách mua nông sản.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => refetch()}
-          className="self-start sm:self-auto px-2.5 py-1 text-xs font-bold text-[#326318] bg-[#326318]/5 hover:bg-[#326318]/10 border border-[#326318]/20 rounded-lg gap-1.5 transition-all shadow-2xs"
-        >
-          <RotateCcw size={12} className={isLoading ? 'animate-spin' : ''} />
-          <span>Làm mới</span>
-        </Button>
-      </div>
+    <div className="space-y-6 animate-fadeIn pb-12">
+      {/* 1. Header Trang Đồng Nhất */}
+      <ShopPageHeader
+        title="Đánh Giá & Phản Hồi Từ Khách Hàng"
+        subtitle="Lắng nghe và phản hồi đánh giá thực tế từ khách mua nông sản"
+        actions={
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => refetch()}
+            className="px-3 py-1.5 text-xs font-bold text-[#326318] bg-[#326318]/5 hover:bg-[#326318]/10 border border-[#326318]/20 rounded-lg gap-1.5 transition-all shadow-2xs"
+          >
+            <RotateCcw size={13} className={isLoading ? 'animate-spin' : ''} />
+            <span>Làm mới</span>
+          </Button>
+        }
+      />
 
       {/* 2. Hero Section Thống Kê (Mang ID #tour-reviews-stats) */}
       <ReviewStatsHero

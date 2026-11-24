@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { FarmerProduct } from './types'
 import type { OrderResponse } from '@/types/order.types'
+import { getOrderStatusConfig } from '@/features/shop'
 
 interface ShopQuickSearchProps {
   products: FarmerProduct[]
@@ -29,26 +30,8 @@ interface ShopQuickSearchProps {
 }
 
 const getOrderStatusBadge = (status?: string) => {
-  switch (status) {
-    case 'PENDING':
-      return { text: 'Chờ xác nhận', bg: 'bg-amber-100 text-amber-800 border-amber-200' }
-    case 'PAID':
-      return { text: 'Đã thanh toán', bg: 'bg-blue-100 text-blue-800 border-blue-200' }
-    case 'CONFIRMED':
-      return { text: 'Đang chuẩn bị', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200' }
-    case 'READY':
-      return { text: 'Chờ lấy hàng', bg: 'bg-purple-100 text-purple-800 border-purple-200' }
-    case 'SHIPPING':
-    case 'PICKED_UP':
-      return { text: 'Đang giao', bg: 'bg-sky-100 text-sky-800 border-sky-200' }
-    case 'DELIVERED':
-    case 'COMPLETED':
-      return { text: 'Hoàn thành', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
-    case 'CANCELLED':
-      return { text: 'Đã hủy', bg: 'bg-rose-100 text-rose-800 border-rose-200' }
-    default:
-      return { text: status || 'Đơn hàng', bg: 'bg-gray-100 text-gray-700 border-gray-200' }
-  }
+  const cfg = getOrderStatusConfig(status)
+  return { text: cfg.label, bg: cfg.className }
 }
 
 export default function ShopQuickSearch({

@@ -31,6 +31,7 @@ import {
 } from '@/features/blog'
 import { BlogCategory, BlogCategoryLabel } from '@/types'
 import MyCKEditor from '@/components/common/MyCKEditor'
+import { RichTextContent } from '@/components/common/RichTextEditor/RichTextContent'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
@@ -478,9 +479,9 @@ const NewsManagement: React.FC = () => {
           </div>
 
           <div className="p-8 sm:p-14">
-            <div
-              className="prose prose-base sm:prose-lg max-w-none text-gray-700 font-normal leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: selectedBlog.content }}
+            <RichTextContent
+              html={selectedBlog.content}
+              className="text-base sm:text-lg text-gray-700 font-normal leading-relaxed"
             />
           </div>
         </div>

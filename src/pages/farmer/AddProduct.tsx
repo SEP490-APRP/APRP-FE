@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Sparkles, Loader2, ImagePlus, Star, Trash2 } from 'lucide-react'
+import { X, Sparkles, Loader2, ImagePlus, Star, CheckCircle2, AlertCircle, UploadCloud } from 'lucide-react'
 import {
   productFormSchema,
   type ProductFormInput,
@@ -46,10 +47,15 @@ interface SelectedProductImage {
   previewUrl: string
 }
 
+type ImageCheckStatus = 'pending' | 'checking' | 'passed' | 'rejected'
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 const INPUT_CLASS =
   'w-full px-4 py-2.5 rounded-2xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none transition-colors'
-const SELECT_CLASS =
-  'w-full px-3 py-2.5 rounded-2xl bg-[#f4f7f1] text-xs text-[#1e2319] outline-none border border-transparent focus:border-[#326318] focus:bg-white'
 
 function FieldError({ message }: { message?: string }) {
   return message ? (
@@ -70,11 +76,23 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedImages, setSelectedImages] = useState<SelectedProductImage[]>([])
   const [primaryIndex, setPrimaryIndex] = useState(0)
+  const [dragActive, setDragActive] = useState(false)
+  const [imageStatuses, setImageStatuses] = useState<Record<string, ImageCheckStatus>>({})
   const selectedImagesRef = useRef<SelectedProductImage[]>([])
   const [aiError, setAiError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [isAiGenerated, setIsAiGenerated] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting && !createMutation.isPending) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose, submitting, createMutation.isPending])
 
   useEffect(() => {
     selectedImagesRef.current = selectedImages
@@ -146,10 +164,9 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addImageFiles = (fileList: FileList | File[]) => {
     setAiError(null)
-    const files = Array.from(e.target.files || [])
-    e.target.value = ''
+    const files = Array.from(fileList || [])
     if (files.length === 0) return
 
     const remainingSlots = MAX_PRODUCT_IMAGES - selectedImages.length
@@ -189,11 +206,23 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
   }
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      addImageFiles(e.target.files)
+    }
+    e.target.value = ''
+  }
+
   const handleRemoveImage = (index: number) => {
     setSelectedImages((prev) => {
       const target = prev[index]
       if (target) {
         URL.revokeObjectURL(target.previewUrl)
+        setImageStatuses((s) => {
+          const copy = { ...s }
+          delete copy[target.id]
+          return copy
+        })
       }
       const next = prev.filter((_, idx) => idx !== index)
       if (index === primaryIndex || primaryIndex >= next.length) {
@@ -264,9 +293,16 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       const failedImages: string[] = []
 
       if (newProductId) {
+        const initialStatuses: Record<string, ImageCheckStatus> = {}
+        orderedImages.forEach((img) => {
+          initialStatuses[img.id] = 'pending'
+        })
+        setImageStatuses(initialStatuses)
+
         for (let i = 0; i < orderedImages.length; i++) {
           const item = orderedImages[i]
           setUploadProgress(`Đang tải & thẩm định AI ảnh ${i + 1}/${orderedImages.length}...`)
+          setImageStatuses((prev) => ({ ...prev, [item.id]: 'checking' }))
           try {
             await uploadImageMutation.mutateAsync({
               productId: newProductId,
@@ -276,7 +312,9 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             })
             uploadedCount += 1
             if (i === 0) primarySucceeded = true
+            setImageStatuses((prev) => ({ ...prev, [item.id]: 'passed' }))
           } catch (imgErr: any) {
+            setImageStatuses((prev) => ({ ...prev, [item.id]: 'rejected' }))
             const reason = mapUploadError(imgErr)
             failedImages.push(`${item.file.name} (${reason})`)
             // Nếu ảnh đại diện chính bị từ chối ngay đầu tiên -> rollback ngay
@@ -339,137 +377,242 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-[32px] max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-[#e2dcce] relative max-h-[92vh] flex flex-col">
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
-        >
-          <X size={20} />
-        </button>
+  const isBusy = submitting || createMutation.isPending
+  const heroImage = selectedImages[primaryIndex] || selectedImages[0]
 
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-xl font-black text-[#1c2216]">Đăng Bán Nông Sản Mới</h3>
-          <p className="text-xs text-[#757f70]">
-            Điền thông tin và tải ảnh nông sản để niêm yết lên sàn CapNong
-          </p>
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-product-modal-title"
+      onClick={() => !isBusy && onClose()}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-[28px] max-w-4xl w-full shadow-2xl border border-[#e2dcce] max-h-[92vh] flex flex-col overflow-hidden"
+      >
+        {/* Fixed Header */}
+        <div className="px-6 py-4 border-b border-[#f1f4ed] bg-[#fafcf9] flex items-center justify-between gap-4 shrink-0">
+          <div>
+            <h3 id="add-product-modal-title" className="text-xl font-black text-[#1c2216] tracking-tight">
+              Đăng Bán Nông Sản Mới
+            </h3>
+            <p className="text-xs text-[#737c6e] font-medium mt-0.5">
+              Tải tối đa {MAX_PRODUCT_IMAGES} ảnh thực tế tại vườn và điền thông tin để niêm yết lên sàn CapNong
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => !isBusy && onClose()}
+            disabled={isBusy}
+            aria-label="Đóng"
+            className="p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        {/* AI Error Alert */}
-        {aiError && (
-          <div className="mb-3 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold">
-            {aiError}
-          </div>
-        )}
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 flex-1 overflow-y-auto pr-1">
-          {/* Image Picker Dropzone */}
-          <div>
-            <label className="block text-xs font-bold text-[#353d2f] mb-1.5 flex items-center justify-between">
-              <span>
-                Hình ảnh nông sản ({selectedImages.length}/{MAX_PRODUCT_IMAGES}) *
-              </span>
-              <span className="text-[10px] text-[#326318] flex items-center gap-1 font-extrabold">
-                <Sparkles size={11} /> AI Moderation
-              </span>
-            </label>
-
-            <div
-              onClick={() => {
-                if (selectedImages.length < MAX_PRODUCT_IMAGES) {
-                  fileInputRef.current?.click()
-                }
-              }}
-              className={`border-2 border-dashed rounded-2xl p-3 flex items-center gap-3 transition-colors ${
-                selectedImages.length >= MAX_PRODUCT_IMAGES
-                  ? 'border-amber-200 bg-amber-50/40 cursor-not-allowed'
-                  : 'border-[#d8ded0] hover:border-[#326318] bg-[#fbfdfa] cursor-pointer'
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleImageSelect}
-              />
-              <div className="w-12 h-12 rounded-xl bg-[#f4f7f1] text-[#326318] flex items-center justify-center shrink-0">
-                <ImagePlus size={22} />
+        {/* Form Body + Fixed Footer */}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-4">
+            {/* AI Error Alert */}
+            {aiError && (
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-start gap-2">
+                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                <span>{aiError}</span>
               </div>
-              <div className="flex-1 text-left">
-                <p className="text-xs font-bold text-[#1c2216]">
-                  {selectedImages.length >= MAX_PRODUCT_IMAGES
-                    ? `Đã chọn đủ tối đa ${MAX_PRODUCT_IMAGES} ảnh`
-                    : selectedImages.length > 0
-                      ? `Đã chọn ${selectedImages.length} ảnh — nhấn để thêm ảnh`
-                      : 'Nhấp để chọn một hoặc nhiều ảnh nông sản'}
-                </p>
-                <p className="text-[10px] text-[#7e8779] mt-0.5">
-                  Hỗ trợ JPG, PNG, WEBP (tối đa 10MB/ảnh, chọn tối đa {MAX_PRODUCT_IMAGES} ảnh). Hệ thống tự động thẩm định AI.
-                </p>
-              </div>
-            </div>
+            )}
 
-            {selectedImages.length > 0 && (
-              <div className="mt-2.5 grid grid-cols-4 gap-2">
-                {selectedImages.map((item, idx) => {
-                  const isPrimary = idx === primaryIndex
-                  return (
-                    <div
-                      key={item.id}
-                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 bg-[#f4f7f1] ${
-                        isPrimary ? 'border-[#326318] ring-2 ring-[#326318]/20' : 'border-[#e2e8dc]'
-                      }`}
-                    >
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column (5 cols): Multi-Image Cover Preview + 8-Slot Grid */}
+              <div className="lg:col-span-5 space-y-3 lg:sticky lg:top-0">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#353d2f]">
+                    Hình ảnh nông sản ({selectedImages.length}/{MAX_PRODUCT_IMAGES}) *
+                  </label>
+                  <span className="text-[10px] text-[#326318] flex items-center gap-1 font-extrabold bg-[#eef6e8] px-2 py-0.5 rounded-full border border-[#cde2be]">
+                    <Sparkles size={11} /> AI Moderation
+                  </span>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+
+                {/* Hero Cover Preview / Drag & Drop Box */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    if (selectedImages.length < MAX_PRODUCT_IMAGES) setDragActive(true)
+                  }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragActive(false)
+                    addImageFiles(e.dataTransfer.files)
+                  }}
+                  onClick={() => {
+                    if (!heroImage && selectedImages.length < MAX_PRODUCT_IMAGES) {
+                      fileInputRef.current?.click()
+                    }
+                  }}
+                  className={`relative aspect-[4/3] w-full rounded-2xl overflow-hidden border-2 border-dashed transition-all flex items-center justify-center ${
+                    dragActive
+                      ? 'border-[#326318] bg-[#eef6e8]/80 ring-4 ring-[#326318]/15'
+                      : heroImage
+                        ? 'border-[#d8e3cf] bg-[#f4f7f1]'
+                        : 'border-[#cfd8c6] hover:border-[#326318] bg-[#fbfdfa] cursor-pointer'
+                  }`}
+                >
+                  {heroImage ? (
+                    <>
                       <img
-                        src={item.previewUrl}
-                        alt={item.file.name}
+                        src={heroImage.previewUrl}
+                        alt={heroImage.file.name}
                         className="w-full h-full object-cover"
                       />
-                      {isPrimary && (
-                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-[#326318] text-white text-[9px] font-black flex items-center gap-0.5 shadow">
-                          <Star size={8} className="fill-amber-300 text-amber-300" />
-                          <span>Chính</span>
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2.5 py-1 rounded-full bg-[#326318]/90 text-white text-[10px] font-black flex items-center gap-1 shadow">
+                          <Star size={10} className="fill-amber-300 text-amber-300" />
+                          <span>Ảnh đại diện chính</span>
                         </span>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 p-1 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                        {!isPrimary && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setPrimaryIndex(idx)
-                            }}
-                            title="Đặt làm ảnh chính"
-                            className="p-1 rounded-lg bg-white text-[#326318] hover:bg-[#326318] hover:text-white cursor-pointer"
-                          >
-                            <Star size={11} />
-                          </button>
-                        )}
+                        <span className="px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
+                          {formatFileSize(heroImage.file.size)}
+                        </span>
+                      </div>
+                      {selectedImages.length < MAX_PRODUCT_IMAGES && !isBusy && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleRemoveImage(idx)
+                            fileInputRef.current?.click()
                           }}
-                          title="Xóa ảnh"
-                          className="p-1 rounded-lg bg-white text-rose-600 hover:bg-rose-600 hover:text-white cursor-pointer"
+                          className="absolute bottom-2.5 right-2.5 px-3 py-1.5 rounded-full bg-white/95 hover:bg-white text-[#1c2216] text-[11px] font-bold shadow flex items-center gap-1.5 cursor-pointer border border-[#dce4d5]"
                         >
-                          <Trash2 size={11} />
+                          <ImagePlus size={13} className="text-[#326318]" />
+                          <span>Thêm ảnh</span>
                         </button>
+                      )}
+                      {dragActive && (
+                        <div className="absolute inset-0 bg-[#326318]/75 text-white flex flex-col items-center justify-center gap-1.5 backdrop-blur-xs">
+                          <UploadCloud size={28} />
+                          <span className="text-xs font-black">Thả ảnh vào đây để thêm</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="px-5 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-[#eef6e8] text-[#326318] flex items-center justify-center mx-auto">
+                        {dragActive ? <UploadCloud size={24} /> : <ImagePlus size={24} />}
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-[#1c2216]">
+                          Kéo thả hoặc nhấn để chọn nhiều ảnh
+                        </p>
+                        <p className="text-[11px] text-[#737c6e] mt-1 leading-relaxed">
+                          JPG, PNG, WEBP · Tối đa 10MB/ảnh · Tối đa {MAX_PRODUCT_IMAGES} ảnh.
+                        </p>
                       </div>
                     </div>
-                  )
-                })}
+                  )}
+                </div>
+
+                {/* 4x2 Thumbnail Grid */}
+                {selectedImages.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-4 gap-2">
+                      {selectedImages.map((item, idx) => {
+                        const isPrimary = idx === primaryIndex
+                        const status = imageStatuses[item.id]
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => !isBusy && setPrimaryIndex(idx)}
+                            title={isPrimary ? 'Đang là ảnh chính' : 'Nhấn để đặt làm ảnh chính'}
+                            className={`relative aspect-square rounded-xl overflow-hidden border-2 bg-[#f4f7f1] transition-all ${
+                              !isBusy ? 'cursor-pointer' : ''
+                            } ${
+                              status === 'rejected'
+                                ? 'border-rose-500 ring-2 ring-rose-500/20'
+                                : isPrimary
+                                  ? 'border-[#326318] ring-2 ring-[#326318]/25'
+                                  : 'border-[#e2e8dc] hover:border-[#326318]/60'
+                            }`}
+                          >
+                            <img
+                              src={item.previewUrl}
+                              alt={item.file.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {isPrimary && (
+                              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-[#326318] text-white text-[9px] font-black flex items-center gap-0.5 shadow">
+                                <Star size={8} className="fill-amber-300 text-amber-300" />
+                                <span>Chính</span>
+                              </span>
+                            )}
+                            {!isBusy && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRemoveImage(idx)
+                                }}
+                                aria-label={`Xóa ${item.file.name}`}
+                                title="Xóa ảnh"
+                                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/65 hover:bg-rose-600 text-white flex items-center justify-center transition-colors cursor-pointer shadow"
+                              >
+                                <X size={11} />
+                              </button>
+                            )}
+                            {status && status !== 'pending' && (
+                              <div
+                                className={`absolute inset-x-0 bottom-0 py-0.5 px-1 text-[9px] font-black text-white flex items-center justify-center gap-1 ${
+                                  status === 'checking'
+                                    ? 'bg-black/65'
+                                    : status === 'passed'
+                                      ? 'bg-emerald-600/90'
+                                      : 'bg-rose-600/90'
+                                }`}
+                              >
+                                {status === 'checking' && <Loader2 size={9} className="animate-spin" />}
+                                {status === 'passed' && <CheckCircle2 size={9} />}
+                                {status === 'rejected' && <AlertCircle size={9} />}
+                                <span>
+                                  {status === 'checking' ? 'AI xem' : status === 'passed' ? 'Đạt' : 'Từ chối'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {selectedImages.length < MAX_PRODUCT_IMAGES && !isBusy && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="aspect-square rounded-xl border-2 border-dashed border-[#cfd8c6] hover:border-[#326318] bg-[#fbfdfa] hover:bg-[#f4f7f1] text-[#326318] flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <ImagePlus size={18} />
+                          <span className="text-[10px] font-bold">Thêm</span>
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10.5px] text-[#737c6e]">
+                      Nhấn vào ảnh nhỏ để đặt làm <strong>ảnh đại diện chính</strong>.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Right Column (7 cols): Product Info Fields */}
+              <div className="lg:col-span-7 space-y-3.5">
 
           <div>
             <label htmlFor="product-name" className="block text-xs font-bold text-[#353d2f] mb-1">
@@ -663,18 +806,37 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting || createMutation.isPending}
-            className="w-full py-3.5 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs uppercase tracking-wider transition-all shadow-md mt-4 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {(submitting || createMutation.isPending) && (
-              <Loader2 size={16} className="animate-spin" />
-            )}
-            <span>{uploadProgress || 'Đăng Bán Nông Sản'}</span>
-          </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="px-6 py-4 border-t border-[#f1f4ed] bg-[#fafcf9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+            <p className="text-[11px] text-[#737c6e] font-medium">
+              {uploadProgress || 'Ảnh chính đạt kiểm duyệt AI sẽ đưa nông sản vào hàng Chờ duyệt.'}
+            </p>
+            <div className="flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isBusy}
+                className="px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-xs font-bold text-stone-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                disabled={isBusy}
+                className="px-5 py-2.5 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isBusy && <Loader2 size={15} className="animate-spin" />}
+                <span>{uploadProgress || 'Đăng Bán Nông Sản'}</span>
+              </button>
+            </div>
+          </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

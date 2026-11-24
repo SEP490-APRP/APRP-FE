@@ -29,6 +29,7 @@ import {
   useReadyOrder,
   useCancelOrder,
 } from '@/features/shop/hooks/useShopOrders'
+import { ShopPageHeader } from '@/features/shop'
 import { exportService } from '@/services/export.service'
 import { CustomSelect } from '@/components/common/CustomSelect'
 
@@ -249,39 +250,33 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216] tracking-tight">
-            Quản Lý Đơn Hàng Của Nhà Vườn
-          </h3>
-          <p className="text-xs text-[#7e8779] mt-0.5">
-            Quy trình chuẩn: Xác nhận đơn ➔ Chuẩn bị đóng thùng ➔ Sẵn sàng để Shipper nhận đơn giao
-            khách
-          </p>
-        </div>
+      <ShopPageHeader
+        title="Quản Lý Đơn Hàng Của Nhà Vườn"
+        subtitle="Quy trình chuẩn: Xác nhận đơn ➔ Chuẩn bị đóng thùng ➔ Sẵn sàng để Shipper nhận đơn giao khách"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-2 rounded-lg border border-[#d6dcce] hover:bg-white text-[#424a3c] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+              title="Làm mới danh sách đơn hàng"
+            >
+              <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
+            </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="p-2 rounded-lg border border-[#d6dcce] hover:bg-white text-[#424a3c] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
-            title="Làm mới danh sách đơn hàng"
-          >
-            <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={isExporting}
-            className="px-3.5 py-2 rounded-lg border border-[#d6dcce] bg-white hover:bg-[#f4f7f1] text-xs font-bold text-[#326318] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            <span>Xuất Báo Cáo Excel</span>
-          </button>
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="px-3.5 py-2 rounded-lg border border-[#d6dcce] bg-white hover:bg-[#f4f7f1] text-xs font-bold text-[#326318] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              <span>Xuất Báo Cáo Excel</span>
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Search & Quick Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

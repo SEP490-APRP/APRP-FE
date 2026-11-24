@@ -16,6 +16,7 @@ import {
   Filter,
 } from 'lucide-react'
 import { useNotificationStore } from '@/stores'
+import { ShopPageHeader } from '@/features/shop'
 import type { NotificationItem } from '@/services/notification.types'
 
 interface NotificationsProps {
@@ -168,47 +169,44 @@ export default function Notifications({
   }
 
   return (
-    <div className="w-full space-y-5 animate-fadeIn pb-12">
-      {/* Header Card */}
-      <div className="bg-white rounded-2xl p-5 border border-[#e8ece3] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h3 className="text-xl font-black text-[#1c2216] tracking-tight">Thông Báo Hệ Thống</h3>
+    <div className="w-full space-y-6 animate-fadeIn pb-12">
+      {/* Header */}
+      <ShopPageHeader
+        title="Thông Báo Hệ Thống"
+        badge={
+          unreadCount > 0 ? (
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black border border-emerald-200">
+              {unreadCount} chưa đọc
+            </span>
+          ) : undefined
+        }
+        subtitle="Cập nhật tức thời về đơn hàng cần xử lý, quy trình vận chuyển và thông điệp vận hành"
+        actions={
+          <>
             {unreadCount > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black border border-emerald-200">
-                {unreadCount} chưa đọc
-              </span>
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                className="text-xs font-bold text-[#2b5619] hover:text-[#1e3d12] flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2b5619]/10 hover:bg-[#2b5619]/15 transition-colors cursor-pointer border border-[#2b5619]/20"
+              >
+                <CheckCheck size={15} />
+                <span>Đánh dấu đã đọc tất cả</span>
+              </button>
             )}
-          </div>
-          <p className="text-xs text-[#555d4e] font-medium mt-0.5">
-            Cập nhật tức thời về đơn hàng cần xử lý, quy trình vận chuyển và thông điệp vận hành.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {unreadCount > 0 && (
             <button
               type="button"
-              onClick={markAllAsRead}
-              className="text-xs font-bold text-[#2b5619] hover:text-[#1e3d12] flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2b5619]/10 hover:bg-[#2b5619]/15 transition-colors cursor-pointer border border-[#2b5619]/20"
+              onClick={fetchNotifications}
+              disabled={isLoading}
+              className="p-2 rounded-lg border border-[#d6dcce] bg-white hover:bg-[#f4f7f1] text-[#424a3c] transition-colors cursor-pointer shadow-2xs"
+              title="Làm mới thông báo"
+              aria-label="Làm mới thông báo"
             >
-              <CheckCheck size={15} />
-              <span>Đánh dấu đã đọc tất cả</span>
+              <RefreshCw size={15} className={isLoading ? 'animate-spin text-[#2b5619]' : ''} />
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={fetchNotifications}
-            disabled={isLoading}
-            className="p-2.5 rounded-xl border border-[#e8ece3] hover:bg-[#f4f7f1] text-[#555d4e] transition-colors cursor-pointer"
-            title="Làm mới thông báo"
-            aria-label="Làm mới thông báo"
-          >
-            <RefreshCw size={15} className={isLoading ? 'animate-spin text-[#2b5619]' : ''} />
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filter Sub-Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
