@@ -217,8 +217,8 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('Dung lượng ảnh không được vượt quá 5MB')
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('Dung lượng ảnh không được vượt quá 10MB')
       return
     }
 

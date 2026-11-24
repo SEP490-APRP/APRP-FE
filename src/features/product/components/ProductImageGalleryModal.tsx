@@ -46,62 +46,81 @@ export function ProductImageGalleryModal({
 
   if (!isOpen) return null
 
-  const handleFileChange = async (file: File) => {
+  const handleFilesChange = async (fileList: FileList | File[]) => {
     setAiWarning(null)
     setUploadSuccessMsg(null)
 
-    // Kiểm tra định dạng cơ bản
-    if (!file.type.startsWith('image/')) {
-      setAiWarning('Vui lòng chỉ chọn tập tin hình ảnh (JPG, PNG, WEBP)')
-      return
-    }
+    const files = Array.from(fileList)
+    if (files.length === 0) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      setAiWarning('Dung lượng ảnh không được vượt quá 5MB')
-      return
-    }
-
-    if (images.length >= 8) {
+    const remainingSlots = 8 - images.length
+    if (remainingSlots <= 0) {
       setAiWarning('Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh theo quy định của sàn (Mã lỗi 3024).')
       return
     }
 
-    try {
-      const isFirst = images.length === 0
-      await uploadMutation.mutateAsync({
-        productId,
-        file,
-        isPrimary: isFirst,
-        displayOrder: images.length,
-      })
-      setUploadSuccessMsg('Đã thẩm định AI và thêm ảnh thành công!')
-      onInfo?.('Tải lên ảnh nông sản thành công!')
-      setTimeout(() => setUploadSuccessMsg(null), 4000)
-    } catch (err: any) {
-      const code = err?.response?.data?.code ?? err?.data?.code
-      const msg = getErrorMessage(err)
-      if (
-        code === 3024 ||
-        msg.includes('3024') ||
-        msg.toLowerCase().includes('tối đa 8') ||
-        msg.toLowerCase().includes('maximum of 8')
-      ) {
-        setAiWarning(' Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh. Vui lòng xóa bớt ảnh cũ trước khi thêm ảnh mới.')
-      } else if (
-        code === 3022 ||
-        msg.includes('3022') ||
-        msg.toLowerCase().includes('nông sản') ||
-        msg.toLowerCase().includes('agricultural') ||
-        msg.toLowerCase().includes('inappropriate') ||
-        msg.toLowerCase().includes('cồn') ||
-        msg.toLowerCase().includes('alcohol')
-      ) {
-        setAiWarning(
-          ' AI phát hiện hình ảnh không phù hợp. Vui lòng chọn ảnh chụp nông sản tươi thật!',
-        )
-      } else {
-        setAiWarning(msg || 'Lỗi khi tải ảnh lên. Vui lòng thử lại.')
+    const errorsList: string[] = []
+    let successCount = 0
+
+    for (let i = 0; i < files.length; i++) {
+      if (successCount >= remainingSlots) {
+        errorsList.push('Đã đạt giới hạn tối đa 8/8 ảnh cho sản phẩm')
+        break
       }
+
+      const file = files[i]
+      if (!file.type.startsWith('image/')) {
+        errorsList.push(`"${file.name}": chỉ hỗ trợ JPG, PNG, WEBP`)
+        continue
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        errorsList.push(`"${file.name}": vượt quá 10MB`)
+        continue
+      }
+
+      try {
+        const isFirst = images.length + successCount === 0
+        await uploadMutation.mutateAsync({
+          productId,
+          file,
+          isPrimary: isFirst,
+          displayOrder: images.length + successCount,
+        })
+        successCount += 1
+      } catch (err: any) {
+        const code = err?.response?.data?.code ?? err?.data?.code
+        const msg = getErrorMessage(err)
+        if (
+          code === 3024 ||
+          msg.includes('3024') ||
+          msg.toLowerCase().includes('tối đa 8') ||
+          msg.toLowerCase().includes('maximum of 8')
+        ) {
+          errorsList.push(`"${file.name}": vượt giới hạn 8 hình ảnh`)
+          break
+        } else if (
+          code === 3022 ||
+          msg.includes('3022') ||
+          msg.toLowerCase().includes('nông sản') ||
+          msg.toLowerCase().includes('agricultural') ||
+          msg.toLowerCase().includes('inappropriate') ||
+          msg.toLowerCase().includes('cồn') ||
+          msg.toLowerCase().includes('alcohol')
+        ) {
+          errorsList.push(`"${file.name}": AI phát hiện không phải nông sản tươi phù hợp`)
+        } else {
+          errorsList.push(`"${file.name}": ${msg || 'lỗi tải ảnh'}`)
+        }
+      }
+    }
+
+    if (successCount > 0) {
+      setUploadSuccessMsg(`Đã thẩm định AI và thêm ${successCount} ảnh thành công!`)
+      onInfo?.(`Tải lên ${successCount} ảnh nông sản thành công!`)
+      setTimeout(() => setUploadSuccessMsg(null), 4000)
+    }
+    if (errorsList.length > 0) {
+      setAiWarning(errorsList.join(' · '))
     }
   }
 
@@ -223,8 +242,8 @@ export function ProductImageGalleryModal({
               onDrop={(e) => {
                 e.preventDefault()
                 setDragActive(false)
-                if (e.dataTransfer.files?.[0]) {
-                  handleFileChange(e.dataTransfer.files[0])
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  void handleFilesChange(e.dataTransfer.files)
                 }
               }}
               onClick={() => fileInputRef.current?.click()}
@@ -237,11 +256,12 @@ export function ProductImageGalleryModal({
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  handleFileChange(e.target.files[0])
+                if (e.target.files && e.target.files.length > 0) {
+                  void handleFilesChange(e.target.files)
                   e.target.value = ''
                 }
               }}
@@ -266,7 +286,7 @@ export function ProductImageGalleryModal({
                     Nhấp để chọn ảnh hoặc kéo thả vào đây
                   </p>
                   <p className="text-[11px] text-[#7e8779] mt-0.5">
-                    Hỗ trợ JPG, PNG, WEBP (tối đa 5MB). AI tự động kiểm duyệt nông sản.
+                    Hỗ trợ JPG, PNG, WEBP (tối đa 10MB/ảnh, tối đa 8 ảnh). AI tự động kiểm duyệt nông sản.
                   </p>
                 </div>
               </>
