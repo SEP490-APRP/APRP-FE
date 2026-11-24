@@ -238,10 +238,16 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
             <AlertCircle size={12} /> Giao thất bại
           </span>
         )
+      case 'PICKED_UP':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1.5">
+            <Truck size={12} /> Đang giao đến khách
+          </span>
+        )
       default:
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-black bg-gray-100 text-gray-700">
-            {status}
+            {getOrderStatusConfig(status).label}
           </span>
         )
     }

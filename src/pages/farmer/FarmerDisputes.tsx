@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Gavel,
   Search,
@@ -90,8 +90,10 @@ const STATUS_CONFIG: Record<
 }
 
 export default function FarmerDisputes() {
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') || ''
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
-  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [searchTerm, setSearchTerm] = useState<string>(initialSearch)
   const [selectedDispute, setSelectedDispute] = useState<ReturnRequestResponse | null>(null)
   const [shopResponseText, setShopResponseText] = useState<string>('')
   const [shippingPaymentMethod, setShippingPaymentMethod] = useState<'WALLET' | 'COD'>('WALLET')
@@ -100,6 +102,21 @@ export default function FarmerDisputes() {
 
   const { data: disputes = [], isLoading, refetch } = useShopDisputes()
   const respondMutation = useShopRespondDispute()
+
+  // Tự động mở modal chi tiết khiếu nại nếu có param search khớp đơn / ID khiếu nại
+  useEffect(() => {
+    if (initialSearch && disputes.length > 0) {
+      const match = disputes.find(
+        (item) =>
+          String(item.id) === initialSearch ||
+          String(item.orderId) === initialSearch ||
+          item.id?.toString() === initialSearch
+      )
+      if (match) {
+        setSelectedDispute(match)
+      }
+    }
+  }, [initialSearch, disputes])
 
   // Filter & Search
   const filteredDisputes = disputes.filter((item) => {
