@@ -37,6 +37,8 @@ import {
 } from '@/features/meal-plan'
 import type { PlanStatus, MealType } from '@/services'
 import mealBanner from '@/assets/ai-meal.jpg'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/stores'
 import { useUiStore } from '@/stores/useUiStore'
 
 export default function MealPlanPage() {
@@ -50,9 +52,19 @@ export default function MealPlanPage() {
   const [modalMode, setModalMode] = useState<'swap' | 'add'>('swap')
   const [swapTarget, setSwapTarget] = useState<{ mealId: number; itemId: number; mealType?: MealType } | null>(null)
 
-  const { data: plansPage, isLoading: isPlansLoading } = useMyPlans(undefined, 1, 20)
+  // Khách chưa đăng nhập: không gọi API cần đăng nhập (BE trả 401 sẽ bị đăng xuất và đẩy về trang đăng nhập)
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const isBuyer = user?.role === 'buyer'
+  const requireLogin = (open: () => void) => () => {
+    if (isBuyer) return open()
+    useUiStore.getState().showToast('Đăng nhập tài khoản khách hàng để dùng Thực đơn AI.')
+    navigate('/dang-nhap')
+  }
+
+  const { data: plansPage, isLoading: isPlansLoading } = useMyPlans(undefined, 1, 20, isBuyer)
   const { data: activePlan, isLoading: isDetailLoading } = useMealPlanDetail(selectedPlanId)
-  const { data: profile } = useHealthProfile()
+  const { data: profile } = useHealthProfile(isBuyer)
 
   const confirmPlanMutation = useConfirmPlan()
   const archivePlanMutation = useArchivePlan()
@@ -267,7 +279,7 @@ export default function MealPlanPage() {
           <div className="mt-1 flex flex-wrap items-center justify-center gap-2.5">
             <button
               type="button"
-              onClick={() => setIsHealthProfileOpen(true)}
+              onClick={requireLogin(() => setIsHealthProfileOpen(true))}
               className="flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/25"
             >
               <HeartPulse size={16} className="text-rose-300" />
@@ -285,7 +297,7 @@ export default function MealPlanPage() {
             )}
             <button
               type="button"
-              onClick={() => setIsGeneratorOpen(true)}
+              onClick={requireLogin(() => setIsGeneratorOpen(true))}
               className="flex items-center gap-2 rounded-full bg-[#ffba41] px-5 py-2.5 text-xs font-black text-[#3d2a00] shadow-lg shadow-black/20 transition hover:brightness-105"
             >
               <Sparkles size={16} />
@@ -475,7 +487,7 @@ export default function MealPlanPage() {
             </div>
             <button
               type="button"
-              onClick={() => setIsHealthProfileOpen(true)}
+              onClick={requireLogin(() => setIsHealthProfileOpen(true))}
               className="inline-flex shrink-0 items-center justify-center rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-teal-800 transition shadow-xs"
             >
               Cập nhật hồ sơ sức khỏe
@@ -633,7 +645,7 @@ export default function MealPlanPage() {
             </div>
             <button
               type="button"
-              onClick={() => setIsGeneratorOpen(true)}
+              onClick={requireLogin(() => setIsGeneratorOpen(true))}
               className="inline-flex items-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 text-xs font-bold text-white shadow-md shadow-emerald-700/25 hover:bg-emerald-800 transition"
             >
               <Sparkles size={15} className="text-amber-300" />
