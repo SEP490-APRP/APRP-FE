@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, Mail, Edit2 } from 'lucide-react'
+import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, Mail } from 'lucide-react'
 
 import { ROUTES } from '@/utils/constants'
 import { authService } from '@/services'
@@ -13,11 +13,14 @@ export const OtpVerificationPage = () => {
   // Hỗ trợ email từ state hoặc từ URL query param ?email=...
   const queryEmail = new URLSearchParams(location.search).get('email') || ''
   const stateEmail = location.state?.email || ''
+  const storedEmail =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('capnong_new_registered_shop_email') || ''
+      : ''
   const isShop = location.state?.isShop || false
   const isShipper = location.state?.isShipper || false
 
-  const [email, setEmail] = useState<string>(stateEmail || queryEmail)
-  const [isEditingEmail, setIsEditingEmail] = useState(!stateEmail && !queryEmail)
+  const [email] = useState<string>(stateEmail || queryEmail || storedEmail)
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', ''])
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -49,10 +52,8 @@ export const OtpVerificationPage = () => {
 
   // Focus the first empty digit or first input on mount
   useEffect(() => {
-    if (!isEditingEmail) {
-      inputRefs.current[0]?.focus()
-    }
-  }, [isEditingEmail])
+    inputRefs.current[0]?.focus()
+  }, [])
 
   const handleDigitChange = (index: number, val: string) => {
     // If user typed / pasted multiple digits
@@ -123,8 +124,7 @@ export const OtpVerificationPage = () => {
 
     const trimmedEmail = email.trim()
     if (!trimmedEmail) {
-      setErrorMsg('Vui lòng nhập địa chỉ email của bạn')
-      setIsEditingEmail(true)
+      setErrorMsg('Không tìm thấy thông tin email đăng ký. Vui lòng thực hiện đăng ký lại.')
       return
     }
 
@@ -173,8 +173,7 @@ export const OtpVerificationPage = () => {
 
     const trimmedEmail = email.trim()
     if (!trimmedEmail) {
-      setErrorMsg('Vui lòng nhập email trước khi yêu cầu gửi lại mã OTP')
-      setIsEditingEmail(true)
+      setErrorMsg('Không tìm thấy thông tin email đăng ký.')
       return
     }
 
@@ -249,35 +248,14 @@ export const OtpVerificationPage = () => {
             <div className="mt-2 text-xs text-[#55634e] leading-relaxed">
               <span>Mã bảo mật 6 chữ số đã được gửi tới </span>
               {email ? (
-                <div className="inline-flex items-center gap-1.5 font-bold text-[#1c2417] mt-1 bg-[#f3f7ee] border border-[#dce5d5] px-2.5 py-1 rounded-xl">
-                  <span className="truncate max-w-[210px]">{email}</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingEmail(!isEditingEmail)}
-                    className="text-[#326318] hover:text-[#1e3c0f] p-0.5"
-                    title="Đổi email"
-                  >
-                    <Edit2 size={12} />
-                  </button>
+                <div className="inline-flex items-center gap-1.5 font-bold text-[#1c2417] mt-1 bg-[#f3f7ee] border border-[#dce5d5] px-3 py-1 rounded-xl">
+                  <Mail size={13} className="text-[#326318]" />
+                  <span className="truncate max-w-[260px]">{email}</span>
                 </div>
               ) : (
-                <span className="font-bold text-[#1c2417]">địa chỉ email của bạn</span>
+                <span className="font-bold text-[#1c2417]">địa chỉ email đăng ký</span>
               )}
             </div>
-
-            {/* Email Edit field khi người dùng bấm sửa */}
-            {isEditingEmail && (
-              <div className="mt-3 relative">
-                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#889680]" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Nhập địa chỉ email của bạn"
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#f8faf6] border border-[#cfd6c7] focus:border-[#326318] focus:bg-white text-xs text-[#1c2417] outline-none"
-                />
-              </div>
-            )}
           </div>
 
           {/* Alerts */}

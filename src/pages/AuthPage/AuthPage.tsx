@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
   Leaf,
   Lock,
@@ -23,6 +23,7 @@ import {
   Truck,
   X,
   Check,
+  Loader2,
 } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -40,10 +41,10 @@ import {
   type LoginValues,
   type RegisterValues,
 } from '@/features/auth'
-import { authService, type UserResponse } from '@/services'
+import { authService, uploadService, type UserResponse } from '@/services'
 import { useAuth } from '@/stores'
 import { validate, STORAGE_KEYS, API_BASE_URL } from '@/utils'
-import { AuthInput } from '@/components/ui/Input'
+import { AuthInput, AuthAddressInput } from '@/components/ui/Input'
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register' | 'kyc_pending'
@@ -81,6 +82,8 @@ export default function AuthPage({
     fullName: regFullName,
     phone: regPhone,
     email: regEmail,
+    buyerAddress,
+    shipperArea,
     shopName,
     shopAddress,
     shopRegion,
@@ -89,8 +92,16 @@ export default function AuthPage({
     shopBankAccount,
     shopBankHolder,
   } = useWatch({ control: registerForm.control })
+  const [isCustomRegion, setIsCustomRegion] = useState(false)
+  const [customRegionText, setCustomRegionText] = useState('')
+  const [isCustomFarming, setIsCustomFarming] = useState(false)
+  const [customFarmingText, setCustomFarmingText] = useState('')
   const [shopLogoPreview, setShopLogoPreview] = useState<string>('')
   const [shopCertPreview, setShopCertPreview] = useState<string>('')
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isUploadingCert, setIsUploadingCert] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const certInputRef = useRef<HTMLInputElement>(null)
 
   // Sync with URL Hash changes
   useEffect(() => {
@@ -405,6 +416,8 @@ export default function AuthPage({
           address: values.shopAddress?.trim() || 'Lâm Đồng, Việt Nam',
           cccd: values.cccd.trim(),
           shopName: values.shopName.trim(),
+          logoUrl: shopLogoPreview || undefined,
+          licenseImageUrl: shopCertPreview || undefined,
           description:
             values.shopDescription?.trim() ||
             `Khu vực: ${values.shopRegion}. Canh tác: ${values.shopFarmingType}`,
@@ -497,25 +510,47 @@ export default function AuthPage({
     }
   }
 
-  // Mock Upload Handler
-  const handleFakeUpload = (type: 'logo' | 'cert') => {
-    if (type === 'logo') {
-      setShopLogoPreview(
-        'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=400&q=80',
-      )
-      onInfo?.('Đã tải lên Logo nông trại')
-    } else {
-      setShopCertPreview(
-        'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=400&q=80',
-      )
-      onInfo?.('Đã tải lên Chứng nhận VietGAP/Hữu cơ')
+  // Real Upload Handlers
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploadingLogo(true)
+    setError('')
+    try {
+      const res = await uploadService.uploadImage(file, 'shops')
+      const uploadedUrl = res.result?.url || URL.createObjectURL(file)
+      setShopLogoPreview(uploadedUrl)
+    } catch (err: any) {
+      console.warn('Lỗi upload logo lên BE, fallback URL preview:', err)
+      setShopLogoPreview(URL.createObjectURL(file))
+    } finally {
+      setIsUploadingLogo(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const handleCertChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploadingCert(true)
+    setError('')
+    try {
+      const res = await uploadService.uploadImage(file, 'certificates')
+      const uploadedUrl = res.result?.url || URL.createObjectURL(file)
+      setShopCertPreview(uploadedUrl)
+    } catch (err: any) {
+      console.warn('Lỗi upload chứng nhận lên BE, fallback URL preview:', err)
+      setShopCertPreview(URL.createObjectURL(file))
+    } finally {
+      setIsUploadingCert(false)
+      if (e.target) e.target.value = ''
     }
   }
 
   return (
     <div className="relative min-h-[calc(100vh-80px)] w-full overflow-hidden flex items-center justify-center p-4 sm:p-6 lg:p-10 font-sans">
       {/* Background Image with Dark/Warm Gradient Overlay */}
-      <div className="absolute inset-0 z-0">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <img
           src={authBannerImg}
           alt="CapNong Farm Produce Background"
@@ -916,32 +951,74 @@ export default function AuthPage({
 
                     {/* Address & Region */}
                     <div className="grid grid-cols-2 gap-2">
-                      <AuthInput
+                      <AuthAddressInput
                         type="text"
                         required
                         icon={<MapPin size={16} />}
                         {...registerForm.register('shopAddress')}
+                        value={shopAddress}
+                        onSelectSuggestion={(val) =>
+                          registerForm.setValue('shopAddress', val, { shouldValidate: true })
+                        }
                         placeholder="Địa chỉ vườn / Kho *"
                         accentColor="brown"
                       />
                       <select
-                        {...registerForm.register('shopRegion')}
+                        value={isCustomRegion ? 'Khác' : shopRegion || 'Đà Lạt & Lâm Đồng'}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (val === 'Khác') {
+                            setIsCustomRegion(true)
+                            registerForm.setValue('shopRegion', customRegionText || '', { shouldValidate: true })
+                          } else {
+                            setIsCustomRegion(false)
+                            registerForm.setValue('shopRegion', val, { shouldValidate: true })
+                          }
+                        }}
                         className="w-full px-3 py-2.5 rounded-2xl bg-[#f8faf6] border border-[#cfd6c7] hover:border-[#b2bca9] focus:border-[#8a4e1d] focus:ring-2 focus:ring-[#8a4e1d]/15 focus:bg-white text-xs font-semibold text-[#1e2319] outline-none transition-all"
                       >
                         <option value="Đà Lạt & Lâm Đồng">Đà Lạt &amp; Lâm Đồng</option>
                         <option value="Miền Tây Nam Bộ">Miền Tây Nam Bộ</option>
                         <option value="Tây Nguyên">Tây Nguyên</option>
                         <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                        <option value="Khác">Khác</option>
                       </select>
                     </div>
 
+                    {isCustomRegion && (
+                      <div className="animate-in fade-in slide-in-from-top-1 duration-150">
+                        <AuthInput
+                          type="text"
+                          required
+                          icon={<MapPin size={16} />}
+                          value={customRegionText}
+                          onChange={(e) => {
+                            setCustomRegionText(e.target.value)
+                            registerForm.setValue('shopRegion', e.target.value, { shouldValidate: true })
+                          }}
+                          placeholder="Nhập tên khu vực / vùng trồng khác *"
+                          accentColor="brown"
+                        />
+                      </div>
+                    )}
+
                     {/* Farming Type */}
-                    <div className="p-2.5 bg-[#f8faf6] rounded-2xl border border-[#cfd6c7]">
-                      <label className="block text-[10px] font-bold text-[#697263] mb-1">
+                    <div className="p-2.5 bg-[#f8faf6] rounded-2xl border border-[#cfd6c7] space-y-2">
+                      <label className="block text-[10px] font-bold text-[#697263]">
                         Phương thức canh tác chính:
                       </label>
                       <select
-                        {...registerForm.register('shopFarmingType')}
+                        value={isCustomFarming ? 'Khác' : shopFarmingType || 'Hữu cơ Organic'}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (val === 'Khác') {
+                            setIsCustomFarming(true)
+                            registerForm.setValue('shopFarmingType', customFarmingText || '', { shouldValidate: true })
+                          } else {
+                            setIsCustomFarming(false)
+                            registerForm.setValue('shopFarmingType', val, { shouldValidate: true })
+                          }
+                        }}
                         className="w-full px-3 py-2 rounded-xl bg-white border border-[#cfd6c7] text-xs font-bold text-[#1e2319] outline-none"
                       >
                         <option value="Hữu cơ Organic">
@@ -952,7 +1029,23 @@ export default function AuthPage({
                           Thu hoạch tự nhiên (Rau củ xấu mã lành tính)
                         </option>
                         <option value="Thủy canh">Thủy canh công nghệ cao</option>
+                        <option value="Khác">Khác</option>
                       </select>
+                      {isCustomFarming && (
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-150">
+                          <AuthInput
+                            type="text"
+                            required
+                            value={customFarmingText}
+                            onChange={(e) => {
+                              setCustomFarmingText(e.target.value)
+                              registerForm.setValue('shopFarmingType', e.target.value, { shouldValidate: true })
+                            }}
+                            placeholder="Nhập phương thức canh tác khác *"
+                            accentColor="brown"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Shop Description */}
@@ -964,34 +1057,119 @@ export default function AuthPage({
                     />
 
                     {/* Image Upload Previews */}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleFakeUpload('logo')}
-                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${shopLogoPreview
-                          ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
-                          : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
-                          }`}
-                      >
-                        <Upload size={16} />
-                        <span className="text-[11px] font-bold">
-                          {shopLogoPreview ? '✓ Đã có Logo vườn' : '+ Tải Logo Vườn'}
-                        </span>
-                      </button>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoChange}
+                    />
+                    <input
+                      ref={certInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCertChange}
+                    />
 
-                      <button
-                        type="button"
-                        onClick={() => handleFakeUpload('cert')}
-                        className={`p-2.5 rounded-2xl border-2 border-dashed text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${shopCertPreview
-                          ? 'border-[#326318] bg-[#f1faea] text-[#326318]'
-                          : 'border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f]'
-                          }`}
-                      >
-                        <FileText size={16} />
-                        <span className="text-[11px] font-bold">
-                          {shopCertPreview ? '✓ Đã có Chứng nhận' : '+ Tải Chứng Nhận VietGAP'}
-                        </span>
-                      </button>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Logo Upload Box */}
+                      {shopLogoPreview ? (
+                        <div className="p-2 rounded-2xl border-2 border-[#326318] bg-[#f1faea] flex items-center justify-between gap-1.5 transition-all">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <img
+                              src={shopLogoPreview}
+                              alt="Logo vườn"
+                              className="w-8 h-8 rounded-xl object-cover border border-[#b8dc9f] shrink-0"
+                            />
+                            <div className="min-w-0 text-left">
+                              <span className="block text-[11px] font-bold text-[#326318] truncate">
+                                Logo vườn
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => logoInputRef.current?.click()}
+                                className="block text-[10px] text-[#55823b] hover:underline cursor-pointer"
+                              >
+                                Đổi ảnh
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShopLogoPreview('')}
+                            className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                            title="Xóa logo"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isUploadingLogo}
+                          onClick={() => logoInputRef.current?.click()}
+                          className="p-2.5 rounded-2xl border-2 border-dashed border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f] text-center flex flex-col items-center gap-1 cursor-pointer transition-all hover:bg-[#fafaf8] disabled:opacity-50"
+                        >
+                          {isUploadingLogo ? (
+                            <Loader2 size={16} className="animate-spin text-[#8a4e1d]" />
+                          ) : (
+                            <Upload size={16} />
+                          )}
+                          <span className="text-[11px] font-bold">
+                            {isUploadingLogo ? 'Đang tải lên...' : '+ Tải Logo Vườn'}
+                          </span>
+                        </button>
+                      )}
+
+                      {/* Cert Upload Box */}
+                      {shopCertPreview ? (
+                        <div className="p-2 rounded-2xl border-2 border-[#326318] bg-[#f1faea] flex items-center justify-between gap-1.5 transition-all">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <img
+                              src={shopCertPreview}
+                              alt="Chứng nhận"
+                              className="w-8 h-8 rounded-xl object-cover border border-[#b8dc9f] shrink-0"
+                            />
+                            <div className="min-w-0 text-left">
+                              <span className="block text-[11px] font-bold text-[#326318] truncate">
+                                Chứng nhận
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => certInputRef.current?.click()}
+                                className="block text-[10px] text-[#55823b] hover:underline cursor-pointer"
+                              >
+                                Đổi ảnh
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShopCertPreview('')}
+                            className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                            title="Xóa chứng nhận"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isUploadingCert}
+                          onClick={() => certInputRef.current?.click()}
+                          className="p-2.5 rounded-2xl border-2 border-dashed border-[#d0d6c9] hover:border-[#8a4e1d] bg-white text-[#636c5f] text-center flex flex-col items-center gap-1 cursor-pointer transition-all hover:bg-[#fafaf8] disabled:opacity-50"
+                        >
+                          {isUploadingCert ? (
+                            <Loader2 size={16} className="animate-spin text-[#8a4e1d]" />
+                          ) : (
+                            <FileText size={16} />
+                          )}
+                          <span className="text-[11px] font-bold">
+                            {isUploadingCert ? 'Đang tải lên...' : '+ Tải Chứng Nhận VietGAP'}
+                          </span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Final Submit Button */}
@@ -1045,11 +1223,15 @@ export default function AuthPage({
 
                     {selectedRole === 'buyer' && (
                       <>
-                        <AuthInput
+                        <AuthAddressInput
                           type="text"
                           required
                           icon={<MapPin size={17} />}
                           {...registerForm.register('buyerAddress')}
+                          value={buyerAddress}
+                          onSelectSuggestion={(val) =>
+                            registerForm.setValue('buyerAddress', val, { shouldValidate: true })
+                          }
                           placeholder="Địa chỉ nhận hàng (Số nhà, Phường/Xã, Tỉnh/TP) *"
                           accentColor="green"
                         />
@@ -1107,10 +1289,15 @@ export default function AuthPage({
                               <option value="Xe tải 500kg - 1.5 tấn">Xe tải nhỏ 500kg - 1.5 tấn</option>
                             </select>
 
-                            <AuthInput
+                            <AuthAddressInput
                               type="text"
                               required
+                              icon={<MapPin size={16} />}
                               {...registerForm.register('shipperArea')}
+                              value={shipperArea}
+                              onSelectSuggestion={(val) =>
+                                registerForm.setValue('shipperArea', val, { shouldValidate: true })
+                              }
                               placeholder="Khu vực hoạt động (VD: Quận 7, TP.HCM) *"
                               accentColor="teal"
                             />
@@ -1336,6 +1523,30 @@ export default function AuthPage({
                   <div>
                     <strong>Phương thức canh tác:</strong> {shopFarmingType}
                   </div>
+                  {(shopLogoPreview || shopCertPreview) && (
+                    <div className="pt-2 flex items-center gap-3 border-t border-[#eeddc7]/60">
+                      {shopLogoPreview && (
+                        <div className="flex items-center gap-1.5">
+                          <img
+                            src={shopLogoPreview}
+                            alt="Logo"
+                            className="w-7 h-7 rounded-lg object-cover border border-[#eeddc7]"
+                          />
+                          <span className="text-[10px] text-stone-600 font-semibold">Logo vườn</span>
+                        </div>
+                      )}
+                      {shopCertPreview && (
+                        <div className="flex items-center gap-1.5">
+                          <img
+                            src={shopCertPreview}
+                            alt="Chứng nhận"
+                            className="w-7 h-7 rounded-lg object-cover border border-[#eeddc7]"
+                          />
+                          <span className="text-[10px] text-stone-600 font-semibold">Chứng nhận VietGAP</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
