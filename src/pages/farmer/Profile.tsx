@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type { UserResponse } from '@/services/user.types'
-import { useUpdateShopProfile, EditShopProfileModal } from '@/features/shop'
+import { ShopPageHeader, useUpdateShopProfile, EditShopProfileModal } from '@/features/shop'
 import { uploadService } from '@/services'
 import { globalShowAlert } from '@/components/common/Popup'
 
@@ -115,8 +115,23 @@ export default function Profile({ user, shopProfile, onInfo }: ProfileProps) {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn w-full">
-      {/* 1. Header Banner & Profile Hero */}
+    <div className="space-y-6 animate-fadeIn w-full pb-12">
+      <ShopPageHeader
+        title="Hồ Sơ & Thông Tin Gian Hàng"
+        subtitle="Quản lý thông tin nhà vườn, chứng nhận canh tác và tài khoản ngân hàng nhận quyết toán"
+        actions={
+          <button
+            type="button"
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-4 py-2 rounded-lg bg-[#2b5619] hover:bg-[#1f3f12] text-white font-bold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1.5 transition-all shrink-0"
+          >
+            <Edit3 size={15} />
+            <span>Cập Nhật Hồ Sơ</span>
+          </button>
+        }
+      />
+
+      {/* 1. Profile Hero Card */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e8ece3] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
           {/* Avatar with Camera Overlay */}
@@ -187,16 +202,6 @@ export default function Profile({ user, shopProfile, onInfo }: ProfileProps) {
             </div>
           </div>
         </div>
-
-        {/* Action Button */}
-        <button
-          type="button"
-          onClick={() => setIsEditModalOpen(true)}
-          className="px-6 py-3 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs sm:text-sm cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all shrink-0"
-        >
-          <Edit3 size={16} />
-          <span>Cập Nhật Hồ Sơ</span>
-        </button>
       </div>
 
       {/* 2. Structured Information Grid - 3 Cột Ngang Hàng */}

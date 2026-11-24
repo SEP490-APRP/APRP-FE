@@ -33,6 +33,7 @@ import { useCategories, filterFreshCategories } from '@/features/product/hooks/u
 import { useMyMysteryBoxes, useToggleMysteryBoxStatus, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal, DeleteProductModal } from '@/features/product'
+import { ShopPageHeader } from '@/features/shop'
 import Pagination from '@/components/ui/Pagination/Pagination'
 import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
@@ -459,45 +460,42 @@ export default function Products({
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216]">Kho Nông Sản Của Bạn</h3>
-          <p className="text-xs text-[#7e8779]">
-            Quản lý nông sản thu hoạch, tải ảnh kiểm duyệt AI Google Vision và thiết lập giá bán
-          </p>
-        </div>
+      <ShopPageHeader
+        title="Kho Nông Sản Của Bạn"
+        subtitle="Quản lý nông sản thu hoạch, tải ảnh kiểm duyệt AI Google Vision và thiết lập giá bán"
+        actions={
+          <>
+            {onOpenComboBuilder && (
+              <button
+                id="tour-products-combo-btn"
+                type="button"
+                onClick={() => onOpenComboBuilder?.()}
+                className="px-3.5 py-2 rounded-lg bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
+              >
+                Tạo Combo Nông Sản
+              </button>
+            )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenComboBuilder && (
             <button
-              id="tour-products-combo-btn"
+              id="tour-products-blindbox-btn"
               type="button"
-              onClick={() => onOpenComboBuilder?.()}
-              className="px-3.5 py-2 rounded-lg bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
+              onClick={() => onOpenBlindBoxTool()}
+              className="px-3.5 py-2 rounded-lg bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
             >
-              Tạo Combo Nông Sản
+              Tạo Túi Mù
             </button>
-          )}
 
-          <button
-            id="tour-products-blindbox-btn"
-            type="button"
-            onClick={() => onOpenBlindBoxTool()}
-            className="px-3.5 py-2 rounded-lg bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
-          >
-            Tạo Túi Mù
-          </button>
-
-          <button
-            id="tour-products-add-btn"
-            type="button"
-            onClick={onOpenAddProduct}
-            className="px-3.5 py-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-xs flex items-center gap-1 cursor-pointer transition-all"
-          >
-            <span>Đăng Bán Nông Sản</span>
-          </button>
-        </div>
-      </div>
+            <button
+              id="tour-products-add-btn"
+              type="button"
+              onClick={onOpenAddProduct}
+              className="px-3.5 py-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <span>Đăng Bán Nông Sản</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Filter Tabs, Categories & Search */}
       <div className="bg-white rounded-xl border border-[#e8ece3] shadow-2xs overflow-hidden">

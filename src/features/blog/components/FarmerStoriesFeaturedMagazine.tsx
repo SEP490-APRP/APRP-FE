@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { BlogOptionsMenu } from '@/features/blog'
 import { formatPublishDate, getCategoryBadge } from '@/features/blog/constants'
+import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 import type { BlogResponse } from '@/services'
 import freshFarmerBannerImg from '@/assets/fresh-farmer-banner.jpg'
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
@@ -120,7 +121,7 @@ export const FarmerStoriesFeaturedMagazine: React.FC<FarmerStoriesFeaturedMagazi
                 </h2>
 
                 <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-3 mb-4">
-                  {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
+                  {htmlToPlainText(featuredBlog.content)}
                 </p>
               </div>
 
@@ -230,7 +231,7 @@ export const FarmerStoriesFeaturedMagazine: React.FC<FarmerStoriesFeaturedMagazi
               </h2>
 
               <p className="text-xs sm:text-sm text-[#555d4e] leading-relaxed line-clamp-2 sm:line-clamp-3">
-                {featuredBlog.content.replace(/<[^>]*>?/gm, '')}
+                {htmlToPlainText(featuredBlog.content)}
               </p>
             </div>
 

@@ -24,6 +24,7 @@ import {
   CommentOptionsMenu,
 } from '@/features/blog'
 import { formatPublishDate } from '@/features/blog/constants'
+import { RichTextContent, htmlToPlainText, isHtmlContent } from '@/components/common/RichTextEditor/RichTextContent'
 import { BlogCategoryLabel } from '@/types'
 import type { BlogResponse } from '@/services'
 import freshFarmerBannerImg from '@/assets/fresh-farmer-banner.jpg'
@@ -66,7 +67,7 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
 
   const readingMinutes = useMemo(() => {
     if (!blogDetail?.content) return 2
-    const cleanText = blogDetail.content.replace(/<[^>]*>/g, ' ')
+    const cleanText = htmlToPlainText(blogDetail.content)
     const words = cleanText.trim().split(/\s+/).filter(Boolean).length
     return Math.max(1, Math.ceil(words / 180))
   }, [blogDetail?.content])
@@ -266,10 +267,10 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
 
               {/* Editorial Content Body */}
               <div className="space-y-4 text-[15px] sm:text-[16px] leading-[1.8] text-[#2d3629] font-normal py-1 border-b border-[#ede7dc] pb-6">
-                {blogDetail.content.includes('<p') ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: blogDetail.content }}
-                    className="prose max-w-none text-inherit prose-headings:font-bold prose-headings:text-[#191f14] prose-a:text-[#2e5d16] prose-img:rounded-xl"
+                {isHtmlContent(blogDetail.content) ? (
+                  <RichTextContent
+                    html={blogDetail.content}
+                    className="text-[15px] sm:text-[16px] leading-[1.8] text-[#2d3629]"
                   />
                 ) : (
                   blogDetail.content.split('\n\n').map((paragraph, idx) => (

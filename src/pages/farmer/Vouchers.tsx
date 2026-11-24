@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, Gift, Loader2, Power, X, Calendar, DollarSign, Tag, Check, AlertCircle, Trash2, Sparkles, Percent, Truck, Calculator, AlertTriangle, Info, Search, Ticket } from 'lucide-react'
+import { ShopPageHeader } from '@/features/shop'
 import {
   voucherService,
   type VoucherResponse,
@@ -228,39 +229,20 @@ export default function Vouchers({ onInfo }: VouchersProps) {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216] flex items-center gap-2">
-            <Ticket className="text-[#326318]" size={24} />
-            <span>Mã Giảm Giá &amp; Khuyến Mãi Của Shop</span>
-          </h3>
-          <p className="text-xs text-[#555f4d] mt-0.5">
-            Tạo và quản lý các mã giảm giá dành cho khách mua nông sản tại shop của bạn
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowCreateModal((prev) => !prev)}
-          className={`px-4 py-2.5 rounded-lg font-bold text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all shrink-0 ${
-            showCreateModal
-              ? 'bg-stone-200 hover:bg-stone-300 text-stone-700'
-              : 'bg-[#326318] hover:bg-[#254b12] text-white'
-          }`}
-        >
-          {showCreateModal ? (
-            <>
-              <X size={15} />
-              <span>Đóng khung tạo</span>
-            </>
-          ) : (
-            <>
-              <Plus size={15} />
-              <span>Tạo Voucher Mới</span>
-            </>
-          )}
-        </button>
-      </div>
+      <ShopPageHeader
+        title="Mã Giảm Giá & Khuyến Mãi Của Shop"
+        subtitle="Tạo và quản lý các mã giảm giá dành cho khách mua nông sản tại shop của bạn"
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 rounded-lg bg-[#2b5619] hover:bg-[#1f3f12] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all shrink-0"
+          >
+            <Plus size={15} />
+            <span>Tạo Voucher Mới</span>
+          </button>
+        }
+      />
 
       {/* Thống kê nhanh chỉ số Voucher */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -367,10 +349,9 @@ export default function Vouchers({ onInfo }: VouchersProps) {
         </div>
       </div>
 
-      {/* Main Layout: Danh sách voucher bên trái, Khung tạo voucher bên phải */}
-      <div className="flex flex-col lg:flex-row items-start gap-6">
-        {/* Cột Trái: Danh sách Voucher */}
-        <div className={`w-full transition-all duration-300 ${showCreateModal ? 'lg:flex-1 min-w-0' : 'w-full'}`}>
+      {/* Danh sách Voucher */}
+      <div>
+        <div className="w-full">
           {loading ? (
             <CapNongLoading
               className="!min-h-[300px]"
@@ -401,7 +382,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
               )}
             </div>
           ) : (
-            <div className={`grid gap-3.5 ${showCreateModal ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+            <div className="grid gap-3.5 grid-cols-1 md:grid-cols-2">
               {filteredVouchers.map((vc) => {
                 const isPercent = vc.voucherType === 'PERCENTAGE'
                 const discountLabel = isPercent
@@ -537,38 +518,51 @@ export default function Vouchers({ onInfo }: VouchersProps) {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Cột Phải: Khung Tạo Voucher Mới */}
-        {showCreateModal && (
-          <div className="w-full lg:w-[480px] xl:w-[520px] shrink-0 bg-white rounded-lg border border-stone-200 shadow-md flex flex-col overflow-hidden animate-fadeIn sticky top-4">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#fafcf9]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 text-[#326318] flex items-center justify-center border border-emerald-100/80 shadow-inner">
-                  <Gift size={20} />
+      {/* Modal Tạo Voucher Mới */}
+      {showCreateModal &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-voucher-title"
+            onClick={() => !isSubmitting && setShowCreateModal(false)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[28px] max-w-2xl w-full shadow-2xl border border-[#e2dcce] max-h-[92vh] flex flex-col overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#fafcf9] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#326318] flex items-center justify-center border border-emerald-100/80 shadow-inner">
+                    <Gift size={20} />
+                  </div>
+                  <div>
+                    <h3 id="create-voucher-title" className="font-black text-base sm:text-lg text-[#1c2216]">
+                      Tạo Mã Giảm Giá Mới
+                    </h3>
+                    <p className="text-xs text-stone-500">
+                      Cung cấp ưu đãi riêng cho khách mua nông sản tại gian hàng của bạn
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 id="create-voucher-title" className="font-black text-base text-[#1c2216]">
-                    Tạo Mã Giảm Giá Mới
-                  </h3>
-                  <p className="text-xs text-stone-500">
-                    Cung cấp ưu đãi riêng cho khách mua nông sản tại gian hàng của bạn
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => !isSubmitting && setShowCreateModal(false)}
+                  disabled={isSubmitting}
+                  aria-label="Đóng"
+                  className="text-stone-400 hover:text-stone-700 p-2 rounded-full hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => !isSubmitting && setShowCreateModal(false)}
-                disabled={isSubmitting}
-                aria-label="Đóng"
-                className="text-stone-400 hover:text-stone-700 p-1.5 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            {/* Form Body (Scrollable) */}
-            <form onSubmit={handleCreateVoucher} className="p-5 sm:p-6 overflow-y-auto space-y-5 max-h-[calc(100vh-120px)]">
+              {/* Form Body + Sticky Footer */}
+              <form id="create-voucher-form" onSubmit={handleCreateVoucher} className="flex-1 min-h-0 flex flex-col">
+                <div className="p-6 overflow-y-auto space-y-5 flex-1 custom-scrollbar">
               {/* 1. Thẻ xem trước Voucher trực tiếp (Live Preview Ticket) */}
               <div className="rounded-lg border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-4 shadow-xs relative overflow-hidden">
                 <div className="absolute top-2 right-2 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md uppercase tracking-wider">
@@ -1002,8 +996,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
               </div>
 
               {/* 8. Tùy chọn hiển thị công khai */}
-              <div
-                onClick={() => setIsPublic(!isPublic)}
+              <label
                 className={`p-3.5 rounded-lg border transition-all cursor-pointer flex items-start gap-3 ${isPublic
                     ? 'bg-emerald-50/50 border-emerald-200 ring-1 ring-emerald-300/60'
                     : 'bg-stone-50 border-stone-200'
@@ -1025,42 +1018,44 @@ export default function Vouchers({ onInfo }: VouchersProps) {
                       : 'Mã voucher sẽ được ẩn khỏi trang gian hàng. Bạn có thể gửi mã riêng cho khách VIP hoặc qua tin nhắn chat.'}
                   </p>
                 </div>
-              </div>
+              </label>
+                </div>
 
-              {/* Footer Buttons */}
-              <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={isSubmitting}
-                  className="text-xs py-2.5 px-5 rounded-lg border-stone-200 text-stone-600 hover:bg-stone-50 font-bold cursor-pointer disabled:opacity-50"
-                >
-                  Hủy bỏ
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={isSubmitting}
-                  className="text-xs py-2.5 px-6 bg-[#326318] hover:bg-[#254b12] text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Đang tạo voucher...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={15} />
-                      <span>Tạo Voucher Ngay</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
+                {/* Footer Buttons */}
+                <div className="px-6 py-4 border-t border-stone-100 bg-[#fafcf9] flex items-center justify-end gap-2.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateModal(false)}
+                    disabled={isSubmitting}
+                    className="text-xs py-2.5 px-5 rounded-lg border-stone-200 text-stone-600 hover:bg-stone-50 font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={isSubmitting}
+                    className="text-xs py-2.5 px-6 bg-[#326318] hover:bg-[#254b12] text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Đang tạo voucher...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={15} />
+                        <span>Tạo Voucher Ngay</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
         )}
-      </div>
     </div>
   )
 }

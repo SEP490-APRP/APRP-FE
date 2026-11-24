@@ -36,6 +36,7 @@ import NotificationDropdown from './NotificationDropdown'
 import CartDropdown from './CartDropdown'
 import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
 import { useAllProducts, useCategories, useCombos } from '@/features/product'
+import { filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
 import { mysteryBoxService, type BuildCombo } from '@/services'
 import { ImageSearchModal } from '@/components/common/ImageSearchModal'
 import freshPromoImg from '@/assets/fresh-veg-promo.png'
@@ -239,13 +240,59 @@ export default function Header({
   const getCatId = (p: any): number => {
     if (typeof p.categoryId === 'number') return p.categoryId
     if (typeof p.category === 'object' && p.category?.categoryId) return p.category.categoryId
+    if (typeof p.category === 'object' && p.category?.id) return Number(p.category.id)
     return 0
   }
+
+  const freshCategories = filterFreshCategories(allCategories)
+  const extraFreshIds = freshCategories
+    .map((c) => c.categoryId)
+    .filter((id) => id !== 1 && id !== 2 && id !== 3)
+  const specialtyCategoryIds = extraFreshIds.length > 0 ? extraFreshIds : [4]
 
   const leafProducts = allProducts.filter((p) => getCatId(p) === 1)
   const rootProducts = allProducts.filter((p) => getCatId(p) === 2)
   const fruitProducts = allProducts.filter((p) => getCatId(p) === 3)
-  const specialtyProducts = allProducts.filter((p) => [4, 5, 6].includes(getCatId(p)))
+  const specialtyProducts = allProducts.filter((p) => specialtyCategoryIds.includes(getCatId(p)))
+
+  const freshMegaColumns = [
+    {
+      key: 'leaf',
+      title: 'Rau Ăn Lá',
+      dotColor: 'bg-[#2e7d32]',
+      linkColor: 'text-primary',
+      categoryTerm: 'Rau lá',
+      ctaLabel: 'Xem tất cả rau lá',
+      items: leafProducts,
+    },
+    {
+      key: 'root',
+      title: 'Củ Tươi Ngon',
+      dotColor: 'bg-[#e65100]',
+      linkColor: 'text-[#e65100]',
+      categoryTerm: 'Củ',
+      ctaLabel: 'Xem tất cả củ',
+      items: rootProducts,
+    },
+    {
+      key: 'fruit',
+      title: 'Quả / Trái Cây',
+      dotColor: 'bg-[#f59e0b]',
+      linkColor: 'text-[#d97706]',
+      categoryTerm: 'Trái cây',
+      ctaLabel: 'Xem tất cả trái cây',
+      items: fruitProducts,
+    },
+    {
+      key: 'specialty',
+      title: 'Hữu Cơ & Đặc Sản',
+      dotColor: 'bg-[#15803d]',
+      linkColor: 'text-primary',
+      categoryTerm: 'Tất cả',
+      ctaLabel: 'Xem toàn bộ chợ',
+      items: specialtyProducts,
+    },
+  ]
 
   const minProducePrice = allProducts.length > 0
     ? Math.min(...allProducts.map((p) => p.price ?? p.sellingPrice ?? 12000).filter((v) => v > 0))
@@ -714,129 +761,43 @@ export default function Header({
               <div className="grid grid-cols-12 gap-6 items-start">
                 {/* 4 Category Columns */}
                 <div className="col-span-8 xl:col-span-9 grid grid-cols-4 gap-6">
-                  {/* Col 1: Rau Ăn Lá */}
-                  <div className="flex flex-col gap-2.5">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#2e7d32]" />
-                      <span>Rau Ăn Lá</span>
-                    </h3>
-                    <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {(leafProducts.length > 0 ? leafProducts : allProducts).slice(0, 5).map((item) => (
-                        <li key={item.productId ?? item.id}>
-                          <Link
-                            to={`/san-pham/${item.productId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
+                  {freshMegaColumns.map((col) => (
+                    <div key={col.key} className="flex flex-col gap-2.5">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
+                        <span>{col.title}</span>
+                      </h3>
+                      <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
+                        {col.items.length > 0 ? (
+                          col.items.slice(0, 5).map((item) => (
+                            <li key={item.productId ?? item.id}>
+                              <Link
+                                to={`/san-pham/${item.productId ?? item.id}`}
+                                onClick={closeDropdown}
+                                className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
+                              >
+                                {item.productName ?? item.name}
+                              </Link>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="py-1 text-[11px] italic text-[#8e9688]">
+                            Chưa có sản phẩm thuộc mục này
+                          </li>
+                        )}
+                        <li className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCategory(col.categoryTerm, '/nong-san-tuoi')}
+                            className={`text-[11px] font-bold ${col.linkColor} hover:underline flex items-center gap-1 cursor-pointer`}
                           >
-                            {item.productName ?? item.name}
-                          </Link>
+                            <span>{col.ctaLabel}</span>
+                            <ArrowRight size={12} />
+                          </button>
                         </li>
-                      ))}
-                      <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('Rau lá', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Xem tất cả rau lá</span>
-                          <ArrowRight size={12} />
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Col 2: Củ Tươi */}
-                  <div className="flex flex-col gap-2.5">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#e65100]" />
-                      <span>Củ Tươi Ngon</span>
-                    </h3>
-                    <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {(rootProducts.length > 0 ? rootProducts : allProducts).slice(0, 5).map((item) => (
-                        <li key={item.productId ?? item.id}>
-                          <Link
-                            to={`/san-pham/${item.productId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
-                          >
-                            {item.productName ?? item.name}
-                          </Link>
-                        </li>
-                      ))}
-                      <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('Củ', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-[#e65100] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Xem tất cả củ</span>
-                          <ArrowRight size={12} />
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Col 3: Quả / Trái Cây */}
-                  <div className="flex flex-col gap-2.5">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
-                      <span>Quả / Trái Cây</span>
-                    </h3>
-                    <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {(fruitProducts.length > 0 ? fruitProducts : allProducts).slice(0, 5).map((item) => (
-                        <li key={item.productId ?? item.id}>
-                          <Link
-                            to={`/san-pham/${item.productId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
-                          >
-                            {item.productName ?? item.name}
-                          </Link>
-                        </li>
-                      ))}
-                      <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('Trái cây', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-[#d97706] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Xem tất cả trái cây</span>
-                          <ArrowRight size={12} />
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Col 4: Hữu Cơ & Đặc Sản */}
-                  <div className="flex flex-col gap-2.5">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary border-b border-[#ede8df] pb-2 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#15803d]" />
-                      <span>Hữu Cơ &amp; Đặc Sản</span>
-                    </h3>
-                    <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {(specialtyProducts.length > 0 ? specialtyProducts : allProducts).slice(0, 5).map((item) => (
-                        <li key={item.productId ?? item.id}>
-                          <Link
-                            to={`/san-pham/${item.productId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-primary hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
-                          >
-                            {item.productName ?? item.name}
-                          </Link>
-                        </li>
-                      ))}
-                      <li className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCategory('Tất cả', '/nong-san-tuoi')}
-                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Xem toàn bộ chợ</span>
-                          <ArrowRight size={12} />
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
+                      </ul>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Right Promo Box */}
@@ -902,17 +863,23 @@ export default function Header({
                       <span>Túi Mù Nông Sản</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {mysteryBoxes.slice(0, 5).map((item) => (
-                        <li key={item.mysteryId ?? item.id}>
-                          <Link
-                            to={`/mystery-box/${item.mysteryId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
-                          >
-                            {item.boxType} ({item.price.toLocaleString('vi-VN')}đ)
-                          </Link>
+                      {mysteryBoxes.length > 0 ? (
+                        mysteryBoxes.slice(0, 5).map((item) => (
+                          <li key={item.mysteryId ?? item.id}>
+                            <Link
+                              to={`/mystery-box/${item.mysteryId ?? item.id}`}
+                              onClick={closeDropdown}
+                              className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
+                            >
+                              {item.boxType} ({item.price.toLocaleString('vi-VN')}đ)
+                            </Link>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="py-1 text-[11px] italic text-[#8e9688]">
+                          Chưa có túi mù đang mở
                         </li>
-                      ))}
+                      )}
                       <li className="pt-1">
                         <Link
                           to="/combo-tui-mu"
@@ -933,17 +900,23 @@ export default function Header({
                       <span>Combo Bữa Ăn &amp; Gia Đình</span>
                     </h3>
                     <ul className="flex flex-col gap-1.5 text-xs text-[#444b3e]">
-                      {allCombos.slice(0, 5).map((item) => (
-                        <li key={item.comboId ?? item.id}>
-                          <Link
-                            to={`/combo/${item.comboId ?? item.id}`}
-                            onClick={closeDropdown}
-                            className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
-                          >
-                            {item.comboName} ({item.price.toLocaleString('vi-VN')}đ)
-                          </Link>
+                      {allCombos.length > 0 ? (
+                        allCombos.slice(0, 5).map((item) => (
+                          <li key={item.comboId ?? item.id}>
+                            <Link
+                              to={`/combo/${item.comboId ?? item.id}`}
+                              onClick={closeDropdown}
+                              className="text-left text-[#384133] hover:text-[#8a4e1d] hover:translate-x-1 font-medium transition-all block py-0.5 truncate"
+                            >
+                              {item.comboName} ({item.price.toLocaleString('vi-VN')}đ)
+                            </Link>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="py-1 text-[11px] italic text-[#8e9688]">
+                          Chưa có combo đang mở
                         </li>
-                      ))}
+                      )}
                       <li className="pt-1">
                         <Link
                           to="/combo-tui-mu"
@@ -1110,7 +1083,7 @@ export default function Header({
               <div className="pl-4 pr-2 py-3 flex flex-col gap-2 bg-[#f0ece1] rounded-2xl my-1.5 text-xs">
                 <span className="font-bold text-primary uppercase text-[10px]">Danh mục nông sản:</span>
                 <div className="grid grid-cols-2 gap-1.5 text-[#384133]">
-                  {allCategories.map((cat) => (
+                  {freshCategories.map((cat) => (
                     <button
                       key={cat.categoryId}
                       type="button"

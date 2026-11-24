@@ -117,7 +117,7 @@ export function mapMysteryBoxToCard(
     rating: Number((mystery as any).rating ?? (mystery as any).ratingAverage ?? 0),
     reviews: Number((mystery as any).reviewCount ?? (mystery as any).totalReviews ?? 0),
     sold: soldQuantity,
-    stock: Math.max(0, totalQuantity - soldQuantity) || 20,
+    stock: Math.max(0, totalQuantity - soldQuantity),
   }
 }
 
@@ -160,7 +160,7 @@ export function mapComboToCard(
     rating: Number((combo as any).rating ?? (combo as any).ratingAverage ?? 0),
     reviews: Number((combo as any).reviewCount ?? (combo as any).totalReviews ?? 0),
     sold: soldQuantity,
-    stock: Math.max(0, totalQuantity - soldQuantity) || 15,
+    stock: Math.max(0, totalQuantity - soldQuantity),
     mealType: combo.mealType,
   }
 }
