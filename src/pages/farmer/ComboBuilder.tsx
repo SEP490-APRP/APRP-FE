@@ -90,25 +90,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
   })
   const availableProducts = myProductsData?.content || []
 
-  // Đồng bộ hoặc lấy chi tiết nguyên liệu thành phần khi ở chế độ chỉnh sửa combo
+  // Tải chi tiết nguyên liệu thành phần một lần khi mở chế độ chỉnh sửa nếu chưa có sẵn items
   useEffect(() => {
     const comboId = Number(initialCombo?.id || initialCombo?.comboId || initialCombo?.productId)
     if (!comboId) return
-
     if (initialCombo?.items && Array.isArray(initialCombo.items) && initialCombo.items.length > 0) {
-      setSelectedItems((prev) =>
-        initialCombo.items.map((it: any) => {
-          const matched = availableProducts.find((p) => (p.productId || p.id) === it.productId)
-          const existingInState = prev.find((p) => p.productId === Number(it.productId))
-          return {
-            productId: Number(it.productId),
-            productName: it.productName || matched?.productName || `Sản phẩm #${it.productId}`,
-            unit: it.unit || matched?.unit || 'kg',
-            stockAvailable: matched?.stockQuantity ?? 999,
-            quantity: existingInState?.quantity ?? Number(it.productQuantity || it.quantity || 1),
-          }
-        }),
-      )
       return
     }
 
@@ -118,18 +104,14 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
       .then((res: any) => {
         const items = res.result?.items || res.items
         if (isCancelled || !items) return
-        setSelectedItems((prev) =>
-          items.map((it: any) => {
-            const matched = availableProducts.find((p) => (p.productId || p.id) === it.productId)
-            const existingInState = prev.find((p) => p.productId === Number(it.productId))
-            return {
-              productId: Number(it.productId),
-              productName: it.productName || matched?.productName || `Sản phẩm #${it.productId}`,
-              unit: it.unit || matched?.unit || 'kg',
-              stockAvailable: matched?.stockQuantity ?? 999,
-              quantity: existingInState?.quantity ?? Number(it.productQuantity || 1),
-            }
-          }),
+        setSelectedItems(
+          items.map((it: any) => ({
+            productId: Number(it.productId),
+            productName: it.productName || `Sản phẩm #${it.productId}`,
+            unit: it.unit || 'kg',
+            stockAvailable: 999,
+            quantity: Number(it.productQuantity || 1),
+          })),
         )
       })
       .catch((err) => {
@@ -139,7 +121,30 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
     return () => {
       isCancelled = true
     }
-  }, [initialCombo, availableProducts])
+  }, [initialCombo])
+
+  // Bổ sung tồn kho thực tế từ danh sách nông sản đang tải mà không ghi đè lựa chọn đang sửa của người dùng
+  useEffect(() => {
+    if (availableProducts.length === 0) return
+    setSelectedItems((prev) => {
+      if (prev.length === 0) return prev
+      let changed = false
+      const next = prev.map((item) => {
+        const matched = availableProducts.find((p) => (p.productId || p.id) === item.productId)
+        if (!matched) return item
+        const realStock = matched.stockQuantity ?? 0
+        if (item.stockAvailable === realStock) return item
+        changed = true
+        return {
+          ...item,
+          productName: item.productName || matched.productName,
+          unit: item.unit || matched.unit || 'kg',
+          stockAvailable: realStock,
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [availableProducts])
 
 
   // Hooks
@@ -321,7 +326,7 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
           imageUrl: imageUrl.trim() || undefined,
           items: itemsPayload,
         })
-        onInfo?.(`Đã gửi duyệt và tạo thành công Combo: ${comboName.trim()}`)
+        onInfo?.(`Đã tạo và đăng bán thành công Combo: ${comboName.trim()}`)
       }
       onClose()
     } catch (err: any) {

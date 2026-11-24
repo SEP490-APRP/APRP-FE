@@ -51,4 +51,4 @@ export {
   type ProductFormInput,
   type ProductFormValues,
 } from './schemas/productForm.schema'
-export { useCombos, useShopCombos, useMyCombos, useCreateCombo, useUpdateCombo, useDeleteCombo, comboKeys } from './hooks/useComboQueries'
+export { useCombos, useShopCombos, useMyCombos, useCreateCombo, useUpdateCombo, useUpdateComboStatus, useDeleteCombo, comboKeys } from './hooks/useComboQueries'
