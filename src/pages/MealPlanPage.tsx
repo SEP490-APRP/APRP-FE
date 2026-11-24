@@ -36,6 +36,7 @@ import {
   PlanAiCopilotDrawer,
 } from '@/features/meal-plan'
 import type { PlanStatus, MealType } from '@/services'
+import mealBanner from '@/assets/ai-meal.jpg'
 import { useUiStore } from '@/stores/useUiStore'
 
 export default function MealPlanPage() {
@@ -241,62 +242,67 @@ export default function MealPlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-16 pt-6">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 p-6 sm:p-10 text-white shadow-xl">
-          {/* Background Decorative Pattern */}
-          <div className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 rounded-full bg-emerald-600/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-12 right-1/4 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-2xl space-y-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-amber-300 backdrop-blur-md border border-emerald-500/30">
-                <Sparkles size={13} />
-                <span>Công Nghệ AI Lên Thực Đơn Dinh Dưỡng</span>
-              </div>
-              <h1 className="text-2xl font-black sm:text-3xl lg:text-4xl tracking-tight">
-                Kế Hoạch Ăn Uống & Đi Chợ 1 Chạm
-              </h1>
-              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                Tự động tối ưu chi phí từ kho combo giải cứu, tính toán chỉ số calo chính xác và bảo
-                vệ bạn khỏi thành phần gây dị ứng.
-              </p>
-            </div>
-
-            {/* Actions Quick Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+    <div className="min-h-screen bg-[#fcf9f1] pb-16">
+      {/* Banner đầu trang (cùng kiểu với Chiến dịch / Nông sản tươi / Combo) */}
+      <div className="relative flex h-80 w-full items-center justify-center overflow-hidden text-center shadow-lg sm:h-84 md:h-96 lg:h-[400px]">
+        <img
+          src={mealBanner}
+          alt="Bữa ăn gia đình từ nông sản tươi giải cứu"
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full scale-105 object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/40" aria-hidden />
+        <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-3 px-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#ffea79] shadow-sm backdrop-blur-md">
+            <Sparkles size={13} aria-hidden />
+            <span>Công nghệ AI lên thực đơn dinh dưỡng</span>
+          </div>
+          <h1 className="text-3xl font-black leading-tight tracking-tight text-white drop-shadow-lg sm:text-4xl md:text-5xl">
+            Kế Hoạch Ăn Uống & Đi Chợ 1 Chạm
+          </h1>
+          <p className="mx-auto max-w-xl text-xs leading-relaxed text-white/85 drop-shadow sm:text-sm md:text-base">
+            Tự động tối ưu chi phí từ kho combo giải cứu, tính toán chỉ số calo chính xác và bảo vệ bạn khỏi thành phần gây dị ứng.
+          </p>
+          {/* Nút nhanh */}
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsHealthProfileOpen(true)}
+              className="flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/25"
+            >
+              <HeartPulse size={16} className="text-rose-300" />
+              <span>Hồ Sơ Sức Khỏe</span>
+            </button>
+            {activePlan && (
               <button
                 type="button"
-                onClick={() => setIsHealthProfileOpen(true)}
-                className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 text-xs font-bold text-white backdrop-blur-md border border-white/20 hover:bg-white/20 transition shadow-xs"
+                onClick={() => setIsCopilotOpen(true)}
+                className="flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/25"
               >
-                <HeartPulse size={16} className="text-rose-400" />
-                <span>Hồ Sơ Sức Khỏe</span>
+                <Sparkles size={16} className="text-[#ffea79]" />
+                <span>AI Đồng Hành</span>
               </button>
-
-              {activePlan && (
-                <button
-                  type="button"
-                  onClick={() => setIsCopilotOpen(true)}
-                  className="flex items-center gap-2 rounded-2xl bg-teal-500/20 px-4 py-3 text-xs font-bold text-teal-200 backdrop-blur-md border border-teal-400/30 hover:bg-teal-500/30 transition shadow-xs"
-                >
-                  <Sparkles size={16} className="text-amber-300" />
-                  <span>AI Đồng Hành</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsGeneratorOpen(true)}
-                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-3 text-xs font-black text-slate-950 hover:brightness-105 transition shadow-lg shadow-amber-500/30"
-              >
-                <Sparkles size={16} className="text-slate-950" />
-                <span>Tạo Bằng AI</span>
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsGeneratorOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-[#ffba41] px-5 py-2.5 text-xs font-black text-[#3d2a00] shadow-lg shadow-black/20 transition hover:brightness-105"
+            >
+              <Sparkles size={16} />
+              <span>Tạo Bằng AI</span>
+            </button>
+          </div>
+          <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/35 px-4 py-1.5 text-xs font-medium text-white/90 shadow-sm backdrop-blur-md sm:text-sm">
+            <a href="/" className="transition-colors hover:text-[#ffea79]">
+              Trang chủ
+            </a>
+            <span className="text-white/40">›</span>
+            <span className="font-bold text-[#ffea79]">Thực đơn AI</span>
           </div>
         </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl space-y-8 px-4 pt-8 sm:px-6 lg:px-8">
 
         {/* Plan Controller Bar & Switcher */}
         {plansPage?.content && plansPage.content.length > 0 ? (
