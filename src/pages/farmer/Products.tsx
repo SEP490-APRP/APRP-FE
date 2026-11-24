@@ -29,7 +29,7 @@ import {
   useUpdateComboStatus,
   useDeleteCombo,
 } from '@/features/product'
-import { useCategories } from '@/features/product/hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useMyMysteryBoxes, useToggleMysteryBoxStatus, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal, DeleteProductModal } from '@/features/product'
@@ -153,7 +153,8 @@ export default function Products({
   const { data: myBoxesData, isLoading: isLoadingBoxes } = useMyMysteryBoxes(1, 100)
 
   const isLoading = isLoadingProducts || isLoadingCombos || isLoadingBoxes
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
   const updateProductMutation = useUpdateProduct()
@@ -401,7 +402,7 @@ export default function Products({
         request: {
           productName: prodName,
           categoryId: typeof p.category === 'object' && p.category !== null ? p.category.categoryId : (p.categoryId || 1),
-          unit: p.unit || 'kg',
+          unit: 'kg',
           sellingPrice: Number(p.sellingPrice ?? p.price ?? 0),
           stockQuantity: Number(p.stockQuantity ?? p.stock ?? 0),
           description: p.description || '',

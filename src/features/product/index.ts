@@ -45,7 +45,7 @@ export {
   useApproveProductImage,
   useAiSuggestDescription,
 } from './hooks/useProductQueries'
-export { useCategories, categoryKeys } from './hooks/useCategoryQueries'
+export { useCategories, filterFreshCategories, isBundleCategory, categoryKeys } from './hooks/useCategoryQueries'
 export {
   productFormSchema,
   type ProductFormInput,

@@ -7,21 +7,12 @@ import {
   type ProductFormInput,
   type ProductFormValues,
 } from '@/features/product'
-import { useCategories } from '@/features/product/hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useCreateProduct, useUploadProductImage, useDeleteProduct, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
 import type { FarmerProduct } from './types'
 import { getErrorMessage } from '@/utils'
 import { globalShowAlert } from '@/components/common/Popup'
 import { CustomSelect } from '@/components/common/CustomSelect'
-
-const UNIT_OPTIONS = [
-  { value: 'kg', label: 'kg (Kilogram)' },
-  { value: 'hộp', label: 'hộp' },
-  { value: 'bó', label: 'bó' },
-  { value: 'túi', label: 'túi' },
-  { value: 'trái', label: 'trái / quả' },
-  { value: 'thùng', label: 'thùng' },
-]
 
 const PRESET_REGIONS = [
   'Đà Lạt (Lâm Đồng)',
@@ -60,7 +51,8 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProductProps) {
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const createMutation = useCreateProduct()
   const deleteMutation = useDeleteProduct()
   const uploadImageMutation = useUploadProductImage()
@@ -165,7 +157,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       const res = await createMutation.mutateAsync({
         productName: values.name,
         categoryId: values.categoryId,
-        unit: values.unit,
+        unit: 'kg',
         sellingPrice: values.price,
         stockQuantity: values.stock,
         expiryDate: values.expiryDate,
@@ -234,7 +226,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           discount: null,
           status: 'Chờ duyệt' as any,
           stock: values.stock,
-          unit: values.unit,
+          unit: 'kg',
           region: values.region || 'Đà Lạt',
           farmingType: values.farmingType || 'Hữu cơ',
           image:
@@ -361,22 +353,21 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               <label htmlFor="product-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <CustomSelect
+              <input
                 id="product-unit"
-                value={watch('unit') || 'kg'}
-                onChange={(val) => setValue('unit', String(val), { shouldValidate: true })}
-                options={UNIT_OPTIONS}
-                placeholder="Chọn đơn vị tính"
-                error={!!errors.unit}
+                type="text"
+                value="kg (Kilogram)"
+                readOnly
+                disabled
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#eef2e9] border border-[#dce4d5] text-xs font-bold text-[#326318] outline-none cursor-not-allowed"
               />
-              <FieldError message={errors.unit?.message} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label htmlFor="product-price" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Giá bán (đồng) *
+                Giá bán (đồng / kg) *
               </label>
               <input
                 id="product-price"
@@ -392,7 +383,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
 
             <div>
               <label htmlFor="product-stock" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Số lượng tồn kho *
+                Số lượng tồn kho (kg) *
               </label>
               <input
                 id="product-stock"
