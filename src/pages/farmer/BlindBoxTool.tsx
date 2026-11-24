@@ -1,13 +1,14 @@
-import React, { useState, useRef, type FormEvent } from 'react'
-import { X, Sparkles, Loader2, Check, Upload } from 'lucide-react'
+import React, { useState, useRef, useEffect, type FormEvent } from 'react'
+import { X, Sparkles, Loader2, Upload } from 'lucide-react'
 import { useAiSuggestDescription } from '@/features/product'
 import { useMyProducts } from '@/features/product/hooks/useProductQueries'
-import { useCreateMysteryBox } from '@/features/mystery-box'
+import { useCreateMysteryBox, useUpdateMysteryBox } from '@/features/mystery-box'
 import type { FarmerProduct } from './types'
-import { uploadService, type ProductMysteryItemRequest } from '@/services'
+import { mysteryBoxService, uploadService, type ProductMysteryItemRequest } from '@/services'
 import { getErrorMessage } from '@/utils'
 
 interface BlindBoxToolProps {
+  initialBox?: any
   onAddBox?: (box: FarmerProduct) => void
   onClose: () => void
   onInfo?: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void
@@ -22,15 +23,37 @@ interface SelectedMysteryProduct {
   price: number
 }
 
-export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxToolProps) {
-  // Form states mapping BE MysteryBoxCreationRequest
-  const [name, setName] = useState('')
-  const [price, setPrice] = useState('79000')
-  const [note, setNote] = useState('Trọng lượng ~5kg, gồm rau củ quả tươi thu hoạch trong ngày')
-  const [stock, setStock] = useState('10')
-  const [description, setDescription] = useState('')
+export default function BlindBoxTool({ initialBox: rawInitialBox, onAddBox, onClose, onInfo }: BlindBoxToolProps) {
+  const isEvent =
+    rawInitialBox &&
+    typeof rawInitialBox === 'object' &&
+    ('nativeEvent' in rawInitialBox || 'bubbles' in rawInitialBox || 'target' in rawInitialBox)
+  const initialBox = isEvent ? null : rawInitialBox
+  const boxId = Number(initialBox?.id || initialBox?.mysteryId || initialBox?.productId || 0)
+  const isEditMode = Boolean(
+    initialBox &&
+      (boxId > 0 || initialBox.boxType || initialBox.productName || initialBox.name),
+  )
+
+  // Form states mapping BE MysteryBoxCreationRequest / MysteryBoxUpdateRequest
+  const [name, setName] = useState(
+    initialBox?.productName || initialBox?.boxType || initialBox?.name || '',
+  )
+  const [price, setPrice] = useState(
+    String(initialBox?.sellingPrice ?? initialBox?.price ?? '79000'),
+  )
+  const [note, setNote] = useState(
+    initialBox?.note ??
+      (isEditMode ? '' : 'Trọng lượng ~5kg, gồm rau củ quả tươi thu hoạch trong ngày'),
+  )
+  const [stock, setStock] = useState(
+    String(initialBox?.stockQuantity ?? initialBox?.totalQuantity ?? initialBox?.stock ?? '10'),
+  )
+  const [description, setDescription] = useState(initialBox?.description || '')
   const [imageUrl, setImageUrl] = useState(
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+    initialBox?.imageUrl ||
+      initialBox?.image ||
+      'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
@@ -38,7 +61,20 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
   const [isAiGenerated, setIsAiGenerated] = useState(false)
 
   // Danh sách nông sản thành phần trong túi mù
-  const [selectedItems, setSelectedItems] = useState<SelectedMysteryProduct[]>([])
+  const [selectedItems, setSelectedItems] = useState<SelectedMysteryProduct[]>(() => {
+    const rawItems = initialBox?.items || initialBox?.rawBox?.items
+    if (Array.isArray(rawItems)) {
+      return rawItems.map((it: any) => ({
+        productId: Number(it.productId),
+        productName: it.productName || `Sản phẩm #${it.productId}`,
+        unit: it.unit || 'kg',
+        stockAvailable: 999,
+        quantity: Number(it.productQuantity || it.quantity || 1),
+        price: Number(it.sellingPrice ?? it.price ?? 0),
+      }))
+    }
+    return []
+  })
   const [itemSearch, setItemSearch] = useState('')
 
   // Lấy danh sách nông sản đang bán trong kho của nhà vườn (hỗ trợ tìm kiếm & tải tối đa 100 mặt hàng)
@@ -52,6 +88,71 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
   // Hooks
   const aiSuggestMutation = useAiSuggestDescription()
   const createMysteryBoxMutation = useCreateMysteryBox()
+  const updateMysteryBoxMutation = useUpdateMysteryBox()
+
+  // Tải chi tiết túi mù khi mở Edit mà chưa có đủ thông tin (note, items, soldQuantity)
+  useEffect(() => {
+    if (!boxId) return
+    const rawItems = initialBox?.items || initialBox?.rawBox?.items
+    if (Array.isArray(rawItems) && rawItems.length > 0 && initialBox?.note !== undefined) {
+      return
+    }
+
+    let isCancelled = false
+    mysteryBoxService
+      .getById(boxId)
+      .then((res: any) => {
+        const detail = res?.result ?? res
+        if (isCancelled || !detail) return
+        if (detail.note !== undefined && detail.note !== null) {
+          setNote((prev: string) => prev || detail.note)
+        }
+        if (Array.isArray(detail.items) && detail.items.length > 0) {
+          setSelectedItems(
+            detail.items.map((it: any) => ({
+              productId: Number(it.productId),
+              productName: it.productName || `Sản phẩm #${it.productId}`,
+              unit: it.unit || 'kg',
+              stockAvailable: 999,
+              quantity: Number(it.productQuantity || it.quantity || 1),
+              price: Number(it.sellingPrice ?? it.price ?? 0),
+            })),
+          )
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch mystery box detail:', err)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [boxId, initialBox])
+
+  // Bổ sung đơn giá và tồn kho thực tế từ danh sách sản phẩm trong kho
+  useEffect(() => {
+    if (availableProducts.length === 0) return
+    setSelectedItems((prev) => {
+      if (prev.length === 0) return prev
+      let changed = false
+      const next = prev.map((item) => {
+        const matched = availableProducts.find((p) => (p.productId || p.id) === item.productId)
+        if (!matched) return item
+        const realStock = matched.stockQuantity ?? 0
+        const realPrice = Number(matched.sellingPrice ?? matched.price ?? item.price ?? 0)
+        if (item.stockAvailable === realStock && item.price === realPrice) return item
+        changed = true
+        return {
+          ...item,
+          productName: item.productName || matched.productName,
+          unit: item.unit || matched.unit || 'kg',
+          stockAvailable: realStock,
+          price: realPrice,
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [availableProducts])
 
   // Xử lý chọn / bỏ chọn nông sản thành phần
   const handleToggleProduct = (
@@ -137,8 +238,8 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('Dung lượng ảnh không được vượt quá 5MB')
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('Dung lượng ảnh không được vượt quá 10MB')
       return
     }
 
@@ -159,12 +260,12 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
     }
   }
 
-  // Submit tạo Túi Mù
+  // Submit tạo hoặc cập nhật Túi Mù
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setFormError(null)
     if (!name.trim()) {
-      onInfo?.('Vui lòng nhập tên túi mù!')
+      setFormError('Vui lòng nhập tên túi mù!')
       return
     }
 
@@ -172,17 +273,69 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
     const numTotalQty = Number(stock)
 
     if (isNaN(numPrice) || numPrice <= 0) {
-      onInfo?.('Giá túi mù không hợp lệ!')
+      setFormError('Giá túi mù không hợp lệ!')
       return
     }
 
     if (isNaN(numTotalQty) || numTotalQty < 1) {
-      onInfo?.('Số lượng hộp phát hành phải từ 1 trở lên!')
+      setFormError('Số lượng hộp phát hành phải từ 1 trở lên!')
+      return
+    }
+
+    if (isEditMode && boxId > 0) {
+      const soldQty = Number(initialBox?.soldQuantity ?? initialBox?.rawBox?.soldQuantity ?? 0)
+      if (numTotalQty < soldQty) {
+        setFormError(`Tổng số lượng phát hành không được nhỏ hơn số đã bán (${soldQty} hộp)!`)
+        return
+      }
+      const oldTotalQty = Number(
+        initialBox?.stockQuantity ?? initialBox?.totalQuantity ?? initialBox?.stock ?? 0,
+      )
+      const delta = numTotalQty - oldTotalQty
+      if (delta > 0) {
+        for (const item of selectedItems) {
+          const extraNeeded = item.quantity * delta
+          if (item.stockAvailable < extraNeeded) {
+            setFormError(
+              `Nông sản "${item.productName}" không đủ tồn kho để tăng thêm ${delta} hộp (cần thêm ${extraNeeded} ${item.unit}, hiện còn ${item.stockAvailable} ${item.unit})!`,
+            )
+            return
+          }
+        }
+      }
+
+      try {
+        await updateMysteryBoxMutation.mutateAsync({
+          id: boxId,
+          data: {
+            boxType: name.trim(),
+            price: numPrice,
+            totalQuantity: numTotalQty,
+            description: description.trim() || undefined,
+            note: note.trim() || undefined,
+            imageUrl: imageUrl.trim() || undefined,
+          },
+        })
+        onInfo?.(`Đã cập nhật Túi Mù: ${name.trim()}`)
+        onClose()
+      } catch (err: any) {
+        let friendlyMsg = getErrorMessage(err) || 'Không thể cập nhật túi mù'
+        if (
+          friendlyMsg.toLowerCase().includes('not agricultural') ||
+          friendlyMsg.toLowerCase().includes('inappropriate') ||
+          friendlyMsg.toLowerCase().includes('không phải là nông sản')
+        ) {
+          friendlyMsg = 'Ảnh sản phẩm không phải là nông sản hoặc không phù hợp với quy định kiểm duyệt của sàn. Vui lòng chọn ảnh nông sản hợp lệ!'
+        }
+        console.error('Mystery box API error:', err)
+        setFormError(friendlyMsg)
+        onInfo?.(friendlyMsg, 'error')
+      }
       return
     }
 
     if (selectedItems.length === 0) {
-      onInfo?.('Vui lòng chọn ít nhất 1 loại nông sản thành phần trong kho đóng vào túi mù!')
+      setFormError('Vui lòng chọn ít nhất 1 loại nông sản thành phần trong kho đóng vào túi mù!')
       return
     }
 
@@ -190,7 +343,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
     for (const item of selectedItems) {
       const needed = item.quantity * numTotalQty
       if (item.stockAvailable < needed) {
-        onInfo?.(
+        setFormError(
           `Nông sản "${item.productName}" không đủ tồn kho (cần ${needed} ${item.unit}, hiện có ${item.stockAvailable} ${item.unit})!`,
         )
         return
@@ -214,7 +367,7 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
         items: itemsPayload,
       })
 
-      onInfo?.(`Đã gửi duyệt và tạo thành công Túi Mù: ${name.trim()}`)
+      onInfo?.(`Đã tạo và đăng bán thành công Túi Mù: ${name.trim()}`)
       onClose()
     } catch (err: any) {
       let friendlyMsg = getErrorMessage(err) || 'Không thể tạo túi mù'
@@ -228,7 +381,8 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
       console.error('Mystery box API error:', err)
       setFormError(friendlyMsg)
       onInfo?.(friendlyMsg, 'error')
-    }  }
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -236,9 +390,13 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-[#f1f4ed] flex items-center justify-between shrink-0 bg-[#fafcf9]">
           <div>
-            <h3 className="text-base font-black text-[#1c2216]">Tạo Túi Mù</h3>
+            <h3 className="text-base font-black text-[#1c2216]">
+              {isEditMode ? 'Chỉnh Sửa Túi Mù' : 'Tạo Túi Mù'}
+            </h3>
             <p className="text-[11px] text-[#7e8779]">
-              Đóng gói nông sản thành hộp bí ẩn giải cứu nhanh cuối ngày
+              {isEditMode
+                ? 'Cập nhật tên, giá, ảnh, mô tả và số lượng hộp phát hành'
+                : 'Đóng gói nông sản thành hộp bí ẩn giải cứu nhanh cuối ngày'}
             </p>
           </div>
           <button
@@ -397,88 +555,114 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
               </span>
             </div>
 
-            {/* Ô tìm kiếm nhanh nông sản trong kho */}
-            <div className="mb-2">
-              <input
-                type="text"
-                placeholder="Tìm nhanh nông sản theo tên..."
-                value={itemSearch}
-                onChange={(e) => setItemSearch(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs outline-none transition-colors"
-              />
-            </div>
-
-            {isLoadingProducts ? (
-              <div className="p-4 text-center text-gray-400 bg-[#f4f7f1] rounded-xl">
-                Đang tải danh sách nông sản trong kho...
-              </div>
-            ) : availableProducts.length === 0 ? (
-              <div className="p-3 text-center text-gray-500 bg-[#fdf5eb] border border-[#f5ddbd] rounded-xl text-[11px]">
-                Kho chưa có nông sản nào đang bán để đóng gói. Vui lòng đăng bán nông sản trước!
+            {isEditMode ? (
+              <div className="space-y-2">
+                <div className="border border-[#e2e8dc] rounded-xl p-2.5 divide-y divide-[#f1f4ed] bg-[#fafcf9]">
+                  {selectedItems.length === 0 ? (
+                    <p className="text-[11px] text-[#7e8779] py-2 text-center">
+                      Đang tải thành phần túi mù...
+                    </p>
+                  ) : (
+                    selectedItems.map((item) => (
+                      <div key={item.productId} className="py-1.5 flex items-center justify-between gap-2 px-1">
+                        <span className="font-bold text-[#1c2216] truncate">{item.productName}</span>
+                        <span className="text-[11px] font-bold text-[#8a4e1d] shrink-0">
+                          {item.quantity} {item.unit}/hộp
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="text-[10px] text-[#7e8779]">
+                  Thành phần nông sản bên trong túi mù được giữ cố định sau khi tạo; bạn có thể sửa giá, mô tả, ảnh và số lượng hộp phát hành.
+                </p>
               </div>
             ) : (
-              <div className="max-h-40 overflow-y-auto border border-[#e2e8dc] rounded-xl p-2 divide-y divide-[#f1f4ed] bg-[#fafcf9]">
-                {availableProducts.map((p) => {
-                  const pId = p.productId || p.id
-                  const isSelected = selectedItems.some((item) => item.productId === pId)
-                  const currentItem = selectedItems.find((item) => item.productId === pId)
-                  const unitStr = p.unit || 'kg'
-                  const availStock = p.stockQuantity ?? 0
-                  const itemPrice = Number(p.sellingPrice ?? p.price ?? 0)
-                  const totalNeeded = (currentItem?.quantity || 1) * (Number(stock) || 1)
-                  const isOverStock = isSelected && availStock < totalNeeded
+              <>
+                {/* Ô tìm kiếm nhanh nông sản trong kho */}
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    placeholder="Tìm nhanh nông sản theo tên..."
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs outline-none transition-colors"
+                  />
+                </div>
 
-                  return (
-                    <div
-                      key={pId}
-                      className="py-2 flex items-center justify-between gap-2 px-1 hover:bg-white rounded-lg transition-colors"
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() =>
-                            handleToggleProduct(pId, p.productName, unitStr, availStock, itemPrice)
-                          }
-                          className="w-4 h-4 rounded text-[#8a4e1d] accent-[#8a4e1d] cursor-pointer"
-                        />
-                        <div className="min-w-0">
-                          <p className="font-bold text-[#1c2216] truncate">{p.productName}</p>
-                          <p className="text-[10px] text-[#7e8779]">
-                            Tồn kho: {availStock} {unitStr}
-                            {itemPrice > 0 && (
-                              <span className="text-[#8a4e1d] font-semibold ml-1.5">
-                                • {itemPrice.toLocaleString('vi-VN')} đ/{unitStr}
-                              </span>
-                            )}
-                            {isOverStock && (
-                              <span className="text-red-600 font-bold ml-1.5">
-                                (Thiếu: cần {totalNeeded} {unitStr})
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </label>
+                {isLoadingProducts ? (
+                  <div className="p-4 text-center text-gray-400 bg-[#f4f7f1] rounded-xl">
+                    Đang tải danh sách nông sản trong kho...
+                  </div>
+                ) : availableProducts.length === 0 ? (
+                  <div className="p-3 text-center text-gray-500 bg-[#fdf5eb] border border-[#f5ddbd] rounded-xl text-[11px]">
+                    Kho chưa có nông sản nào đang bán để đóng gói. Vui lòng đăng bán nông sản trước!
+                  </div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto border border-[#e2e8dc] rounded-xl p-2 divide-y divide-[#f1f4ed] bg-[#fafcf9]">
+                    {availableProducts.map((p) => {
+                      const pId = p.productId || p.id
+                      const isSelected = selectedItems.some((item) => item.productId === pId)
+                      const currentItem = selectedItems.find((item) => item.productId === pId)
+                      const unitStr = p.unit || 'kg'
+                      const availStock = p.stockQuantity ?? 0
+                      const itemPrice = Number(p.sellingPrice ?? p.price ?? 0)
+                      const totalNeeded = (currentItem?.quantity || 1) * (Number(stock) || 1)
+                      const isOverStock = isSelected && availStock < totalNeeded
 
-                      {isSelected && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[10px] text-[#5b6454]">SL/hộp:</span>
-                          <input
-                            type="number"
-                            min={1}
-                            value={currentItem?.quantity || 1}
-                            onChange={(e) =>
-                              handleQuantityChange(pId, Math.max(1, Number(e.target.value) || 1))
-                            }
-                            className="w-14 px-2 py-1 bg-white border border-[#cae4e7] rounded-lg text-center font-bold text-xs outline-none"
-                          />
-                          <span className="text-[10px] text-[#7e8779]">{unitStr}</span>
+                      return (
+                        <div
+                          key={pId}
+                          className="py-2 flex items-center justify-between gap-2 px-1 hover:bg-white rounded-lg transition-colors"
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() =>
+                                handleToggleProduct(pId, p.productName, unitStr, availStock, itemPrice)
+                              }
+                              className="w-4 h-4 rounded text-[#8a4e1d] accent-[#8a4e1d] cursor-pointer"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-bold text-[#1c2216] truncate">{p.productName}</p>
+                              <p className="text-[10px] text-[#7e8779]">
+                                Tồn kho: {availStock} {unitStr}
+                                {itemPrice > 0 && (
+                                  <span className="text-[#8a4e1d] font-semibold ml-1.5">
+                                    • {itemPrice.toLocaleString('vi-VN')} đ/{unitStr}
+                                  </span>
+                                )}
+                                {isOverStock && (
+                                  <span className="text-red-600 font-bold ml-1.5">
+                                    (Thiếu: cần {totalNeeded} {unitStr})
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </label>
+
+                          {isSelected && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10px] text-[#5b6454]">SL/hộp:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={currentItem?.quantity || 1}
+                                onChange={(e) =>
+                                  handleQuantityChange(pId, Math.max(1, Number(e.target.value) || 1))
+                                }
+                                className="w-14 px-2 py-1 bg-white border border-[#cae4e7] rounded-lg text-center font-bold text-xs outline-none"
+                              />
+                              <span className="text-[10px] text-[#7e8779]">{unitStr}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -585,16 +769,16 @@ export default function BlindBoxTool({ onAddBox, onClose, onInfo }: BlindBoxTool
           <div className="pt-2">
             <button
               type="submit"
-              disabled={createMysteryBoxMutation.isPending}
+              disabled={createMysteryBoxMutation.isPending || updateMysteryBoxMutation.isPending || isUploadingImage}
               className="w-full py-3.5 rounded-2xl bg-[#326318] hover:bg-[#254b12] disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
             >
-              {createMysteryBoxMutation.isPending ? (
+              {createMysteryBoxMutation.isPending || updateMysteryBoxMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang tạo túi mù...</span>
+                  <span>{isEditMode ? 'Đang lưu túi mù...' : 'Đang tạo túi mù...'}</span>
                 </>
               ) : (
-                <span>Đăng Bán Túi Mù</span>
+                <span>{isEditMode ? 'Lưu Thay Đổi' : 'Đăng Bán Túi Mù'}</span>
               )}
             </button>
           </div>

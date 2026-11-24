@@ -26,10 +26,11 @@ import {
   useDeleteProduct,
   useUpdateProduct,
   useMyCombos,
+  useUpdateComboStatus,
   useDeleteCombo,
 } from '@/features/product'
-import { useCategories } from '@/features/product/hooks/useCategoryQueries'
-import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
+import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
+import { useMyMysteryBoxes, useToggleMysteryBoxStatus, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal, DeleteProductModal } from '@/features/product'
 import Pagination from '@/components/ui/Pagination/Pagination'
@@ -38,7 +39,7 @@ import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 interface ProductsProps {
   products?: FarmerProduct[]
   onOpenAddProduct: () => void
-  onOpenBlindBoxTool: () => void
+  onOpenBlindBoxTool: (box?: any) => void
   onOpenComboBuilder?: (combo?: any) => void
   onInfo?: (msg: string) => void
   initialSearchQuery?: string
@@ -152,11 +153,14 @@ export default function Products({
   const { data: myBoxesData, isLoading: isLoadingBoxes } = useMyMysteryBoxes(1, 100)
 
   const isLoading = isLoadingProducts || isLoadingCombos || isLoadingBoxes
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
   const updateProductMutation = useUpdateProduct()
+  const updateComboStatusMutation = useUpdateComboStatus()
   const deleteComboMutation = useDeleteCombo()
+  const toggleMysteryBoxStatusMutation = useToggleMysteryBoxStatus()
   const deleteMysteryBoxMutation = useDeleteMysteryBox()
 
   // Map Combo từ BE sang ProductResponse
@@ -170,7 +174,7 @@ export default function Products({
     stockQuantity: c.totalQuantity,
     stock: c.totalQuantity,
     unit: 'combo',
-    status: (c.status || 'PENDING') as any,
+    status: (c.status || 'ACTIVE') as any,
     category: { categoryId: 9999, name: `Combo · ${formatMealType(c.type || c.mealType)}` } as any,
     categoryId: 9999,
     imageUrl: c.imageUrl,
@@ -181,6 +185,8 @@ export default function Products({
     mealType: c.mealType,
     type: c.type,
     region: c.region,
+    soldQuantity: c.soldQuantity ?? 0,
+    cookingSuggestion: c.cookingSuggestion,
     items: c.items,
     rawCombo: c,
   }))
@@ -196,13 +202,18 @@ export default function Products({
     stockQuantity: b.totalQuantity || 0,
     stock: b.totalQuantity || 0,
     unit: 'hộp',
-    status: (b.isActive ? 'ACTIVE' : 'PENDING') as any,
+    status: (b.isActive ? 'ACTIVE' : 'INACTIVE') as any,
     category: { categoryId: 9998, name: 'Hộp mù nông sản' } as any,
     categoryId: 9998,
     imageUrl: b.imageUrl,
     image: b.imageUrl,
     images: b.imageUrl ? [{ imageId: 1, imageUrl: b.imageUrl, isPrimary: true }] : [],
     description: b.description,
+    note: b.note,
+    soldQuantity: b.soldQuantity ?? 0,
+    isActive: b.isActive,
+    items: b.items,
+    rawBox: b,
     isBlindBox: true,
   }))
 
@@ -352,6 +363,31 @@ export default function Products({
   const handleResumeProduct = async (p: any) => {
     const prodId = Number(p.id ?? p.productId)
     const prodName = p.productName || p.name || 'Sản phẩm'
+
+    if (isComboItem(p)) {
+      if (!(await globalShowConfirm(`Mở bán lại combo "${prodName}"?`))) return
+      try {
+        await updateComboStatusMutation.mutateAsync({ id: prodId, status: 'ACTIVE' })
+        void globalShowAlert(`Đã mở bán lại combo "${prodName}"!`, 'Thành công', 'success')
+        onInfo?.(`Đã mở bán lại combo: ${prodName}`)
+      } catch (err: any) {
+        void globalShowAlert(getErrorMessage(err, 'Không thể mở bán lại combo'), 'Lỗi', 'error')
+      }
+      return
+    }
+
+    if (isBlindBoxItem(p)) {
+      if (!(await globalShowConfirm(`Mở bán lại túi mù "${prodName}"?`))) return
+      try {
+        await toggleMysteryBoxStatusMutation.mutateAsync({ id: prodId, isActive: true })
+        void globalShowAlert(`Đã mở bán lại túi mù "${prodName}"!`, 'Thành công', 'success')
+        onInfo?.(`Đã mở bán lại túi mù: ${prodName}`)
+      } catch (err: any) {
+        void globalShowAlert(getErrorMessage(err, 'Không thể mở bán lại túi mù'), 'Lỗi', 'error')
+      }
+      return
+    }
+
     const isRejected = p.status?.toUpperCase() === 'REJECTED'
 
     const confirmMsg = isRejected
@@ -366,7 +402,7 @@ export default function Products({
         request: {
           productName: prodName,
           categoryId: typeof p.category === 'object' && p.category !== null ? p.category.categoryId : (p.categoryId || 1),
-          unit: p.unit || 'kg',
+          unit: 'kg',
           sellingPrice: Number(p.sellingPrice ?? p.price ?? 0),
           stockQuantity: Number(p.stockQuantity ?? p.stock ?? 0),
           description: p.description || '',
@@ -446,7 +482,7 @@ export default function Products({
           <button
             id="tour-products-blindbox-btn"
             type="button"
-            onClick={onOpenBlindBoxTool}
+            onClick={() => onOpenBlindBoxTool()}
             className="px-3.5 py-2 rounded-lg bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
           >
             Tạo Túi Mù
@@ -805,7 +841,7 @@ export default function Products({
                           if (isComboItem(p)) {
                             onOpenComboBuilder?.(p)
                           } else if (isBlindBoxItem(p)) {
-                            onOpenBlindBoxTool?.()
+                            onOpenBlindBoxTool?.(p)
                           } else {
                             setEditModalState({ isOpen: true, product: p })
                           }
@@ -817,12 +853,19 @@ export default function Products({
                         <span>Sửa</span>
                       </button>
 
-                      {/* Nút Khôi phục / Mở bán lại nếu đang Tạm dừng hoặc Bị từ chối */}
-                      {!isBlindBoxItem(p) && !isComboItem(p) && (p.status === 'INACTIVE' || p.status === 'REJECTED') ? (
+                      {/* Nút Khôi phục / Mở bán lại nếu đang Tạm dừng, Chờ duyệt (dữ liệu cũ), hoặc Bị từ chối */}
+                      {(!isBlindBoxItem(p) && !isComboItem(p) && (p.status === 'INACTIVE' || p.status === 'REJECTED')) ||
+                      ((isBlindBoxItem(p) || isComboItem(p)) && (p.status === 'INACTIVE' || p.status === 'PENDING')) ? (
                         <button
                           type="button"
                           onClick={() => handleResumeProduct(p)}
-                          title={p.status === 'REJECTED' ? 'Gửi Admin duyệt lại' : 'Mở bán lại (gửi Admin duyệt)'}
+                          title={
+                            isBlindBoxItem(p) || isComboItem(p)
+                              ? 'Mở bán lại'
+                              : p.status === 'REJECTED'
+                                ? 'Gửi Admin duyệt lại'
+                                : 'Mở bán lại (gửi Admin duyệt)'
+                          }
                           className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#2b5619] text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           {p.status === 'REJECTED' ? <RotateCcw size={13} /> : <PlayCircle size={13} />}

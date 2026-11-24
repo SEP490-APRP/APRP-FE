@@ -1,27 +1,18 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Upload, Sparkles, Loader2, ImagePlus } from 'lucide-react'
+import { X, Sparkles, Loader2, ImagePlus, Star, Trash2 } from 'lucide-react'
 import {
   productFormSchema,
   type ProductFormInput,
   type ProductFormValues,
 } from '@/features/product'
-import { useCategories } from '@/features/product/hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useCreateProduct, useUploadProductImage, useDeleteProduct, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
 import type { FarmerProduct } from './types'
 import { getErrorMessage } from '@/utils'
 import { globalShowAlert } from '@/components/common/Popup'
 import { CustomSelect } from '@/components/common/CustomSelect'
-
-const UNIT_OPTIONS = [
-  { value: 'kg', label: 'kg (Kilogram)' },
-  { value: 'hộp', label: 'hộp' },
-  { value: 'bó', label: 'bó' },
-  { value: 'túi', label: 'túi' },
-  { value: 'trái', label: 'trái / quả' },
-  { value: 'thùng', label: 'thùng' },
-]
 
 const PRESET_REGIONS = [
   'Đà Lạt (Lâm Đồng)',
@@ -46,6 +37,15 @@ interface AddProductProps {
   onInfo?: (msg: string) => void
 }
 
+const MAX_PRODUCT_IMAGES = 8
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
+interface SelectedProductImage {
+  id: string
+  file: File
+  previewUrl: string
+}
+
 const INPUT_CLASS =
   'w-full px-4 py-2.5 rounded-2xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none transition-colors'
 const SELECT_CLASS =
@@ -60,18 +60,31 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProductProps) {
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const createMutation = useCreateProduct()
   const deleteMutation = useDeleteProduct()
   const uploadImageMutation = useUploadProductImage()
   const aiSuggestMutation = useAiSuggestDescription()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedImages, setSelectedImages] = useState<SelectedProductImage[]>([])
+  const [primaryIndex, setPrimaryIndex] = useState(0)
+  const selectedImagesRef = useRef<SelectedProductImage[]>([])
   const [aiError, setAiError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [isAiGenerated, setIsAiGenerated] = useState(false)
+
+  useEffect(() => {
+    selectedImagesRef.current = selectedImages
+  }, [selectedImages])
+
+  useEffect(() => {
+    return () => {
+      selectedImagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+    }
+  }, [])
 
   const defaultExpiry = (() => {
     const d = new Date()
@@ -135,37 +148,101 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAiError(null)
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (files.length === 0) return
 
-    if (!file.type.startsWith('image/')) {
-      setAiError('Vui lòng chọn tập tin hình ảnh')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setAiError('Dung lượng ảnh tối đa 5MB')
+    const remainingSlots = MAX_PRODUCT_IMAGES - selectedImages.length
+    if (remainingSlots <= 0) {
+      setAiError(`Mỗi sản phẩm chỉ được tải lên tối đa ${MAX_PRODUCT_IMAGES} ảnh.`)
       return
     }
 
-    setSelectedFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
+    const errorsList: string[] = []
+    const accepted: SelectedProductImage[] = []
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        errorsList.push(`"${file.name}" không phải tệp hình ảnh hợp lệ`)
+        continue
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        errorsList.push(`"${file.name}" vượt quá 10MB`)
+        continue
+      }
+      if (accepted.length >= remainingSlots) {
+        errorsList.push(`chỉ nhận tối đa ${MAX_PRODUCT_IMAGES} ảnh cho mỗi sản phẩm`)
+        break
+      }
+      accepted.push({
+        id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })
+    }
+
+    if (accepted.length > 0) {
+      setSelectedImages((prev) => [...prev, ...accepted])
+    }
+    if (errorsList.length > 0) {
+      setAiError(`Một số ảnh chưa được thêm: ${errorsList.join('; ')}.`)
+    }
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages((prev) => {
+      const target = prev[index]
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      const next = prev.filter((_, idx) => idx !== index)
+      if (index === primaryIndex || primaryIndex >= next.length) {
+        setPrimaryIndex(0)
+      } else if (index < primaryIndex) {
+        setPrimaryIndex((curr) => Math.max(0, curr - 1))
+      }
+      return next
+    })
+  }
+
+  const mapUploadError = (imgErr: any) => {
+    const code = imgErr?.response?.data?.code ?? imgErr?.data?.code
+    const rawMsg = getErrorMessage(imgErr)
+    const isNotAgri =
+      code === 3022 ||
+      rawMsg.includes('3022') ||
+      rawMsg.toLowerCase().includes('nông sản') ||
+      rawMsg.toLowerCase().includes('agricultural') ||
+      rawMsg.toLowerCase().includes('inappropriate')
+
+    if (isNotAgri) {
+      return 'Google Cloud Vision không nhận diện được nông sản thực tế trong ảnh'
+    }
+    if (code === 3024 || rawMsg.toLowerCase().includes('tối đa 8') || rawMsg.toLowerCase().includes('maximum of 8')) {
+      return 'Mỗi sản phẩm chỉ được tối đa 8 hình ảnh'
+    }
+    if (code === 4002 || rawMsg.toLowerCase().includes('size') || rawMsg.toLowerCase().includes('dung lượng')) {
+      return 'Dung lượng ảnh vượt quá 10MB'
+    }
+    return rawMsg || 'Tải ảnh thất bại'
   }
 
   const onSubmit = async (values: ProductFormValues) => {
-    if (!selectedFile) {
-      setAiError('Vui lòng chọn hình ảnh đại diện nông sản trước khi đăng bán!')
+    if (selectedImages.length === 0) {
+      setAiError('Vui lòng chọn ít nhất 1 hình ảnh nông sản trước khi đăng bán!')
       return
     }
 
     setSubmitting(true)
     setAiError(null)
+    setUploadProgress(null)
 
     try {
       // 1. Tạo bản ghi sản phẩm ở Backend (Trạng thái ban đầu PENDING)
       const res = await createMutation.mutateAsync({
         productName: values.name,
         categoryId: values.categoryId,
-        unit: values.unit,
+        unit: 'kg',
         sellingPrice: values.price,
         stockQuantity: values.stock,
         expiryDate: values.expiryDate,
@@ -176,48 +253,46 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
 
       const newProductId = res.result?.productId ?? res.result?.id
 
-      // 2. Nếu có ảnh đại diện được chọn, upload lên Cloudinary & kích hoạt AI Moderation
-      if (selectedFile && newProductId) {
-        try {
-          await uploadImageMutation.mutateAsync({
-            productId: newProductId,
-            file: selectedFile,
-            isPrimary: true,
-            displayOrder: 0,
-          })
-        } catch (imgErr: any) {
-          const code = imgErr?.response?.data?.code ?? imgErr?.data?.code
-          const rawMsg = getErrorMessage(imgErr)
-          // Tự động Rollback / Xóa sản phẩm vừa tạo ở Bước 1 để không lưu rác vào CSDL và không lọt sang Admin
+      // 2. Sắp xếp ảnh chính lên đầu để thẩm định AI trước, sau đó tải tuần tự các ảnh còn lại
+      const orderedImages = [
+        selectedImages[primaryIndex] || selectedImages[0],
+        ...selectedImages.filter((_, idx) => idx !== primaryIndex),
+      ].filter(Boolean)
+
+      let uploadedCount = 0
+      let primarySucceeded = false
+      const failedImages: string[] = []
+
+      if (newProductId) {
+        for (let i = 0; i < orderedImages.length; i++) {
+          const item = orderedImages[i]
+          setUploadProgress(`Đang tải & thẩm định AI ảnh ${i + 1}/${orderedImages.length}...`)
+          try {
+            await uploadImageMutation.mutateAsync({
+              productId: newProductId,
+              file: item.file,
+              isPrimary: i === 0,
+              displayOrder: i,
+            })
+            uploadedCount += 1
+            if (i === 0) primarySucceeded = true
+          } catch (imgErr: any) {
+            const reason = mapUploadError(imgErr)
+            failedImages.push(`${item.file.name} (${reason})`)
+            // Nếu ảnh đại diện chính bị từ chối ngay đầu tiên -> rollback ngay
+            if (i === 0) {
+              break
+            }
+          }
+        }
+
+        if (!primarySucceeded || uploadedCount === 0) {
           try {
             await deleteMutation.mutateAsync(newProductId)
           } catch (deleteErr) {
             console.error('Lỗi khi rollback sản phẩm chưa có ảnh hợp lệ:', deleteErr)
           }
-
-          const isNotAgri =
-            code === 3022 ||
-            rawMsg.includes('3022') ||
-            rawMsg.toLowerCase().includes('nông sản') ||
-            rawMsg.toLowerCase().includes('agricultural') ||
-            rawMsg.toLowerCase().includes('inappropriate')
-
-          if (isNotAgri) {
-            setAiError(
-              '❌ Ảnh bị từ chối: Google Cloud Vision không nhận diện được nông sản thực tế trong hình ảnh này. Vui lòng chọn một bức ảnh chụp nông sản rõ nét hơn.'
-            )
-          } else {
-            let viMsg = 'Ảnh không đạt chuẩn hoặc lỗi kết nối'
-            if (code === 3024 || rawMsg.toLowerCase().includes('tối đa 8') || rawMsg.toLowerCase().includes('maximum of 8')) {
-              viMsg = 'Mỗi sản phẩm chỉ được tối đa 8 hình ảnh'
-            } else if (code === 4002 || rawMsg.toLowerCase().includes('size') || rawMsg.toLowerCase().includes('dung lượng')) {
-              viMsg = 'Dung lượng ảnh vượt quá 5MB'
-            } else if (rawMsg && !rawMsg.includes('Failed') && !rawMsg.includes('Error')) {
-              viMsg = rawMsg
-            }
-            setAiError(`❌ Tải ảnh lên thất bại: ${viMsg}. Vui lòng chọn lại ảnh hợp lệ và thử lại.`)
-          }
-          // Dừng ngay luồng, giữ nguyên form cho nông dân sửa ảnh, KHÔNG hiển thị popup thành công và KHÔNG đóng modal
+          setAiError(`❌ Ảnh bị từ chối: ${failedImages[0] || 'Vui lòng chọn ảnh nông sản rõ nét hơn.'}`)
           return
         }
       }
@@ -234,21 +309,32 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           discount: null,
           status: 'Chờ duyệt' as any,
           stock: values.stock,
-          unit: values.unit,
+          unit: 'kg',
           region: values.region || 'Đà Lạt',
           farmingType: values.farmingType || 'Hữu cơ',
           image:
-            previewUrl ||
+            orderedImages[0]?.previewUrl ||
             'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=200&q=80',
         })
       }
 
-      onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
-      void globalShowAlert(`Đăng bán nông sản "${values.name}" thành công! Sản phẩm đã được gửi và đang chờ Admin duyệt.`, 'Thành công', 'success')
+      if (failedImages.length > 0) {
+        const warnMsg = `Đã tạo "${values.name}" với ${uploadedCount} ảnh hợp lệ. Một số ảnh bị bỏ qua: ${failedImages.join('; ')}`
+        onInfo?.(warnMsg)
+        void globalShowAlert(warnMsg, 'Tạo sản phẩm thành công (có ảnh bị từ chối)', 'warning')
+      } else {
+        onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
+        void globalShowAlert(
+          `Đăng bán nông sản "${values.name}" thành công với ${uploadedCount} ảnh! Sản phẩm đã được gửi và đang chờ Admin duyệt.`,
+          'Thành công',
+          'success',
+        )
+      }
       onClose()
     } catch (err) {
       setAiError(getErrorMessage(err) || 'Không thể tạo sản phẩm. Vui lòng thử lại.')
     } finally {
+      setUploadProgress(null)
       setSubmitting(false)
     }
   }
@@ -285,41 +371,104 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           {/* Image Picker Dropzone */}
           <div>
             <label className="block text-xs font-bold text-[#353d2f] mb-1.5 flex items-center justify-between">
-              <span>Hình ảnh đại diện nông sản *</span>
+              <span>
+                Hình ảnh nông sản ({selectedImages.length}/{MAX_PRODUCT_IMAGES}) *
+              </span>
               <span className="text-[10px] text-[#326318] flex items-center gap-1 font-extrabold">
                 <Sparkles size={11} /> AI Moderation
               </span>
             </label>
 
             <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#d8ded0] hover:border-[#326318] bg-[#fbfdfa] rounded-2xl p-3 flex items-center gap-3 cursor-pointer transition-colors"
+              onClick={() => {
+                if (selectedImages.length < MAX_PRODUCT_IMAGES) {
+                  fileInputRef.current?.click()
+                }
+              }}
+              className={`border-2 border-dashed rounded-2xl p-3 flex items-center gap-3 transition-colors ${
+                selectedImages.length >= MAX_PRODUCT_IMAGES
+                  ? 'border-amber-200 bg-amber-50/40 cursor-not-allowed'
+                  : 'border-[#d8ded0] hover:border-[#326318] bg-[#fbfdfa] cursor-pointer'
+              }`}
             >
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handleImageSelect}
               />
-              {previewUrl ? (
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#c3d1b8] shrink-0">
-                  <img src={previewUrl} alt="Ảnh xem trước" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="w-16 h-16 rounded-xl bg-[#f4f7f1] text-[#7e8779] flex items-center justify-center shrink-0">
-                  <ImagePlus size={24} />
-                </div>
-              )}
+              <div className="w-12 h-12 rounded-xl bg-[#f4f7f1] text-[#326318] flex items-center justify-center shrink-0">
+                <ImagePlus size={22} />
+              </div>
               <div className="flex-1 text-left">
                 <p className="text-xs font-bold text-[#1c2216]">
-                  {selectedFile ? selectedFile.name : 'Nhấp để tải ảnh nông sản từ máy'}
+                  {selectedImages.length >= MAX_PRODUCT_IMAGES
+                    ? `Đã chọn đủ tối đa ${MAX_PRODUCT_IMAGES} ảnh`
+                    : selectedImages.length > 0
+                      ? `Đã chọn ${selectedImages.length} ảnh — nhấn để thêm ảnh`
+                      : 'Nhấp để chọn một hoặc nhiều ảnh nông sản'}
                 </p>
                 <p className="text-[10px] text-[#7e8779] mt-0.5">
-                  Ảnh chụp thực tế, rõ nét. Hệ thống tự động thẩm định AI Google Cloud Vision.
+                  Hỗ trợ JPG, PNG, WEBP (tối đa 10MB/ảnh, chọn tối đa {MAX_PRODUCT_IMAGES} ảnh). Hệ thống tự động thẩm định AI.
                 </p>
               </div>
             </div>
+
+            {selectedImages.length > 0 && (
+              <div className="mt-2.5 grid grid-cols-4 gap-2">
+                {selectedImages.map((item, idx) => {
+                  const isPrimary = idx === primaryIndex
+                  return (
+                    <div
+                      key={item.id}
+                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 bg-[#f4f7f1] ${
+                        isPrimary ? 'border-[#326318] ring-2 ring-[#326318]/20' : 'border-[#e2e8dc]'
+                      }`}
+                    >
+                      <img
+                        src={item.previewUrl}
+                        alt={item.file.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {isPrimary && (
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-[#326318] text-white text-[9px] font-black flex items-center gap-0.5 shadow">
+                          <Star size={8} className="fill-amber-300 text-amber-300" />
+                          <span>Chính</span>
+                        </span>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 p-1 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                        {!isPrimary && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPrimaryIndex(idx)
+                            }}
+                            title="Đặt làm ảnh chính"
+                            className="p-1 rounded-lg bg-white text-[#326318] hover:bg-[#326318] hover:text-white cursor-pointer"
+                          >
+                            <Star size={11} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveImage(idx)
+                          }}
+                          title="Xóa ảnh"
+                          className="p-1 rounded-lg bg-white text-rose-600 hover:bg-rose-600 hover:text-white cursor-pointer"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div>
@@ -361,22 +510,21 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               <label htmlFor="product-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <CustomSelect
+              <input
                 id="product-unit"
-                value={watch('unit') || 'kg'}
-                onChange={(val) => setValue('unit', String(val), { shouldValidate: true })}
-                options={UNIT_OPTIONS}
-                placeholder="Chọn đơn vị tính"
-                error={!!errors.unit}
+                type="text"
+                value="kg (Kilogram)"
+                readOnly
+                disabled
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#eef2e9] border border-[#dce4d5] text-xs font-bold text-[#326318] outline-none cursor-not-allowed"
               />
-              <FieldError message={errors.unit?.message} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label htmlFor="product-price" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Giá bán (đồng) *
+                Giá bán (đồng / kg) *
               </label>
               <input
                 id="product-price"
@@ -392,7 +540,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
 
             <div>
               <label htmlFor="product-stock" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Số lượng tồn kho *
+                Số lượng tồn kho (kg) *
               </label>
               <input
                 id="product-stock"
@@ -523,7 +671,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             {(submitting || createMutation.isPending) && (
               <Loader2 size={16} className="animate-spin" />
             )}
-            <span>Đăng Bán Nông Sản</span>
+            <span>{uploadProgress || 'Đăng Bán Nông Sản'}</span>
           </button>
         </form>
       </div>

@@ -42,7 +42,7 @@ const BACKEND_ERROR_CODE_MAP: Record<number, string> = {
 
   // Tải tệp & hình ảnh (Series 4000)
   4001: 'Tệp hình ảnh không hợp lệ',
-  4002: 'Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 5MB)',
+  4002: 'Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 10MB)',
   4003: 'Tải tệp lên máy chủ lưu trữ thất bại',
 
   // Tài khoản & Vi phạm bom hàng (Series 1000)
@@ -65,7 +65,7 @@ const ENGLISH_MESSAGE_TRANSLATIONS: Record<string, string> = {
   'each product can have a maximum of 8 images':
     'Mỗi sản phẩm chỉ được tải lên tối đa 8 hình ảnh',
   'file size exceeds limit':
-    'Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 5MB)',
+    'Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 10MB)',
   'an error occurred during image moderation':
     'Lỗi trong quá trình thẩm định hình ảnh bằng AI',
   'user is not registered as a shop/farmer':
