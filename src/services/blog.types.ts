@@ -24,11 +24,17 @@ export interface BlogResponse {
   authorName?: string // Alias cho shopName
   adminName?: string
 
+  // Sản phẩm đính kèm
+  productId?: number
+  productName?: string
+  productImage?: string
+  productPrice?: number
+  productDiscountPercent?: number
+  productUnit?: string
+
   // Thống kê tương tác
   likeCount?: number
   commentCount?: number
-
-  // Trạng thái tương tác của user hiện tại
   isLikedByCurrentUser?: boolean
 }
 
@@ -47,6 +53,7 @@ export interface BlogCreateRequest {
   pictureUrl?: string
   status: BlogStatus
   category?: BlogCategory
+  productId?: number
 }
 
 export interface BlogUpdateRequest {
@@ -55,6 +62,7 @@ export interface BlogUpdateRequest {
   pictureUrl?: string
   status?: BlogStatus
   category?: BlogCategory
+  productId?: number
 }
 
 export interface BlogCommentRequest {

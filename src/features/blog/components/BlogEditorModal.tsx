@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ImagePlus,
   Loader2,
+  Package,
   Save,
   Send,
   Sparkles,
@@ -16,6 +17,7 @@ import {
   useCreateShopBlog,
   useUpdateShopBlog,
 } from '../hooks/useBlogQueries'
+import { useMyProducts } from '@/features/product/hooks/useProductQueries'
 import {
   MODAL_BLOG_CATEGORY_OPTIONS,
   SAMPLE_BLOG_COVERS,
@@ -50,11 +52,27 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
   const [pictureUrl, setPictureUrl] = useState<string>(SAMPLE_BLOG_COVERS[0].url)
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<BlogStatus>('PUBLISHED')
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false)
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
+  const productDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Lấy danh sách sản phẩm của shop đang bán để đính kèm
+  const { data: myProductsData } = useMyProducts({ size: 100 })
+  const activeProducts = useMemo(() => {
+    return (myProductsData?.content || []).filter(
+      (p) => p.status === 'ACTIVE' || p.status === 'APPROVED' || !p.status
+    )
+  }, [myProductsData])
+
+  const selectedProduct = useMemo(() => {
+    if (!selectedProductId) return null
+    return activeProducts.find((p) => (p.id ?? p.productId) === selectedProductId) || null
+  }, [selectedProductId, activeProducts])
 
   const createBlogMutation = useCreateShopBlog()
   const updateBlogMutation = useUpdateShopBlog()
@@ -68,14 +86,17 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       setPictureUrl(editingBlog.pictureUrl || editingBlog.imageUrl || SAMPLE_BLOG_COVERS[0].url)
       setContent(plainTextToHtml(editingBlog.content || ''))
       setStatus(editingBlog.status || 'PUBLISHED')
+      setSelectedProductId(editingBlog.productId || null)
     } else {
       setTitle('')
       setCategory(BlogCategory.STORY)
       setPictureUrl(SAMPLE_BLOG_COVERS[0].url)
       setContent('')
       setStatus('PUBLISHED')
+      setSelectedProductId(null)
     }
     setIsCategoryDropdownOpen(false)
+    setIsProductDropdownOpen(false)
   }, [editingBlog, isOpen])
 
   useEffect(() => {
@@ -84,11 +105,18 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setIsCategoryDropdownOpen(false)
       }
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setIsProductDropdownOpen(false)
+      }
     }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (isCategoryDropdownOpen) {
         setIsCategoryDropdownOpen(false)
+        return
+      }
+      if (isProductDropdownOpen) {
+        setIsProductDropdownOpen(false)
         return
       }
       if (!isPending && !isUploadingImage) onClose()
@@ -99,7 +127,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       document.removeEventListener('mousedown', handleClickOutside)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, isCategoryDropdownOpen, isPending, isUploadingImage, onClose])
+  }, [isOpen, isCategoryDropdownOpen, isProductDropdownOpen, isPending, isUploadingImage, onClose])
 
   const wordCount = useMemo(() => {
     const plain = htmlToPlainText(content).trim()
@@ -161,6 +189,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       pictureUrl: pictureUrl.trim() || undefined,
       content: content.trim(),
       status: targetStatus,
+      productId: selectedProductId || undefined,
     }
 
     if (editingBlog) {
@@ -349,6 +378,121 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                   <span>Bản nháp</span>
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* 3. Đính kèm sản phẩm đang bán */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                <Package size={15} className="text-[#326318]" />
+                <span>Đính kèm nông sản đang bán</span>
+                <span className="text-[11px] font-normal text-gray-400">(Không bắt buộc)</span>
+              </label>
+              {selectedProduct && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProductId(null)}
+                  className="text-xs font-bold text-red-600 hover:text-red-700 cursor-pointer"
+                >
+                  Gỡ sản phẩm đính kèm
+                </button>
+              )}
+            </div>
+
+            <div ref={productDropdownRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsProductDropdownOpen((prev) => !prev)}
+                className={`flex w-full items-center justify-between gap-3 rounded-2xl border bg-white p-3 text-left transition-all cursor-pointer ${
+                  selectedProduct
+                    ? 'border-[#326318]/40 bg-[#f8faf6]'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {selectedProduct ? (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={selectedProduct.imageUrl || selectedProduct.image || '/images/default-produce.png'}
+                      alt={selectedProduct.productName || selectedProduct.name}
+                      className="size-11 rounded-xl object-cover border border-gray-200 shrink-0 bg-white"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-gray-900 truncate">
+                          {selectedProduct.productName || selectedProduct.name}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 shrink-0">
+                          Đang đính kèm
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#2e5d16] font-extrabold mt-0.5">
+                        {Number(selectedProduct.sellingPrice ?? selectedProduct.price ?? 0).toLocaleString('vi-VN')} đ
+                        {selectedProduct.unit && (
+                          <span className="text-gray-400 font-normal"> / {selectedProduct.unit}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 text-gray-500 py-1">
+                    <Package size={17} className="text-gray-400 shrink-0" />
+                    <span className="text-sm font-medium">Chọn một nông sản để quảng bá trong bài viết...</span>
+                  </div>
+                )}
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${
+                    isProductDropdownOpen ? 'rotate-180 text-[#326318]' : ''
+                  }`}
+                />
+              </button>
+
+              {isProductDropdownOpen && (
+                <div className="absolute left-0 top-full z-40 mt-1.5 max-h-60 w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl animate-fadeIn custom-scrollbar">
+                  {activeProducts.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-gray-400 font-medium">
+                      Shop hiện chưa có nông sản nào đang được mở bán.
+                    </div>
+                  ) : (
+                    activeProducts.map((p) => {
+                      const pId = p.id ?? p.productId
+                      const isSelected = selectedProductId === pId
+                      return (
+                        <button
+                          key={pId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProductId(pId)
+                            setIsProductDropdownOpen(false)
+                          }}
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl p-2.5 text-left transition-colors cursor-pointer ${
+                            isSelected ? 'bg-[#eaf3e5]' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={p.imageUrl || p.image || '/images/default-produce.png'}
+                              alt={p.productName || p.name}
+                              className="size-9 rounded-lg object-cover border border-gray-200 shrink-0 bg-white"
+                            />
+                            <div className="min-w-0">
+                              <p className={`text-xs truncate ${isSelected ? 'font-bold text-[#2e5d16]' : 'font-medium text-gray-800'}`}>
+                                {p.productName || p.name}
+                              </p>
+                              <p className="text-[11px] font-bold text-[#326318]">
+                                {Number(p.sellingPrice ?? p.price ?? 0).toLocaleString('vi-VN')} đ
+                                {p.unit && <span className="text-gray-400 font-normal"> / {p.unit}</span>}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && <Check size={16} className="shrink-0 text-[#2e5d16]" />}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
