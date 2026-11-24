@@ -612,32 +612,22 @@ export const CheckoutView: React.FC = () => {
     return checkoutItems.reduce((sum, it) => sum + it.quantity, 0)
   }, [checkoutItems])
 
-  // Tải danh sách voucher trong ví người mua VÀ voucher công khai của toàn sàn/shop
+  // Chỉ tải danh sách voucher ĐÃ LƯU trong ví của người mua (không hiển thị voucher chưa lưu)
   useEffect(() => {
     let isMounted = true
-    Promise.all([
-      voucherService.getMyVouchers().catch(() => []),
-      voucherService.getPublicVouchers().catch(() => []),
-    ]).then(([mine, publics]) => {
-      if (!isMounted) return
-      const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
-        // Thêm voucher công khai toàn sàn/shop trước (loại bỏ hoàn toàn voucher user đã dùng hết lượt: !v.isUsed)
-        ; (publics || []).forEach((v) => {
-          if (v?.voucherCode && !v.isUsed) {
-            map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: Boolean(v.isCollected) })
-          }
-        })
-        // Đè bằng voucher trong ví của user (chỉ lấy voucher còn hiệu lực: !v.isUsed)
-        ; (mine || []).forEach((v) => {
-          if (v?.voucherCode && !v.isUsed) {
-            map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
-          }
-        })
-      setMyVouchers(Array.from(map.values()))
-    }).catch((err) => {
-      console.error('Lỗi tải danh sách voucher:', err)
-      if (isMounted) setMyVouchers([])
-    })
+    voucherService
+      .getMyVouchers()
+      .then((mine) => {
+        if (!isMounted) return
+        const list = (mine || [])
+          .filter((v) => v?.voucherCode && !v.isUsed)
+          .map((v) => ({ ...v, isCollected: true }))
+        setMyVouchers(list)
+      })
+      .catch((err) => {
+        console.error('Lỗi tải danh sách voucher trong ví:', err)
+        if (isMounted) setMyVouchers([])
+      })
     return () => {
       isMounted = false
     }
@@ -827,25 +817,35 @@ export const CheckoutView: React.FC = () => {
     triggerPreview(shippingAddress, selectedVoucherCodes)
   }, [checkoutItems.length, shippingAddress, selectedVoucherCodes])
 
-  // Tự động phát hiện lỗi tồn kho ngay khi preview thất bại
+  // Tự động phát hiện lỗi tồn kho hoặc voucher khi preview thất bại
   useEffect(() => {
-    if (previewMutation.isError && isStockShortageError(previewMutation.error)) {
-      const parsed = resolveStockShortages(previewMutation.error)
-      const errorMsg =
-        (previewMutation.error as any)?.data?.message ||
-        (previewMutation.error as any)?.response?.data?.message ||
-        (previewMutation.error as any)?.message ||
-        'Một số mặt hàng trong kho không đủ số lượng.'
-      setOrderSubmitError(errorMsg)
-      setStockErrorModal({
-        isOpen: true,
-        title:
-          parsed.length > 1
-            ? `Có ${parsed.length} mặt hàng không đủ tồn kho`
-            : 'Số lượng tồn kho không đủ',
-        message: errorMsg,
-        items: parsed,
-      })
+    if (previewMutation.isError) {
+      if (isStockShortageError(previewMutation.error)) {
+        const parsed = resolveStockShortages(previewMutation.error)
+        const errorMsg =
+          (previewMutation.error as any)?.data?.message ||
+          (previewMutation.error as any)?.response?.data?.message ||
+          (previewMutation.error as any)?.message ||
+          'Một số mặt hàng trong kho không đủ số lượng.'
+        setOrderSubmitError(errorMsg)
+        setStockErrorModal({
+          isOpen: true,
+          title:
+            parsed.length > 1
+              ? `Có ${parsed.length} mặt hàng không đủ tồn kho`
+              : 'Số lượng tồn kho không đủ',
+          message: errorMsg,
+          items: parsed,
+        })
+      } else {
+        const errorMsg =
+          (previewMutation.error as any)?.data?.message ||
+          (previewMutation.error as any)?.response?.data?.message ||
+          (previewMutation.error as any)?.message
+        if (errorMsg) {
+          setVoucherError(errorMsg)
+        }
+      }
     }
   }, [previewMutation.isError, previewMutation.error, resolveStockShortages])
 
@@ -968,10 +968,10 @@ export const CheckoutView: React.FC = () => {
       setValue('paymentMethod', 'PAYOS', { shouldValidate: true })
     }
   }, [previewData?.codAllowed, selectedPaymentMethod, setValue])
-  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? 0
-  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
+  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? cartSummary.totalGoods
+  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? (previewMutation.isError ? cartSummary.estimatedShipping : 0)
   const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
-  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? (goodsAmount + shippingFee - discount)
+  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? Math.max(0, goodsAmount + shippingFee - discount)
   const walletBalance = Math.max(0, Math.floor(Number(myWallet?.balance ?? 0) - Number(myWallet?.frozenBalance ?? 0)))
   const walletUse = useWalletPay ? Math.min(walletBalance, Math.max(0, finalTotal)) : 0
   const amountAfterWallet = Math.max(0, finalTotal - walletUse)
@@ -2250,14 +2250,14 @@ export const CheckoutView: React.FC = () => {
               )}
             </div>
 
-            {/* Danh sách Voucher theo 2 phân nhóm: Freeship & Giảm giá */}
+            {/* Danh sách Voucher theo 2 phân nhóm: Freeship & Giảm giá (Chỉ hiển thị voucher đã lưu trong ví) */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
-              {myVouchers.length === 0 ? (
+              {myVouchers.filter((v) => Boolean(v.isCollected)).length === 0 ? (
                 <div className="text-center py-12 text-ink-muted text-xs space-y-2.5">
                   <Ticket size={40} className="mx-auto text-gray-300" />
                   <p className="font-bold text-stone-700 text-sm">Ví voucher của bạn đang trống</p>
                   <p className="max-w-xs mx-auto text-gray-500">
-                    Bạn chưa sở hữu mã giảm giá nào. Hãy ghé thăm trang Cửa hàng để bấm "Lưu Voucher" trước khi quay lại áp dụng thanh toán.
+                    Bạn chưa có mã giảm giá nào trong ví. Hãy ghé thăm trang Cửa hàng để bấm "Lưu Voucher" trước khi quay lại áp dụng thanh toán.
                   </p>
                   {checkoutShops.length > 0 && (
                     <div className="pt-2">
@@ -2295,8 +2295,10 @@ export const CheckoutView: React.FC = () => {
                       v.voucherType === 'FREE_SHIPPING' ||
                       Boolean(v.voucherCode?.toUpperCase().includes('FREESHIP'))
 
-                    const freeshipList = myVouchers.filter(isFreeshipVoucher)
-                    const discountList = myVouchers.filter((v) => !isFreeshipVoucher(v))
+                    // Chỉ lọc những voucher đã lưu vào ví
+                    const savedList = myVouchers.filter((v) => Boolean(v.isCollected))
+                    const freeshipList = savedList.filter(isFreeshipVoucher)
+                    const discountList = savedList.filter((v) => !isFreeshipVoucher(v))
 
                     return (
                       <>
