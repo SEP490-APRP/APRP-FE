@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag, AlertTriangle } from 'lucide-react'
+import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag, AlertTriangle, Package } from 'lucide-react'
 import { router } from '@/app/router'
 import { useNotificationStore, useAuth } from '@/stores'
 
@@ -105,25 +105,56 @@ export const NotificationDetailModal: React.FC = () => {
   const noti = selectedNotification
 
   const textContent = `${noti.title ?? ''} ${noti.message ?? ''} ${noti.evidence ?? ''}`.toLowerCase()
+  const rawTitleAndMsg = `${noti.title ?? ''} ${noti.message ?? ''}`
   const type = (noti.type ?? '').toUpperCase()
 
-  let targetOrderId: number | null = noti.referenceId ?? null
-  if (!targetOrderId) {
-    const match = textContent.match(/đơn hàng.*?#?(\d+)/i) || (noti.evidence && noti.evidence.match(/(\d+)/))
+  const isProductRelated =
+    type.includes('PRODUCT') ||
+    (!type.includes('ORDER') &&
+      !type.includes('RETURN') &&
+      !type.includes('DISPUTE') &&
+      !type.includes('DISPATCH') &&
+      !textContent.includes('đơn hàng') &&
+      !textContent.includes('đơn hoàn') &&
+      (textContent.includes('nông sản') ||
+        textContent.includes('sản phẩm') ||
+        textContent.includes('phê duyệt') ||
+        textContent.includes('từ chối duyệt')))
+
+  const productNameMatch = isProductRelated ? rawTitleAndMsg.match(/["'“]([^"'“”]+)["'”]/) : null
+  const targetProductName = productNameMatch?.[1]?.trim() || null
+  const productIdMatch = isProductRelated ? rawTitleAndMsg.match(/#(\d+)/) : null
+  const targetProductId: number | null = isProductRelated
+    ? (noti.referenceId ?? (productIdMatch?.[1] ? parseInt(productIdMatch[1], 10) : null))
+    : null
+
+  const isDisputeRelated =
+    !isProductRelated &&
+    (type.includes('RETURN') ||
+      type.includes('DISPUTE') ||
+      type.includes('ADMIN_APPROVED') ||
+      textContent.includes('khiếu nại') ||
+      textContent.includes('hoàn trả') ||
+      textContent.includes('trả hàng') ||
+      textContent.includes('hoàn tiền'))
+
+  const isOrderTypeOrText =
+    !isProductRelated &&
+    (type.includes('ORDER') ||
+      type.includes('DISPATCH') ||
+      textContent.includes('đơn hàng') ||
+      textContent.includes('đơn #'))
+
+  let targetOrderId: number | null =
+    isDisputeRelated || isOrderTypeOrText ? (noti.referenceId ?? null) : null
+  if (!targetOrderId && (isDisputeRelated || isOrderTypeOrText)) {
+    const match = textContent.match(/đơn(?:\s*hàng|\s*hoàn(?:\s*trả)?)?.*?#?(\d+)/i)
     if (match && match[1]) {
       targetOrderId = parseInt(match[1], 10)
     }
   }
 
-  const isDisputeRelated =
-    type.includes('RETURN') ||
-    type.includes('DISPUTE') ||
-    type.includes('ADMIN_APPROVED') ||
-    textContent.includes('khiếu nại') ||
-    textContent.includes('hoàn trả') ||
-    textContent.includes('trả hàng') ||
-    textContent.includes('hoàn tiền')
-  const isOrderRelated = Boolean(targetOrderId) || type.includes('ORDER')
+  const isOrderRelated = isOrderTypeOrText || (Boolean(targetOrderId) && !isDisputeRelated)
   const isWalletRelated =
     textContent.includes('ví tiền') ||
     textContent.includes('rút tiền') ||
@@ -131,7 +162,8 @@ export const NotificationDetailModal: React.FC = () => {
     textContent.includes('ký quỹ')
   const isVoucherRelated = textContent.includes('voucher') || textContent.includes('khuyến mãi')
 
-  const hasSmartAction = isDisputeRelated || isOrderRelated || isWalletRelated || isVoucherRelated
+  const hasSmartAction =
+    isDisputeRelated || isProductRelated || isOrderRelated || isWalletRelated || isVoucherRelated
 
   let smartActionTitle = 'Xem chi tiết'
   let SmartActionIcon = Bell
@@ -144,6 +176,19 @@ export const NotificationDetailModal: React.FC = () => {
       smartActionTitle = 'Đến Trung tâm khiếu nại Admin'
     } else {
       smartActionTitle = targetOrderId ? `Xem đơn hàng #${targetOrderId}` : 'Xem đơn hàng của tôi'
+    }
+  } else if (isProductRelated) {
+    SmartActionIcon = Package
+    if (userRole === 'shop') {
+      smartActionTitle = targetProductName
+        ? `Xem nông sản "${targetProductName}" trong kho`
+        : targetProductId
+        ? `Xem nông sản #${targetProductId} trong kho`
+        : 'Đến kho nông sản'
+    } else if (userRole === 'admin') {
+      smartActionTitle = 'Đến trang kiểm duyệt nông sản'
+    } else {
+      smartActionTitle = targetProductId ? `Xem nông sản #${targetProductId}` : 'Xem nông sản tươi'
     }
   } else if (targetOrderId) {
     smartActionTitle = `Xem chi tiết đơn hàng #${targetOrderId}`
@@ -168,6 +213,15 @@ export const NotificationDetailModal: React.FC = () => {
         navigate(targetOrderId ? `/admin/disputes?search=${targetOrderId}` : '/admin/disputes')
       } else {
         navigate(targetOrderId ? `/orders?search=${targetOrderId}` : '/orders')
+      }
+    } else if (isProductRelated) {
+      if (userRole === 'shop') {
+        const searchVal = targetProductName || (targetProductId ? String(targetProductId) : '')
+        navigate(searchVal ? `/shop?tab=products&search=${encodeURIComponent(searchVal)}` : '/shop?tab=products')
+      } else if (userRole === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate(targetProductId ? `/san-pham/${targetProductId}` : '/nong-san-tuoi')
       }
     } else if (targetOrderId) {
       if (userRole === 'shop') {
