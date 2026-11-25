@@ -29,7 +29,7 @@ import {
   useReadyOrder,
   useCancelOrder,
 } from '@/features/shop/hooks/useShopOrders'
-import { ShopPageHeader } from '@/features/shop'
+import { getOrderStatusConfig, ShopPageHeader } from '@/features/shop'
 import { exportService } from '@/services/export.service'
 import { CustomSelect } from '@/components/common/CustomSelect'
 
