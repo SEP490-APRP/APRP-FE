@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { ShoppingBasket, Store, ArrowRight, X, PackageOpen, Minus, Plus, Loader2 } from 'lucide-react'
 import { useAuth, useCartStore, cartCount, cartTotal } from '@/stores'
 import { useCartOperations } from '@/features/cart/hooks/useCartOperations'
-import { allProducts, money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 
 interface CartDropdownProps {
   isOpen: boolean
@@ -80,28 +80,14 @@ export const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose }) =
       }
     }
 
-    // Guest fallback
-    const flat = allProducts
-      .filter((p) => localCart[p.id])
-      .map((p) => ({
-        id: p.id,
-        rawItem: null,
-        name: p.name,
-        image: p.image,
-        price: p.price,
-        quantity: localCart[p.id],
-        stock: p.stock ?? 999,
-        shopName: 'CapNong Fresh',
-        shopId: 1,
-        unit: p.unit || 'kg',
-      }))
+    // Guest (chưa đăng nhập)
     return {
-      items: flat,
-      totalCount: localCount,
-      totalPrice: localTotal,
-      totalShops: flat.length > 0 ? 1 : 0,
+      items: [],
+      totalCount: 0,
+      totalPrice: 0,
+      totalShops: 0,
     }
-  }, [user, dbCart, localCart, localCount, localTotal])
+  }, [user, dbCart])
 
   if (!isOpen) return null
 
@@ -116,9 +102,9 @@ export const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose }) =
       handleQuantityChange(item.rawItem, delta)
     } else {
       if (item.quantity + delta <= 0) {
-        removeLocalItem(item.id)
+        removeLocalItem(String(item.id))
       } else {
-        changeLocalQuantity(item.id, delta)
+        changeLocalQuantity(String(item.id), delta)
       }
     }
   }

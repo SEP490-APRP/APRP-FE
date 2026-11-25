@@ -1,7 +1,6 @@
 import axiosInstance from '@/services/api/axiosInstance'
 import type { ApiResponse, PageResponse } from '@/types'
 import type { AdminUserReport, ShopRiskFlagResponse, UserResponse } from './user.types'
-import { mockReportData } from '@/mocks/user.mock'
 
 export type * from './user.types'
 

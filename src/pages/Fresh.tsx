@@ -30,13 +30,13 @@ type Cart = {
 }
 
 function getProduceRegion(address?: string): string {
-  if (!address) return 'Đà Lạt'
+  if (!address) return ''
   const a = address.toLowerCase()
   if (a.includes('đà lạt') || a.includes('lâm đồng')) return 'Đà Lạt'
   if (a.includes('tiền giang') || a.includes('bến tre') || a.includes('đồng tháp') || a.includes('miền tây') || a.includes('cần thơ')) return 'Miền Tây'
   if (a.includes('đắk lắk') || a.includes('gia lai') || a.includes('tây nguyên')) return 'Tây Nguyên'
   if (a.includes('đồng nai') || a.includes('hồ chí minh') || a.includes('bình dương') || a.includes('đông nam')) return 'Đông Nam Bộ'
-  return 'Đà Lạt'
+  return address.split(',').pop()?.trim() || ''
 }
 
 const PAGE_SIZE = 16
@@ -127,21 +127,21 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
           ? p.category.name
           : typeof p.category === 'string'
             ? p.category
-            : 'Rau củ'
+            : ''
 
       return {
         id: String(p.productId || p.id),
-        name: p.productName || p.name || 'Nông sản',
+        name: p.productName || p.name || '',
         price,
         original,
         image,
         category: catName,
-        farm: p.shop?.shopName || 'Nhà vườn CapNong',
+        farm: p.shop?.shopName || p.shopName || '',
         region: getProduceRegion(p.shop?.address),
-        flaw: 'Ngoại hình tự nhiên',
-        score: 96,
+        flaw: p.defectReason || '',
+        score: 0,
         stock: p.stockQuantity ?? p.stock ?? 0,
-        rescued: 50,
+        rescued: 0,
         unit: p.unit || 'kg',
       }
     })

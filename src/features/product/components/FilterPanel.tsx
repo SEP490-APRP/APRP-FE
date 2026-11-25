@@ -133,13 +133,10 @@ export function FilterPanel({
       !c.name.toLowerCase().includes('túi mù'),
   )
 
-  const categoryOptions =
-    freshCategories.length > 0
-      ? [
-          { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
-          ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
-        ]
-      : CATEGORIES
+  const categoryOptions = [
+    { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
+    ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
+  ]
 
   const set =
     <K extends keyof Filters>(key: K) =>
