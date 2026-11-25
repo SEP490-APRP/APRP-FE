@@ -172,12 +172,13 @@ export default function ComboDetail() {
     : comboData?.description || 'Gói nông sản dinh dưỡng tiện lợi cho bữa ăn gia đình.'
   const portion = isMystery ? mysteryData?.note || 'Khẩu phần 2–4 người' : 'Khẩu phần gia đình'
   const cookingSuggestion = !isMystery ? comboData?.cookingSuggestion : null
+  const totalQuantity = Number(
+    isMystery ? (mysteryData?.totalQuantity ?? 0) : (comboData?.totalQuantity ?? 0),
+  )
   const soldQuantity = Number(
-    isMystery ? mysteryData?.soldQuantity || 12 : comboData?.soldQuantity || 8,
+    isMystery ? (mysteryData?.soldQuantity ?? 0) : (comboData?.soldQuantity ?? 0),
   )
-  const stock = Number(
-    isMystery ? mysteryData?.totalQuantity || 30 : comboData?.totalQuantity || 25,
-  )
+  const stock = Math.max(0, totalQuantity - soldQuantity)
   const isOutOfStock = stock <= 0
 
   // Shop thông tin
@@ -1025,6 +1026,10 @@ export default function ComboDetail() {
                     const itemId = item.mysteryId ?? item.comboId ?? item.id
                     const itemName = item.boxType || item.comboName || 'Gói nông sản'
                     const itemPrice = Number(item.price || 0)
+                    const itemRemaining = Math.max(
+                      0,
+                      Number(item.totalQuantity ?? 0) - Number(item.soldQuantity ?? 0),
+                    )
                     const itemImg =
                       item.imageUrl ||
                       (isMystery ? '/assets/combo-mystery.jpg' : '/assets/combo-green.jpg')
@@ -1052,7 +1057,11 @@ export default function ComboDetail() {
                             {itemPrice.toLocaleString('vi-VN')}đ
                           </p>
                           <p className="text-[10px] text-ink-muted">
-                            {item.totalQuantity ? `Còn ${item.totalQuantity} gói` : 'Sẵn sàng giao'}
+                            {item.totalQuantity != null
+                              ? itemRemaining > 0
+                                ? `Còn ${itemRemaining} gói`
+                                : 'Tạm hết hàng'
+                              : 'Sẵn sàng giao'}
                           </p>
                         </div>
                       </button>

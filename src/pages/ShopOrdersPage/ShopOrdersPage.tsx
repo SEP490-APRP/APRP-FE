@@ -8,7 +8,8 @@
  * 4. Sau action → React Query tự refetch danh sách
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, Search } from 'lucide-react'
 import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
 import { OrderCard } from '@/features/shop/components/OrderCard'
@@ -18,7 +19,7 @@ import { CapNongLoading } from '@/components/ui/Loading'
 
 /* ── Tab definitions (Loại bỏ hoàn toàn AWAITING_PAYMENT khỏi phía Shop) ── */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUND_REQUESTED', 'REFUNDED'
 ]
 
 const TABS: { label: string; statuses: OrderStatus[] }[] = [
@@ -34,9 +35,11 @@ const TABS: { label: string; statuses: OrderStatus[] }[] = [
 const PAGE_SIZE = 10
 
 export function ShopOrdersPage() {
+  const [searchParams]              = useSearchParams()
+  const initialSearch               = searchParams.get('search') || ''
   const [activeTab, setActiveTab]   = useState(0)
   const [page, setPage]             = useState(0)
-  const [search, setSearch]         = useState('')
+  const [search, setSearch]         = useState(initialSearch)
   const [selected, setSelected]     = useState<OrderResponse | null>(null)
 
   const { data, isLoading, isError } = useShopOrders({
@@ -47,6 +50,21 @@ export function ShopOrdersPage() {
 
   // Đảm bảo không bao giờ hiển thị đơn AWAITING_PAYMENT phía shop
   const orders = (data?.content ?? []).filter((o: OrderResponse) => o.status !== 'AWAITING_PAYMENT')
+
+  // Tự động mở modal chi tiết đơn nếu có query param search khớp đúng ID
+  useEffect(() => {
+    if (initialSearch && orders.length > 0) {
+      const match = orders.find(
+        (o: OrderResponse) =>
+          String(o.orderId ?? o.id) === initialSearch ||
+          `#ORD-${o.orderId ?? o.id}`.toLowerCase() === initialSearch.toLowerCase() ||
+          `#${o.orderId ?? o.id}`.toLowerCase() === initialSearch.toLowerCase()
+      )
+      if (match) {
+        setSelected(match)
+      }
+    }
+  }, [initialSearch, orders])
 
   // Filter search phía client (mã đơn / tên khách)
   const filtered = search.trim()

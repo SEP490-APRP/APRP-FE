@@ -1,26 +1,35 @@
 import React, { useState } from 'react'
 import {
   Package,
+  Boxes,
   ShoppingCart,
   Building2,
   ShoppingBag,
-  ShieldCheck,
-  Clock,
-  Sparkles,
-  UtensilsCrossed,
-  Gift,
-  Loader2,
   ChevronRight,
   AlertTriangle,
   Plus,
   Star,
   CheckCircle2,
   XCircle,
+  Loader2,
+  Clock,
+  UtensilsCrossed,
+  RotateCcw,
 } from 'lucide-react'
-import { useShopOrders, useShopProfile, useConfirmOrder, useCancelOrder } from '@/features/shop'
+import {
+  ShopPageHeader,
+  getOrderStatusConfig,
+  useShopOrders,
+  useShopProfile,
+  useConfirmOrder,
+  useReadyOrder,
+  useCancelOrder,
+} from '@/features/shop'
 import { useMyProducts, useMyCombos } from '@/features/product'
 import { useMyMysteryBoxes } from '@/features/mystery-box'
 import { formatMealType } from '@/services/combo.types'
+import { globalShowConfirm } from '@/components/common/Popup'
+import { getErrorMessage } from '@/utils'
 import type { FarmerProduct, FarmerOrder } from './types'
 
 interface DashboardProps {
@@ -36,6 +45,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
   const [actionOrderId, setActionOrderId] = useState<number | null>(null)
 
   const confirmMutation = useConfirmOrder()
+  const readyMutation = useReadyOrder()
   const cancelMutation = useCancelOrder()
 
   const handleQuickConfirm = async (orderId: number) => {
@@ -44,23 +54,37 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
       await confirmMutation.mutateAsync(orderId)
       onInfo?.(`Đã nhận và xác nhận đơn hàng #${orderId}!`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Có lỗi khi xác nhận đơn hàng.'
-      onInfo?.(msg)
+      onInfo?.(getErrorMessage(err, 'Có lỗi khi xác nhận đơn hàng.'))
+    } finally {
+      setActionOrderId(null)
+    }
+  }
+
+  const handleQuickReady = async (orderId: number) => {
+    setActionOrderId(orderId)
+    try {
+      await readyMutation.mutateAsync(orderId)
+      onInfo?.(`Đơn hàng #${orderId} đã chuyển sang Sẵn sàng giao! Shipper đã có thể nhận đơn.`)
+    } catch (err: unknown) {
+      onInfo?.(getErrorMessage(err, 'Có lỗi khi cập nhật trạng thái sẵn sàng giao.'))
     } finally {
       setActionOrderId(null)
     }
   }
 
   const handleQuickCancel = async (orderId: number) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn từ chối đơn hàng #${orderId}?`)
+    const confirmed = await globalShowConfirm(
+      'Xác nhận hủy đơn',
+      `Bạn có chắc chắn muốn hủy đơn hàng #${orderId}? Số lượng nông sản sẽ được hoàn lại kho.`,
+      { confirmText: 'Hủy đơn', cancelText: 'Quay lại', danger: true },
+    )
     if (!confirmed) return
     setActionOrderId(orderId)
     try {
       await cancelMutation.mutateAsync(orderId)
-      onInfo?.(`Đã từ chối đơn hàng #${orderId}.`)
+      onInfo?.(`Đã hủy đơn hàng #${orderId}.`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Có lỗi khi từ chối đơn hàng.'
-      onInfo?.(msg)
+      onInfo?.(getErrorMessage(err, 'Có lỗi khi hủy đơn hàng.'))
     } finally {
       setActionOrderId(null)
     }
@@ -80,11 +104,11 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
     (o) => o.status === 'PENDING' || o.status === 'PAID',
   ).length
 
-  // Sắp xếp đơn hàng: Đơn khẩn cấp cần nhận (PENDING/PAID) luôn ghim lên đầu tiên
+  // Sắp xếp đơn hàng: Đơn cần nhận (PENDING/PAID) -> đang chuẩn bị (CONFIRMED) -> mới nhất lên trước
   const sortedOrders = [...realOrders].sort((a, b) => {
-    const isActionA = a.status === 'PENDING' || a.status === 'PAID' ? 0 : 1
-    const isActionB = b.status === 'PENDING' || b.status === 'PAID' ? 0 : 1
-    if (isActionA !== isActionB) return isActionA - isActionB
+    const rank = (s?: string) => (s === 'PENDING' || s === 'PAID' ? 0 : s === 'CONFIRMED' ? 1 : 2)
+    const diff = rank(a.status) - rank(b.status)
+    if (diff !== 0) return diff
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
     return timeB - timeA
@@ -122,31 +146,6 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
     .filter((o) => o.status !== 'CANCELLED' && o.status !== 'FAILED')
     .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
 
-  // KYC and rating
-  const isKycApproved = shopProfile?.status === 'ACTIVE'
-
-  const getOrderStatusBadge = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return { label: 'Chờ xác nhận', color: 'bg-amber-50 text-amber-800 border-amber-200' }
-      case 'PAID':
-        return { label: 'Đã thanh toán', color: 'bg-blue-50 text-blue-800 border-blue-200' }
-      case 'CONFIRMED':
-        return { label: 'Đã xác nhận', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
-      case 'READY':
-        return { label: 'Đang chuẩn bị', color: 'bg-indigo-50 text-indigo-800 border-indigo-200' }
-      case 'SHIPPING':
-        return { label: 'Đang giao', color: 'bg-sky-50 text-sky-800 border-sky-200' }
-      case 'DELIVERED':
-      case 'COMPLETED':
-        return { label: 'Đã giao', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' }
-      case 'CANCELLED':
-        return { label: 'Đã hủy', color: 'bg-rose-50 text-rose-800 border-rose-200' }
-      default:
-        return { label: status, color: 'bg-gray-100 text-gray-700 border-gray-200' }
-    }
-  }
-
   const getProductStatusBadge = (status?: string) => {
     switch (status?.toUpperCase()) {
       case 'ACTIVE':
@@ -162,7 +161,12 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn">
+      <ShopPageHeader
+        title="Tổng Quan Gian Hàng"
+        subtitle="Theo dõi nhanh đơn hàng cần xử lý, nông sản đang bán và đánh giá của nhà vườn hôm nay"
+      />
+
       {/* Cảnh báo Cờ rủi ro chất lượng cho Shop */}
       {shopProfile?.activeRiskFlags !== undefined && shopProfile.activeRiskFlags >= 3 && (
         <div className="p-5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3.5 shadow-sm">
@@ -561,7 +565,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                       className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${
                         box.isActive
                           ? 'bg-[#eaf5e1] text-[#326318] border-[#b8e19c]'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-gray-100 text-gray-600 border-gray-200'
                         }`}
                     >
                       <span>{box.isActive ? 'Đang mở' : 'Tạm dừng'}</span>
@@ -615,8 +619,10 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
               {sortedOrders.slice(0, 4).map((ord) => {
                 const ordId = Number((ord as any).orderId ?? ord.id)
                 const recipient = (ord as any).recipientName || ord.buyerName || 'Khách hàng'
-                const statusBadge = getOrderStatusBadge(ord.status)
+                const statusBadge = getOrderStatusConfig(ord.status)
                 const isNeedsAction = ord.status === 'PENDING' || ord.status === 'PAID'
+                const isConfirmed = ord.status === 'CONFIRMED'
+                const isRefundRequested = ord.status === 'REFUND_REQUESTED'
                 const isActingOnThis = actionOrderId === ordId
                 const formattedTime = ord.createdAt
                   ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
@@ -633,10 +639,12 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                     className={`p-3.5 rounded-lg border transition-all space-y-2 ${
                       isNeedsAction
                         ? 'border-amber-300 bg-amber-50/50 shadow-2xs ring-1 ring-amber-300/60'
-                        : 'border-[#edf1e8] bg-[#fafcf9] hover:border-[#2b5619]/30'
+                        : isConfirmed
+                          ? 'border-[#b8e19c] bg-[#f7faf5] shadow-2xs'
+                          : 'border-[#edf1e8] bg-[#fafcf9] hover:border-[#2b5619]/30'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs gap-2">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-black text-[#1c2216]">#{ordId}</span>
                         {isNeedsAction && (
@@ -647,7 +655,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                         )}
                       </div>
                       <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
+                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${statusBadge.className}`}
                       >
                         {statusBadge.label}
                       </span>
@@ -674,7 +682,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           type="button"
                           disabled={isActingOnThis}
                           onClick={() => handleQuickConfirm(ordId)}
-                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs sm:text-sm py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
                         >
                           {isActingOnThis && confirmMutation.isPending ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -687,7 +695,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                           type="button"
                           disabled={isActingOnThis}
                           onClick={() => handleQuickCancel(ordId)}
-                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs sm:text-sm rounded-lg flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-lg flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
                           title="Từ chối đơn hàng"
                         >
                           {isActingOnThis && cancelMutation.isPending ? (
@@ -696,6 +704,53 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
                             <XCircle size={15} />
                           )}
                           <span>Từ chối</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Quick Action Buttons cho đơn đang chuẩn bị (CONFIRMED -> READY) */}
+                    {isConfirmed && (
+                      <div className="pt-2 flex items-center gap-2 border-t border-[#e5efe0] mt-1">
+                        <button
+                          type="button"
+                          disabled={isActingOnThis}
+                          onClick={() => handleQuickReady(ordId)}
+                          className="flex-1 bg-[#2b5619] hover:bg-[#1e3d12] text-white font-black text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {isActingOnThis && readyMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Boxes size={15} />
+                          )}
+                          <span>Sẵn sàng giao</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isActingOnThis}
+                          onClick={() => handleQuickCancel(ordId)}
+                          className="px-3 py-2 bg-white hover:bg-red-50 text-red-700 border border-red-200 font-bold text-xs rounded-lg flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 transition-all"
+                          title="Hủy đơn hàng"
+                        >
+                          {isActingOnThis && cancelMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <XCircle size={15} />
+                          )}
+                          <span>Hủy</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Shortcut xử lý yêu cầu trả hàng / hoàn tiền */}
+                    {isRefundRequested && (
+                      <div className="pt-2 border-t border-amber-200/70 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('disputes')}
+                          className="w-full py-1.5 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw size={13} />
+                          <span>Xử lý yêu cầu trả hàng</span>
                         </button>
                       </div>
                     )}

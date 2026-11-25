@@ -45,10 +45,10 @@ export {
   useApproveProductImage,
   useAiSuggestDescription,
 } from './hooks/useProductQueries'
-export { useCategories, categoryKeys } from './hooks/useCategoryQueries'
+export { useCategories, filterFreshCategories, isBundleCategory, categoryKeys } from './hooks/useCategoryQueries'
 export {
   productFormSchema,
   type ProductFormInput,
   type ProductFormValues,
 } from './schemas/productForm.schema'
-export { useCombos, useShopCombos, useMyCombos, useCreateCombo, useUpdateCombo, useDeleteCombo, comboKeys } from './hooks/useComboQueries'
+export { useCombos, useShopCombos, useMyCombos, useCreateCombo, useUpdateCombo, useUpdateComboStatus, useDeleteCombo, comboKeys } from './hooks/useComboQueries'

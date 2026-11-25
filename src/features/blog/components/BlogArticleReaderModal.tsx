@@ -12,6 +12,8 @@ import {
   Send,
   Sprout,
   ArrowRight,
+  Package,
+  ShoppingBag,
 } from 'lucide-react'
 import {
   useBlogDetail,
@@ -24,6 +26,7 @@ import {
   CommentOptionsMenu,
 } from '@/features/blog'
 import { formatPublishDate } from '@/features/blog/constants'
+import { RichTextContent, htmlToPlainText, isHtmlContent } from '@/components/common/RichTextEditor/RichTextContent'
 import { BlogCategoryLabel } from '@/types'
 import type { BlogResponse } from '@/services'
 import freshFarmerBannerImg from '@/assets/fresh-farmer-banner.jpg'
@@ -66,7 +69,7 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
 
   const readingMinutes = useMemo(() => {
     if (!blogDetail?.content) return 2
-    const cleanText = blogDetail.content.replace(/<[^>]*>/g, ' ')
+    const cleanText = htmlToPlainText(blogDetail.content)
     const words = cleanText.trim().split(/\s+/).filter(Boolean).length
     return Math.max(1, Math.ceil(words / 180))
   }, [blogDetail?.content])
@@ -266,10 +269,10 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
 
               {/* Editorial Content Body */}
               <div className="space-y-4 text-[15px] sm:text-[16px] leading-[1.8] text-[#2d3629] font-normal py-1 border-b border-[#ede7dc] pb-6">
-                {blogDetail.content.includes('<p') ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: blogDetail.content }}
-                    className="prose max-w-none text-inherit prose-headings:font-bold prose-headings:text-[#191f14] prose-a:text-[#2e5d16] prose-img:rounded-xl"
+                {isHtmlContent(blogDetail.content) ? (
+                  <RichTextContent
+                    html={blogDetail.content}
+                    className="text-[15px] sm:text-[16px] leading-[1.8] text-[#2d3629]"
                   />
                 ) : (
                   blogDetail.content.split('\n\n').map((paragraph, idx) => (
@@ -322,35 +325,56 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
                 </button>
               </div>
 
-              {/* Farm Spotlight Card */}
-              {blogDetail.shopId && (
-                <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-br from-[#f2f8ed] to-[#f8fbf5] border border-[#d6e5cd] flex flex-col sm:flex-row items-center justify-between gap-3.5">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-10 h-10 rounded-xl bg-[#2e5d16] text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <Store size={20} />
+              {/* Attached Product Feature Card */}
+              {blogDetail.productId && blogDetail.productName && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-[#326318]/30 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 transition-all hover:border-[#326318]">
+                  <div className="flex items-center gap-3.5 min-w-0 w-full sm:w-auto">
+                    <div className="relative size-16 sm:size-20 rounded-xl overflow-hidden border border-gray-200 shrink-0 bg-gray-50">
+                      <img
+                        src={blogDetail.productImage || '/images/default-produce.png'}
+                        alt={blogDetail.productName}
+                        className="w-full h-full object-cover"
+                      />
+                      {blogDetail.productDiscountPercent && blogDetail.productDiscountPercent > 0 ? (
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-rose-600 text-white font-black text-[9px] shadow-xs">
+                          -{blogDetail.productDiscountPercent}%
+                        </span>
+                      ) : null}
                     </div>
-                    <div>
-                      <h4 className="font-extrabold text-sm sm:text-base text-[#191f14]">
-                        Yêu thích nông sản của {blogDetail.shopName || 'nhà vườn này'}?
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#eaf3e5] text-[#2e5d16] uppercase tracking-wider shrink-0">
+                          Sản phẩm trong bài viết
+                        </span>
+                      </div>
+                      <h4 className="font-black text-sm sm:text-base text-gray-900 truncate mt-1">
+                        {blogDetail.productName}
                       </h4>
-                      <p className="text-xs text-[#5d6854] mt-0.5">
-                        Khám phá các loại nông sản tươi ngon, an toàn được thu hoạch trực tiếp tại vườn.
+                      <p className="text-sm sm:text-base font-black text-rose-600 mt-0.5">
+                        {Number(blogDetail.productPrice || 0).toLocaleString('vi-VN')} đ
+                        {blogDetail.productUnit && (
+                          <span className="text-gray-400 font-normal text-xs"> / {blogDetail.productUnit}</span>
+                        )}
                       </p>
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => {
                       onClose()
-                      navigate(`/cua-hang/${blogDetail.shopId}`)
+                      navigate(`/san-pham/${blogDetail.productId}`)
                     }}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-[#2e5d16] hover:bg-[#254d12] text-white font-bold text-xs sm:text-sm shadow-xs transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#2e5d16] hover:bg-[#254d12] text-white font-black text-xs sm:text-sm shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2 group"
                   >
-                    <span>Xem gian hàng nông sản</span>
-                    <ArrowRight size={14} />
+                    <ShoppingBag size={15} className="group-hover:scale-110 transition-transform" />
+                    <span>Xem chi tiết sản phẩm</span>
+                    <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 </div>
               )}
+
+
 
               {/* Comments Section */}
               <div ref={commentsSectionRef} className="pt-2 flex flex-col gap-3.5">

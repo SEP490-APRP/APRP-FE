@@ -66,6 +66,18 @@ export function useUpdateCombo() {
   })
 }
 
+export function useUpdateComboStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'ACTIVE' | 'INACTIVE' }) =>
+      comboService.updateStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comboKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
 export function useDeleteCombo() {
   const queryClient = useQueryClient()
   return useMutation({

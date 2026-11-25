@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { cn } from '@/utils'
-import { useCategories } from '../hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '../hooks/useCategoryQueries'
 
 /* ------------------------------------------------------------------ */
 /* Kiểu dữ liệu bộ lọc: union type thay cho string tự do               */
@@ -127,11 +127,7 @@ export function FilterPanel({
   const { data: apiCategories = [] } = useCategories()
 
   // Bỏ 'Combo & Túi mù' khỏi danh mục nông sản tươi (combo có trang riêng /combo-tui-mu)
-  const freshCategories = apiCategories.filter(
-    (c) =>
-      !c.name.toLowerCase().includes('combo') &&
-      !c.name.toLowerCase().includes('túi mù'),
-  )
+  const freshCategories = filterFreshCategories(apiCategories)
 
   const categoryOptions = [
     { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
