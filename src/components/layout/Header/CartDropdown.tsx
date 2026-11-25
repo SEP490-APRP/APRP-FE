@@ -116,9 +116,9 @@ export const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose }) =
       handleQuantityChange(item.rawItem, delta)
     } else {
       if (item.quantity + delta <= 0) {
-        removeLocalItem(item.id)
+        removeLocalItem(String(item.id))
       } else {
-        changeLocalQuantity(item.id, delta)
+        changeLocalQuantity(String(item.id), delta)
       }
     }
   }
@@ -180,7 +180,7 @@ export const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose }) =
         ) : (
           <>
             {visibleItems.map((item) => {
-              const updating = user ? isItemUpdating(item.id) : false
+              const updating = user ? isItemUpdating(Number(item.id)) : false
               return (
                 <div
                   key={item.id}

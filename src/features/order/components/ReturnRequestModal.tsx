@@ -224,7 +224,7 @@ export const ReturnRequestModal: React.FC<ReturnRequestModalProps> = ({
                 <strong className="text-stone-700 whitespace-nowrap">{itemUnitPrice.toLocaleString('vi-VN')}&nbsp;đ</strong>
               </p>
               <p className="text-xs font-bold text-emerald-700 mt-1 whitespace-nowrap">
-                Tổng giá trị mặt hàng: {maxRefundAmount.toLocaleString('vi-VN')}&nbsp;đ
+                Tổng giá trị mặt hàng: {refundAmount.toLocaleString('vi-VN')}&nbsp;đ
               </p>
             </div>
           </div>

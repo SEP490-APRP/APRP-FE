@@ -139,9 +139,16 @@ export default function FarmerPortal({
     } else if (action === 'withdraw' || action === 'rut-tien') {
       setShowWithdrawModal(true)
     }
+
+    const searchParam = searchParams.get('search')
+    if ((tab === 'products' || (!tab && currentTab === 'products')) && searchParam !== null) {
+      setProductSearchQuery(searchParam)
+    }
   }, [searchParams])
   const [shopActive, setShopActive] = useState<boolean>(true)
-  const [productSearchQuery, setProductSearchQuery] = useState<string>('')
+  const [productSearchQuery, setProductSearchQuery] = useState<string>(() =>
+    searchParams.get('tab') === 'products' ? (searchParams.get('search') || '') : ''
+  )
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
 
   const handleNavigateToProductInventory = (productName?: string) => {
@@ -177,6 +184,7 @@ export default function FarmerPortal({
       (prev) => {
         const next = new URLSearchParams(prev)
         next.set('tab', tabId)
+        next.delete('search')
         return next
       },
       { replace: true },
