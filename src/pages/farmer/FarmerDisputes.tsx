@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { useShopDisputes, useShopRespondDispute } from '@/features/order'
 import { ShopPageHeader } from '@/features/shop'
+import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
+import { getOrderById } from '@/services/order.service'
 import type { ReturnRequestResponse, ReturnStatus } from '@/services/return.types'
 import { globalShowAlert } from '@/components/common/Popup'
 
@@ -102,7 +104,49 @@ export default function FarmerDisputes() {
   const [activeMediaUrl, setActiveMediaUrl] = useState<string | null>(null)
 
   const { data: disputes = [], isLoading, refetch } = useShopDisputes()
+  const { data: shopOrdersData } = useShopOrders({ page: 0, size: 50 })
   const respondMutation = useShopRespondDispute()
+  const [fetchedOrderShipFee, setFetchedOrderShipFee] = useState<number | null>(null)
+
+  const cachedOrderShipFee = React.useMemo(() => {
+    if (!selectedDispute?.orderId) return null
+    const matched = (shopOrdersData?.content ?? []).find(
+      (o) => Number(o.orderId ?? o.id) === Number(selectedDispute.orderId)
+    )
+    const fee = Number(matched?.shippingFee ?? 0)
+    return fee > 0 ? fee : null
+  }, [selectedDispute?.orderId, shopOrdersData?.content])
+
+  useEffect(() => {
+    setFetchedOrderShipFee(null)
+    if (!selectedDispute?.orderId) return
+    if (Number(selectedDispute.returnShippingFee ?? 0) > 0 || cachedOrderShipFee !== null) return
+
+    let cancelled = false
+    getOrderById(Number(selectedDispute.orderId))
+      .then((ord) => {
+        const fee = Number(ord?.shippingFee ?? 0)
+        if (!cancelled && fee > 0) {
+          setFetchedOrderShipFee(fee)
+        }
+      })
+      .catch(() => {
+        // Giữ fallback mặc định nếu không lấy được chi tiết đơn
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDispute?.id, selectedDispute?.orderId, selectedDispute?.returnShippingFee, cachedOrderShipFee])
+
+  const resolvedReturnShippingFee =
+    (Number(selectedDispute?.returnShippingFee ?? 0) > 0
+      ? Number(selectedDispute?.returnShippingFee)
+      : null) ??
+    cachedOrderShipFee ??
+    fetchedOrderShipFee ??
+    20000
+
+  const formattedReturnShippingFee = `${resolvedReturnShippingFee.toLocaleString('vi-VN')}\u00A0đ`
 
   // Tự động mở modal chi tiết khiếu nại nếu có param search khớp đơn / ID khiếu nại
   useEffect(() => {
@@ -159,6 +203,7 @@ export default function FarmerDisputes() {
         shopResponse: shopResponseText.trim() || (accept ? 'Shop đã đồng ý yêu cầu.' : 'Shop từ chối yêu cầu hoàn trả.'),
         isReturnGoods,
         shippingPaymentMethod: isReturnGoods ? shippingPaymentMethod : undefined,
+        returnShippingFee: isReturnGoods ? resolvedReturnShippingFee : 0,
       })
 
       globalShowAlert(
@@ -645,7 +690,8 @@ export default function FarmerDisputes() {
                         <span className="text-xs font-bold text-stone-900">Thu hồi hàng về vườn</span>
                       </div>
                       <p className="text-[11px] text-stone-500 mt-1 pl-5 leading-relaxed">
-                        Shipper đến lấy hàng mang về cho Shop (Shop chịu phí vận chuyển hoàn ~20.000 đ).
+                        Shipper đến lấy hàng mang về cho Shop (Shop chịu phí vận chuyển hoàn{' '}
+                        <strong className="text-stone-700">{formattedReturnShippingFee}</strong>).
                       </p>
                     </div>
                   </div>
@@ -655,7 +701,7 @@ export default function FarmerDisputes() {
                     <div className="pt-2.5 border-t border-[#dce7d4] space-y-2 animate-fadeIn">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold text-emerald-950">
-                          Hình thức thanh toán cước hoàn (~20.000 đ):
+                          Hình thức thanh toán cước hoàn ({formattedReturnShippingFee}):
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">

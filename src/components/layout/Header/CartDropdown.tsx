@@ -166,7 +166,7 @@ export const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose }) =
         ) : (
           <>
             {visibleItems.map((item) => {
-              const updating = user ? isItemUpdating(item.id) : false
+              const updating = user ? isItemUpdating(Number(item.id)) : false
               return (
                 <div
                   key={item.id}

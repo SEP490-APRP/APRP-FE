@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   Download,
   Search,
@@ -31,7 +32,8 @@ import {
   useConfirmReturnReceived,
 } from '@/features/shop/hooks/useShopOrders'
 import { failReasonLabel } from '@/features/shipper'
-import { getOrderStatusConfig, ShopPageHeader } from '@/features/shop'
+import { ShopPageHeader } from '@/features/shop'
+import { getOrderStatusConfig } from '@/features/shop/utils/orderStatus'
 import { exportService } from '@/services/export.service'
 import { CustomSelect } from '@/components/common/CustomSelect'
 
@@ -71,10 +73,19 @@ const ORDER_TABS: { label: string; statuses: OrderStatus[]; badgeColor: string }
 ]
 
 export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
+  const [searchParams] = useSearchParams()
+  const urlSearch = searchParams.get('search') || ''
   const [activeTabIdx, setActiveTabIdx] = useState(0)
   const [page, setPage] = useState(0)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(urlSearch)
   const [isExporting, setIsExporting] = useState(false)
+
+  useEffect(() => {
+    if (urlSearch) {
+      setSearch(urlSearch)
+      setPage(0)
+    }
+  }, [urlSearch])
 
   // Modal xem chi tiết đơn hàng
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null)
