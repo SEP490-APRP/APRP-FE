@@ -28,7 +28,9 @@ import {
   useConfirmOrder,
   useReadyOrder,
   useCancelOrder,
+  useConfirmReturnReceived,
 } from '@/features/shop/hooks/useShopOrders'
+import { failReasonLabel } from '@/features/shipper'
 import { getOrderStatusConfig, ShopPageHeader } from '@/features/shop'
 import { exportService } from '@/services/export.service'
 import { CustomSelect } from '@/components/common/CustomSelect'
@@ -53,7 +55,7 @@ interface OrdersProps {
 
 /** Danh sách toàn bộ trạng thái hợp lệ của Shop (Loại bỏ hoàn toàn AWAITING_PAYMENT) */
 const SHOP_ALL_STATUSES: OrderStatus[] = [
-  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUND_REQUESTED', 'REFUNDED'
+  'PENDING', 'PAID', 'CONFIRMED', 'READY', 'SHIPPING', 'PICKED_UP', 'RETURNING_TO_SHOP', 'RETURNED_TO_SHOP', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUND_REQUESTED', 'REFUNDED'
 ]
 
 /** Định nghĩa tabs theo tiêu chuẩn sàn TMĐT lớn (Shopee / TikTok Shop Seller Center) */
@@ -64,7 +66,8 @@ const ORDER_TABS: { label: string; statuses: OrderStatus[]; badgeColor: string }
   { label: 'Sẵn sàng giao', statuses: ['READY'], badgeColor: 'bg-purple-100 text-purple-800' },
   { label: 'Đang giao', statuses: ['SHIPPING', 'PICKED_UP'], badgeColor: 'bg-sky-100 text-sky-800' },
   { label: 'Đã giao', statuses: ['DELIVERED', 'COMPLETED'], badgeColor: 'bg-green-100 text-green-800' },
-  { label: 'Đã hủy', statuses: ['CANCELLED', 'FAILED'], badgeColor: 'bg-rose-100 text-rose-800' },
+  { label: 'Hoàn về / Thất bại', statuses: ['RETURNING_TO_SHOP', 'RETURNED_TO_SHOP', 'FAILED'], badgeColor: 'bg-orange-100 text-orange-800' },
+  { label: 'Đã hủy', statuses: ['CANCELLED'], badgeColor: 'bg-rose-100 text-rose-800' },
 ]
 
 export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
@@ -96,9 +99,10 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
   const confirmMutation = useConfirmOrder()
   const readyMutation = useReadyOrder()
   const cancelMutation = useCancelOrder()
+  const confirmReturnMutation = useConfirmReturnReceived()
 
   const isProcessing =
-    confirmMutation.isPending || readyMutation.isPending || cancelMutation.isPending
+    confirmMutation.isPending || readyMutation.isPending || cancelMutation.isPending || confirmReturnMutation.isPending
 
   // Tuyệt đối không hiển thị đơn AWAITING_PAYMENT bên phía Shop
   const orders = (data?.content ?? []).filter((o) => o.status !== 'AWAITING_PAYMENT')
@@ -230,6 +234,18 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
             <RotateCcw size={12} /> Đã hoàn tiền
+          </span>
+        )
+      case 'RETURNING_TO_SHOP':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-orange-50 text-orange-700 border border-orange-200 flex items-center gap-1.5">
+            <Truck size={12} /> Đang hoàn về Shop
+          </span>
+        )
+      case 'RETURNED_TO_SHOP':
+        return (
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1.5">
+            <AlertCircle size={12} /> Chờ Shop xác nhận hoàn
           </span>
         )
       case 'FAILED':
@@ -720,11 +736,72 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                           <button
                             type="button"
                             onClick={() => setTrackingModalOrder(ord)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                            className="px-3 py-1.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
                           >
                             <Navigation size={13} />
-                            <span>🗺️ Xem lộ trình Shipper</span>
+                            <span>Xem lộ trình Shipper</span>
                           </button>
+                        </div>
+                      )}
+
+                      {/* FLOW D3: RETURNING_TO_SHOP (Đang hoàn hàng về Shop) */}
+                      {ord.status === 'RETURNING_TO_SHOP' && (
+                        <div className="py-2 px-3 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-900 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <RotateCcw size={15} className="text-orange-600 shrink-0" />
+                            <span>
+                              <strong>Đơn giao thất bại · Đang hoàn về vườn:</strong> Tài xế đang mang hàng quay lại Shop.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTrackingModalOrder(ord)}
+                            className="px-3 py-1.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                          >
+                            <Navigation size={13} />
+                            <span>Theo dõi tài xế</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* FLOW D4: RETURNED_TO_SHOP (Chờ Shop xác nhận hoàn) */}
+                      {ord.status === 'RETURNED_TO_SHOP' && (
+                        <div className="space-y-2">
+                          <div className="py-2 px-3 rounded-lg bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-center gap-2">
+                            <RotateCcw size={15} className="text-purple-700 shrink-0" />
+                            <span>
+                              <strong>Tài xế đã trả hàng về Shop:</strong> Vui lòng kiểm tra hàng hoàn và xác nhận để hoàn lại tồn kho.
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrder(ord)}
+                              className="px-3 py-1.5 rounded-lg bg-[#f4f7f1] hover:bg-[#eaf0e6] text-[#326318] font-bold text-xs cursor-pointer border border-[#d6dcce] transition-colors"
+                            >
+                              Xem ảnh đối soát
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={async () => {
+                                try {
+                                  await confirmReturnMutation.mutateAsync(orderId)
+                                  onInfo?.(`Đã xác nhận nhận lại hàng đơn #${orderId}. Tồn kho đã được hoàn lại!`)
+                                } catch (err: unknown) {
+                                  onInfo?.(err instanceof Error ? err.message : 'Không thể xác nhận nhận lại hàng.')
+                                }
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white text-xs font-black shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {confirmReturnMutation.isPending ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <CheckCircle2 size={14} />
+                              )}
+                              <span>Xác nhận đã nhận lại hàng (Hoàn kho)</span>
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -888,6 +965,33 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                   {(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                 </strong>
               </div>
+              {(selectedOrder.status === 'RETURNING_TO_SHOP' || selectedOrder.status === 'RETURNED_TO_SHOP') && (
+                <div className="p-3.5 rounded-lg bg-orange-50 border border-orange-200 space-y-2 text-xs">
+                  <p className="font-black text-orange-800">
+                    {selectedOrder.status === 'RETURNING_TO_SHOP'
+                      ? '↩️ Đơn giao thất bại — Tài xế đang mang hàng hoàn về vườn'
+                      : '📦 Tài xế đã trả hàng về vườn — Vui lòng kiểm tra và xác nhận hoàn kho'}
+                  </p>
+                  {selectedOrder.failReason && (
+                    <p className="text-orange-700">
+                      <strong>Lý do:</strong> {failReasonLabel(selectedOrder.failReason)}
+                      {selectedOrder.failNote ? ` · ${selectedOrder.failNote}` : ''}
+                    </p>
+                  )}
+                  {selectedOrder.returnToShopProofUrls && selectedOrder.returnToShopProofUrls.length > 0 && (
+                    <div className="pt-1">
+                      <p className="text-[11px] font-bold text-orange-800 mb-1.5">Ảnh bàn giao hàng hoàn tại vườn:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedOrder.returnToShopProofUrls.map((url, idx) => (
+                          <a key={idx} href={url} target="_blank" rel="noreferrer" className="block size-16 rounded-lg overflow-hidden border border-orange-200">
+                            <img src={url} alt="Ảnh trả hàng" className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <DeliveryProofSection
                 status={selectedOrder.status}
                 shipperName={selectedOrder.shipperName}
@@ -900,22 +1004,53 @@ export default function Orders({ onOpenOrderPrep, onInfo }: OrdersProps) {
                 failProofUrls={selectedOrder.failProofUrls}
               />
               {(selectedOrder.orderId ?? selectedOrder.id) &&
-                !['CANCELLED', 'FAILED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
+                !['CANCELLED', 'AWAITING_PAYMENT'].includes(selectedOrder.status) && (
                   <div className="p-3.5 rounded-lg bg-white border border-[#e8ece3]">
                     <OrderSettlementCard orderId={(selectedOrder.orderId ?? selectedOrder.id) as number} viewer="SHOP" />
                   </div>
                 )}
-              {selectedOrder.status === 'SHIPPING' && (
+              {selectedOrder.status === 'RETURNED_TO_SHOP' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={async () => {
+                      const oid = selectedOrder.orderId ?? selectedOrder.id
+                      if (!oid) return
+                      try {
+                        await confirmReturnMutation.mutateAsync(oid)
+                        onInfo?.(`Đã xác nhận nhận lại hàng đơn #${oid}. Tồn kho đã được hoàn lại!`)
+                        setSelectedOrder(null)
+                      } catch (err: unknown) {
+                        onInfo?.(err instanceof Error ? err.message : 'Không thể xác nhận nhận lại hàng.')
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-[#326318] hover:bg-[#254b12] disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {confirmReturnMutation.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={15} />
+                    )}
+                    <span>Xác nhận đã nhận lại hàng (Hoàn kho)</span>
+                  </button>
+                </div>
+              )}
+              {(selectedOrder.status === 'SHIPPING' || selectedOrder.status === 'RETURNING_TO_SHOP') && (
                 <div className="pt-2">
                   <button
                     type="button"
                     onClick={() => {
                       setTrackingModalOrder(selectedOrder)
                     }}
-                    className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Navigation size={16} />
-                    <span>🗺️ Xem Lộ Trình Shipper (Google Maps)</span>
+                    <span>
+                      {selectedOrder.status === 'RETURNING_TO_SHOP'
+                        ? 'Theo dõi tài xế mang hàng về vườn'
+                        : 'Xem Lộ Trình Shipper (Google Maps)'}
+                    </span>
                   </button>
                 </div>
               )}

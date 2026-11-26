@@ -78,13 +78,26 @@ function parseNotificationAction(nt: NotificationItem) {
     }
   }
 
-  if (text.includes('đơn hàng') || text.includes('chờ xử lý') || text.includes('giao hàng') || text.includes('tài xế')) {
+  if (text.includes('đơn hàng') || text.includes('chờ xử lý') || text.includes('giao hàng') || text.includes('tài xế') || text.includes('trả hàng') || text.includes('hoàn về')) {
     if (orderId) {
+      const isReturnDone = text.includes('đã trả hàng') || text.includes('xác nhận đã nhận lại')
+      const isTrackOrInfo =
+        text.includes('đang hoàn về') ||
+        text.includes('đã lấy hàng') ||
+        text.includes('giao thất bại') ||
+        text.includes('giao không thành công') ||
+        text.includes('đã nhận đơn') ||
+        text.includes('đã giao')
       return {
-        type: 'ORDER',
-        label: `Đóng gói đơn #${orderId}`,
+        type: 'ORDER' as const,
+        label: isReturnDone
+          ? `Kiểm tra & Xác nhận hoàn #${orderId}`
+          : isTrackOrInfo
+            ? `Xem đơn hàng #${orderId}`
+            : `Đóng gói đơn #${orderId}`,
         targetTab: 'orders',
         orderId,
+        openPrep: !isReturnDone && !isTrackOrInfo,
       }
     }
     return {
@@ -159,7 +172,7 @@ export default function Notifications({
 
     if (!action) return
 
-    if (action.type === 'ORDER' && action.orderId && onOpenOrderPrep) {
+    if (action.type === 'ORDER' && action.orderId && action.openPrep && onOpenOrderPrep) {
       onOpenOrderPrep(action.orderId)
     } else if (action.type === 'PRODUCT' && onNavigateToProducts) {
       onNavigateToProducts(action.productName)

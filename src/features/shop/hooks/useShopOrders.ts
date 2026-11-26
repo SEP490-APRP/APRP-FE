@@ -65,3 +65,14 @@ export function useCancelOrder() {
     },
   })
 }
+
+/** Shop xác nhận đã nhận lại hàng hoàn: RETURNED_TO_SHOP → FAILED (cộng tồn kho) */
+export function useConfirmReturnReceived() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (orderId: number) => orderService.confirmReturnReceived(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SHOP_ORDERS_KEY] })
+    },
+  })
+}

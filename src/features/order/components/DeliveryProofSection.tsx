@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, CheckCircle2, XCircle, ZoomIn, ExternalLink, X } from 'lucide-react'
+import { failReasonLabel } from '@/features/shipper'
 import type { OrderStatus } from '@/types/order.types'
 
 interface DeliveryProofSectionProps {
@@ -17,10 +18,12 @@ interface DeliveryProofSectionProps {
 
 const DELIVERED_GROUP: OrderStatus[] = ['DELIVERED', 'COMPLETED', 'REFUND_REQUESTED', 'REFUNDED']
 
-function formatDateTime(value?: string): string | null {
+function formatDateTime(value?: string | number[]): string | null {
   if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
+  const d = Array.isArray(value)
+    ? new Date(value[0], (value[1] ?? 1) - 1, value[2] ?? 1, value[3] ?? 0, value[4] ?? 0, value[5] ?? 0)
+    : new Date(value)
+  if (Number.isNaN(d.getTime())) return Array.isArray(value) ? value.join('/') : value
   return d.toLocaleString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -49,7 +52,9 @@ export function DeliveryProofSection({
   const showDeliveredSection =
     deliveredPhotos.length > 0 || (DELIVERED_GROUP.includes(status) && Boolean(deliveredAt))
   const showFailedSection =
-    failedPhotos.length > 0 || (status === 'FAILED' && Boolean(failReason || failNote || failedAt))
+    failedPhotos.length > 0 ||
+    ((status === 'FAILED' || status === 'RETURNING_TO_SHOP' || status === 'RETURNED_TO_SHOP') &&
+      Boolean(failReason || failNote || failedAt))
 
   if (!showDeliveredSection && !showFailedSection) {
     return null
@@ -132,7 +137,7 @@ export function DeliveryProofSection({
           <div className="space-y-1 text-[11px] text-rose-900">
             {failReason && (
               <p>
-                <strong>Lý do:</strong> {failReason}
+                <strong>Lý do:</strong> {failReasonLabel(failReason)}
               </p>
             )}
             {failCallAttempts != null && (
