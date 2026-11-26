@@ -245,13 +245,29 @@ export default function BlindBoxTool({ initialBox: rawInitialBox, onAddBox, onCl
 
     try {
       setIsUploadingImage(true)
-      const res = await uploadService.uploadImage(file, 'mystery-boxes')
+      setFormError(null)
+      const res = await uploadService.uploadImage(file, 'mystery-boxes', {
+        moderate: true,
+        productName: name.trim() || 'Túi mù',
+        categoryId: 5,
+      })
       if (res.result?.url) {
         setImageUrl(res.result.url)
-        onInfo?.('Tải ảnh đại diện túi mù từ máy thành công!')
+        onInfo?.('Ảnh túi mù đã qua kiểm duyệt AI và tải lên thành công!')
       }
     } catch (err: any) {
-      setFormError(getErrorMessage(err) || 'Không thể tải ảnh lên. Vui lòng thử lại.')
+      const code = err?.response?.data?.code ?? err?.data?.code
+      const msg = getErrorMessage(err) || 'Không thể tải ảnh lên. Vui lòng thử lại.'
+      if (
+        code === 3022 ||
+        msg.toLowerCase().includes('not agricultural') ||
+        msg.toLowerCase().includes('inappropriate') ||
+        msg.toLowerCase().includes('không phải là nông sản')
+      ) {
+        setFormError('AI phát hiện ảnh không phải nông sản hoặc bao bì túi mù phù hợp. Vui lòng chọn ảnh khác!')
+      } else {
+        setFormError(msg)
+      }
     } finally {
       setIsUploadingImage(false)
       if (fileInputRef.current) {

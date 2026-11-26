@@ -10,7 +10,11 @@ export const uploadService = {
    * Tải ảnh binary lên Cloudinary qua endpoint Backend `POST /upload/image`.
    * Backend trả về URL CDN công khai `result.url`.
    */
-  async uploadImage(file: File, folder: string = 'products'): Promise<ApiResponse<UploadResponse>> {
+  async uploadImage(
+    file: File,
+    folder: string = 'products',
+    options?: { moderate?: boolean; productName?: string; categoryId?: number },
+  ): Promise<ApiResponse<UploadResponse>> {
     if (ENV.USE_MOCK) {
       await new Promise((r) => setTimeout(r, 300))
       // Mock trả về object URL local để test preview mượt mà
@@ -21,6 +25,15 @@ export const uploadService = {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('folder', folder)
+    if (options?.moderate) {
+      formData.append('moderate', 'true')
+      if (options.productName) {
+        formData.append('productName', options.productName)
+      }
+      if (options.categoryId !== undefined) {
+        formData.append('categoryId', String(options.categoryId))
+      }
+    }
 
     const response = await axiosInstance.post<ApiResponse<UploadResponse>>('/upload/image', formData, {
       headers: {
