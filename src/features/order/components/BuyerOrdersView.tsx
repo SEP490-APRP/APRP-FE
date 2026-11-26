@@ -43,7 +43,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'SHIPPING', label: 'Đang vận chuyển' },
   { key: 'COMPLETED', label: 'Đã hoàn thành' },
   { key: 'REFUND', label: 'Trả hàng / Hoàn tiền' },
-  { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'CANCELLED', label: 'Đã hủy / Thất bại' },
 ]
 
 type OrderDisplayItem =
@@ -172,7 +172,7 @@ export const BuyerOrdersView: React.FC = () => {
       } else if (currentTab === 'REFUND') {
         statuses = ['REFUND_REQUESTED', 'REFUNDED']
       } else if (currentTab === 'CANCELLED') {
-        statuses = ['CANCELLED', 'FAILED']
+        statuses = ['CANCELLED', 'FAILED', 'RETURNING_TO_SHOP', 'RETURNED_TO_SHOP']
       }
 
       const [res, pre, myReviewsRes] = await Promise.all([

@@ -19,7 +19,7 @@ import {
   ChevronRight,
   Package,
 } from 'lucide-react'
-import { money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 import { getProduceFallback } from '@/pages/product/components/productDetail.utils'
 import {
   isMeaningfulComboName,

@@ -253,8 +253,8 @@ export default function AiFeatures(_props: AiFeaturesProps) {
         price,
         original,
         discount,
-        flaw: p.defectReason || 'Ngoại hình tự nhiên',
-        score: 95,
+        flaw: p.defectReason || '',
+        score: 0,
       }
     })
   }, [apiProducts])

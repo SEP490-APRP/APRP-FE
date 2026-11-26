@@ -4,10 +4,9 @@ import { CheckCircle2, Info, AlertCircle, AlertTriangle } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import Modal from '@/components/ui/Modal'
-import { allProducts, type Cart } from '@/mocks/catalog'
 import { useAddToCart, useMyCart } from '@/features/cart'
 import { useReferralClaim } from '@/features/referral'
-import { cartCount, useAuth, useCartStore, useUiStore, useChatStore } from '@/stores'
+import { cartCount, useAuth, useCartStore, useUiStore, useChatStore, type Cart } from '@/stores'
 import { authService } from '@/services'
 import { PageLoading } from './RootLayout'
 
@@ -112,18 +111,8 @@ export default function StorefrontLayout() {
       return
     }
 
-    const strId = String(id)
-    const product = allProducts.find((p) => String(p.id) === strId)
-    if (!product) {
-      showToast('Sản phẩm này chưa mở bán trực tuyến.')
-      return
-    }
-    if ((cart[strId] ?? 0) >= product.stock) {
-      showToast(`Bạn đã chọn tối đa ${product.stock} ${product.unit} ${product.name}.`)
-      return
-    }
-    changeQuantity(strId, 1)
-    showToast(`Đã thêm ${product.name} vào giỏ`)
+    navigate('/dang-nhap', { state: { from: { pathname } } })
+    showToast('Vui lòng đăng nhập để thêm vào giỏ hàng.')
   }
 
   const handleLogout = async () => {

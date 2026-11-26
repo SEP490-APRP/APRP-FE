@@ -11,12 +11,13 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { X, Loader2, AlertTriangle, Navigation } from 'lucide-react'
+import { X, Loader2, AlertTriangle, Navigation, RotateCcw, CheckCircle2 } from 'lucide-react'
 import type { OrderResponse } from '../../../types/order.types'
 import { OrderStatusBadge } from './OrderStatusBadge'
-import { useConfirmOrder, useReadyOrder, useCancelOrder } from '../hooks/useShopOrders'
+import { useConfirmOrder, useReadyOrder, useCancelOrder, useConfirmReturnReceived } from '../hooks/useShopOrders'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { OrderSettlementCard } from '@/features/wallet'
+import { failReasonLabel } from '@/features/shipper'
 import { DeliveryProofSection } from '@/features/order/components/DeliveryProofSection'
 
 interface OrderDetailModalProps {
@@ -34,9 +35,10 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
   const confirmMutation = useConfirmOrder()
   const readyMutation   = useReadyOrder()
   const cancelMutation  = useCancelOrder()
+  const confirmReturnMutation = useConfirmReturnReceived()
 
   const isProcessing =
-    confirmMutation.isPending || readyMutation.isPending || cancelMutation.isPending
+    confirmMutation.isPending || readyMutation.isPending || cancelMutation.isPending || confirmReturnMutation.isPending
 
   const orderId = order.orderId ?? order.id
   const isPending   = order.status === 'PENDING' || order.status === 'PAID'
@@ -59,6 +61,12 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
     if (orderId == null) return
     await cancelMutation.mutateAsync(orderId)
     setShowCancelConfirm(false)
+    onClose()
+  }
+
+  const handleConfirmReturnReceived = async () => {
+    if (orderId == null) return
+    await confirmReturnMutation.mutateAsync(orderId)
     onClose()
   }
 
@@ -136,9 +144,43 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
           </div>
 
           {/* Chia tiền về ví (dự kiến hoặc đã quyết toán) */}
-          {orderId && order.status !== 'CANCELLED' && order.status !== 'FAILED' && order.status !== 'AWAITING_PAYMENT' && (
+          {orderId &&
+            order.status !== 'CANCELLED' &&
+            order.status !== 'FAILED' &&
+            order.status !== 'RETURNING_TO_SHOP' &&
+            order.status !== 'RETURNED_TO_SHOP' &&
+            order.status !== 'AWAITING_PAYMENT' && (
             <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3">
               <OrderSettlementCard orderId={orderId} viewer="SHOP" />
+            </div>
+          )}
+
+          {/* Banner hoàn hàng về Shop */}
+          {(order.status === 'RETURNING_TO_SHOP' || order.status === 'RETURNED_TO_SHOP') && (
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 space-y-2">
+              <p className="text-sm font-black text-orange-800 flex items-center gap-1.5">
+                <RotateCcw className="size-4" />
+                {order.status === 'RETURNING_TO_SHOP'
+                  ? 'Đơn giao thất bại — Tài xế đang mang hàng hoàn về vườn'
+                  : 'Tài xế đã trả hàng về vườn — Chờ bạn xác nhận'}
+              </p>
+              {order.failReason && (
+                <p className="text-xs text-orange-700">
+                  Lý do: {failReasonLabel(order.failReason)}{order.failNote ? ` · ${order.failNote}` : ''}
+                </p>
+              )}
+              {order.returnToShopProofUrls && order.returnToShopProofUrls.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-[11px] font-bold text-orange-800 mb-1.5">Ảnh bàn giao hàng hoàn tại vườn:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {order.returnToShopProofUrls.map((url, idx) => (
+                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="block size-16 rounded-xl overflow-hidden border border-orange-200">
+                        <img src={url} alt="Ảnh trả hàng" className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -217,8 +259,31 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
             </button>
           )}
 
-          {/* SHIPPING / PICKED_UP / READY → Xem lộ trình Shipper trên Google Maps */}
-          {(order.status === 'SHIPPING' || order.status === 'PICKED_UP' || order.status === 'READY') && (
+          {/* RETURNED_TO_SHOP → Shop xác nhận đã nhận lại hàng để hoàn kho */}
+          {order.status === 'RETURNED_TO_SHOP' && (
+            <button
+              onClick={handleConfirmReturnReceived}
+              disabled={isProcessing}
+              className="w-full py-3 rounded-2xl font-black text-sm
+                bg-emerald-600 text-white hover:bg-emerald-700 transition-all
+                flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-40 cursor-pointer"
+            >
+              {confirmReturnMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="size-4" />
+                  Xác nhận đã nhận lại hàng (Hoàn kho)
+                </>
+              )}
+            </button>
+          )}
+
+          {/* SHIPPING / PICKED_UP / READY / RETURNING_TO_SHOP → Xem lộ trình Shipper trên Google Maps */}
+          {(order.status === 'SHIPPING' ||
+            order.status === 'PICKED_UP' ||
+            order.status === 'READY' ||
+            order.status === 'RETURNING_TO_SHOP') && (
             <button
               onClick={() => setShowTrackingModal(true)}
               className="w-full py-3 rounded-2xl font-black text-sm
@@ -226,7 +291,9 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
                 flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
             >
               <Navigation className="size-4" />
-              Xem lộ trình Shipper (Google Maps)
+              {order.status === 'RETURNING_TO_SHOP'
+                ? 'Theo dõi tài xế mang hàng về vườn'
+                : 'Xem lộ trình Shipper (Google Maps)'}
             </button>
           )}
 
