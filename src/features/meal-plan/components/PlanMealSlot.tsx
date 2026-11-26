@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { globalShowConfirm } from '@/components/common/Popup'
 import {
   Sunrise,
   Sun,
@@ -144,7 +145,11 @@ export default function PlanMealSlot({
 
   const handleRemoveItem = async (itemId: number) => {
     if (isReadOnly || planStatus === 'ARCHIVED') return
-    if (window.confirm('Bạn có chắc muốn xóa món này khỏi bữa ăn?')) {
+    const confirmed = await globalShowConfirm(
+      'Xóa món khỏi bữa ăn',
+      'Bạn có chắc muốn xóa món này khỏi bữa ăn?',
+    )
+    if (confirmed) {
       try {
         await removeItem.mutateAsync({ mealId: meal.id, itemId })
         useUiStore.getState().showToast('Đã xóa món khỏi bữa ăn.')
