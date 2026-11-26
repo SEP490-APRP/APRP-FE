@@ -10,11 +10,12 @@ import {
   MAX_LAST_MILE_KM,
   outsideHubs,
   suggestHubSpots,
+  type FarOption,
   type FarOrder,
   type HubSpot,
   type LatLng,
 } from '@/features/campaign/deliveryPlan'
-import { formatKg } from '@/features/campaign/utils'
+import { formatKg, formatVnd } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
 
 /** Màu theo hub để nhìn ngay đơn nào về hub nào */
@@ -37,6 +38,9 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
     return ''
   }
 }
+
+/** Tiền phát sinh có dấu: +55.000đ, -20.000đ */
+const signed = (n: number) => `${n < 0 ? '-' : '+'}${formatVnd(Math.abs(n))}`
 
 const pinIcon = (color: string, text: string, opts: { big?: boolean; dashed?: boolean; label?: string } = {}) =>
   L.divIcon({
@@ -70,6 +74,7 @@ export default function HubMapPanel({
   hubs,
   hubOfOrder,
   farOrders,
+  farOptions,
   onMove,
   onNotice,
 }: {
@@ -80,6 +85,8 @@ export default function HubMapPanel({
   hubOfOrder: Map<number, number>
   /** Đơn xa mọi hub quá mức shipper giao được: chưa được xếp xe */
   farOrders: FarOrder[]
+  /** Mã đơn xa -> các cách gắn đơn kèm tiền vận chuyển phát sinh */
+  farOptions?: Map<number, FarOption[]>
   /** Admin đổi hub của một đơn */
   onMove: (orderId: number, hubId: number) => void
   onNotice: (n: { ok: boolean; text: string }) => void
@@ -316,40 +323,70 @@ export default function HubMapPanel({
             <AlertTriangle size={18} className="shrink-0 text-amber-600" />
             {farOrders.length} đơn cách mọi hub hơn {MAX_LAST_MILE_KM} km nên chưa được xếp xe
           </p>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {farOrders.map(({ order: o, hub, km }) => (
-              <li key={o.preOrderId} className={`flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs ${focusId === o.preOrderId ? 'ring-2 ring-red-500' : ''}`}>
-                <button type="button" onClick={() => showOrder(o)} aria-pressed={focusId === o.preOrderId} title="Xem vị trí người mua trên bản đồ" className="min-w-0 flex-1 cursor-pointer text-left">
-                  <span className="block truncate">
-                    <MapPin size={12} className="mr-1 inline text-red-600" />
-                    <b className="text-gray-900">{o.recipientName}</b> · {formatKg(o.totalKg)} · cách {hub.name} {Math.round(km)} km
-                  </span>
-                  <span className="block truncate text-gray-500">{o.shippingAddress}</span>
-                </button>
-                {o.shippingLatitude != null && o.shippingLongitude != null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const at: LatLng = [Number(o.shippingLatitude), Number(o.shippingLongitude)]
-                      showOrder(o)
-                      openDraft(at[0], at[1], o.deliveryWard ? `Hub ${o.deliveryWard.replace(/^(Phường|Xã|Thị trấn)\s+/i, '')}` : '')
-                    }}
-                    className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white"
-                  >
-                    Đặt hub
+          <ul className="grid gap-3 lg:grid-cols-2">
+            {farOrders.map(({ order: o, hub, km }) => {
+              const placeHub = () => {
+                showOrder(o)
+                openDraft(Number(o.shippingLatitude), Number(o.shippingLongitude), o.deliveryWard ? `Hub ${o.deliveryWard.replace(/^(Phường|Xã|Thị trấn)\s+/i, '')}` : '')
+              }
+              const hasPoint = o.shippingLatitude != null && o.shippingLongitude != null
+              return (
+                <li key={o.preOrderId} className={`flex flex-col gap-2 rounded-xl bg-white p-3 text-xs ${focusId === o.preOrderId ? 'ring-2 ring-red-500' : ''}`}>
+                  <button type="button" onClick={() => showOrder(o)} aria-pressed={focusId === o.preOrderId} title="Xem vị trí người mua trên bản đồ" className="min-w-0 cursor-pointer text-left">
+                    <span className="block">
+                      <MapPin size={12} className="mr-1 inline text-red-600" />
+                      <b className="text-gray-900">{o.recipientName}</b> · {formatKg(o.totalKg)} · gần nhất: {hub.name}, {Math.round(km)} km
+                    </span>
+                    <span className="block text-gray-500">{o.shippingAddress}</span>
                   </button>
-                )}
-                <select
-                  value=""
-                  onChange={(e) => e.target.value && onMove(o.preOrderId, Number(e.target.value))}
-                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-1.5 py-1 text-[11px]"
-                  aria-label={`Vẫn gán hub cho đơn ${o.code}`}
-                >
-                  <option value="">Vẫn gán…</option>
-                  {hubs.map((h) => <option key={h.hubId} value={h.hubId}>{h.name}</option>)}
-                </select>
-              </li>
-            ))}
+                  <ul aria-label={`Gợi ý cho đơn ${o.code}`} className="flex flex-col gap-1.5">
+                    {(farOptions?.get(o.preOrderId) ?? []).map((x) => (
+                      <li key={x.hub?.hubId ?? 'new'} className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 ${x.best ? 'border-[#326318] bg-[#eef6e7]' : 'border-gray-200'}`}>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-bold text-gray-900">
+                            {x.hub ? `Gộp vào ${x.hub.name}` : 'Đặt hub mới tại đây'}
+                            {x.best && <span className="ml-1.5 rounded-full bg-[#326318] px-2 py-0.5 text-[10px] text-white">Tiết kiệm nhất</span>}
+                          </span>
+                          <span className="block text-gray-600">
+                            {x.hub ? `Đang có ${x.hubOrders} đơn · cách người mua ${Math.round(x.km)} km` : x.served > 1 ? `Giải quyết luôn ${x.served} đơn` : 'Giao ngay quanh hub'}
+                            {' · '}
+                            {x.extraVehicles > 0 ? `thêm ${x.extraVehicles} xe` : 'không thêm xe'}
+                          </span>
+                          <span className="block text-gray-500">
+                            Xe {signed(x.tripDelta)} · shipper {signed(x.lastMileDelta)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-sm font-black tabular-nums text-gray-900">{signed(x.addedCost)}</span>
+                        <button
+                          type="button"
+                          onClick={() => (x.hub ? onMove(o.preOrderId, x.hub.hubId) : placeHub())}
+                          aria-label={x.hub ? `Gán đơn ${o.code} vào ${x.hub.name}` : `Đặt hub cho đơn ${o.code}`}
+                          className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${x.best ? 'bg-[#326318] text-white' : 'border border-gray-300 text-gray-700'}`}
+                        >
+                          {x.hub ? 'Gán' : 'Đặt hub'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {hasPoint && !farOptions && (
+                      <button type="button" onClick={placeHub} className="rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                        Đặt hub
+                      </button>
+                    )}
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value && onMove(o.preOrderId, Number(e.target.value))}
+                      className="rounded-lg border border-gray-200 bg-white px-1.5 py-1 text-[11px]"
+                      aria-label={`Vẫn gán hub cho đơn ${o.code}`}
+                    >
+                      <option value="">Chọn hub khác…</option>
+                      {hubs.map((h) => <option key={h.hubId} value={h.hubId}>{h.name}</option>)}
+                    </select>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}

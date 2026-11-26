@@ -217,3 +217,70 @@ describe('forecast', () => {
     expect(f.profit).toBe(504_000 + 70_000 - f.tripCost - 29_100)
   })
 })
+
+import { compareVehicleSizes, farOrderOptions, vehiclesWithoutDriver } from './deliveryPlan'
+
+describe('farOrderOptions', () => {
+  const cfg = {
+    openKm: 4,
+    tiers: [{ label: 'Xe tải nhỏ', maxKg: 1000, openFee: 250000, perKm: 13000, perKmOver20: 11000 }],
+    lastMile: { under5: 20000, from5to10: 30000, from10to20: 40000, perKmOver20: 4000 },
+    serviceFeeRate: 0,
+    hubServiceFeeRate: 0,
+    farmerFeeRate: 0.3,
+  } as unknown as HubFeeConfig
+  // q1 và td có hàng; đơn 3 ở Long Thành xa mọi hub, gần Thủ Đức hơn
+  const orders = [order(1, 10.777, 106.701, 30), order(2, 10.87, 106.79, 45), order(3, 10.78, 106.96, 60)]
+  const opts = { vehicleKg: 1000, group: () => [] }
+  const current = composeFleet(orders, [q1, td], site, [], opts)
+  const options = farOrderOptions(current.farOrders[0], current, { orders, hubs: [q1, td], site, trips: [], opts, cfg })
+
+  it('gợi ý hub đang có hàng rẻ nhất trước, không phải thêm xe', () => {
+    expect(current.farOrders.map((f) => f.order.preOrderId)).toEqual([3])
+    expect(options.map((o) => o.hub?.hubId ?? 'new')).toEqual([2, 1, 'new'])
+    expect([options[0].extraVehicles, options[0].tripDelta, options[0].best]).toEqual([0, 0, true])
+    expect(options[0].addedCost).toBe(options[0].lastMileDelta)
+  })
+
+  it('đặt hub mới thì tính thêm tiền xe tới hub đó', () => {
+    const spot = options[2]
+    expect([spot.extraVehicles, spot.served, spot.best]).toEqual([1, 1, false])
+    expect(spot.tripDelta).toBeGreaterThan(spot.lastMileDelta)
+    expect(spot.addedCost).toBeGreaterThan(options[0].addedCost)
+  })
+})
+
+describe('compareVehicleSizes', () => {
+  const cfg = {
+    openKm: 4,
+    tiers: [
+      { label: 'Xe tải nhỏ', maxKg: 1000, openFee: 250000, perKm: 13000, perKmOver20: 11000 },
+      { label: 'Xe tải lớn', maxKg: 5000, openFee: 500000, perKm: 20000, perKmOver20: 17000 },
+    ],
+    lastMile: { under5: 20000, from5to10: 30000, from10to20: 40000, perKmOver20: 4000 },
+    serviceFeeRate: 0,
+    hubServiceFeeRate: 0,
+    farmerFeeRate: 0.3,
+  } as unknown as HubFeeConfig
+  // 1.800 kg về một hub: xe 1 tấn cần 2 chuyến, xe 5 tấn 1 chuyến
+  const orders = [order(1, 10.777, 106.701, 900), order(2, 10.778, 106.702, 900)]
+  const compare = (driverCaps: number[]) => compareVehicleSizes([1000, 5000], { orders, hubs: [q1], site, trips: [], cfg, driverCaps })
+
+  it('đủ tài xế cho cả hai cỡ thì chọn cỡ còn lại nhiều tiền hơn', () => {
+    const [small, big] = compare([1000, 1000, 5000])
+    expect([small.vehicles, big.vehicles]).toEqual([2, 1])
+    expect(big.profit).toBeGreaterThan(small.profit)
+    expect([small.best, big.best]).toEqual([false, true])
+  })
+
+  it('cỡ rẻ hơn mà không có tài xế chở nổi thì không được chọn', () => {
+    const [small, big] = compare([1000, 1000])
+    expect([small.noDriver, big.noDriver]).toEqual([0, 1])
+    expect(small.best).toBe(true)
+  })
+
+  it('mỗi tài xế chỉ nhận một xe', () => {
+    expect(vehiclesWithoutDriver([900, 900, 2000], [5000, 1000])).toBe(1)
+    expect(vehiclesWithoutDriver([900, 2000], [1000, 2000])).toBe(0)
+  })
+})

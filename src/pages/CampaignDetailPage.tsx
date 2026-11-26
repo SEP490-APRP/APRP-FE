@@ -26,11 +26,12 @@ import {
 import bannerImg from '@/assets/farmer-forum-banner.jpg'
 import { useCampaign } from '@/features/campaign/hooks/useCampaignQueries'
 import { splitCrates } from '@/features/campaign/crates'
+import { wardOf } from '@/features/campaign/ward'
 import { formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
 import { adminCampaignService, campaignService, type CampaignResponse } from '@/services'
 import logoIcon from '@/assets/logo-icon.png'
 import { useMyWallet } from '@/features/wallet/hooks/useWalletQueries'
-import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
+import { PlaceSearch, type PlaceValue } from '@/components/common/AddressPicker'
 import comboImg from '@/assets/combo-green.jpg'
 import farmerImg from '@/assets/hero-farmer.jpg'
 import { RegisterDialog } from '@/pages/farmer/Campaigns'
@@ -759,9 +760,10 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   const [method, setMethod] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY')
   const [name, setName] = useState(user?.fullName || user?.name || '')
   const [phone, setPhone] = useState(user?.phoneNumber || user?.phone || '')
-  const [addr, setAddr] = useState<AddressValue>(EMPTY_ADDRESS)
+  // Một ô địa chỉ có gợi ý, chọn xong là ghim trên bản đồ
+  const [addr, setAddr] = useState<PlaceValue>({ name: '', address: '' })
   const [addrError, setAddrError] = useState<string | null>(null)
-  const address = composeAddress(addr)
+  const address = addr.address.trim()
   const [note, setNote] = useState('')
 
   const typedKg = Number(kgText || 0)
@@ -777,7 +779,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
 
   // Báo giá phí giao từ server (khoảng cách thật tới điểm tập kết + tổng kg)
   // Có ghim toạ độ thì dùng; bản đồ không tải được thì gửi địa chỉ đầy đủ để server tự tìm toạ độ
-  const addressComplete = !!addr.provinceName && !!addr.wardName && !!addr.detail.trim()
+  const addressComplete = address.length >= 10
   const quoteReady = method === 'PICKUP' || (addr.lat != null && addr.lng != null) || addressComplete
   const quoteAddress = useDebounced(address, 600)
   const quote = useQuery({
@@ -817,7 +819,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         note: note.trim() || undefined,
         useWallet: payWithWallet && walletBalance > 0,
         fulfillmentMethod: method,
-        deliveryWard: method === 'PICKUP' ? undefined : addr.wardName || undefined,
+        deliveryWard: method === 'PICKUP' ? undefined : wardOf(address),
       }),
     onSuccess: (res) => {
       if (res.checkoutUrl) window.location.href = res.checkoutUrl
@@ -829,8 +831,9 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   // Bước 1 chỉ kiểm tra form rồi mở bước xác nhận; tạo đơn và sang PayOS ở bước 2
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (method === 'DELIVERY' && (!addr.wardCode || !addr.detail.trim())) {
-      setAddrError('Chọn Tỉnh/Thành phố, Phường/Xã và nhập địa chỉ cụ thể để giao hàng.')
+    // Bản đồ tải được thì phải ghim vị trí: phí giao và hub nhận hàng tính từ đó
+    if (method === 'DELIVERY' && (!address || (addr.lat == null && 'google' in window))) {
+      setAddrError(address ? 'Chọn một gợi ý hoặc chạm bản đồ để ghim vị trí giao hàng.' : 'Nhập địa chỉ giao hàng.')
       return
     }
     setAddrError(null)
@@ -953,8 +956,8 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
                 </div>
               ) : (
                 <>
-                  <AddressPicker value={addr} onChange={setAddr} required />
-                  {user?.address && !addr.provinceCode && (
+                  <PlaceSearch id="po-address" label="Địa chỉ giao hàng" value={addr} onChange={setAddr} placeholder="Nhập số nhà, tên đường, vd: 45 Lê Lợi, Quận 1" />
+                  {user?.address && !addr.address && (
                     <p className="text-xs text-[#6b7363]">Địa chỉ trong hồ sơ: {user.address}</p>
                   )}
                 </>

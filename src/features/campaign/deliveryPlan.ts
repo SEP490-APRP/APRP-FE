@@ -607,3 +607,123 @@ export function forecast(orders: PreOrderResponse[], plan: DeliveryPlan, cfg: Hu
     profit: commission + shipCollected - tripCost - lastMileCost,
   }
 }
+
+/* ───────────── Đơn xa mọi hub: gợi ý cách gắn ít tốn tiền vận chuyển nhất ───────────── */
+
+export interface FarOption {
+  /** Hub đang có hàng để gộp đơn vào; null = đặt hub mới ngay tại nhà người mua */
+  hub: DeliveryHub | null
+  /** Quãng đường hub -> người mua (km) */
+  km: number
+  /** Số đơn hub đang phục vụ trong kế hoạch */
+  hubOrders: number
+  /** Tiền vận chuyển sàn trả thêm so với kế hoạch hiện tại = tiền xe + tiền shipper */
+  addedCost: number
+  tripDelta: number
+  lastMileDelta: number
+  extraVehicles: number
+  /** Số đơn đang chờ chia hub được giải quyết luôn bằng cách này */
+  served: number
+  /** Rẻ nhất tính trên mỗi đơn được giải quyết */
+  best: boolean
+}
+
+/** Số hub có hàng gần người mua nhất được đem ra so */
+const FAR_CANDIDATES = 6
+
+/**
+ * Thử gộp đơn xa vào từng hub đang có hàng (không phải mở thêm điểm dừng) và thử đặt hub mới tại chỗ,
+ * dùng đúng cách xếp xe và dự toán của kế hoạch. Trả về tối đa 2 hub rẻ nhất, kèm phương án hub mới.
+ */
+export function farOrderOptions(
+  far: FarOrder,
+  current: Fleet,
+  input: { orders: PreOrderResponse[]; hubs: DeliveryHub[]; site: LatLng | null; trips: HubTrip[]; opts: Parameters<typeof composeFleet>[4]; cfg: HubFeeConfig },
+): FarOption[] {
+  const { orders, hubs, site, trips, opts, cfg } = input
+  const at = coordOf(far.order)
+  if (!at) return []
+  const base = forecast(orders, current, cfg)
+  const kmTo = (h: DeliveryHub) => haversineKm(hubPoint(h), at) * ROAD_FACTOR
+  const evaluate = (hub: DeliveryHub | null, hubOrders: number, hubList: DeliveryHub[], overrides: Record<number, number>): FarOption => {
+    const fleet = composeFleet(orders, hubList, site, trips, { ...opts, overrides })
+    const f = forecast(orders, fleet, cfg)
+    const tripDelta = f.tripCost - base.tripCost
+    const lastMileDelta = f.lastMileCost - base.lastMileCost
+    return {
+      hub,
+      km: hub ? kmTo(hub) : 0,
+      hubOrders,
+      addedCost: tripDelta + lastMileDelta,
+      tripDelta,
+      lastMileDelta,
+      extraVehicles: fleet.vehicles.length - current.vehicles.length,
+      served: Math.max(1, current.farOrders.length - fleet.farOrders.length),
+      best: false,
+    }
+  }
+  // Chưa hub nào có hàng thì so hub gần nhất
+  const loaded = current.hubLoads.length ? current.hubLoads.map((l) => ({ hub: l.hub, n: l.orders.length })) : [{ hub: far.hub, n: 0 }]
+  const existing = loaded
+    .sort((a, b) => kmTo(a.hub) - kmTo(b.hub))
+    .slice(0, FAR_CANDIDATES)
+    .map(({ hub, n }) => evaluate(hub, n, hubs, { ...opts.overrides, [far.order.preOrderId]: hub.hubId }))
+    .sort((a, b) => a.addedCost - b.addedCost || a.km - b.km)
+    .slice(0, 2)
+  const spot = { hubId: -far.order.preOrderId, name: 'Hub mới', address: far.order.shippingAddress ?? '', latitude: at[0], longitude: at[1], active: true } as DeliveryHub
+  const list = [...existing, evaluate(null, 0, [...hubs, spot], opts.overrides ?? {})]
+  const perOrder = (o: FarOption) => o.addedCost / o.served
+  const cheapest = list.reduce((a, b) => (perOrder(b) < perOrder(a) ? b : a))
+  return list.map((o) => ({ ...o, best: o === cheapest }))
+}
+
+/* ───────────── So các cỡ xe để gợi ý cỡ tối ưu ───────────── */
+
+export interface SizeOption {
+  kg: number
+  vehicles: number
+  tripCost: number
+  /** Sàn còn lại theo dự toán nếu chọn cỡ này */
+  profit: number
+  /** Số xe chưa có đủ tài xế (mỗi xe một tài xế riêng, đủ tải) */
+  noDriver: number
+  /** Đủ tài xế nhất, rồi sàn còn lại nhiều nhất, rồi ít xe, rồi xe nhỏ */
+  best: boolean
+}
+
+/** Số xe không ghép được tài xế: xe nặng chọn trước, lấy tài xế có tải nhỏ nhất vẫn chở được */
+export function vehiclesWithoutDriver(vehicleKgs: number[], driverCaps: number[]) {
+  const free = [...driverCaps].sort((a, b) => a - b)
+  let missing = 0
+  for (const kg of [...vehicleKgs].sort((a, b) => b - a)) {
+    const i = free.findIndex((cap) => cap >= kg)
+    if (i < 0) missing++
+    else free.splice(i, 1)
+  }
+  return missing
+}
+
+export function compareVehicleSizes(
+  sizes: number[],
+  input: {
+    orders: PreOrderResponse[]
+    hubs: DeliveryHub[]
+    site: LatLng | null
+    trips: HubTrip[]
+    cfg: HubFeeConfig
+    overrides?: Record<number, number>
+    replan?: boolean
+    /** Sức chở của từng tài xế đang gọi được (đúng bán kính, chưa nhận xe nào) */
+    driverCaps: number[]
+  },
+): SizeOption[] {
+  const { orders, hubs, site, trips, cfg, overrides, replan, driverCaps } = input
+  const list = sizes.map((kg) => {
+    const fleet = composeFleet(orders, hubs, site, trips, { vehicleKg: kg, replan, overrides, group: (loads) => suggestGroups(loads, site, cfg, kg) })
+    const f = forecast(orders, fleet, cfg)
+    const open = fleet.vehicles.filter((v) => v.trip?.driverId == null)
+    return { kg, vehicles: fleet.vehicles.length, tripCost: f.tripCost, profit: f.profit, noDriver: vehiclesWithoutDriver(open.map((v) => v.totalKg), driverCaps), best: false }
+  })
+  const top = [...list].sort((a, b) => a.noDriver - b.noDriver || b.profit - a.profit || a.vehicles - b.vehicles || a.kg - b.kg)[0]
+  return list.map((o) => ({ ...o, best: o === top && o.vehicles > 0 }))
+}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Camera, CheckCircle2, Clock, Loader2, MapPin, Navigation, Package, Phone, Truck, XCircle } from 'lucide-react'
 import { shipperPreOrderService, uploadService, type PreOrderResponse, type PriorityLevel } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { hubConfirmText } from '@/features/campaign/utils'
 import { routeOrder, type Point } from '@/features/campaign/hubRun'
 import HubRunPicker from './HubRunPicker'
 import HubPickupDialog from './HubPickupDialog'
@@ -202,6 +203,7 @@ function OrderCard({ o, action }: { o: PreOrderResponse; action: React.ReactNode
             {o.hubAddress ? ` · ${o.hubAddress}` : ''}
             {o.hubOpenHours ? ` · ${o.hubOpenHours}` : ''}
             {o.hubPhone ? ` · ${o.hubPhone}` : ''}
+            {o.status === 'READY' && hubConfirmText(o) && <b className="block text-[#326318]">{hubConfirmText(o)}</b>}
           </span>
           {o.hubLatitude != null && (
             <a

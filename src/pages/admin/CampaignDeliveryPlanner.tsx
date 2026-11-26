@@ -12,6 +12,7 @@ import {
   type PreOrderResponse,
 } from '@/services'
 import {
+  compareVehicleSizes,
   composeFleet,
   DEFAULT_PLAN_PARAMS,
   forecast,
@@ -19,7 +20,9 @@ import {
   netOf,
   plannable,
   shortfallOrders,
+  farOrderOptions,
   suggestGroups,
+  type HubLoad,
   tripChanges,
   truckTier,
   type FleetVehicle,
@@ -30,6 +33,7 @@ import { getErrorMessage } from '@/utils'
 import AfterWeighPanel from './AfterWeighPanel'
 import DeliveryForecast from './CampaignDeliveryForecast'
 import HubMapPanel from './HubMapPanel'
+import TruckFeeTable from './TruckFeeTable'
 import { globalShowConfirm } from '@/components/common/Popup'
 
 const isoDay = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
@@ -126,6 +130,19 @@ export default function CampaignDeliveryPlanner({
     [allOrders, hubs, site, trips, vehicleKg, resizing, overrides, cfg],
   )
   const view = pickedView ?? (hubs.length === 0 ? 'map' : 'plan')
+  // So các cách gắn đơn xa chỉ khi đang xem bản đồ (phải xếp xe thử cho từng cách)
+  const farOptions = useMemo(() => {
+    if (!cfg || view !== 'map') return undefined
+    const input = {
+      orders: allOrders,
+      hubs,
+      site,
+      trips,
+      cfg,
+      opts: { vehicleKg, replan: resizing, overrides, group: (loads: HubLoad[]) => suggestGroups(loads, site, cfg, vehicleKg) },
+    }
+    return new Map(plan.farOrders.map((f) => [f.order.preOrderId, farOrderOptions(f, plan, input)]))
+  }, [plan, view, allOrders, hubs, site, trips, vehicleKg, resizing, overrides, cfg])
   const mapOrders = useMemo(() => allOrders.filter(plannable), [allOrders])
   const hubOfOrder = useMemo(
     () => new Map<number, number>(plan.hubLoads.flatMap((l) => l.orders.map((o) => [o.preOrderId, l.hub.hubId] as [number, number]))),
@@ -228,6 +245,26 @@ export default function CampaignDeliveryPlanner({
       .map((d) => ({ d, km: kmFrom(site, d) }))
       .filter((x) => radius == null || !site || (x.km != null && x.km <= radius))
       .sort((a, b) => Number(b.d.online) - Number(a.d.online) || (a.km ?? 999) - (b.km ?? 999))
+
+  /** Mỗi cỡ xe: cần mấy xe, tốn bao nhiêu, còn lại bao nhiêu và có đủ tài xế không */
+  const sizeOptions =
+    cfg && sizeEditable && !boardQ.isPending
+      ? compareVehicleSizes(
+          VEHICLE_PRESETS.map((p) => p.kg),
+          {
+            orders: allOrders,
+            hubs,
+            site,
+            trips,
+            cfg,
+            overrides,
+            replan: called,
+            driverCaps: driversFor(0)
+              .filter(({ d }) => !busy.has(d.id))
+              .map(({ d }) => d.vehicleCapacityKg ?? vehicleCapacity(d.vehicleType)),
+          },
+        )
+      : null
 
   const declinedBy = (v: FleetVehicle, driverId: number) => !!v.trip?.declinedDriverIds?.includes(driverId)
 
@@ -568,20 +605,7 @@ export default function CampaignDeliveryPlanner({
       <>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-black text-gray-900">{called && !resizing ? (declinedTrips.length ? 'Chọn lại cỡ xe' : 'Cỡ xe đã chốt') : 'Cỡ xe'}</span>
-        <div className="inline-flex rounded-xl bg-white p-1 ring-1 ring-gray-200">
-          {VEHICLE_PRESETS.map((p) => (
-            <button
-              key={p.kg}
-              type="button"
-              disabled={!sizeEditable}
-              aria-pressed={vehicleKg === p.kg}
-              onClick={() => setCapacity(p.kg)}
-              className={`rounded-lg px-3 py-1 text-xs font-bold disabled:cursor-not-allowed ${vehicleKg === p.kg ? 'bg-[#326318] text-white' : 'text-gray-600 hover:text-gray-900 disabled:opacity-40'}`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <span className="ml-1 text-xs text-gray-500">Sức chở mỗi xe (kg)</span>
         <input
           type="number"
           min={1}
@@ -600,6 +624,39 @@ export default function CampaignDeliveryPlanner({
           <span className="inline-flex items-center gap-1 text-xs text-gray-500"><Lock size={13} /> Chỉ đổi được khi có xe bị từ chối</span>
         )}
       </div>
+      <div role="group" aria-label="Chọn cỡ xe" className="grid gap-2 sm:grid-cols-3">
+        {VEHICLE_PRESETS.map((p) => {
+          const x = sizeOptions?.find((s) => s.kg === p.kg)
+          const on = vehicleKg === p.kg
+          return (
+            <button
+              key={p.kg}
+              type="button"
+              disabled={!sizeEditable}
+              aria-pressed={on}
+              onClick={() => setCapacity(p.kg)}
+              className={`flex flex-col gap-1 rounded-2xl border-2 bg-white px-3 py-2.5 text-left text-xs disabled:cursor-not-allowed ${on ? 'border-[#326318] bg-[#eef6e7]' : 'border-gray-200 enabled:hover:border-[#326318] disabled:opacity-50'}`}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-sm font-black text-gray-900">{p.label}</span>
+                {x?.best && <span className="rounded-full bg-[#326318] px-2 py-0.5 text-[10px] font-bold text-white">Tối ưu nhất</span>}
+              </span>
+              {x && (
+                <>
+                  <span className="text-gray-600">{x.vehicles} xe · tiền xe {formatVnd(x.tripCost)}</span>
+                  <span className="text-gray-600">Sàn còn lại <b className={x.profit < 0 ? 'text-red-700' : 'text-[#326318]'}>{formatVnd(x.profit)}</b></span>
+                  <span className={`font-bold ${x.noDriver ? 'text-red-600' : 'text-gray-500'}`}>{x.noDriver ? `Thiếu tài xế cho ${x.noDriver} xe` : 'Đủ tài xế'}</span>
+                </>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {sizeOptions && (
+        <p className="-mt-1 text-xs text-gray-500">
+          Tối ưu nhất = đủ tài xế {radius == null ? '(mọi khoảng cách)' : `trong ${radius} km`} và sàn còn lại nhiều nhất.
+        </p>
+      )}
 
       {/* Tài xế nhận hàng ở điểm tập kết nên tìm quanh điểm tập kết */}
       <div className="flex flex-wrap items-center gap-2">
@@ -639,6 +696,7 @@ export default function CampaignDeliveryPlanner({
 
       {/* Các xe và hub từng xe chở tới */}
       <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map(vehicleCard)}</div>
+      {cfg && <TruckFeeTable cfg={cfg} vehicles={vehicles} />}
 
       {/* Thanh thao tác */}
       <div className={`flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 ${mode === 'full' ? 'sticky bottom-0 -mx-1 shadow-lg' : ''}`}>
@@ -798,7 +856,7 @@ export default function CampaignDeliveryPlanner({
       </div>
 
       {view === 'map' ? (
-        <HubMapPanel c={c} orders={mapOrders} hubs={hubs} hubOfOrder={hubOfOrder} farOrders={plan.farOrders} onMove={moveOrder} onNotice={onNotice} />
+        <HubMapPanel c={c} orders={mapOrders} hubs={hubs} hubOfOrder={hubOfOrder} farOrders={plan.farOrders} farOptions={farOptions} onMove={moveOrder} onNotice={onNotice} />
       ) : (
         planView
       )}

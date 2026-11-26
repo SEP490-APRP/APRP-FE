@@ -5,10 +5,13 @@ import { ChevronRight, Clock, Loader2, Navigation, Pencil, Phone, Plus, Power, W
 import { AddressPicker, composeAddress, EMPTY_ADDRESS, parseAddress, type AddressValue } from '@/components/common/AddressPicker'
 import { adminHubService, type DeliveryHub } from '@/services'
 import { getErrorMessage } from '@/utils'
+import Pagination from '@/components/ui/Pagination'
 import HubGoodsDialog from './HubGoodsDialog'
 import { useHubArrivalBadge } from '@/features/campaign/hooks/useHubArrivalBadge'
 
 const KEY = ['admin-hubs'] as const
+/** Số hub mỗi trang */
+const PAGE_SIZE = 10
 
 /**
  * Điểm trung chuyển (hub): xe CapNong chở thùng đã đóng gói từ điểm tập kết tới hub gần khu dân cư,
@@ -46,7 +49,15 @@ export default function AdminHubs() {
   const all = hubs.data ?? []
   const active = all.filter((h) => h.active)
   const [filter, setFilter] = useState<'all' | 'active' | 'off'>('all')
-  const list = filter === 'all' ? all : all.filter((h) => h.active === (filter === 'active'))
+  const [page, setPage] = useState(0)
+  // Hub có hàng mới chờ xác nhận lên đầu, để số đỏ không bị khuất ở trang sau
+  const list = (filter === 'all' ? all : all.filter((h) => h.active === (filter === 'active')))
+    .slice()
+    .sort((a, b) => Number(!!b.unconfirmedOrders) - Number(!!a.unconfirmedOrders))
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
+  const current = Math.min(page, totalPages - 1)
+  const rows = list.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE)
+  const pageInfo = { page: current, size: PAGE_SIZE, totalElements: list.length, totalPages, first: current === 0, last: current === totalPages - 1 }
   const filters = [
     { id: 'all', label: `Tất cả (${all.length})` },
     { id: 'active', label: `Đang hoạt động (${active.length})` },
@@ -91,7 +102,10 @@ export default function AdminHubs() {
             type="button"
             role="tab"
             aria-selected={filter === f.id}
-            onClick={() => setFilter(f.id)}
+            onClick={() => {
+              setFilter(f.id)
+              setPage(0)
+            }}
             className={`rounded-full border px-3.5 py-1.5 text-xs font-bold ${filter === f.id ? 'border-[#326318] bg-[#326318] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#9ed67d]'}`}
           >
             {f.label}
@@ -120,7 +134,7 @@ export default function AdminHubs() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {list.map((h) => (
+              {rows.map((h) => (
                 /* Bấm vào đâu trên hàng cũng mở hàng của hub, trừ cột nút thao tác */
                 <tr key={h.hubId} onClick={() => setViewing(h)} className="cursor-pointer hover:bg-[#f7faf4]">
                   <td className="max-w-[420px] px-4 py-3">
@@ -182,6 +196,7 @@ export default function AdminHubs() {
           </table>
         </div>
       )}
+      {!hubs.isPending && !hubs.isError && <Pagination pageInfo={pageInfo} onPageChange={setPage} />}
 
       {viewing && <HubGoodsDialog hub={viewing} onClose={() => setViewing(null)} />}
 

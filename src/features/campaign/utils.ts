@@ -47,3 +47,9 @@ export const readyLabel = (hubStage?: string | null, atHub = 'Tại hub') =>
 /** Như readyLabel, thêm trường hợp xe đã tới mà hub chưa xác nhận (màn quản trị) */
 export const adminReadyLabel = (o: { hubStage?: string | null; hubReceivedAt?: string | null }) =>
   o.hubStage === 'AT_HUB' && !o.hubReceivedAt ? 'Chờ hub xác nhận' : readyLabel(o.hubStage)
+
+/** Dòng ghi hub đã xác nhận đơn lúc nào, ai xác nhận (shipper chỉ thấy đơn đã xác nhận) */
+export const hubConfirmText = (o: { hubReceivedAt?: string | null; hubReceivedBy?: string | null }) =>
+  o.hubReceivedAt
+    ? `Hub đã xác nhận ${new Date(o.hubReceivedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}${o.hubReceivedBy ? ` · ${o.hubReceivedBy}` : ''}`
+    : null

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import Pagination from '@/components/ui/Pagination'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -65,6 +66,7 @@ import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextCont
 const RichTextEditor = lazy(() => import('@/components/common/RichTextEditor/RichTextEditor'))
 import { getErrorMessage } from '@/utils'
 import { globalShowConfirm } from '@/components/common/Popup'
+import SpotlightTip from '@/components/common/SpotlightTip'
 
 /**
  * Admin vận hành chiến dịch giải cứu (WF-01): duyệt nhà vườn, cân nhận hàng tại điểm tập kết,
@@ -99,13 +101,18 @@ const PRE_ORDER_STATUS: Record<PreOrderResponse['status'], string> = {
 }
 const kg = (v?: number | null) => (v == null ? '—' : formatKg(v))
 const keys = {
-  list: (s: string) => ['admin-campaigns', s] as const,
+  list: (s: string, page: number) => ['admin-campaigns', s, page] as const,
   one: (id: number) => ['admin-campaign', id] as const,
   regs: (id: number) => ['admin-campaign-regs', id] as const,
   orders: (id: number) => ['admin-campaign-orders', id] as const,
 }
 
+/** Số chiến dịch mỗi trang */
+const PAGE_SIZE = 10
+
 export default function AdminCampaigns() {
+  // Giữ bộ lọc và trang ở đây để vào chi tiết rồi quay lại vẫn đúng chỗ
+  const [listAt, setListAt] = useState({ filter: '', page: 0 })
   const [selected, setSelected] = useState<number | null>(null)
   // Vừa tạo xong chiến dịch: trang chi tiết mở kèm khung "bước tiếp theo" mời / thêm shop
   const [justCreated, setJustCreated] = useState<number | null>(null)
@@ -134,7 +141,7 @@ export default function AdminCampaigns() {
         ))}
       </div>
       {view === 'campaigns' ? (
-        <CampaignList onOpen={setSelected} onCreate={() => setCreating(true)} />
+        <CampaignList at={listAt} onAt={setListAt} onOpen={setSelected} onCreate={() => setCreating(true)} />
       ) : (
         <AdminCampaignProposals onApprove={setApproving} onOpenCampaign={setSelected} />
       )}
@@ -152,12 +159,23 @@ export default function AdminCampaigns() {
 
 /* ─────────────────────────── Danh sách ─────────────────────────── */
 
-function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate: () => void }) {
-  const [filter, setFilter] = useState('')
+function CampaignList({ at, onAt, onOpen, onCreate }: {
+  at: { filter: string; page: number }
+  onAt: (next: { filter: string; page: number }) => void
+  onOpen: (id: number) => void
+  onCreate: () => void
+}) {
+  const { filter, page } = at
   const [bannerOpen, setBannerOpen] = useState(false)
   const [bannerNote, setBannerNote] = useState('')
-  const q = useQuery({ queryKey: keys.list(filter), queryFn: () => adminCampaignService.list(filter) })
+  // Giữ trang đang xem trong lúc tải trang kế để bảng không nháy
+  const q = useQuery({ queryKey: keys.list(filter, page), queryFn: () => adminCampaignService.list(filter, page, PAGE_SIZE), placeholderData: keepPreviousData })
   const rows = q.data?.content ?? []
+  // Trang cuối vừa hết chiến dịch (đổi trạng thái): lùi về trang còn dữ liệu
+  const lastPage = q.data && !q.isPlaceholderData ? Math.max(0, q.data.totalPages - 1) : null
+  useEffect(() => {
+    if (lastPage != null && page > lastPage) onAt({ filter, page: lastPage })
+  }, [lastPage, page, filter, onAt])
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -200,7 +218,7 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
             type="button"
             role="tab"
             aria-selected={filter === f.id}
-            onClick={() => setFilter(f.id)}
+            onClick={() => onAt({ filter: f.id, page: 0 })}
             className={`rounded-full border px-3.5 py-1.5 text-xs font-bold ${filter === f.id ? 'border-[#326318] bg-[#326318] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#9ed67d]'}`}
           >
             {f.label}
@@ -257,6 +275,7 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
           </table>
         </div>
       )}
+      <Pagination pageInfo={q.data} onPageChange={(next) => onAt({ filter, page: next })} />
     </div>
   )
 }
@@ -285,13 +304,16 @@ function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBac
   const [planOpen, setPlanOpen] = useState(false)
   const [supplyOpen, setSupplyOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  /** Vừa mở bán: chỉ admin tới nút cấu hình banner, rồi tới công tắc hiện ở trang chủ */
+  const [bannerTip, setBannerTip] = useState<'button' | 'toggle' | null>(null)
   const openPlan = () => setPlanOpen(true)
   const tabsRef = useRef<HTMLDivElement>(null)
+  const scrollToTabs = () => window.setTimeout(() => tabsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0)
   /** Mở tab Đơn đặt trước để đóng gói */
   const goPack = () => {
     setPlanOpen(false)
     setTab('orders')
-    window.setTimeout(() => tabsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0)
+    scrollToTabs()
   }
 
   const refresh = () => {
@@ -302,7 +324,11 @@ function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBac
   }
   const act = useMutation({
     mutationFn: ({ action }: { action: string; done: string }) => adminCampaignService.action(id, action),
-    onSuccess: (_r, v) => { setNotice({ ok: true, text: v.done }); refresh() },
+    onSuccess: (_r, v) => {
+      setNotice({ ok: true, text: v.done })
+      if (v.action === 'publish') setBannerTip('button')
+      refresh()
+    },
     onError: (e) => setNotice({ ok: false, text: getErrorMessage(e, 'Thao tác thất bại.') }),
   })
 
@@ -652,7 +678,7 @@ function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBac
                       <Pencil size={16} /> Chỉnh sửa
                     </button>
                   )}
-                  <button type="button" onClick={() => setTab('banner')} className={toolBtn}>
+                  <button id="campaign-banner-button" type="button" onClick={() => { setTab('banner'); scrollToTabs() }} className={toolBtn}>
                     <ImagePlus size={16} /> Banner trang chủ
                   </button>
                   <a href={`/chien-dich/${c.campaignId}?xem-truoc=1`} target="_blank" rel="noreferrer" className={toolBtn}>
@@ -689,6 +715,19 @@ function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBac
           editing={c}
           onClose={() => setEditing(false)}
           onCreated={() => { setEditing(false); setNotice({ ok: true, text: 'Đã lưu thay đổi chiến dịch.' }); refresh() }}
+        />
+      )}
+
+      {bannerTip === 'button' && (
+        <SpotlightTip
+          targetId="campaign-banner-button"
+          eyebrow="Chiến dịch đã mở bán đặt trước"
+          title="Cấu hình banner trang chủ"
+          text="Đưa chiến dịch lên banner trang chủ với ảnh và lời kêu gọi nổi bật để thu hút thêm người mua."
+          actionLabel="Cấu hình banner"
+          onAction={() => { setTab('banner'); setBannerTip('toggle') }}
+          onTargetClick={() => { setTab('banner'); setBannerTip('toggle') }}
+          onClose={() => setBannerTip(null)}
         />
       )}
 
@@ -759,7 +798,8 @@ function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBac
       )}
 
       {activeTab === 'banner' ? (
-        <CampaignBannerEditor key={c.bannerUpdatedAt ?? 'new'} c={c} onNotice={(n) => { setNotice(n); refresh() }} />
+        <CampaignBannerEditor key={c.bannerUpdatedAt ?? 'new'} c={c} onNotice={(n) => { setNotice(n); refresh() }}
+          guide={bannerTip === 'toggle'} onGuideDone={() => setBannerTip(null)} />
       ) : activeTab === 'claims' ? (
         <CampaignDamageClaims campaignId={id} onNotice={(n) => { setNotice(n); refresh() }} />
       ) : activeTab === 'farms' ? (

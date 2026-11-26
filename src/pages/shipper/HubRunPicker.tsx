@@ -18,7 +18,7 @@ import {
   suggestRun,
   type SuggestMode,
 } from '@/features/campaign/hubRun'
-import { formatKg, formatVnd } from '@/features/campaign/utils'
+import { formatKg, formatVnd, hubConfirmText } from '@/features/campaign/utils'
 
 const MODES: { id: SuggestMode; label: string }[] = [
   { id: 'near', label: 'Gần nhau' },
@@ -107,6 +107,9 @@ export default function HubRunPicker({
               {formatKg(kgOf(o))}{Number.isFinite(dist) ? ` · cách hub ${dist.toFixed(1)} km` : ''} · thu hộ {formatVnd(codOf(o))}
               {blocked && <b className="text-red-600"> · {blocked}</b>}
             </span>
+            {hubConfirmText(o) && (
+              <span className="mt-0.5 flex items-center gap-1 text-xs font-bold text-[#326318]"><Check size={12} className="shrink-0" /> {hubConfirmText(o)}</span>
+            )}
           </span>
           <span className="shrink-0 text-right text-sm font-black text-[#326318]">+{formatVnd(feeOf(o))}</span>
         </label>
