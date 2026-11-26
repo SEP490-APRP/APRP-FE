@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   Gavel,
   Search,
@@ -24,6 +25,9 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useShopDisputes, useShopRespondDispute } from '@/features/order'
+import { ShopPageHeader } from '@/features/shop'
+import { useShopOrders } from '@/features/shop/hooks/useShopOrders'
+import { getOrderById } from '@/services/order.service'
 import type { ReturnRequestResponse, ReturnStatus } from '@/services/return.types'
 import { globalShowAlert } from '@/components/common/Popup'
 
@@ -89,8 +93,10 @@ const STATUS_CONFIG: Record<
 }
 
 export default function FarmerDisputes() {
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') || ''
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
-  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [searchTerm, setSearchTerm] = useState<string>(initialSearch)
   const [selectedDispute, setSelectedDispute] = useState<ReturnRequestResponse | null>(null)
   const [shopResponseText, setShopResponseText] = useState<string>('')
   const [shippingPaymentMethod, setShippingPaymentMethod] = useState<'WALLET' | 'COD'>('WALLET')
@@ -98,7 +104,64 @@ export default function FarmerDisputes() {
   const [activeMediaUrl, setActiveMediaUrl] = useState<string | null>(null)
 
   const { data: disputes = [], isLoading, refetch } = useShopDisputes()
+  const { data: shopOrdersData } = useShopOrders({ page: 0, size: 50 })
   const respondMutation = useShopRespondDispute()
+  const [fetchedOrderShipFee, setFetchedOrderShipFee] = useState<number | null>(null)
+
+  const cachedOrderShipFee = React.useMemo(() => {
+    if (!selectedDispute?.orderId) return null
+    const matched = (shopOrdersData?.content ?? []).find(
+      (o) => Number(o.orderId ?? o.id) === Number(selectedDispute.orderId)
+    )
+    const fee = Number(matched?.shippingFee ?? 0)
+    return fee > 0 ? fee : null
+  }, [selectedDispute?.orderId, shopOrdersData?.content])
+
+  useEffect(() => {
+    setFetchedOrderShipFee(null)
+    if (!selectedDispute?.orderId) return
+    if (Number(selectedDispute.returnShippingFee ?? 0) > 0 || cachedOrderShipFee !== null) return
+
+    let cancelled = false
+    getOrderById(Number(selectedDispute.orderId))
+      .then((ord) => {
+        const fee = Number(ord?.shippingFee ?? 0)
+        if (!cancelled && fee > 0) {
+          setFetchedOrderShipFee(fee)
+        }
+      })
+      .catch(() => {
+        // Giữ fallback mặc định nếu không lấy được chi tiết đơn
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDispute?.id, selectedDispute?.orderId, selectedDispute?.returnShippingFee, cachedOrderShipFee])
+
+  const resolvedReturnShippingFee =
+    (Number(selectedDispute?.returnShippingFee ?? 0) > 0
+      ? Number(selectedDispute?.returnShippingFee)
+      : null) ??
+    cachedOrderShipFee ??
+    fetchedOrderShipFee ??
+    20000
+
+  const formattedReturnShippingFee = `${resolvedReturnShippingFee.toLocaleString('vi-VN')}\u00A0đ`
+
+  // Tự động mở modal chi tiết khiếu nại nếu có param search khớp đơn / ID khiếu nại
+  useEffect(() => {
+    if (initialSearch && disputes.length > 0) {
+      const match = disputes.find(
+        (item) =>
+          String(item.id) === initialSearch ||
+          String(item.orderId) === initialSearch ||
+          item.id?.toString() === initialSearch
+      )
+      if (match) {
+        setSelectedDispute(match)
+      }
+    }
+  }, [initialSearch, disputes])
 
   // Filter & Search
   const filteredDisputes = disputes.filter((item) => {
@@ -140,6 +203,7 @@ export default function FarmerDisputes() {
         shopResponse: shopResponseText.trim() || (accept ? 'Shop đã đồng ý yêu cầu.' : 'Shop từ chối yêu cầu hoàn trả.'),
         isReturnGoods,
         shippingPaymentMethod: isReturnGoods ? shippingPaymentMethod : undefined,
+        returnShippingFee: isReturnGoods ? resolvedReturnShippingFee : 0,
       })
 
       globalShowAlert(
@@ -163,69 +227,60 @@ export default function FarmerDisputes() {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header Banner */}
-      <div className="bg-white rounded-lg p-5 sm:p-6 border border-[#e8ece3] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-lg bg-[#2b5619]/10 text-[#2b5619] border border-[#2b5619]/20 flex items-center justify-center shrink-0 shadow-2xs">
-            <Gavel size={22} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-[#1c2216]">Trung Tâm Trợ Giúp &amp; Khiếu Nại</h3>
-            <p className="text-xs text-[#7e8779] mt-0.5">
-              Xử lý các yêu cầu trả hàng, hoàn tiền và hòa giải tranh chấp với khách hàng
-            </p>
-          </div>
-        </div>
+      <ShopPageHeader
+        title="Trung Tâm Trợ Giúp & Khiếu Nại"
+        subtitle="Xử lý các yêu cầu trả hàng, hoàn tiền và hòa giải tranh chấp với khách hàng"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+              className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+                statusFilter === 'PENDING'
+                  ? 'bg-amber-100/90 border-amber-300 ring-2 ring-amber-400/50 shadow-xs'
+                  : 'bg-amber-50 hover:bg-amber-100/70 border-amber-200 text-amber-900'
+              }`}
+            >
+              <span className="block text-base sm:text-lg font-black text-amber-900">{countPending}</span>
+              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Cần xử lý</span>
+            </button>
 
-        {/* Thẻ đếm nhanh tương tác */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
-            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
-              statusFilter === 'PENDING'
-                ? 'bg-amber-100/90 border-amber-300 ring-2 ring-amber-400/50 shadow-xs'
-                : 'bg-amber-50 hover:bg-amber-100/70 border-amber-200 text-amber-900'
-            }`}
-          >
-            <span className="block text-base sm:text-lg font-black text-amber-900">{countPending}</span>
-            <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Cần xử lý</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'DISPUTED' ? 'ALL' : 'DISPUTED')}
+              className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+                statusFilter === 'DISPUTED'
+                  ? 'bg-rose-100/90 border-rose-300 ring-2 ring-rose-400/50 shadow-xs'
+                  : 'bg-rose-50 hover:bg-rose-100/70 border-rose-200 text-rose-900'
+              }`}
+            >
+              <span className="block text-base sm:text-lg font-black text-rose-900">{countDisputed}</span>
+              <span className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Tranh chấp</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setStatusFilter(statusFilter === 'DISPUTED' ? 'ALL' : 'DISPUTED')}
-            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
-              statusFilter === 'DISPUTED'
-                ? 'bg-rose-100/90 border-rose-300 ring-2 ring-rose-400/50 shadow-xs'
-                : 'bg-rose-50 hover:bg-rose-100/70 border-rose-200 text-rose-900'
-            }`}
-          >
-            <span className="block text-base sm:text-lg font-black text-rose-900">{countDisputed}</span>
-            <span className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Tranh chấp</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
+              className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
+                statusFilter === 'COMPLETED'
+                  ? 'bg-emerald-100/90 border-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100/70 border-emerald-200 text-emerald-900'
+              }`}
+            >
+              <span className="block text-base sm:text-lg font-black text-emerald-900">{countCompleted}</span>
+              <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Hoàn tất</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
-            className={`px-3.5 py-1.5 rounded-lg min-w-[76px] text-center transition-all cursor-pointer border ${
-              statusFilter === 'COMPLETED'
-                ? 'bg-emerald-100/90 border-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
-                : 'bg-emerald-50 hover:bg-emerald-100/70 border-emerald-200 text-emerald-900'
-            }`}
-          >
-            <span className="block text-base sm:text-lg font-black text-emerald-900">{countCompleted}</span>
-            <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Hoàn tất</span>
-          </button>
-
-          <div className="px-3.5 py-1.5 rounded-lg min-w-[76px] bg-red-50 border border-red-200 text-red-900 text-center">
-            <span className="block text-base sm:text-lg font-black flex items-center justify-center gap-1">
-              <Flag size={14} className="text-red-600 fill-red-600" />
-              {countRiskFlags}
-            </span>
-            <span className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider">Cờ vi phạm</span>
-          </div>
-        </div>
-      </div>
+            <div className="px-3.5 py-1.5 rounded-lg min-w-[76px] bg-red-50 border border-red-200 text-red-900 text-center">
+              <span className="block text-base sm:text-lg font-black flex items-center justify-center gap-1">
+                <Flag size={14} className="text-red-600 fill-red-600" />
+                {countRiskFlags}
+              </span>
+              <span className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider">Cờ vi phạm</span>
+            </div>
+          </>
+        }
+      />
 
       {/* Bộ lọc và Tìm kiếm */}
       <div className="bg-white rounded-lg p-4 sm:p-5 border border-[#e8ece3] shadow-2xs space-y-3.5">
@@ -635,7 +690,8 @@ export default function FarmerDisputes() {
                         <span className="text-xs font-bold text-stone-900">Thu hồi hàng về vườn</span>
                       </div>
                       <p className="text-[11px] text-stone-500 mt-1 pl-5 leading-relaxed">
-                        Shipper đến lấy hàng mang về cho Shop (Shop chịu phí vận chuyển hoàn ~20.000 đ).
+                        Shipper đến lấy hàng mang về cho Shop (Shop chịu phí vận chuyển hoàn{' '}
+                        <strong className="text-stone-700">{formattedReturnShippingFee}</strong>).
                       </p>
                     </div>
                   </div>
@@ -645,7 +701,7 @@ export default function FarmerDisputes() {
                     <div className="pt-2.5 border-t border-[#dce7d4] space-y-2 animate-fadeIn">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold text-emerald-950">
-                          Hình thức thanh toán cước hoàn (~20.000 đ):
+                          Hình thức thanh toán cước hoàn ({formattedReturnShippingFee}):
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">

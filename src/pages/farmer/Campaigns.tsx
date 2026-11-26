@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  Flame,
   HandCoins,
   Lock,
   ImagePlus,
@@ -34,6 +33,7 @@ import {
 } from '@/services'
 import { formatKg, formatVnd, timeLeftLabel, openingText, registrationOpen } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
+import { ShopPageHeader } from '@/features/shop'
 import logoIcon from '@/assets/logo-icon.png'
 import CampaignProposals from './CampaignProposals'
 import { campaignProposalService } from '@/services/campaignProposal.service'
@@ -100,12 +100,10 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div>
-        <h3 className="flex items-center gap-2 text-2xl font-black text-[#1c2216]">
-          <Flame size={22} className="text-[#e8590c]" /> Chiến dịch giải cứu
-        </h3>
-        <p className="mt-1 text-sm text-[#5d6657]">Chọn việc bạn muốn làm:</p>
-      </div>
+      <ShopPageHeader
+        title="Chiến Dịch Giải Cứu Nông Sản"
+        subtitle="Tham gia đợt thu mua giải cứu đang kêu gọi, theo dõi lô hàng đã góp hoặc đề xuất mở chiến dịch"
+      />
 
       {/* 3 việc khác nhau: mỗi thẻ có biểu tượng, tên và một dòng giải thích để shop phân biệt */}
       <div role="tablist" aria-label="Chiến dịch giải cứu" className="grid gap-3 sm:grid-cols-3">

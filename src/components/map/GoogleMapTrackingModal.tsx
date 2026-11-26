@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Navigation, Phone, Store, Home, RefreshCw, AlertCircle,
   ExternalLink, Play, Square, FastForward, CheckCircle2, ChevronDown, ChevronUp,
@@ -1408,8 +1409,8 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 md:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden border border-gray-100">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
@@ -1913,7 +1914,8 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
           onDone={applyCompletedOnMap}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 

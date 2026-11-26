@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { BlogOptionsMenu } from '@/features/blog'
 import { formatPublishDate, getCategoryBadge } from '@/features/blog/constants'
+import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 import type { BlogResponse } from '@/services'
 import Pagination from '@/components/ui/Pagination'
 import heroFarmerImg from '@/assets/hero-farmer.jpg'
@@ -198,7 +199,7 @@ export const FarmerStoriesFeedGrid: React.FC<FarmerStoriesFeedGridProps> = ({
                   </h3>
 
                   <p className="text-xs text-[#555d4e] leading-relaxed line-clamp-3">
-                    {blog.content.replace(/<[^>]*>?/gm, '')}
+                    {htmlToPlainText(blog.content)}
                   </p>
                 </div>
 

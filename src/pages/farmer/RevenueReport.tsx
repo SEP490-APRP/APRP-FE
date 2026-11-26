@@ -13,7 +13,7 @@ import {
   Download,
   PackageOpen,
 } from 'lucide-react'
-import { useShopOrders, useShopProfile } from '@/features/shop'
+import { ShopPageHeader, useShopOrders, useShopProfile } from '@/features/shop'
 import { globalShowAlert } from '@/components/common/Popup'
 
 export default function RevenueReport() {
@@ -289,48 +289,43 @@ export default function RevenueReport() {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* 1. Header Toolbar (Subpage Title + Filter Controls) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216] tracking-tight">
-            Báo Cáo Doanh Thu &amp; Mùa Vụ
-          </h3>
-          <p className="text-xs text-[#737c6e] font-medium mt-0.5">
-            Thống kê dòng tiền, số lượng giải cứu và hiệu quả kinh doanh của nhà vườn
-          </p>
-        </div>
+      <ShopPageHeader
+        title="Báo Cáo Doanh Thu & Mùa Vụ"
+        subtitle="Thống kê dòng tiền, số lượng giải cứu và hiệu quả kinh doanh của nhà vườn"
+        actions={
+          <>
+            <div
+              id="tour-revenue-filter"
+              className="flex items-center gap-1 bg-[#f0f4ec] p-1 rounded-lg border border-[#e2e8dc]"
+            >
+              {(['week', 'month', 'all'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                    period === p
+                      ? 'bg-[#2b5619] text-white shadow-2xs'
+                      : 'text-[#677261] hover:text-[#1c2216]'
+                  }`}
+                >
+                  {p === 'week' ? 'Tuần Này' : p === 'month' ? 'Tháng Này' : '6 Tháng'}
+                </button>
+              ))}
+            </div>
 
-        <div className="flex items-center gap-2">
-          <div
-            id="tour-revenue-filter"
-            className="flex items-center gap-1 bg-[#f0f4ec] p-1 rounded-lg border border-[#e2e8dc]"
-          >
-            {(['week', 'month', 'all'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded-md text-xs font-black transition-all cursor-pointer ${
-                  period === p
-                    ? 'bg-[#2b5619] text-white shadow-2xs'
-                    : 'text-[#677261] hover:text-[#1c2216]'
-                }`}
-              >
-                {p === 'week' ? 'Tuần Này' : p === 'month' ? 'Tháng Này' : '6 Tháng'}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void globalShowAlert('Chức năng xuất báo cáo doanh số ra Excel đang được phát triển, chưa tải được tệp.', 'Chưa hỗ trợ', 'info')}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#dce3d5] hover:border-[#2b5619] text-xs font-bold text-[#2b5619] rounded-lg transition-colors cursor-pointer shadow-2xs"
-            title="Xuất báo cáo Excel"
-          >
-            <Download size={14} />
-            <span>Xuất báo cáo</span>
-          </button>
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={() => void globalShowAlert('Chức năng xuất báo cáo doanh số ra Excel đang được phát triển, chưa tải được tệp.', 'Chưa hỗ trợ', 'info')}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#dce3d5] hover:border-[#2b5619] text-xs font-bold text-[#2b5619] rounded-lg transition-colors cursor-pointer shadow-2xs"
+              title="Xuất báo cáo Excel"
+            >
+              <Download size={14} />
+              <span>Xuất báo cáo</span>
+            </button>
+          </>
+        }
+      />
 
       {/* 2. 4 Primary Stat Cards (100% Phông chữ Be Vietnam Pro chuẩn) */}
       <div id="tour-revenue-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

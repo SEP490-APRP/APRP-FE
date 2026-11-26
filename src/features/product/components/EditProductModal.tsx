@@ -8,21 +8,12 @@ import {
   type ProductFormInput,
   type ProductFormValues,
 } from '../schemas/productForm.schema'
-import { useCategories } from '../hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '../hooks/useCategoryQueries'
 import { useUpdateProduct, useAiSuggestDescription } from '../hooks/useProductQueries'
 import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
 import { CustomSelect } from '@/components/common/CustomSelect'
 import { globalShowAlert } from '@/components/common/Popup'
-
-const UNIT_OPTIONS = [
-  { value: 'kg', label: 'kg (Kilogram)' },
-  { value: 'hộp', label: 'hộp' },
-  { value: 'bó', label: 'bó' },
-  { value: 'túi', label: 'túi' },
-  { value: 'trái', label: 'trái / quả' },
-  { value: 'thùng', label: 'thùng' },
-]
 
 const PRESET_REGIONS = [
   'Đà Lạt (Lâm Đồng)',
@@ -69,13 +60,18 @@ export function EditProductModal({
   onOpenGallery,
   onInfo,
 }: EditProductModalProps) {
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const updateMutation = useUpdateProduct()
 
-  const defaultCategoryId =
+  const rawCategoryId =
     typeof product.category === 'object' && product.category !== null
       ? (product.category as any).categoryId
-      : (product.categoryId ?? (categories[0]?.categoryId || 1))
+      : product.categoryId
+  const defaultCategoryId =
+    rawCategoryId && categories.some((c) => c.categoryId === rawCategoryId)
+      ? rawCategoryId
+      : (categories[0]?.categoryId || 1)
 
   const formattedExpiry =
     normalizeExpiryDate(product.expiryDate) ||
@@ -103,7 +99,7 @@ export function EditProductModal({
       categoryId: defaultCategoryId,
       price: product.sellingPrice || product.price || 0,
       stock: product.stockQuantity || product.stock || 0,
-      unit: product.unit || 'kg',
+      unit: 'kg',
       expiryDate: formattedExpiry,
       description: product.description || '',
       discountPercent: product.discountPercent || 0,
@@ -132,7 +128,7 @@ export function EditProductModal({
         categoryId: defaultCategoryId,
         price: product.sellingPrice || product.price || 0,
         stock: product.stockQuantity || product.stock || 0,
-        unit: product.unit || 'kg',
+        unit: 'kg',
         expiryDate: currentExpiry,
         description: product.description || '',
         discountPercent: product.discountPercent || 0,
@@ -186,7 +182,7 @@ export function EditProductModal({
         request: {
           productName: values.name,
           categoryId: values.categoryId,
-          unit: values.unit,
+          unit: 'kg',
           sellingPrice: values.price,
           stockQuantity: values.stock,
           description: values.description,
@@ -296,22 +292,21 @@ export function EditProductModal({
               <label htmlFor="edit-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <CustomSelect
+              <input
                 id="edit-unit"
-                value={watch('unit') || 'kg'}
-                onChange={(val) => setValue('unit', String(val), { shouldValidate: true, shouldDirty: true })}
-                options={UNIT_OPTIONS}
-                placeholder="Chọn đơn vị tính"
-                error={!!errors.unit}
+                type="text"
+                value="kg (Kilogram)"
+                readOnly
+                disabled
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#eef2e9] border border-[#dce4d5] text-xs font-bold text-[#326318] outline-none cursor-not-allowed"
               />
-              <FieldError message={errors.unit?.message} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="edit-price" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Giá bán (đồng) *
+                Giá bán (đồng / kg) *
               </label>
               <input
                 id="edit-price"
@@ -326,7 +321,7 @@ export function EditProductModal({
 
             <div>
               <label htmlFor="edit-stock" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Tồn kho *
+                Tồn kho (kg) *
               </label>
               <input
                 id="edit-stock"

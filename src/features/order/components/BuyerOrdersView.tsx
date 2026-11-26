@@ -723,7 +723,13 @@ export const BuyerOrdersView: React.FC = () => {
                 <div className="px-6 py-4 bg-neutral-50/40 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink-muted">
                     <div>
-                      Phương thức: <span className="font-bold text-ink">{order.paymentMethod || 'COD'}</span>
+                      Phương thức: <span className="font-bold text-ink">
+                        {order.paymentMethod === 'WALLET'
+                          ? 'Ví CapNong'
+                          : order.paymentMethod === 'PAYOS'
+                          ? 'Chuyển khoản PayOS'
+                          : 'Thanh toán khi nhận hàng (COD)'}
+                      </span>
                     </div>
                     {order.shippingFee !== undefined && (
                       <div className="whitespace-nowrap">

@@ -12,6 +12,7 @@ import {
 import { type BlogResponse } from '@/services'
 import { BlogCategoryLabel } from '@/types'
 import { formatPublishDate, SAMPLE_BLOG_COVERS } from '../constants'
+import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
 interface BlogTableProps {
   blogs: BlogResponse[]
@@ -93,7 +94,7 @@ export const BlogTable: React.FC<BlogTableProps> = ({
                           {b.title}
                         </div>
                         <p className="text-[11px] text-[#717a6c] truncate max-w-xs mt-0.5">
-                          {b.content.replace(/<[^>]*>?/gm, '')}
+                          {htmlToPlainText(b.content)}
                         </p>
                       </div>
                     </div>

@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react'
 import * as orderService from '@/services/order.service'
+import { ShopPageHeader } from '@/features/shop'
 import { useReadyOrder } from '@/features/shop/hooks/useShopOrders'
 import type { OrderResponse } from '@/types/order.types'
 import { CapNongLoading } from '@/components/ui/Loading'
@@ -124,40 +125,33 @@ export default function OrderPreparation({ orderId, onBack, onInfo }: OrderPrepa
     )
 
   return (
-    <div className="w-full space-y-5 animate-fadeIn pb-12">
-      {/* Top Header Card */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-5 border border-[#e8ece3] shadow-xs">
-        <div className="flex items-center gap-3.5">
+    <div className="w-full space-y-6 animate-fadeIn pb-12">
+      {/* Top Header */}
+      <ShopPageHeader
+        leading={
           <button
             type="button"
             onClick={onBack}
-            className="w-10 h-10 rounded-xl bg-[#f4f7f1] hover:bg-[#e8efe2] text-[#2b5619] flex items-center justify-center transition-colors cursor-pointer border border-[#dce5d6]"
+            className="w-10 h-10 rounded-lg bg-white hover:bg-[#f4f7f1] text-[#2b5619] flex items-center justify-center transition-colors cursor-pointer border border-[#d6dcce] shadow-2xs shrink-0"
             title="Quay lại danh sách đơn"
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-black text-[#1c2216] tracking-tight">
-                Chuẩn Bị &amp; Đóng Gói Đơn Hàng
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#326318]/10 text-[#326318] text-xs font-black border border-[#326318]/20">
-                #ORD-{resolvedId}
-              </span>
-            </div>
-            <p className="text-xs text-[#555d4e] mt-0.5 font-medium">
-              Kiểm tra kỹ chất lượng nông sản trước khi niêm phong thùng bàn giao cho Shipper CapNong.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200">
+        }
+        title="Chuẩn Bị & Đóng Gói Đơn Hàng"
+        badge={
+          <span className="px-2.5 py-0.5 rounded-full bg-[#326318]/10 text-[#326318] text-xs font-black border border-[#326318]/20">
+            #ORD-{resolvedId}
+          </span>
+        }
+        subtitle="Kiểm tra kỹ chất lượng nông sản trước khi niêm phong thùng bàn giao cho Shipper CapNong"
+        actions={
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200">
             <Truck size={14} />
             <span>Chờ đóng thùng bàn giao</span>
           </span>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

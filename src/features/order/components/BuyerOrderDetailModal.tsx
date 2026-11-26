@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useOrderDetails } from '../hooks/useBuyerOrder'
 import { OrderStatusBadge } from './OrderStatusBadge'
+import { DeliveryProofSection } from './DeliveryProofSection'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
 import { Button } from '@/components/ui/Button'
 import type { OrderItem, OrderStatus } from '@/types/order.types'
@@ -121,6 +122,15 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
       return [
         { label: 'Đặt hàng', done: true, current: false, isError: false },
         { label: status === 'FAILED' ? 'Giao thất bại' : 'Đã hủy đơn', done: true, current: true, isError: true },
+      ]
+    }
+
+    if (status === 'REFUND_REQUESTED' || status === 'REFUNDED') {
+      return [
+        { label: 'Đặt hàng', done: true, current: false, isError: false },
+        { label: 'Giao hàng', done: true, current: false, isError: false },
+        { label: 'Yêu cầu trả hàng', done: true, current: status === 'REFUND_REQUESTED', isError: false },
+        { label: status === 'REFUNDED' ? 'Đã hoàn tiền' : 'Chờ hoàn tiền', done: status === 'REFUNDED', current: status === 'REFUNDED', isError: false },
       ]
     }
 
@@ -236,6 +246,34 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
               </div>
 
               {/* 2. Banner Thông Báo Quan Trọng Theo Trạng Thái */}
+              {order.status === 'REFUND_REQUESTED' && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Clock size={20} className="text-amber-600 shrink-0" />
+                    <div>
+                      <p className="font-black text-xs">Đang xử lý yêu cầu Trả hàng / Hoàn tiền</p>
+                      <p className="text-[11px] text-amber-700">Nhà vườn hoặc quản trị viên đang xem xét yêu cầu hoàn tiền của bạn.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.status === 'REFUNDED' && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="font-black text-xs">Đơn hàng đã được hoàn tiền</p>
+                      <p className="text-[11px] text-emerald-700">
+                        {order.refundAmount
+                          ? `Số tiền hoàn: ${order.refundAmount.toLocaleString('vi-VN')} đ đã được hoàn tất.`
+                          : 'Số tiền đã được hoàn tất về tài khoản / ví của bạn.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {order.status === 'AWAITING_PAYMENT' && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -465,6 +503,18 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              <DeliveryProofSection
+                status={order.status}
+                shipperName={order.shipperName}
+                deliveredAt={order.deliveredAt}
+                deliveryProofUrls={order.deliveryProofUrls}
+                failedAt={order.failedAt}
+                failReason={order.failReason}
+                failNote={order.failNote}
+                failCallAttempts={order.failCallAttempts}
+                failProofUrls={order.failProofUrls}
+              />
             </>
           )}
         </div>

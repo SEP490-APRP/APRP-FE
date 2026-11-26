@@ -139,9 +139,16 @@ export default function FarmerPortal({
     } else if (action === 'withdraw' || action === 'rut-tien') {
       setShowWithdrawModal(true)
     }
+
+    const searchParam = searchParams.get('search')
+    if ((tab === 'products' || (!tab && currentTab === 'products')) && searchParam !== null) {
+      setProductSearchQuery(searchParam)
+    }
   }, [searchParams])
   const [shopActive, setShopActive] = useState<boolean>(true)
-  const [productSearchQuery, setProductSearchQuery] = useState<string>('')
+  const [productSearchQuery, setProductSearchQuery] = useState<string>(() =>
+    searchParams.get('tab') === 'products' ? (searchParams.get('search') || '') : ''
+  )
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
 
   const handleNavigateToProductInventory = (productName?: string) => {
@@ -177,6 +184,7 @@ export default function FarmerPortal({
       (prev) => {
         const next = new URLSearchParams(prev)
         next.set('tab', tabId)
+        next.delete('search')
         return next
       },
       { replace: true },
@@ -227,6 +235,7 @@ export default function FarmerPortal({
   // Modals state
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showBlindBoxTool, setShowBlindBoxTool] = useState(false)
+  const [blindBoxToEdit, setBlindBoxToEdit] = useState<any | null>(null)
   const [showComboBuilder, setShowComboBuilder] = useState(false)
   const [comboToEdit, setComboToEdit] = useState<any | null>(null)
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false)
@@ -737,7 +746,14 @@ export default function FarmerPortal({
             <Products
               products={realProductsList.length > 0 ? realProductsList : products}
               onOpenAddProduct={() => setShowAddProductModal(true)}
-              onOpenBlindBoxTool={() => setShowBlindBoxTool(true)}
+              onOpenBlindBoxTool={(box?: any) => {
+                const isEvent =
+                  box &&
+                  typeof box === 'object' &&
+                  ('nativeEvent' in box || 'target' in box || 'bubbles' in box)
+                setBlindBoxToEdit(isEvent ? null : box || null)
+                setShowBlindBoxTool(true)
+              }}
               onOpenComboBuilder={(combo?: any) => {
                 const isEvent = combo && typeof combo === 'object' && ('nativeEvent' in combo || 'target' in combo || 'bubbles' in combo)
                 setComboToEdit(isEvent ? null : (combo || null))
@@ -831,8 +847,12 @@ export default function FarmerPortal({
 
       {showBlindBoxTool && (
         <BlindBoxTool
+          initialBox={blindBoxToEdit}
           onAddBox={handleAddNewProduct}
-          onClose={() => setShowBlindBoxTool(false)}
+          onClose={() => {
+            setShowBlindBoxTool(false)
+            setBlindBoxToEdit(null)
+          }}
           onInfo={handleInfo}
         />
       )}

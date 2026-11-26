@@ -39,6 +39,115 @@ function getProduceRegion(address?: string): string {
   return 'Đà Lạt'
 }
 
+function removeDiacritics(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
+function stripProducePrefix(raw: string): string {
+  let s = raw.trim().toLowerCase()
+  if (s.includes('/')) {
+    s = s.split('/')[0].trim()
+  }
+  for (const prefix of ['quả ', 'trái ', 'cây ', 'củ ', 'rau ', 'lá ', 'hạt ']) {
+    if (s.startsWith(prefix) && s.length > prefix.length) {
+      return s.slice(prefix.length).trim()
+    }
+  }
+  return s
+}
+
+const PRODUCE_SYNONYM_GROUPS: string[][] = [
+  ['nhàu', 'nhau', 'quả nhàu', 'trái nhàu', 'noni'],
+  ['dứa', 'thơm', 'khóm'],
+  ['bắp', 'ngô', 'bắp mỹ', 'bắp nếp'],
+  ['khổ qua', 'mướp đắng'],
+  ['dưa leo', 'dưa chuột'],
+  ['dưa lưới', 'dưa gang', 'dưa vàng', 'dưa hoàng kim', 'dưa hami'],
+  ['dưa lê', 'dưa bở'],
+  ['bí đao', 'bí xanh'],
+  ['cải bó xôi', 'rau chân vịt'],
+  ['bông cải', 'súp lơ'],
+  ['chanh dây', 'chanh leo'],
+  ['mãng cầu', 'mãng cầu ta', 'mãng cầu xiêm', 'trái na', 'quả na'],
+  ['hồng xiêm', 'sa pô chê', 'sapoche'],
+  ['đậu phộng', 'lạc', 'củ lạc'],
+  ['đậu que', 'đậu cô ve'],
+  ['khoai mì', 'củ sắn', 'sắn'],
+  ['khoai mỡ', 'khoai từ', 'củ từ'],
+  ['củ đậu', 'củ sắn nước'],
+  ['củ sen', 'ngó sen', 'hạt sen'],
+  ['ngò rí', 'ngò', 'rau mùi'],
+  ['ngò gai', 'mùi tàu'],
+  ['bạc hà', 'húng lủi'],
+  ['xà lách xoong', 'cải xoong'],
+  ['cải thìa', 'cải chíp'],
+  ['cải xanh', 'cải bẹ xanh'],
+  ['mồng tơi', 'mùng tơi', 'rau mồng tơi'],
+  ['tắc', 'quất', 'trái tắc', 'quả quất'],
+  ['mận', 'quả roi', 'trái roi', 'mận an phước', 'mận hậu'],
+  ['hành boa rô', 'boa rô', 'tỏi tây'],
+  ['hành tím', 'hành hương'],
+  ['cherry', 'anh đào'],
+]
+
+function matchesProduceSearch(productName: string, categoryName: string, rawQuery: string): boolean {
+  const qRaw = rawQuery.trim().toLowerCase()
+  if (!qRaw) return true
+
+  const nameLower = productName.toLowerCase()
+  const catLower = categoryName.toLowerCase()
+  if (nameLower.includes(qRaw) || catLower.includes(qRaw)) return true
+
+  const coreQuery = stripProducePrefix(qRaw)
+  const candidates = new Set<string>([qRaw, coreQuery])
+
+  // Mở rộng từ đồng nghĩa vùng miền
+  for (const group of PRODUCE_SYNONYM_GROUPS) {
+    if (group.some((term) => term === coreQuery || term === qRaw || removeDiacritics(term) === removeDiacritics(coreQuery))) {
+      for (const term of group) {
+        candidates.add(term)
+      }
+    }
+  }
+
+  const nameAsciiTokens = removeDiacritics(nameLower).split(/[^a-z0-9]+/).filter(Boolean)
+  const nameAsciiFull = ` ${nameAsciiTokens.join(' ')} `
+
+  for (const cand of candidates) {
+    if (!cand) continue
+    if (nameLower.includes(cand) || catLower.includes(cand)) {
+      // Tránh "bắp" khớp nhầm "bắp cải" hoặc "dừa" khớp nhầm "dưa"
+      if ((cand === 'bắp' || cand === 'bap') && nameLower.includes('bắp cải')) continue
+      return true
+    }
+
+    const candAscii = removeDiacritics(cand)
+    if (!candAscii) continue
+
+    // So khớp không dấu theo ranh giới từ (word boundary) để "nhàu" khớp "Nhau tươi", nhưng "bơ" không khớp nhầm "dưa bở" nếu tên có dấu khác
+    if (candAscii.includes(' ')) {
+      if (nameAsciiFull.includes(` ${candAscii} `)) {
+        if (candAscii === 'bap' && nameAsciiFull.includes(' bap cai ')) continue
+        return true
+      }
+    } else if (candAscii.length >= 3) {
+      if (nameAsciiTokens.includes(candAscii)) {
+        if (candAscii === 'bap' && nameAsciiFull.includes(' bap cai ')) continue
+        if (candAscii === 'dua' && (nameLower.includes('dưa') && (cand === 'dừa' || cand === 'dứa'))) continue
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
 const PAGE_SIZE = 16
 
 const SORT_OPTIONS = [
@@ -146,9 +255,29 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
       }
     })
 
+    let visualMatchedIds: string[] = []
     if (query.trim()) {
-      const q = query.toLowerCase()
-      filtered = filtered.filter((p) => p.name.toLowerCase().includes(q))
+      try {
+        const rawVisual = sessionStorage.getItem('capnong_visual_search_match')
+        if (rawVisual) {
+          const parsed = JSON.parse(rawVisual)
+          if (
+            parsed &&
+            typeof parsed.keyword === 'string' &&
+            parsed.keyword.trim().toLowerCase() === query.trim().toLowerCase() &&
+            Array.isArray(parsed.productIds)
+          ) {
+            visualMatchedIds = parsed.productIds.map((id: any) => String(id))
+          }
+        }
+      } catch {
+        // Ignore malformed sessionStorage data
+      }
+
+      const visualIdSet = new Set(visualMatchedIds)
+      filtered = filtered.filter(
+        (p) => visualIdSet.has(p.id) || matchesProduceSearch(p.name, p.category, query),
+      )
     }
 
     if (filters.category && filters.category !== 'Tất cả') {
@@ -170,7 +299,18 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
     else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
     else if (sort === 'harvested') filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    else if (sort === 'featured') filtered.sort((a, b) => (b.rescued ?? 0) - (a.rescued ?? 0))
+    else if (sort === 'featured') {
+      filtered.sort((a, b) => {
+        if (visualMatchedIds.length > 0) {
+          const idxA = visualMatchedIds.indexOf(a.id)
+          const idxB = visualMatchedIds.indexOf(b.id)
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB
+          if (idxA !== -1) return -1
+          if (idxB !== -1) return 1
+        }
+        return (b.rescued ?? 0) - (a.rescued ?? 0)
+      })
+    }
 
     return filtered
   }, [query, filters, sort, apiProducts])
