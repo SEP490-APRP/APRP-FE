@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/StateViews'
 import { useCartOperations } from '../hooks/useCartOperations'
 import { CartItemRow } from './CartItemRow'
-import { money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 
 export const CartView: React.FC = () => {
   const navigate = useNavigate()

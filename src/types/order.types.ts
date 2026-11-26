@@ -16,6 +16,8 @@ export type OrderStatus =
   | 'COMPLETED'         // Hoàn thành
   | 'CANCELLED'         // Đã hủy
   | 'FAILED'            // Giao thất bại
+  | 'RETURNING_TO_SHOP' // Đang hoàn hàng về Shop
+  | 'RETURNED_TO_SHOP'  // Shipper đã trả hàng về Shop, chờ Shop xác nhận
   | 'REFUND_REQUESTED'  // Đang yêu cầu trả hàng / hoàn tiền
   | 'REFUNDED'          // Đã hoàn tiền
 
@@ -69,6 +71,7 @@ export interface OrderResponse {
   shippingFee?: number
   voucherDiscountAmount?: number
   refundAmount?: number
+  refundReason?: string | null
   /** Phần đã trả bằng ví người mua */
   walletPaidAmount?: number | null
   /** Số còn phải trả qua COD / PayOS */
@@ -86,6 +89,9 @@ export interface OrderResponse {
   failCallAttempts?: number
   failProofUrls?: string[]
   failedAt?: string
+  returnToShopProofUrls?: string[]
+  returnedToShopAt?: string
+  returnConfirmedAt?: string
   items: OrderItem[]
   shopOwner?: OrderShopInfo
 }

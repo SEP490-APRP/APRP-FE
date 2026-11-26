@@ -15,22 +15,12 @@ import {
   ChevronRight,
   Minimize2,
 } from 'lucide-react'
-import { allProducts, money, type Product } from '@/mocks/catalog'
-import { LegacyProduceImage } from '@/features/product'
+import { formatCurrency as money } from '@/utils'
+import { LegacyProduceImage, useHomeProducts } from '@/features/product'
 import { useAddToCart } from '../hooks/useAddToCart'
 import { useCartOperations } from '../hooks/useCartOperations'
 import { CartItemRow } from './CartItemRow'
 import { cartCount, cartTotal, useAuth, useCartStore, useUiStore } from '@/stores'
-
-const DETAIL_IDS: Record<string, number> = {
-  carrot: 702,
-  tomato: 704,
-  pomelo: 703,
-  potato: 701,
-  cabbage: 702,
-  spinach: 702,
-  pumpkin: 705,
-}
 
 export function CartModal() {
   const navigate = useNavigate()
@@ -57,7 +47,7 @@ export function CartModal() {
   const [confirmingShopId, setConfirmingShopId] = useState<number | null>(null)
   const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false)
 
-  // Local mock store (fallback khi khách chưa đăng nhập)
+  // Local cart store (khi khách chưa đăng nhập)
   const localCart = useCartStore((s) => s.items)
   const changeLocalQuantity = useCartStore((s) => s.changeQuantity)
   const removeLocalItem = useCartStore((s) => s.remove)
@@ -93,6 +83,8 @@ export function CartModal() {
     isUpdating,
   } = useCartOperations()
 
+  const { data: apiProducts = [] } = useHomeProducts(8)
+
   // Danh sách các nông sản gợi ý mua thêm chưa có trong giỏ hàng
   const suggestedProducts = useMemo(() => {
     const currentItemNames = new Set(
@@ -100,19 +92,27 @@ export function CartModal() {
         s.items.map((i) => (i.itemName || i.name || '').toLowerCase()),
       ) ?? [],
     )
-    return allProducts
-      .filter((p) => !currentItemNames.has(p.name.toLowerCase()))
+    return apiProducts
+      .filter((p) => !currentItemNames.has((p.productName || p.name || '').toLowerCase()))
       .slice(0, 4)
-  }, [dbCart])
+      .map((p) => ({
+        id: String(p.productId || p.id),
+        numericId: Number(p.productId || p.id),
+        name: p.productName || p.name || 'Nông sản',
+        image: p.primaryImageUrl || p.imageUrl || p.image || '',
+        price: p.sellingPrice ?? p.price ?? 0,
+        stock: p.stockQuantity ?? p.stock ?? 0,
+        unit: p.unit || 'kg',
+      }))
+  }, [dbCart, apiProducts])
 
-  const handleQuickAdd = async (p: Product) => {
+  const handleQuickAdd = async (p: { id: string; numericId: number; name: string }) => {
     setAddingSuggestId(p.id)
     try {
       if (user) {
-        const targetId = DETAIL_IDS[p.id] ?? 702
         await addToCartMutation.mutateAsync({
-          productId: targetId,
-          itemId: targetId,
+          productId: p.numericId,
+          itemId: p.numericId,
           itemType: 'PRODUCT',
           quantity: 1,
         })
@@ -309,102 +309,31 @@ export function CartModal() {
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3.5 overscroll-contain">
           {/* 1. Trường hợp: Khách CHƯA đăng nhập */}
           {!user ? (
-            localCount > 0 ? (
-              <>
-                <div className="bg-white rounded-xl border border-[#e8e2d4] p-3 divide-y divide-[#f2ece0] shadow-xs">
-                  {allProducts
-                    .filter((p) => localCart[p.id])
-                    .map((p) => (
-                      <div key={p.id} className="py-3 first:pt-1 last:pb-1 flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-[#eee8dc]">
-                          <LegacyProduceImage src={p.image} alt={p.name} />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-xs text-[#1c2e17] truncate">{p.name}</h4>
-                          <p className="text-[11px] text-[#6d7567] mt-0.5">
-                            {money(p.price)} / {p.unit}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="inline-flex items-center rounded-lg border border-[#ded7c8] bg-[#f9f7f2] px-1 py-0.5">
-                              <button
-                                type="button"
-                                className="w-5 h-5 flex items-center justify-center text-[#555d4d] hover:text-black cursor-pointer"
-                                onClick={() => changeLocalQuantity(p.id, -1)}
-                                aria-label="Giảm"
-                              >
-                                <Minus size={11} />
-                              </button>
-                              <span className="px-2 text-xs font-bold text-[#1f2818]">
-                                {localCart[p.id]}
-                              </span>
-                              <button
-                                type="button"
-                                className="w-5 h-5 flex items-center justify-center text-[#555d4d] hover:text-black disabled:opacity-40 cursor-pointer"
-                                disabled={localCart[p.id] >= p.stock}
-                                onClick={() => changeLocalQuantity(p.id, 1)}
-                                aria-label="Tăng"
-                              >
-                                <Plus size={11} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right flex flex-col items-end gap-1.5 shrink-0">
-                          <strong className="text-xs font-extrabold text-[#326318]">
-                            {money(p.price * localCart[p.id])}
-                          </strong>
-                          <button
-                            type="button"
-                            className="text-stone-400 hover:text-red-500 p-1 transition-colors cursor-pointer"
-                            onClick={() => removeLocalItem(p.id)}
-                            aria-label={`Xóa ${p.name}`}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-
-                <div className="p-3.5 bg-[#f0f6eb] rounded-xl border border-[#dce8d2] text-xs text-[#2c5b14] flex items-start gap-2.5">
-                  <LogIn size={18} className="shrink-0 mt-0.5 text-[#326318]" />
-                  <div>
-                    <strong className="font-bold block mb-0.5">Đăng nhập tài khoản</strong>
-                    <span className="text-[11px] leading-relaxed text-[#40682b]">
-                      Đăng nhập để tự động lưu giỏ hàng, áp mã ưu đãi và đặt giao nông sản tận nhà.
-                    </span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="py-16 text-center">
-                <div className="w-16 h-16 rounded-xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
-                  <ShoppingBasket size={32} />
-                </div>
-                <h3 className="font-bold text-sm text-[#1e2717]">Giỏ hàng của bạn đang trống</h3>
-                <p className="text-xs text-[#6e7766] max-w-xs mx-auto mt-1">
-                  Hãy dạo quanh vườn nông sản xanh tươi và chọn những món ngon cho gia đình nhé.
-                </p>
-                <div className="mt-5 flex items-center justify-center gap-2">
-                  <Link
-                    to="/nong-san-tuoi"
-                    onClick={closeCart}
-                    className="px-4 py-2 rounded-lg bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
-                  >
-                    Khám phá nông sản
-                  </Link>
-                  <Link
-                    to="/dang-nhap"
-                    onClick={closeCart}
-                    className="px-4 py-2 rounded-lg border border-[#d6cfbe] bg-white text-[#2a3520] font-bold text-xs hover:bg-[#f6f2e8] transition-all"
-                  >
-                    Đăng nhập
-                  </Link>
-                </div>
+            <div className="py-16 text-center">
+              <div className="w-16 h-16 rounded-xl bg-[#efe9dc] text-stone-400 mx-auto flex items-center justify-center mb-3">
+                <ShoppingBasket size={32} />
               </div>
-            )
+              <h3 className="font-bold text-sm text-[#1e2717]">Giỏ hàng của bạn đang trống</h3>
+              <p className="text-xs text-[#6e7766] max-w-xs mx-auto mt-1">
+                Hãy dạo quanh vườn nông sản xanh tươi và chọn những món ngon cho gia đình nhé.
+              </p>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                <Link
+                  to="/nong-san-tuoi"
+                  onClick={closeCart}
+                  className="px-4 py-2 rounded-lg bg-[#326318] text-white font-bold text-xs hover:bg-[#254b12] shadow-sm transition-all"
+                >
+                  Khám phá nông sản
+                </Link>
+                <Link
+                  to="/dang-nhap"
+                  onClick={closeCart}
+                  className="px-4 py-2 rounded-lg border border-[#d6cfbe] bg-white text-[#2a3520] font-bold text-xs hover:bg-[#f6f2e8] transition-all"
+                >
+                  Đăng nhập
+                </Link>
+              </div>
+            </div>
           ) : isCartLoading ? (
             /* 2. Loading Spinner */
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-stone-500">

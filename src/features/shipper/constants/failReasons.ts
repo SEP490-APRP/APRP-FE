@@ -8,6 +8,16 @@ export const FAIL_REASONS: { value: DeliveryFailReason; label: string; hint: str
   { value: 'KHAC', label: 'Lý do khác', hint: 'Ghi rõ lý do ở ô ghi chú' },
 ]
 
-export const FAIL_REASON_LABEL: Record<DeliveryFailReason, string> = Object.fromEntries(
-  FAIL_REASONS.map((r) => [r.value, r.label]),
-) as Record<DeliveryFailReason, string>
+export const FAIL_REASON_LABEL: Record<DeliveryFailReason, string> = {
+  KHONG_LIEN_LAC_DUOC: 'Không liên lạc được',
+  SAI_DIA_CHI: 'Sai địa chỉ',
+  KHACH_TU_CHOI: 'Khách từ chối nhận',
+  SHOP_DONG_CUA: 'Vườn đóng cửa',
+  SHOP_CHUA_SAN_SANG: 'Hàng chưa sẵn sàng',
+  KHAC: 'Lý do khác',
+}
+
+export function failReasonLabel(reason?: string | null): string {
+  if (!reason) return 'Không rõ lý do'
+  return FAIL_REASON_LABEL[reason as DeliveryFailReason] ?? reason
+}

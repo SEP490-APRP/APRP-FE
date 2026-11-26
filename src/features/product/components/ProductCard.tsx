@@ -172,26 +172,11 @@ function ProductCardBase({
           )}
         </div>
 
-        {/* Tiến độ giải cứu & Tồn kho */}
-        <div className="mt-2 flex flex-col gap-1">
-          <div
-            role="progressbar"
-            aria-valuenow={rescued}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="h-1.5 w-full overflow-hidden rounded-full bg-[#e8ece3]"
-          >
-            <div
-              className="h-full rounded-full bg-[#326318] transition-[width] duration-500"
-              style={{ width: `${rescued}%` }}
-            />
-          </div>
-          <p className="flex justify-between gap-2 whitespace-nowrap text-[11px] font-medium text-[#5f6b57]">
-            <span>Đã cứu {rescued}%</span>
-            <span className={cn(p.stock < 20 ? 'font-bold text-[#b71c1c]' : 'text-[#326318]')}>
-              {soldOut ? 'Hết hàng' : `Còn ${p.stock} ${p.unit}`}
-            </span>
-          </p>
+        {/* Tồn kho thực tế */}
+        <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-[#5f6b57]">
+          <span className={cn(p.stock < 20 ? 'font-bold text-[#b71c1c]' : 'text-[#326318]')}>
+            {soldOut ? 'Hết hàng' : `Còn ${p.stock} ${p.unit}`}
+          </span>
         </div>
 
         {/* Nút hành động: 1 nút Xem chi tiết + 1 nút Thêm vào giỏ */}

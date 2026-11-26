@@ -60,7 +60,13 @@ export interface ShipperStatusResponse {
 }
 
 /** Lý do giao thất bại, khớp enum DeliveryFailReason ở BE */
-export type DeliveryFailReason = 'KHONG_LIEN_LAC_DUOC' | 'SAI_DIA_CHI' | 'KHACH_TU_CHOI' | 'KHAC'
+export type DeliveryFailReason =
+  | 'KHONG_LIEN_LAC_DUOC'
+  | 'SAI_DIA_CHI'
+  | 'KHACH_TU_CHOI'
+  | 'SHOP_DONG_CUA'
+  | 'SHOP_CHUA_SAN_SANG'
+  | 'KHAC'
 
 export interface FailOrderRequest {
   reason: DeliveryFailReason

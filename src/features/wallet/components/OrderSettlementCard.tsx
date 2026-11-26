@@ -37,7 +37,7 @@ function Body({ s, viewer }: { s: OrderSettlementResponse; viewer: 'SHOP' | 'SHI
             s.settled ? 'bg-[#eaf5e1] text-[#326318]' : 'bg-amber-50 text-amber-700'
           }`}
         >
-          {s.settled ? `Đã vào ví · ${formatBackendDate(s.settledAt)}` : 'Dự kiến (về ví khi khách xác nhận nhận hàng)'}
+          {s.settled ? `Đã quyết toán · ${formatBackendDate(s.settledAt)}` : 'Dự kiến (về ví khi hoàn tất đơn)'}
         </span>
       </div>
 
@@ -80,7 +80,12 @@ function Body({ s, viewer }: { s: OrderSettlementResponse; viewer: 'SHOP' | 'SHI
       {viewer === 'ADMIN' && (
         <div className="rounded-2xl bg-[#f6f8f3] p-3">
           <Row label="Khách trả" value={formatVnd(s.buyerPaid)} />
-          <Row label="Sàn nhận" value={formatVnd(s.platformReceive)} strong tone={s.platformReceive < 0 ? 'minus' : 'plus'} />
+          <Row
+            label={s.platformReceive < 0 ? 'Sàn bù cước hoàn cho Shipper' : 'Sàn nhận'}
+            value={formatVnd(s.platformReceive)}
+            strong
+            tone={s.platformReceive < 0 ? 'minus' : 'plus'}
+          />
           {s.refundAmount ? (
             <Row label={`Cần hoàn cho khách${s.refundReason ? `: ${s.refundReason}` : ''}`} value={formatVnd(s.refundAmount)} tone="minus" />
           ) : null}
