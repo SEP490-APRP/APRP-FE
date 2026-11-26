@@ -14,6 +14,7 @@ import {
   PackageOpen,
 } from 'lucide-react'
 import { useShopOrders, useShopProfile } from '@/features/shop'
+import { globalShowAlert } from '@/components/common/Popup'
 
 export default function RevenueReport() {
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week')
@@ -321,7 +322,7 @@ export default function RevenueReport() {
 
           <button
             type="button"
-            onClick={() => alert('Đang trích xuất báo cáo doanh số Excel...')}
+            onClick={() => void globalShowAlert('Chức năng xuất báo cáo doanh số ra Excel đang được phát triển, chưa tải được tệp.', 'Chưa hỗ trợ', 'info')}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#dce3d5] hover:border-[#2b5619] text-xs font-bold text-[#2b5619] rounded-lg transition-colors cursor-pointer shadow-2xs"
             title="Xuất báo cáo Excel"
           >

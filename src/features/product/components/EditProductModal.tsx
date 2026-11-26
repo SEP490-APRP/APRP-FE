@@ -13,6 +13,7 @@ import { useUpdateProduct, useAiSuggestDescription } from '../hooks/useProductQu
 import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
 import { CustomSelect } from '@/components/common/CustomSelect'
+import { globalShowAlert } from '@/components/common/Popup'
 
 const UNIT_OPTIONS = [
   { value: 'kg', label: 'kg (Kilogram)' },
@@ -145,7 +146,7 @@ export function EditProductModal({
   const handleAiSuggestDescription = async () => {
     const name = getValues('name')?.trim()
     if (!name) {
-      alert('Vui lòng nhập tên sản phẩm trước để AI có thể gợi ý mô tả!')
+      void globalShowAlert('Vui lòng nhập tên sản phẩm trước để AI có thể gợi ý mô tả!', 'warning')
       return
     }
 
@@ -201,7 +202,7 @@ export function EditProductModal({
         : `Đã cập nhật sản phẩm: ${values.name}`)
       onClose()
     } catch (err) {
-      alert(getErrorMessage(err) || 'Không thể cập nhật sản phẩm')
+      void globalShowAlert(getErrorMessage(err) || 'Không thể cập nhật sản phẩm', 'error')
     }
   }
 

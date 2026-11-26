@@ -1,8 +1,13 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, CheckCircle2, Clock, Flame, Loader2, MapPin, Navigation, Package, Phone, Truck, XCircle } from 'lucide-react'
+import { Camera, CheckCircle2, Clock, Loader2, MapPin, Navigation, Package, Phone, Truck, XCircle } from 'lucide-react'
 import { shipperPreOrderService, uploadService, type PreOrderResponse, type PriorityLevel } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { routeOrder, type Point } from '@/features/campaign/hubRun'
+import HubRunPicker from './HubRunPicker'
+import HubPickupDialog from './HubPickupDialog'
+import { globalShowConfirm } from '@/components/common/Popup'
+import HubTripsSection from './HubTripsSection'
 
 const PRIORITY: Record<PriorityLevel, { label: string; cls: string }> = {
   URGENT: { label: 'Gấp', cls: 'bg-red-100 text-red-700' },
@@ -23,11 +28,24 @@ export default function ShipperCampaignOrders() {
   const refresh = () => qc.invalidateQueries({ queryKey: ['shipper-preorders'] })
   const onError = (e: unknown) => setError(getErrorMessage(e, 'Thao tác thất bại.'))
 
-  const accept = useMutation({ mutationFn: (id: number) => shipperPreOrderService.accept(id), onSuccess: refresh, onError })
+  const release = useMutation({
+    mutationFn: (id: number) => shipperPreOrderService.release(id),
+    onSuccess: refresh,
+    onError: (e) => {
+      onError(e)
+      refresh()
+    },
+  })
 
   // READY: admin giao cho mình, chưa lấy khỏi hub. SHIPPING (hoặc đơn cũ READY đã lấy): đang giao
   const assignedWaiting = (mine.data ?? []).filter((o) => o.status === 'READY' && !o.pickedUpAt)
-  const delivering = (mine.data ?? []).filter((o) => o.status === 'SHIPPING' || (o.status === 'READY' && o.pickedUpAt))
+  const carrying = (mine.data ?? []).filter((o) => o.status === 'SHIPPING' || (o.status === 'READY' && o.pickedUpAt))
+  // Đang giao xếp theo đường ngắn, xuất phát từ hub của đơn đầu tiên
+  const start: Point | null = carrying[0]?.hubLatitude != null ? [Number(carrying[0].hubLatitude), Number(carrying[0].hubLongitude)] : null
+  const delivering = routeOrder(start, carrying)
+  /** Hub đang mở cửa sổ lấy hàng (0 = đơn không qua hub) */
+  const [pickupHub, setPickupHub] = useState<number | null>(null)
+  const pickupOrders = assignedWaiting.filter((o) => (o.hubId ?? 0) === pickupHub && (o.hubId == null || !!o.hubReceivedAt))
   const done = (mine.data ?? []).filter((o) => o.status === 'DELIVERED' || o.status === 'FAILED').slice(0, 10)
 
   return (
@@ -39,10 +57,12 @@ export default function ShipperCampaignOrders() {
         </div>
       )}
 
+      <HubTripsSection onError={onError} />
+
       <Section
         icon={<Truck className="size-5 text-primary" />}
         title="Đang giao"
-        hint="Đã lấy hàng ở hub, giao tới khách và thu tiền còn lại"
+        hint="Xếp theo thứ tự nên giao, giao tới khách và thu tiền còn lại"
         empty="Chưa có đơn chiến dịch nào đang giao."
         loading={mine.isPending}
         orders={delivering}
@@ -51,41 +71,41 @@ export default function ShipperCampaignOrders() {
 
       <Section
         icon={<Package className="size-5 text-sky-600" />}
-        title="Admin đã giao cho bạn"
-        hint="Tới điểm tập kết lấy hàng rồi bấm Đã lấy hàng"
-        empty="Chưa có đơn nào được giao cho bạn."
+        title="Chờ bạn lấy ở hub"
+        hint="Tới hub, quét hoặc bấm đủ thùng rồi mới giao"
+        empty="Chưa có đơn nào chờ bạn lấy."
         loading={mine.isPending}
         orders={assignedWaiting}
         render={(o) => (
-          <button
-            type="button"
-            disabled={accept.isPending}
-            onClick={() => accept.mutate(o.preOrderId)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-          >
-            <Package size={16} /> Đã lấy hàng ở hub
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={release.isPending}
+              onClick={async () => {
+                if (await globalShowConfirm(`Bỏ nhận đơn ${o.code}?`, 'Đơn trở lại hub cho shipper khác và bạn được gỡ ký quỹ.', { confirmText: 'Bỏ nhận', danger: true })) release.mutate(o.preOrderId)
+              }}
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 disabled:opacity-50"
+            >
+              Bỏ nhận
+            </button>
+            {o.hubId != null && !o.hubReceivedAt ? (
+              <span className="inline-flex items-center rounded-xl bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
+                Hub đang kiểm lại đơn này{o.hubIssueNote ? `: ${o.hubIssueNote}` : ''}
+              </span>
+            ) : (
+              <button type="button" onClick={() => setPickupHub(o.hubId ?? 0)} className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-black text-white">
+                <Package size={16} /> Lấy hàng (quét thùng)
+              </button>
+            )}
+          </div>
         )}
       />
 
-      <Section
-        icon={<Flame className="size-5 text-red-500" />}
-        title="Tại hub chờ nhận"
-        hint="Đơn gấp nằm trên cùng, nhận để giao"
-        empty="Hub chưa có đơn chiến dịch nào chờ shipper."
-        loading={ready.isPending}
-        orders={ready.data ?? []}
-        render={(o) => (
-          <button
-            type="button"
-            disabled={accept.isPending}
-            onClick={() => accept.mutate(o.preOrderId)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-          >
-            <CheckCircle2 size={16} /> Nhận đơn
-          </button>
-        )}
-      />
+      {pickupHub != null && pickupOrders.length > 0 && (
+        <HubPickupDialog orders={pickupOrders} onClose={() => setPickupHub(null)} onChanged={refresh} onError={onError} />
+      )}
+
+      <HubRunPicker orders={ready.data ?? []} loading={ready.isPending} onAccepted={refresh} onError={onError} />
 
       {done.length > 0 && (
         <div>
@@ -149,7 +169,8 @@ function Section({
 
 /** Phí dịch vụ shipper (khớp capnong.wallet.shipper-fee-rate) */
 const SHIPPER_FEE_RATE = 0.03
-const shipperEarn = (o: PreOrderResponse) => Math.round(Number(o.shippingBaseFee ?? o.shippingFee ?? 0) * (1 - SHIPPER_FEE_RATE))
+const shipperEarn = (o: PreOrderResponse) =>
+  o.shipperEarnEstimate != null ? Math.round(Number(o.shipperEarnEstimate)) : Math.round(Number(o.shippingBaseFee ?? o.shippingFee ?? 0) * (1 - SHIPPER_FEE_RATE))
 
 function OrderCard({ o, action }: { o: PreOrderResponse; action: React.ReactNode }) {
   const p = PRIORITY[(o.priorityLevel ?? 'NORMAL') as PriorityLevel]
@@ -174,6 +195,26 @@ function OrderCard({ o, action }: { o: PreOrderResponse; action: React.ReactNode
           {shipperEarn(o) > 0 && <p className="text-xs font-bold text-emerald-700">Cước bạn nhận {vnd(shipperEarn(o))}</p>}
         </div>
       </div>
+      {o.hubName && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+          <span className="min-w-0">
+            <b>Lấy hàng tại hub {o.hubName}</b>
+            {o.hubAddress ? ` · ${o.hubAddress}` : ''}
+            {o.hubOpenHours ? ` · ${o.hubOpenHours}` : ''}
+            {o.hubPhone ? ` · ${o.hubPhone}` : ''}
+          </span>
+          {o.hubLatitude != null && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${o.hubLatitude},${o.hubLongitude}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 font-bold text-white"
+            >
+              <Navigation size={12} /> Đường tới hub
+            </a>
+          )}
+        </div>
+      )}
       {o.status === 'READY' && Number(o.remainingAmount ?? 0) > 0 && (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Nhận đơn cần ký quỹ <b>{vnd(o.remainingAmount)}</b> trong ví (bằng số tiền sẽ thu). Giao xong ví trừ đúng số tiền mặt bạn đang cầm và cộng cước; giao thất bại thì trả lại ký quỹ và vẫn nhận 50% cước.

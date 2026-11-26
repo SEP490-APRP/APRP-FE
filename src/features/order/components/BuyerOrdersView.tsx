@@ -30,6 +30,7 @@ import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'REFUND' | 'CANCELLED'
 
@@ -238,14 +239,15 @@ export const BuyerOrdersView: React.FC = () => {
   }, [preOrders, searchKeyword])
 
   const handleCancelPreOrder = async (p: PreOrderResponse) => {
-    if (!window.confirm(`Hủy đơn đặt trước ${p.code}? Đơn chưa cọc nên bạn không mất tiền.`)) return
+    const agreed = await globalShowConfirm(`Hủy đơn đặt trước ${p.code}?`, 'Đơn chưa cọc nên bạn không mất tiền.', { danger: true, confirmText: 'Hủy đơn', cancelText: 'Giữ đơn' })
+    if (!agreed) return
     setCancellingPreOrderId(p.preOrderId)
     try {
       await campaignService.cancelPreOrder(p.preOrderId)
       await fetchOrders()
     } catch (err) {
       console.error('Lỗi khi hủy đơn đặt trước:', err)
-      window.alert('Không hủy được đơn đặt trước. Vui lòng thử lại.')
+      void globalShowAlert('Không hủy được đơn đặt trước. Vui lòng thử lại.', 'error')
     } finally {
       setCancellingPreOrderId(null)
     }
@@ -323,7 +325,7 @@ export const BuyerOrdersView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Lỗi khi mở tùy chọn thanh toán:', err)
-      alert(err?.message || 'Có lỗi khi mở thanh toán checkout.')
+      void globalShowAlert(err?.message || 'Có lỗi khi mở thanh toán checkout.', 'error')
     } finally {
       setIsLoadingResumeOptions(false)
     }
@@ -357,11 +359,11 @@ export const BuyerOrdersView: React.FC = () => {
         setQrModalData(res)
         setIsQrModalOpen(true)
       } else {
-        alert('Không thể tạo mã QR thanh toán. Vui lòng thử lại sau.')
+        void globalShowAlert('Không thể tạo mã QR thanh toán. Vui lòng thử lại sau.', 'error')
       }
     } catch (err: any) {
       console.error('Lỗi thanh toán:', err)
-      alert(err?.message || 'Có lỗi khi kết nối cổng thanh toán PayOS.')
+      void globalShowAlert(err?.message || 'Có lỗi khi kết nối cổng thanh toán PayOS.', 'error')
     } finally {
       setPayingOrderId(null)
     }
@@ -439,7 +441,8 @@ export const BuyerOrdersView: React.FC = () => {
   const handleCompleteOrder = async (order: OrderResponse) => {
     const id = order.orderId || order.id
     if (!id) return
-    if (!window.confirm(`Xác nhận bạn đã nhận đủ hàng của đơn #${id}? Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.`)) {
+    const received = await globalShowConfirm(`Bạn đã nhận đủ hàng của đơn #${id}?`, 'Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.', { warning: true, confirmText: 'Đã nhận đủ hàng', cancelText: 'Chưa' })
+    if (!received) {
       return
     }
     setCompleteError(null)
@@ -574,7 +577,7 @@ export const BuyerOrdersView: React.FC = () => {
                   p={item.preOrder}
                   onCancel={handleCancelPreOrder}
                   cancelling={cancellingPreOrderId === item.preOrder.preOrderId}
-                  onChanged={(msg) => { window.alert(msg); fetchOrders() }}
+                  onChanged={(msg) => { void globalShowAlert(msg, 'success'); fetchOrders() }}
                 />
               )
             }

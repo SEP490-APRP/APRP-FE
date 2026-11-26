@@ -22,6 +22,7 @@ import { useMyProducts, useMyCombos } from '@/features/product'
 import { useMyMysteryBoxes } from '@/features/mystery-box'
 import { formatMealType } from '@/services/combo.types'
 import type { FarmerProduct, FarmerOrder } from './types'
+import { globalShowConfirm } from '@/components/common/Popup'
 
 interface DashboardProps {
   products?: FarmerProduct[]
@@ -52,7 +53,7 @@ export default function Dashboard({ onNavigate, onOpenAddProduct, onInfo }: Dash
   }
 
   const handleQuickCancel = async (orderId: number) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn từ chối đơn hàng #${orderId}?`)
+    const confirmed = await globalShowConfirm(`Từ chối đơn hàng #${orderId}?`, 'Người mua sẽ được báo đơn bị từ chối.', { danger: true, confirmText: 'Từ chối đơn', cancelText: 'Giữ đơn' })
     if (!confirmed) return
     setActionOrderId(orderId)
     try {

@@ -40,6 +40,7 @@ import mealBanner from '@/assets/ai-meal.jpg'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/stores'
 import { useUiStore } from '@/stores/useUiStore'
+import { globalShowConfirm } from '@/components/common/Popup'
 
 export default function MealPlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null)
@@ -225,9 +226,7 @@ export default function MealPlanPage() {
   const handleArchivePlan = async () => {
     if (!selectedPlanId) return
     if (
-      window.confirm(
-        'Bạn có chắc muốn lưu trữ thực đơn này? Sau khi lưu trữ, thực đơn sẽ hoàn tất và không thể chỉnh sửa tiếp.'
-      )
+      await globalShowConfirm('Lưu trữ thực đơn này?', 'Sau khi lưu trữ, thực đơn sẽ hoàn tất và không thể chỉnh sửa tiếp.', { warning: true, confirmText: 'Lưu trữ' })
     ) {
       try {
         await archivePlanMutation.mutateAsync(selectedPlanId)
@@ -241,7 +240,7 @@ export default function MealPlanPage() {
 
   const handleDeletePlan = async () => {
     if (!selectedPlanId) return
-    if (window.confirm('Bạn có chắc chắn muốn xóa bản nháp thực đơn này?')) {
+    if (await globalShowConfirm('Xóa bản nháp thực đơn?', 'Bản nháp đã xóa không khôi phục được.', { danger: true, confirmText: 'Xóa bản nháp' })) {
       try {
         await deletePlanMutation.mutateAsync(selectedPlanId)
         useUiStore.getState().showToast('✓ Đã xóa bản nháp thực đơn.')

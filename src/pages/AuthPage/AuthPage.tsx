@@ -40,6 +40,7 @@ import {
   type LoginValues,
   type RegisterValues,
 } from '@/features/auth'
+import { ruleOf } from '@/features/auth/vehicleRules'
 import { authService, type UserResponse } from '@/services'
 import { useAuth } from '@/stores'
 import { validate, STORAGE_KEYS, API_BASE_URL } from '@/utils'
@@ -443,6 +444,9 @@ export default function AuthPage({
           address: values.shipperArea.trim(),
           cccd: values.cccd.trim(),
           vehicleNumber: values.vehicleNumber.trim(),
+          vehicleType: values.shipperVehicle || 'MOTORBIKE',
+          licenseClass: values.licenseClass.trim().toUpperCase(),
+          license: values.licenseNumber.trim(),
         })
         setSuccessNotice('Đăng ký tài xế thành công! Mã OTP đã được gửi đến email của bạn.')
         setTimeout(() => {
@@ -1093,19 +1097,44 @@ export default function AuthPage({
                             type="text"
                             required
                             {...registerForm.register('vehicleNumber')}
-                            placeholder="Biển số xe vận chuyển (VD: 59-A1 123.45) *"
+                            placeholder={`Biển số xe vận chuyển (VD: ${ruleOf(registerForm.watch('shipperVehicle')).plateExample}) *`}
                             accentColor="teal"
                           />
+                          <p className="text-[11px] text-[#2d6f78]">
+                            Xe này chở tối đa {ruleOf(registerForm.watch('shipperVehicle')).capacityKg.toLocaleString('vi-VN')} kg, cần giấy phép hạng {ruleOf(registerForm.watch('shipperVehicle')).licenses.join(', ')}. Chỉ nhận được đơn và chuyến vừa sức chở.
+                          </p>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <select
                               {...registerForm.register('shipperVehicle')}
                               className="w-full px-3 py-2 rounded-xl bg-white border border-[#b2d5e0] focus:border-[#2d6f78] text-xs text-[#1e2319] outline-none cursor-pointer"
                             >
-                              <option value="Xe máy kèm thùng bảo ôn">Xe máy (Có thùng bảo ôn)</option>
-                              <option value="Xe ba gác nông sản">Xe ba gác chở nông sản</option>
-                              <option value="Xe tải 500kg - 1.5 tấn">Xe tải nhỏ 500kg - 1.5 tấn</option>
+                              <option value="MOTORBIKE">Xe máy (Có thùng bảo ôn)</option>
+                              <option value="VAN">Xe ba gác / bán tải (~500 kg)</option>
+                              <option value="TRUCK_1T">Xe tải 1 tấn</option>
+                              <option value="TRUCK_2T">Xe tải 2 tấn</option>
+                              <option value="TRUCK_5T">Xe tải 5 tấn</option>
                             </select>
+
+                            <select
+                              aria-label="Hạng giấy phép lái xe"
+                              {...registerForm.register('licenseClass')}
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#b2d5e0] focus:border-[#2d6f78] text-xs text-[#1e2319] outline-none cursor-pointer"
+                            >
+                              <option value="">Hạng giấy phép lái xe *</option>
+                              {ruleOf(registerForm.watch('shipperVehicle')).licenses.map((l) => (
+                                <option key={l} value={l}>Hạng {l}</option>
+                              ))}
+                            </select>
+
+                            <AuthInput
+                              type="text"
+                              required
+                              maxLength={12}
+                              {...registerForm.register('licenseNumber')}
+                              placeholder="Số giấy phép lái xe (12 số) *"
+                              accentColor="teal"
+                            />
 
                             <AuthInput
                               type="text"

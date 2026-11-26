@@ -8,11 +8,16 @@ import {
   Bell,
   Check,
   CheckCircle2,
-  Flame,
+  FileText, Flame,
+  GalleryHorizontal,
   ImagePlus,
-  Pencil,
+  MapPinned,
+  PackagePlus, Pencil,
+  UserPlus,
   Loader2,
   Megaphone,
+  BellRing,
+  QrCode, Route,
   Eye,
   PackageCheck,
   Plus,
@@ -21,10 +26,10 @@ import {
   Truck,
   Wallet,
   Warehouse,
-  X,
-} from 'lucide-react'
+  X, Lock } from 'lucide-react'
 import {
   adminCampaignService,
+  adminHubTripService,
   campaignProposalService,
   uploadService,
   type CampaignResponse,
@@ -33,22 +38,37 @@ import {
   type FarmRegistrationResponse,
   type PreOrderResponse,
 } from '@/services'
-import { formatKg, formatVnd } from '@/features/campaign/utils'
-import CampaignDispatchBoard from './CampaignDispatchBoard'
+import { adminReadyLabel, formatKg, formatVnd } from '@/features/campaign/utils'
+import HubDeliverySection from './HubDeliverySection'
+import ShipperCallDialog from './ShipperCallDialog'
+import ShortfallCloseButton from './ShortfallCloseButton'
+import SupplyStory, { supplyVerdict } from '@/features/campaign/components/SupplyStory'
+import TruckCallSection from './TruckCallSection'
+import CampaignReportDialog from './CampaignReportDialog'
+import CampaignResultPanel from './CampaignResultPanel'
+import PackageLabelsDialog from './PackageLabelsDialog'
+import { QRCodeSVG } from 'qrcode.react'
+import { isPackageToken, savedWebUrl, traceUrl } from '@/features/campaign/packageLabels'
+import CampaignSection, { InfoRow, ProgressBar } from './CampaignSection'
+import { plannable } from '@/features/campaign/deliveryPlan'
+import { LotFreshnessBox, PriorityChip, fmtDeadline, tierLabel } from './lotFreshness'
+import HomeBannerDialog from './HomeBannerDialog'
 import CampaignDamageClaims, { damageClaimsKey } from './CampaignDamageClaims'
 import CampaignBannerEditor from './CampaignBannerEditor'
+import { AddShopKgDialog, AddSupplyDialog, InviteShopsDialog } from './CampaignShopDialogs'
 import AdminCampaignProposals, { ProposalSourcePanel, type ApprovePrefill } from './AdminCampaignProposals'
 import { useNewProposalBadge } from '@/features/campaign/hooks/useNewProposalBadge'
-import { AddressPicker, composeAddress, EMPTY_ADDRESS, parseAddress, type AddressValue } from '@/components/common/AddressPicker'
+import { composeAddress, EMPTY_ADDRESS, PlaceSearch, type PlaceValue } from '@/components/common/AddressPicker'
 import { htmlToPlainText } from '@/components/common/RichTextEditor/RichTextContent'
 
 // CKEditor khá nặng: chỉ tải khi mở form tạo chiến dịch
 const RichTextEditor = lazy(() => import('@/components/common/RichTextEditor/RichTextEditor'))
 import { getErrorMessage } from '@/utils'
+import { globalShowConfirm } from '@/components/common/Popup'
 
 /**
  * Admin vận hành chiến dịch giải cứu (WF-01): duyệt nhà vườn, cân nhận hàng tại điểm tập kết,
- * xử lý thiếu hàng, đóng gói đơn, đưa tới hub, hoàn tất.
+ * bổ sung hàng thiếu, đóng gói đơn, đưa tới hub, hoàn tất.
  */
 
 const STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
@@ -87,6 +107,8 @@ const keys = {
 
 export default function AdminCampaigns() {
   const [selected, setSelected] = useState<number | null>(null)
+  // Vừa tạo xong chiến dịch: trang chi tiết mở kèm khung "bước tiếp theo" mời / thêm shop
+  const [justCreated, setJustCreated] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
   const [view, setView] = useState<'campaigns' | 'proposals'>('campaigns')
   const [approving, setApproving] = useState<ApprovePrefill | null>(null)
@@ -95,7 +117,7 @@ export default function AdminCampaigns() {
   useEffect(() => {
     if (view === 'proposals' && selected == null) markSeen()
   }, [view, selected, markSeen])
-  if (selected != null) return <CampaignDetail id={selected} onBack={() => setSelected(null)} />
+  if (selected != null) return <CampaignDetail id={selected} justCreated={justCreated === selected} onBack={() => { setSelected(null); setJustCreated(null) }} />
   return (
     <>
       <div className="flex flex-wrap gap-2 px-4 pt-4 sm:px-8 sm:pt-8" role="tablist" aria-label="Chiến dịch hoặc đề xuất từ shop">
@@ -116,12 +138,12 @@ export default function AdminCampaigns() {
       ) : (
         <AdminCampaignProposals onApprove={setApproving} onOpenCampaign={setSelected} />
       )}
-      {creating && <CreateDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelected(id) }} />}
+      {creating && <CreateDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setJustCreated(id); setSelected(id) }} />}
       {approving && (
         <CreateDialog
           prefill={approving}
           onClose={() => setApproving(null)}
-          onCreated={(id) => { setApproving(null); setSelected(id) }}
+          onCreated={(id) => { setApproving(null); setJustCreated(id); setSelected(id) }}
         />
       )}
     </>
@@ -132,6 +154,8 @@ export default function AdminCampaigns() {
 
 function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate: () => void }) {
   const [filter, setFilter] = useState('')
+  const [bannerOpen, setBannerOpen] = useState(false)
+  const [bannerNote, setBannerNote] = useState('')
   const q = useQuery({ queryKey: keys.list(filter), queryFn: () => adminCampaignService.list(filter) })
   const rows = q.data?.content ?? []
   return (
@@ -140,13 +164,34 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
         <div>
           <h2 className="font-display text-2xl font-black uppercase text-gray-900 sm:text-3xl">Chiến dịch giải cứu</h2>
           <p className="mt-1 text-sm font-medium text-gray-500">
-            Duyệt nhà vườn, cân nhận hàng tại điểm tập kết, xử lý thiếu hàng và giao đơn đặt trước.
+            Duyệt nhà vườn, cân nhận hàng tại điểm tập kết, bổ sung hàng thiếu và giao đơn đặt trước.
           </p>
         </div>
-        <button type="button" onClick={onCreate} className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#254d12]">
-          <Plus size={16} /> Tạo chiến dịch
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-[#326318] bg-white px-4 py-2.5 text-sm font-bold text-[#326318] hover:bg-[#f4f7f1]">
+            <GalleryHorizontal size={16} /> Banner trang chủ
+          </button>
+          <button type="button" onClick={onCreate} className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#254d12]">
+            <Plus size={16} /> Tạo chiến dịch
+          </button>
+        </div>
       </div>
+
+      {bannerNote && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          <span className="inline-flex items-center gap-2"><CheckCircle2 size={16} /> {bannerNote}</span>
+          <button type="button" aria-label="Ẩn thông báo" onClick={() => setBannerNote('')} className="rounded-full p-1 hover:bg-emerald-100"><X size={14} /></button>
+        </div>
+      )}
+      {bannerOpen && (
+        <HomeBannerDialog
+          onClose={() => setBannerOpen(false)}
+          onSaved={(n) => {
+            setBannerOpen(false)
+            setBannerNote(n > 0 ? `Đã lưu ${n} chiến dịch vào banner trang chủ.` : 'Đã bỏ hết chiến dịch khỏi banner trang chủ, trang chủ dùng banner chung.')
+          }}
+        />
+      )}
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lọc theo trạng thái">
         {FILTERS.map((f) => (
@@ -218,16 +263,36 @@ function CampaignList({ onOpen, onCreate }: { onOpen: (id: number) => void; onCr
 
 /* ─────────────────────────── Chi tiết ─────────────────────────── */
 
-function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
+function CampaignDetail({ id, onBack, justCreated = false }: { id: number; onBack: () => void; justCreated?: boolean }) {
   const qc = useQueryClient()
   const campaign = useQuery({ queryKey: keys.one(id), queryFn: () => adminCampaignService.get(id) })
   const regs = useQuery({ queryKey: keys.regs(id), queryFn: () => adminCampaignService.registrations(id) })
   const orders = useQuery({ queryKey: keys.orders(id), queryFn: () => adminCampaignService.preOrders(id) })
   const claims = useQuery({ queryKey: damageClaimsKey(id), queryFn: () => adminCampaignService.damageClaims(id) })
-  const [tab, setTab] = useState<'farms' | 'orders' | 'dispatch' | 'claims' | 'banner'>('farms')
+  // Cùng khoá với màn xe: chốt xong là thanh tiến trình đổi ngay
+  const trips = useQuery({ queryKey: ['admin-campaigns', 'hub-trips', id], queryFn: () => adminHubTripService.list(id) })
+  const [tab, setTab] = useState<'farms' | 'orders' | 'claims' | 'banner'>('farms')
   const [intakeFor, setIntakeFor] = useState<FarmRegistrationResponse | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  useEffect(() => {
+    if (!notice) return
+    const t = window.setTimeout(() => setNotice(null), notice.ok ? 5000 : 9000)
+    return () => window.clearTimeout(t)
+  }, [notice])
   const [editing, setEditing] = useState(false)
+  const [shopDialog, setShopDialog] = useState<'invite' | 'add' | null>(null)
+  const [showNextStep, setShowNextStep] = useState(justCreated)
+  const [planOpen, setPlanOpen] = useState(false)
+  const [supplyOpen, setSupplyOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const openPlan = () => setPlanOpen(true)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  /** Mở tab Đơn đặt trước để đóng gói */
+  const goPack = () => {
+    setPlanOpen(false)
+    setTab('orders')
+    window.setTimeout(() => tabsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0)
+  }
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: keys.one(id) })
@@ -248,6 +313,18 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const fulfilling = c.status === 'FULFILLING'
   const shortfall = Number(c.shortfallVolumeKg ?? 0)
   const pendingIntake = c.intakePendingCount ?? 0
+  // Đơn đặt trước chỉ mở sau khi cân đủ lô và xử lý xong phần thiếu
+  const ordersLocked =
+    c.status === 'THRESHOLD_MET'
+      ? 'Mở sau khi bắt đầu gom hàng và cân đủ các lô tại điểm tập kết.'
+      : c.status !== 'FULFILLING'
+        ? null
+        : pendingIntake > 0
+          ? `Còn ${pendingIntake} lô chưa cân (tab Nhà vườn & nhận hàng).`
+          : shortfall > 0
+            ? `Còn thiếu ${kg(shortfall)}: bổ sung hàng hoặc chốt phần thiếu.`
+            : null
+  const activeTab = ordersLocked && tab === 'orders' ? 'farms' : tab
   const button = (action: string, label: string, done: string, icon: ReactNode, tone = 'primary') => (
     <button
       type="button"
@@ -259,6 +336,132 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
     </button>
   )
 
+  // Các bước chính theo thứ tự; bước đầu tiên chưa xong là bước hiện tại
+  const after = (...st: CampaignStatus[]) => st.includes(c.status)
+  // Bước 3 gồm: bắt đầu gom hàng -> cân nhận đủ lô -> kêu gọi shipper & chốt kế hoạch xe (mọi đơn giao tận nơi đã ra hub / giao thẳng)
+  const startDay = c.startDate ? new Date(`${c.startDate.slice(0, 10)}T00:00:00`) : null
+  const collectOpen = !startDay || Date.now() >= startDay.getTime()
+  const deliveryOrders = (orders.data ?? []).filter((o) => o.fulfillmentMethod !== 'PICKUP' && !['PENDING', 'CANCELLED'].includes(o.status))
+  // Chốt xe xong khi mọi đơn đã được chia ra hub và mọi chuyến đã chốt (shipper nhận hàng là việc sau đó)
+  const unplanned = deliveryOrders.filter((o) => plannable(o) && !(o.status === 'READY' && o.hubId != null)).length
+  const activeTrips = (trips.data ?? []).filter((t) => t.status !== 'CANCELLED')
+  const planDone = fulfilling && !trips.isPending && deliveryOrders.length > 0 && unplanned === 0 &&
+    activeTrips.every((t) => t.confirmed || t.status === 'IN_TRANSIT' || t.status === 'DELIVERED')
+  // Đã gọi xe là gom hàng được; bước gọi xe chỉ tính xong khi mọi chuyến có tài xế nhận (không có đơn giao tận nơi thì không cần xe)
+  const drivenTrips = activeTrips.filter((t) => t.driverId != null).length
+  const trucksReady = !orders.isPending && !trips.isPending &&
+    (deliveryOrders.length === 0 || (activeTrips.length > 0 && drivenTrips === activeTrips.length))
+  const trucksCalled = !orders.isPending && !trips.isPending && (deliveryOrders.length === 0 || activeTrips.length > 0)
+  // Mọi đơn đã có shipper lấy: mới tới lúc hoàn tất
+  const allClaimed = planDone && !deliveryOrders.some(plannable)
+  const unpacked = deliveryOrders.filter((o) => o.status === 'DEPOSIT_PAID').length
+  const subSteps: { label: string; done: boolean; action?: ReactNode; hint?: string }[] = [
+    {
+      label: 'Bắt đầu gom hàng',
+      done: after('FULFILLING', 'COMPLETED'),
+      // Chỉ gom hàng từ ngày bắt đầu chiến dịch (BE cũng chặn)
+      action: c.status === 'THRESHOLD_MET' && collectOpen && trucksCalled ? button('start-fulfilling', 'Bắt đầu gom hàng', 'Đã báo nhà vườn mang hàng tới điểm tập kết.', <Truck size={16} />) : undefined,
+      hint: !trucksCalled ? 'Mở sau khi dự toán và gửi thông báo gọi xe'
+        : startDay ? `Mở từ ngày bắt đầu chiến dịch ${startDay.toLocaleDateString('vi-VN')}` : undefined,
+    },
+    {
+      label: 'Cân nhận hàng nhà vườn',
+      done: fulfilling && pendingIntake === 0,
+      hint: fulfilling ? `Còn ${pendingIntake} lô chưa cân (tab Nhà vườn & nhận hàng)` : 'Sau khi bắt đầu gom hàng',
+    },
+    {
+      label: 'Đóng gói đơn đặt trước',
+      done: fulfilling && pendingIntake === 0 && !orders.isPending && unpacked === 0,
+      action: fulfilling && !ordersLocked ? (
+        <button type="button" onClick={goPack} className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#254d12]">
+          <PackageCheck size={14} /> Đóng gói ({unpacked} đơn)
+        </button>
+      ) : undefined,
+      hint: ordersLocked ?? undefined,
+    },
+    {
+      label: 'Chốt xe chở ra hub',
+      done: planDone,
+      action: fulfilling ? (
+        <button type="button" onClick={openPlan} className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#254d12]">
+          <Route size={14} /> Chốt xe ra hub{unplanned > 0 ? ` (${unplanned} đơn)` : ''}
+        </button>
+      ) : undefined,
+    },
+  ]
+  // Đủ ngưỡng chỉ được xét lúc chốt đơn: ghi rõ giờ chốt để admin biết khi nào các bước sau mở
+  const closing = splitDateTime(c.cutoffAt)
+  const closingText = `${closing.date} lúc ${closing.time}`
+  const reached = Number(c.bookedVolumeKg ?? 0) >= Number(c.minThresholdKg ?? 0)
+  /** open: làm được ngay dù bước trước chưa xong */
+  const steps: { label: string; done: boolean; open?: boolean; action?: ReactNode; hint?: string; extra?: ReactNode }[] = [
+    {
+      label: 'Kêu gọi nhà vườn',
+      done: !!c.callPostedAt || c.status !== 'DRAFT',
+      action: c.status === 'DRAFT' && !c.callPostedAt ? button('call', 'Đăng lời kêu gọi', 'Đã gửi lời kêu gọi tới các nhà vườn.', <Megaphone size={16} />) : undefined,
+      hint: c.publishAt ? `Tự đăng lúc ${splitDateTime(c.publishAt).time} ngày ${splitDateTime(c.publishAt).date}` : undefined,
+    },
+    {
+      label: 'Mở bán đặt trước',
+      done: after('ACTIVE', 'THRESHOLD_MET', 'FULFILLING', 'COMPLETED'),
+      action: c.status === 'DRAFT' ? button('publish', 'Mở bán đặt trước', 'Chiến dịch đã mở đặt trước.', <Flame size={16} />) : undefined,
+    },
+    {
+      // Bước riêng: mở bán xong (đủ ngưỡng) là biết số đơn, số kg -> kêu gọi shipper sớm
+      label: 'Dự toán & gọi xe',
+      done: c.status === 'COMPLETED' || (after('THRESHOLD_MET', 'FULFILLING') && trucksReady),
+      action: after('THRESHOLD_MET', 'FULFILLING') ? (
+        <>
+          <button type="button" onClick={openPlan} className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-3.5 py-2 text-sm font-bold text-white hover:bg-[#254d12]">
+            <BellRing size={16} /> Dự toán & gọi xe
+          </button>
+          {activeTrips.length > 0 && (
+            <span className="w-full text-xs font-semibold text-amber-800">Đã có tài xế {drivenTrips}/{activeTrips.length} xe</span>
+          )}
+        </>
+      ) : undefined,
+      hint: c.status === 'ACTIVE' ? `Mở sau khi chốt đơn ${closingText}` : 'Sau khi mở bán đặt trước',
+      // Khi đang gom hàng đã có nút "Xe chở hàng ra hub" bên dưới
+      extra: activeTrips.length > 0 && c.status === 'THRESHOLD_MET' ? (
+        <button type="button" onClick={openPlan} className="text-left text-xs font-bold text-[#326318] underline">
+          {drivenTrips} xe đã nhận · Mở bảng xe
+        </button>
+      ) : undefined,
+    },
+    {
+      label: 'Gom hàng & chia xe',
+      done: c.status === 'COMPLETED' || planDone,
+      open: after('THRESHOLD_MET', 'FULFILLING') && trucksCalled,
+      action: after('THRESHOLD_MET', 'FULFILLING') ? (
+        <ol className="flex w-full flex-col gap-1.5">
+          {subSteps.map((s, k) => {
+            const now = !s.done && subSteps.slice(0, k).every((x) => x.done)
+            return (
+              <li key={s.label} className="flex flex-col gap-1">
+                <span className={`flex items-center gap-1.5 text-xs font-bold ${s.done ? 'text-[#326318]' : now ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${s.done ? 'bg-[#326318] text-white' : now ? 'border border-[#326318] text-[#326318]' : 'border border-gray-300'}`}>
+                    {s.done ? <Check size={10} /> : k + 1}
+                  </span>
+                  {s.label}
+                </span>
+                {now && (s.action ?? (s.hint && <span className="pl-5 text-[11px] text-gray-500">{s.hint}</span>))}
+              </li>
+            )
+          })}
+        </ol>
+      ) : undefined,
+      hint: c.status !== 'ACTIVE' ? 'Sau khi mở bán đặt trước'
+        : reached ? `Đã đủ ngưỡng, chờ chốt đơn ${closingText}` : `Cần đủ ${kg(c.minThresholdKg)} trước ${closingText}`,
+    },
+    {
+      label: 'Hoàn tất & chi trả',
+      done: c.status === 'COMPLETED',
+      action: allClaimed ? button('complete', 'Hoàn tất & chi trả', 'Đã hoàn tất: giải ngân cọc và chi trả nhà vườn.', <CheckCircle2 size={16} />) : undefined,
+      hint: fulfilling && !planDone ? 'Sau khi chốt kế hoạch xe và giao xong đơn' : 'Sau khi giao xong đơn đặt trước',
+    },
+  ]
+  const toolBtn = 'inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-bold text-gray-800 hover:border-[#326318] hover:text-[#326318]'
+
   const cover = c.coverImageUrl || c.bannerImageUrl || null
   const lead = articleLead(c.description)
   const now = Date.now()
@@ -266,15 +469,55 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
     c.publishAt ? { label: 'Đăng bài kêu gọi', ...splitDateTime(c.publishAt), done: new Date(c.publishAt).getTime() <= now } : null,
     c.farmCutoffAt ? { label: 'Chốt góp hàng', ...splitDateTime(c.farmCutoffAt), done: new Date(c.farmCutoffAt).getTime() <= now } : null,
     { label: 'Chốt đơn đặt trước', ...splitDateTime(c.cutoffAt), done: new Date(c.cutoffAt).getTime() <= now },
-    c.startDate ? { label: 'Bắt đầu', date: fmtYmd(c.startDate), time: '', done: new Date(c.startDate + 'T00:00:00').getTime() <= now } : null,
-    c.endDate ? { label: 'Kết thúc', date: fmtYmd(c.endDate), time: '', done: new Date(c.endDate + 'T23:59:59').getTime() <= now } : null,
+    c.startDate ? { label: 'Bắt đầu mở điểm tập kết', date: fmtYmd(c.startDate), time: '', done: new Date(c.startDate + 'T00:00:00').getTime() <= now } : null,
+    c.endDate ? { label: 'Kết thúc mở điểm tập kết', date: fmtYmd(c.endDate), time: '', done: new Date(c.endDate + 'T23:59:59').getTime() <= now } : null,
+    c.finishDate ? { label: 'Kết thúc chiến dịch (giao xong)', date: fmtYmd(c.finishDate), time: '', done: c.status === 'COMPLETED' } : null,
   ].filter((x): x is { label: string; date: string; time: string; done: boolean } => x != null)
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-8">
-      <button type="button" onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-[#326318]">
-        <ArrowLeft size={16} /> Tất cả chiến dịch
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={onBack} className="inline-flex w-fit items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-[#326318]">
+          <ArrowLeft size={16} /> Tất cả chiến dịch
+        </button>
+        {c.status === 'COMPLETED' && (
+          <button
+            type="button"
+            disabled={orders.isPending || regs.isPending}
+            onClick={() => setReportOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#254d12] disabled:opacity-50"
+          >
+            <FileText size={16} /> Báo cáo
+          </button>
+        )}
+      </div>
+
+      {showNextStep && (c.status === 'DRAFT' || c.status === 'ACTIVE') && (
+        <section aria-label="Bước tiếp theo" className="flex flex-col gap-4 rounded-3xl border-2 border-[#326318] bg-[#f4f9ef] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#326318] text-white"><CheckCircle2 size={20} /></span>
+            <div>
+              <p className="text-base font-black text-gray-900">Đã tạo chiến dịch. Bước tiếp theo: tìm shop góp hàng</p>
+              <p className="mt-0.5 text-sm text-gray-600">
+                Mời các shop quanh điểm tập kết, hoặc thêm luôn shop đã đồng ý kèm số kg họ góp. Bạn cũng có thể làm sau ở mục "Tìm nguồn hàng" bên dưới.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setShopDialog('invite')}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#254d12]">
+              <MapPinned size={16} /> Mời shop lân cận
+            </button>
+            <button type="button" onClick={() => setShopDialog('add')}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#326318] bg-white px-4 py-2.5 text-sm font-bold text-[#326318] hover:bg-[#eef6e7]">
+              <UserPlus size={16} /> Thêm shop &amp; số kg
+            </button>
+            <button type="button" onClick={() => setShowNextStep(false)} className="rounded-xl px-3 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800">
+              Để sau
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Đầu trang dạng bài báo: ảnh bìa, tít, sapo, thông tin chính, mốc thời gian */}
       <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
@@ -315,7 +558,10 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
               <Fact label="Giá giải cứu" value={`${formatVnd(c.rescuePricePerKg)}/kg`} strong />
               <Fact label="Cọc" value={`${Math.round(Number(c.depositPercent) * 100)}%`} />
               <Fact label="Ngưỡng tối thiểu" value={kg(c.minThresholdKg)} />
-              <Fact label="Mục tiêu" value={kg(c.targetVolumeKg)} />
+              <Fact
+                label={Number(c.targetVolumeKg) > Number(c.plannedTargetKg ?? c.targetVolumeKg) ? `Tổng hàng · mục tiêu ${kg(c.plannedTargetKg)}` : 'Mục tiêu'}
+                value={kg(c.targetVolumeKg)}
+              />
             </dl>
           </div>
         </div>
@@ -332,42 +578,112 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
           ))}
         </ol>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 bg-[#fafbf8] px-5 py-4 sm:px-8">
-          {c.status === 'DRAFT' && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#326318] bg-white px-4 py-2.5 text-sm font-bold text-[#326318] hover:bg-[#eef6e7]"
-            >
-              <Pencil size={16} /> Chỉnh sửa
-            </button>
+        {/* Thanh thao tác: tiến trình theo thứ tự các bước, rồi các nhóm việc phụ */}
+        <div className="flex flex-col gap-5 border-t border-gray-100 bg-[#fafbf8] px-5 py-5 sm:px-8">
+          <section aria-label="Tiến trình chiến dịch">
+            <p className="mb-2 text-sm font-black text-gray-900">Tiến trình</p>
+            {c.status === 'CANCELLED' ? (
+              <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">Chiến dịch đã huỷ, tiền cọc đã được hoàn cho người mua.</p>
+            ) : (
+              <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {steps.map((st, i) => {
+                  const current = !st.done && (!!st.open || steps.slice(0, i).every((x) => x.done))
+                  return (
+                    <li key={st.label}
+                      className={`flex flex-col gap-2 rounded-2xl border p-3.5 ${st.done ? 'border-[#cfe6c4] bg-[#eef6e7]' : current ? 'border-[#326318] bg-white shadow-sm' : 'border-gray-200 bg-white/60'}`}>
+                      {/* Số bước nằm trên, tên bước dùng hết bề ngang thẻ để không rớt chữ */}
+                      <div className="flex flex-col items-start gap-2">
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${st.done ? 'bg-[#326318] text-white' : current ? 'border-2 border-[#326318] text-[#326318]' : 'border border-gray-300 text-gray-400'}`}>
+                          {st.done ? <Check size={14} /> : i + 1}
+                        </span>
+                        <span className={`text-sm font-bold [text-wrap:balance] ${st.done || current ? 'text-gray-900' : 'text-gray-400'}`}>{st.label}</span>
+                      </div>
+                      {st.done ? (
+                        st.extra ?? <span className="text-xs font-semibold text-[#326318]">Đã xong</span>
+                      ) : st.action ? (
+                        <div className="flex flex-wrap gap-2">{st.action}</div>
+                      ) : (
+                        <span className="text-xs text-gray-500">{st.hint}</span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+          </section>
+
+          {fulfilling && (
+            <section aria-label="Gom và giao hàng">
+              <p className="mb-2 text-sm font-black text-gray-900">Gom &amp; giao hàng</p>
+              <div className="flex flex-wrap gap-2">
+                {pendingIntake === 0 && !c.topUpOpen && Number(c.topUpRemainingKg ?? 0) > 0 && button('top-up-call', `Kêu gọi bổ sung ${kg(c.topUpRemainingKg)}`, 'Đã gửi kêu gọi bổ sung tới các nhà vườn.', <Megaphone size={16} />)}
+                {c.topUpOpen && button('top-up-call/close', 'Đóng kêu gọi bổ sung', 'Đã đóng kêu gọi bổ sung.', <X size={16} />, 'danger')}
+                {shortfall > 0 && pendingIntake === 0 && (
+                  <button type="button" onClick={() => setSupplyOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3.5 py-2 text-sm font-bold text-white hover:bg-amber-600">
+                    <PackagePlus size={16} /> Bổ sung hàng
+                  </button>
+                )}
+                {shortfall > 0 && pendingIntake === 0 && <ShortfallCloseButton c={c} onNotice={(n) => { setNotice(n); refresh() }} />}
+                <button type="button" onClick={openPlan} className={toolBtn}><Route size={16} /> Xe chở hàng ra hub</button>
+              </div>
+            </section>
           )}
-          <button
-            type="button"
-            onClick={() => setTab('banner')}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50"
-          >
-            <ImagePlus size={16} /> Banner trang chủ
-          </button>
-          <a
-            href={`/chien-dich/${c.campaignId}?xem-truoc=1`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50"
-          >
-            <Eye size={16} /> Xem bài viết
-          </a>
-          {c.status === 'DRAFT' && !c.callPostedAt && button('call', 'Đăng lời kêu gọi nhà vườn', 'Đã gửi lời kêu gọi tới các nhà vườn.', <Megaphone size={16} />)}
-          {c.status === 'DRAFT' && button('publish', 'Mở bán đặt trước', 'Chiến dịch đã mở đặt trước.', <Flame size={16} />)}
-          {c.status === 'THRESHOLD_MET' && button('start-fulfilling', 'Bắt đầu gom hàng', 'Đã báo nhà vườn mang hàng tới điểm tập kết.', <Truck size={16} />)}
-          {fulfilling && pendingIntake === 0 && !c.topUpOpen && Number(c.topUpRemainingKg ?? 0) > 0 && button('top-up-call', `Kêu gọi bổ sung ${kg(c.topUpRemainingKg)}`, 'Đã gửi kêu gọi bổ sung tới các nhà vườn.', <Megaphone size={16} />)}
-          {fulfilling && c.topUpOpen && button('top-up-call/close', 'Đóng kêu gọi bổ sung', 'Đã đóng kêu gọi bổ sung.', <X size={16} />, 'danger')}
-          {fulfilling && shortfall > 0 && pendingIntake === 0 && button('resolve-shortfall', 'Xử lý thiếu hàng', 'Đã xử lý thiếu hàng: đơn bị giảm thùng hoặc huỷ đã được hoàn cọc.', <AlertTriangle size={16} />, 'warn')}
-          {fulfilling && button('dispatch-to-hub', 'Đưa đơn đã đóng gói tới hub', 'Các đơn đã đóng gói đã chuyển sang Tại hub.', <Truck size={16} />)}
-          {fulfilling && button('complete', 'Hoàn tất & chi trả', 'Đã hoàn tất: giải ngân cọc và chi trả nhà vườn.', <CheckCircle2 size={16} />)}
-          {['DRAFT', 'ACTIVE', 'THRESHOLD_MET'].includes(c.status) && button('cancel', 'Huỷ & hoàn cọc', 'Đã huỷ chiến dịch và hoàn cọc.', <Ban size={16} />, 'danger')}
+
+          <div className="flex flex-col gap-5 border-t border-gray-200 pt-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
+              {(c.status === 'DRAFT' || c.status === 'ACTIVE') && (
+                <section aria-label="Tìm nguồn hàng">
+                  <p className="mb-2 text-sm font-black text-gray-900">Tìm nguồn hàng</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setShopDialog('invite')} className={toolBtn}>
+                      <MapPinned size={16} /> Mời shop lân cận
+                    </button>
+                    <button type="button" onClick={() => setShopDialog('add')} className={toolBtn}>
+                      <UserPlus size={16} /> Thêm shop &amp; số kg
+                    </button>
+                  </div>
+                </section>
+              )}
+              <section aria-label="Bài viết chiến dịch">
+                <p className="mb-2 text-sm font-black text-gray-900">Bài viết</p>
+                <div className="flex flex-wrap gap-2">
+                  {c.status === 'DRAFT' && (
+                    <button type="button" onClick={() => setEditing(true)} className={toolBtn}>
+                      <Pencil size={16} /> Chỉnh sửa
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setTab('banner')} className={toolBtn}>
+                    <ImagePlus size={16} /> Banner trang chủ
+                  </button>
+                  <a href={`/chien-dich/${c.campaignId}?xem-truoc=1`} target="_blank" rel="noreferrer" className={toolBtn}>
+                    <Eye size={16} /> Xem bài viết
+                  </a>
+                </div>
+              </section>
+            </div>
+            {['DRAFT', 'ACTIVE', 'THRESHOLD_MET'].includes(c.status) && (
+              <section aria-label="Huỷ chiến dịch" className="lg:text-right">
+                <p className="mb-7 text-sm font-black text-gray-900"></p>
+                {button('cancel', 'Huỷ & hoàn cọc', 'Đã huỷ chiến dịch và hoàn cọc.', <Ban size={16} />, 'danger')}
+              </section>
+            )}
+          </div>
         </div>
       </article>
+      {shopDialog === 'invite' && (
+        <InviteShopsDialog
+          c={c}
+          onClose={() => setShopDialog(null)}
+          onDone={(n) => { setShopDialog(null); setNotice({ ok: true, text: `Đã gửi lời mời góp hàng tới ${n} shop.` }) }}
+        />
+      )}
+      {shopDialog === 'add' && (
+        <AddShopKgDialog
+          c={c}
+          onClose={() => setShopDialog(null)}
+          onDone={(text) => { setShopDialog(null); setTab('farms'); setNotice({ ok: true, text }); refresh() }}
+        />
+      )}
       {editing && (
         <CreateDialog
           editing={c}
@@ -376,32 +692,77 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
         />
       )}
 
+      {supplyOpen && (
+        <AddSupplyDialog
+          c={c}
+          regs={regs.data ?? []}
+          onClose={() => setSupplyOpen(false)}
+          onDone={(text) => { setSupplyOpen(false); setTab('farms'); setNotice({ ok: true, text }); refresh() }}
+        />
+      )}
+
+      {reportOpen && (
+        <CampaignReportDialog c={c} orders={orders.data ?? []} regs={regs.data ?? []} onClose={() => setReportOpen(false)} />
+      )}
+
+      {planOpen && (
+        <ShipperCallDialog
+          c={c}
+          orders={orders.data ?? []}
+          pendingIntake={pendingIntake}
+          onClose={() => setPlanOpen(false)}
+          onPack={goPack}
+          onNotice={(n) => { setNotice(n); refresh() }}
+        />
+      )}
+
       {notice && (
-        <div role="status" className={`flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold ${notice.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
-          {notice.text}
+        <div
+          role={notice.ok ? 'status' : 'alert'}
+          className={`fixed bottom-6 left-1/2 z-[1100] flex w-[min(92vw,34rem)] -translate-x-1/2 items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${notice.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`}
+        >
+          <span>{notice.text}</span>
           <button type="button" aria-label="Đóng" onClick={() => setNotice(null)}><X size={16} /></button>
         </div>
       )}
 
-      {['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) && <SupplyPanel c={c} />}
-      {(orders.data?.length ?? 0) > 0 && <DepositPanel rows={orders.data ?? []} />}
+      {/* Số liệu chiến dịch: xếp dọc, bấm mục nào mới mở mục đó */}
+      {(['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) || (orders.data?.length ?? 0) > 0) && (
+        <div className="flex flex-col gap-3">
+          {['THRESHOLD_MET', 'FULFILLING'].includes(c.status) && (
+            <TruckCallSection c={c} orders={orders.data ?? []} pendingIntake={pendingIntake} onPack={goPack} onNotice={(n) => { setNotice(n); refresh() }} />
+          )}
+          {['FULFILLING', 'COMPLETED'].includes(c.status) && (
+            <HubDeliverySection c={c} orders={orders.data ?? []} onNotice={(n) => { setNotice(n); refresh() }} />
+          )}
+          {['THRESHOLD_MET', 'FULFILLING', 'COMPLETED'].includes(c.status) && <SupplyPanel c={c} onAdd={() => setSupplyOpen(true)} onNotice={(n) => { setNotice(n); refresh() }} />}
+          {['FULFILLING', 'COMPLETED'].includes(c.status) && <CampaignResultPanel c={c} orders={orders.data ?? []} regs={regs.data ?? []} />}
+          {(orders.data?.length ?? 0) > 0 && <DepositPanel rows={orders.data ?? []} />}
+        </div>
+      )}
 
-      <div className="flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist">
-        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['dispatch', 'Chia đơn giao'], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`], ['banner', `Banner trang chủ${c.bannerOnHome === false ? ' (tắt)' : ''}`]] as const).map(([k, label]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-bold ${tab === k ? 'border-[#326318] text-[#326318]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+      <div ref={tabsRef} className="flex scroll-mt-4 gap-1 overflow-x-auto border-b border-gray-200" role="tablist">
+        {([['farms', `Nhà vườn & nhận hàng (${regs.data?.length ?? 0})`], ['orders', `Đơn đặt trước (${orders.data?.length ?? 0})`], ['claims', `Báo hư${claims.data?.some((x) => x.status === 'PENDING') ? ` (${claims.data.filter((x) => x.status === 'PENDING').length} chờ)` : ''}`], ['banner', `Banner trang chủ${c.bannerOnHome === false ? ' (tắt)' : ''}`]] as const).map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={activeTab === k} onClick={() => setTab(k)}
+            disabled={k === 'orders' && !!ordersLocked} title={k === 'orders' ? ordersLocked ?? undefined : undefined}
+            className={`-mb-px inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${activeTab === k ? 'border-[#326318] text-[#326318]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            {k === 'orders' && ordersLocked && <Lock size={13} />}
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'banner' ? (
+      {ordersLocked && (
+        <p className="flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          <Lock size={13} /> Tab Đơn đặt trước đang khoá. {ordersLocked}
+        </p>
+      )}
+
+      {activeTab === 'banner' ? (
         <CampaignBannerEditor key={c.bannerUpdatedAt ?? 'new'} c={c} onNotice={(n) => { setNotice(n); refresh() }} />
-      ) : tab === 'claims' ? (
+      ) : activeTab === 'claims' ? (
         <CampaignDamageClaims campaignId={id} onNotice={(n) => { setNotice(n); refresh() }} />
-      ) : tab === 'dispatch' ? (
-        <CampaignDispatchBoard c={c} allOrders={orders.data ?? []} onNotice={(n) => { setNotice(n); refresh() }} />
-      ) : tab === 'farms' ? (
+      ) : activeTab === 'farms' ? (
         <FarmTable c={c} rows={regs.data ?? []} loading={regs.isPending} onIntake={setIntakeFor} onChanged={refresh} onError={(t) => setNotice({ ok: false, text: t })} />
       ) : (
         <OrderTable c={c} rows={orders.data ?? []} loading={orders.isPending} onChanged={refresh} onError={(t) => setNotice({ ok: false, text: t })} />
@@ -409,6 +770,7 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
       {intakeFor && (
         <IntakeDialog
+          c={c}
           r={intakeFor}
           onClose={() => setIntakeFor(null)}
           onSaved={(r) => { setIntakeFor(null); setNotice({ ok: true, text: `Đã ghi nhận ${kg(r.acceptedWeightKg)} đạt chuẩn từ ${r.shopName}.` }); refresh() }}
@@ -420,8 +782,8 @@ function CampaignDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
 /** Tiền cọc của người mua theo trạng thái: sàn đang giữ, đã hoàn, đã giải ngân, chờ thanh toán */
 function DepositPanel({ rows }: { rows: PreOrderResponse[] }) {
-  const sum = (s: string) => rows.filter((r) => r.depositStatus === s).reduce((t, r) => t + Number(r.depositAmount ?? 0), 0)
-  const count = (s: string) => rows.filter((r) => r.depositStatus === s).length
+  const of = (s: string) => rows.filter((r) => r.depositStatus === s)
+  const sum = (s: string) => of(s).reduce((t, r) => t + Number(r.depositAmount ?? 0), 0)
   const items = [
     { s: 'HELD_IN_ESCROW', label: 'Sàn đang giữ', tone: 'text-amber-700' },
     { s: 'REFUNDED', label: 'Đã hoàn người mua', tone: 'text-sky-700' },
@@ -429,70 +791,65 @@ function DepositPanel({ rows }: { rows: PreOrderResponse[] }) {
     { s: 'PENDING', label: 'Chờ thanh toán cọc', tone: 'text-gray-700' },
   ]
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-gray-700"><Wallet size={16} /> Tiền cọc người mua</h3>
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {items.map((i) => (
-          <div key={i.s} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{i.label}</p>
-            <p className={`mt-1 text-xl font-black tabular-nums ${i.tone}`}>{formatVnd(sum(i.s))}</p>
-            <p className="text-xs text-gray-500">{count(i.s)} đơn</p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-3 text-xs text-gray-500">
-        Cọc nằm ở mục tạm giữ của ví Sàn (Ví sàn &amp; Rút tiền). Huỷ chiến dịch thì toàn bộ cọc đang giữ hoàn vào ví CapNong của người mua;
-        hoàn tất chiến dịch thì cọc được giải ngân để chi trả nhà vườn.
-      </p>
-    </section>
+    <CampaignSection icon={<Wallet size={20} />} title="Tiền cọc người mua" badge={`Đang giữ ${formatVnd(sum('HELD_IN_ESCROW'))}`} badgeTone="amber">
+      <dl>
+        {items.map((i) => <InfoRow key={i.s} label={i.label} hint={`${of(i.s).length} đơn`} value={formatVnd(sum(i.s))} tone={i.tone} />)}
+      </dl>
+      <p className="mt-2 text-xs text-gray-500">Huỷ chiến dịch thì hoàn cọc về ví người mua, hoàn tất thì giải ngân cho nhà vườn.</p>
+    </CampaignSection>
   )
 }
 
-/** Cung - cầu sau khi chốt: đã bán vs đạt chuẩn đã nhận; thiếu thì hướng dẫn xử lý */
-function SupplyPanel({ c }: { c: CampaignResponse }) {
+/** Cung - cầu sau khi chốt: đã bán vs đạt chuẩn đã nhận; thiếu thì bổ sung hàng */
+function SupplyPanel({ c, onAdd, onNotice }: { c: CampaignResponse; onAdd: () => void; onNotice: (n: { ok: boolean; text: string }) => void }) {
   const sold = Number(c.soldVolumeKg ?? 0)
   const accepted = Number(c.acceptedVolumeKg ?? 0)
   const packed = Number(c.packedVolumeKg ?? 0)
   const shortfall = Number(c.shortfallVolumeKg ?? 0)
   const pending = c.intakePendingCount ?? 0
-  const pct = sold > 0 ? Math.min(100, (accepted / sold) * 100) : 0
+  const short = pending === 0 && shortfall > 0
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-gray-700"><Scale size={16} /> Hàng tại điểm tập kết</h3>
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Người mua đã cọc" value={kg(sold)} />
-        <Stat label="Đạt chuẩn đã nhận" value={kg(accepted)} tone="text-[#326318]" />
-        <Stat label="Đã đóng gói" value={kg(packed)} />
-        <Stat label="Thiếu" value={kg(shortfall)} tone={shortfall > 0 ? 'text-red-600' : 'text-gray-900'} />
-      </div>
-      <div className="mt-4 h-2 rounded-full bg-gray-100">
-        <div className={`h-full rounded-full ${shortfall > 0 ? 'bg-amber-500' : 'bg-[#326318]'}`} style={{ width: `${pct}%` }} />
-      </div>
-      {c.topUpOpen && (
-        <div className="mt-3 flex gap-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
-          <Megaphone size={18} className="mt-0.5 shrink-0" />
-          <p>
-            Đang kêu gọi bổ sung từ {c.topUpCallAt ? new Date(c.topUpCallAt).toLocaleString('vi-VN') : '—'}: cần <b>{kg(c.topUpKg)}</b>,
-            còn <b>{kg(c.topUpRemainingKg)}</b> chưa có nhà vườn nhận. Duyệt lô bổ sung ở tab Nhà vườn, mỗi lô chỉ được chia tối đa phần còn thiếu.
-            Chia đủ thì kêu gọi tự đóng.
-          </p>
-        </div>
-      )}
-      {pending > 0 ? (
-        <p className="mt-3 text-sm text-gray-600">Còn <b>{pending}</b> lô chưa cân nhận hàng. Cân xong hết mới biết chính xác có thiếu hay không, khi đó mới được kêu gọi bổ sung.</p>
-      ) : shortfall > 0 && c.status === 'FULFILLING' ? (
-        <div className="mt-3 flex gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-          <p>
-            Thiếu <b>{kg(shortfall)}</b> so với số người mua đã cọc. {c.topUpOpen ? 'Đang chờ nhà vườn đăng ký bổ sung.' : <>Mọi nhà vườn đã giao xong, bạn có thể bấm <b>Kêu gọi bổ sung</b> để nhà vườn đăng ký thêm lô cho phần thiếu.</>} Nếu không kịp, bấm <b>Xử lý thiếu hàng</b>: đơn cọc trước được giữ đủ hàng,
-            đơn cọc sau bị giảm số thùng hoặc huỷ nếu không còn đủ một thùng, phần cọc tương ứng tự hoàn vào ví người mua và họ nhận
-            thông báo. Trước khi xử lý, hệ thống không cho đóng gói vượt số kg đạt chuẩn.
+    <CampaignSection
+      icon={<Scale size={20} />}
+      title="Hàng tại điểm tập kết"
+      badge={pending > 0 ? `Còn ${pending} lô chưa cân` : short ? `Thiếu ${kg(shortfall)}` : c.supply ? supplyVerdict(c.supply).text : 'Đủ hàng'}
+      badgeTone={pending > 0 ? 'amber' : short ? 'red' : c.supply ? supplyVerdict(c.supply).tone : 'green'}
+    >
+      {c.supply ? (
+        <div className="pt-3">
+          <SupplyStory s={c.supply} showMoney />
+          <p className="border-t border-gray-100 pt-2 text-xs text-gray-500">
+            Đã đóng gói {kg(packed)}{pending > 0 ? ` · còn ${pending} lô chưa cân nên số liệu chưa đủ` : ''}
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-gray-600">Đủ hàng cho tất cả đơn đã cọc.</p>
+        <>
+          <div className="pt-3">
+            <ProgressBar percent={sold > 0 ? (accepted / sold) * 100 : 0} tone={shortfall > 0 ? 'bg-amber-500' : 'bg-[#326318]'} />
+          </div>
+          <dl className="mt-1">
+            <InfoRow label="Người mua đã cọc" value={kg(sold)} />
+            <InfoRow label="Đạt chuẩn đã nhận" value={kg(accepted)} tone="text-[#326318]" />
+            <InfoRow label="Đã đóng gói" value={kg(packed)} />
+            <InfoRow label="Thiếu" value={kg(shortfall)} tone={shortfall > 0 ? 'text-red-600' : 'text-gray-900'} />
+          </dl>
+        </>
       )}
-    </section>
+      {c.topUpOpen && (
+        <p className="mt-2 flex items-center gap-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
+          <Megaphone size={16} className="shrink-0" />
+          <span>Đang kêu gọi bổ sung <b>{kg(c.topUpKg)}</b>, còn <b>{kg(c.topUpRemainingKg)}</b> chưa có nhà vườn nhận. Duyệt lô ở tab Nhà vườn.</span>
+        </p>
+      )}
+      {short && c.status === 'FULFILLING' && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={onAdd} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">
+            <PackagePlus size={16} /> Bổ sung hàng
+          </button>
+          <ShortfallCloseButton c={c} onNotice={onNotice} />
+        </div>
+      )}
+    </CampaignSection>
   )
 }
 
@@ -506,11 +863,10 @@ function FarmTable({
   onChanged: () => void
   onError: (t: string) => void
 }) {
-  const [prices, setPrices] = useState<Record<number, string>>({})
   const [viewing, setViewing] = useState<FarmRegistrationResponse | null>(null)
   const review = useMutation({
     mutationFn: ({ r, ok }: { r: FarmRegistrationResponse; ok: boolean }) =>
-      ok ? adminCampaignService.approve(r.registrationId, prices[r.registrationId] ? Number(prices[r.registrationId]) : undefined)
+      ok ? adminCampaignService.approve(r.registrationId)
         : adminCampaignService.reject(r.registrationId, 'Không phù hợp chiến dịch'),
     onSuccess: onChanged,
     onError: (e) => onError(getErrorMessage(e, 'Không duyệt được đăng ký.')),
@@ -537,8 +893,7 @@ function FarmTable({
                 <p className="truncate font-bold text-gray-900">{r.shopName}</p>
                 <p className="truncate text-sm text-gray-600">{r.productName} · khai {kg(r.surplusVolumeKg)}</p>
                 <p className="text-xs text-gray-500">
-                  Đề xuất {r.proposedPricePerKg ? formatVnd(r.proposedPricePerKg) : '—'}/kg
-                  {r.agreedPricePerKg != null && <> · chốt <b className="text-gray-800">{formatVnd(r.agreedPricePerKg)}/kg</b></>}
+                  Giá thu mua <b className="text-gray-800">{formatVnd(r.agreedPricePerKg ?? c.rescuePricePerKg)}/kg</b>
                 </p>
                 <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#326318]"><Eye size={12} /> Xem đơn & ảnh lô hàng</span>
               </div>
@@ -549,20 +904,6 @@ function FarmTable({
 
             {r.status === 'PENDING' && canReview && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 p-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
-                  Giá chốt
-                  <input
-                    id={`gia-chot-${r.registrationId}`}
-                    type="number"
-                    min={1}
-                    max={c.rescuePricePerKg}
-                    placeholder={String(Math.min(Number(r.proposedPricePerKg ?? c.rescuePricePerKg), c.rescuePricePerKg))}
-                    value={prices[r.registrationId] ?? ''}
-                    onChange={(e) => setPrices((p) => ({ ...p, [r.registrationId]: e.target.value }))}
-                    className="w-28 rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
-                  />
-                  đ/kg
-                </label>
                 <div className="ml-auto flex gap-2">
                   <button type="button" disabled={review.isPending} onClick={() => review.mutate({ r, ok: false })} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">Từ chối</button>
                   <button type="button" disabled={review.isPending} onClick={() => review.mutate({ r, ok: true })} className="inline-flex items-center gap-1 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white"><Check size={14} /> Duyệt</button>
@@ -570,6 +911,7 @@ function FarmTable({
               </div>
             )}
 
+            {r.status === 'APPROVED' && <LotFreshnessBox c={c} r={r} />}
             {r.status === 'APPROVED' && r.allocatedVolumeKg != null && (
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7faf4] p-3 text-xs sm:grid-cols-4">
                 <Mini label="Phân bổ" value={kg(r.allocatedVolumeKg)} />
@@ -600,10 +942,32 @@ function FarmTable({
 function OrderTable({
   c, rows, loading, onChanged, onError,
 }: { c: CampaignResponse; rows: PreOrderResponse[]; loading: boolean; onChanged: () => void; onError: (t: string) => void }) {
+  // Xem / in tem QR: 'all' = mọi thùng đã đóng gói, số = một đơn
+  const [labelsFor, setLabelsFor] = useState<number | 'all' | null>(null)
   const pack = useMutation({
     mutationFn: (p: PreOrderResponse) => adminCampaignService.pack(p.preOrderId),
-    onSuccess: onChanged,
+    onSuccess: (_r, p) => {
+      onChanged()
+      setLabelsFor(p.preOrderId)
+    },
     onError: (e) => onError(getErrorMessage(e, 'Không đóng gói được đơn.')),
+  })
+  const packing = c.status === 'FULFILLING'
+  const toPack = packing ? rows.filter((p) => p.status === 'DEPOSIT_PAID') : []
+  const [packedCount, setPackedCount] = useState<number | null>(null)
+  const packAll = useMutation({
+    mutationFn: async (list: PreOrderResponse[]) => {
+      for (let i = 0; i < list.length; i++) {
+        setPackedCount(i)
+        await adminCampaignService.pack(list[i].preOrderId)
+      }
+    },
+    onSuccess: onChanged,
+    onError: (e) => {
+      onChanged()
+      onError(getErrorMessage(e, 'Chưa đóng gói hết, một phần đơn đã đóng.'))
+    },
+    onSettled: () => setPackedCount(null),
   })
   const pickedUp = useMutation({
     mutationFn: (p: PreOrderResponse) => adminCampaignService.confirmPickup(p.preOrderId),
@@ -625,12 +989,44 @@ function OrderTable({
     onSuccess: onChanged,
     onError: (e) => onError(getErrorMessage(e, 'Không cập nhật được đơn.')),
   })
+  const packed = rows.filter((p) => ['PROCESSING', 'READY', 'SHIPPING'].includes(p.status))
   const waitingPickup = rows.filter((p) => p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP')
   const notReminded = waitingPickup.filter((p) => !p.pickupRemindCount)
   if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />
   if (rows.length === 0) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">Chưa có đơn đặt trước.</div>
   return (
     <div className="space-y-3">
+      {labelsFor != null && <PackageLabelsDialog c={c} orderId={labelsFor === 'all' ? undefined : labelsFor} onClose={() => setLabelsFor(null)} />}
+      {toPack.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-[#326318] bg-[#eef6e7] px-4 py-3">
+          <p className="text-sm text-[#254d12]">
+            Còn <b>{toPack.length}</b> đơn chưa đóng gói · <b>{toPack.reduce((n, p) => n + p.crateQuantity - (p.packedCrates?.length ?? 0), 0)}</b> thùng.
+            Bấm từng số thùng khi đóng xong, hoặc đóng cả loạt.
+          </p>
+          <button type="button" disabled={packAll.isPending}
+            onClick={async () => {
+              const agreed = await globalShowConfirm('Đóng gói tất cả đơn?', 'Chỉ bấm khi mọi thùng đã đóng xong thực tế.', {
+                confirmText: 'Đóng gói tất cả',
+                details: [`${toPack.length} đơn · ${toPack.reduce((n, p) => n + p.crateQuantity, 0)} thùng`],
+              })
+              if (agreed) packAll.mutate(toPack)
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#326318] px-4 py-2 text-sm font-black text-white hover:bg-[#254d12] disabled:opacity-60">
+            {packAll.isPending ? <Loader2 size={16} className="animate-spin" /> : <PackageCheck size={16} />}
+            {packAll.isPending ? `Đang đóng ${(packedCount ?? 0) + 1}…` : 'Đóng gói tất cả'}
+          </button>
+        </div>
+      )}
+      {packed.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-sm text-gray-700">
+            <b>{packed.reduce((n, p) => n + p.crateQuantity, 0)}</b> thùng đã đóng gói, dán tem QR trước khi chuyển đi
+          </p>
+          <button type="button" onClick={() => setLabelsFor('all')} className="inline-flex items-center gap-1.5 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#254d12]">
+            <QrCode size={14} /> In tem QR
+          </button>
+        </div>
+      )}
       {c.status === 'FULFILLING' && waitingPickup.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-emerald-900">
@@ -643,12 +1039,13 @@ function OrderTable({
         </div>
       )}
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Đơn</th>
               <th className="px-4 py-3">Người nhận</th>
               <th className="px-4 py-3">Thùng</th>
+              <th className="px-4 py-3">Mã QR</th>
               <th className="px-4 py-3 text-right">Cọc</th>
               <th className="px-4 py-3 text-right">Phí giao</th>
               <th className="px-4 py-3">Trạng thái</th>
@@ -669,9 +1066,24 @@ function OrderTable({
                 </td>
                 <td className="px-4 py-3 tabular-nums">
                   {p.crateQuantity} × {p.crateKg} kg
+                  {p.priorityLevel && (
+                    <div className="mt-1 flex flex-col items-start gap-0.5">
+                      <PriorityChip level={p.priorityLevel} />
+                      <span className="text-[11px] font-normal text-gray-500">
+                        Giữ tươi {tierLabel(p.shelfLifeTier)}{p.deliverBy ? ` · giao trước ${fmtDeadline(p.deliverBy)}` : ''}
+                      </span>
+                      {p.sourceProductName && <span className="text-[11px] font-normal text-gray-500">Lô: {p.sourceProductName}{p.sourceShopName ? ` (${p.sourceShopName})` : ''}</span>}
+                    </div>
+                  )}
                   {p.originalCrateQuantity != null && (
                     <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">giảm từ {p.originalCrateQuantity} thùng</span>
                   )}
+                  {packing && p.status === 'DEPOSIT_PAID' && (
+                    <CrateTicks p={p} disabled={packAll.isPending} onPacked={onChanged} onError={onError} />
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <OrderQr p={p} onOpen={() => setLabelsFor(p.preOrderId)} />
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
                   {formatVnd(p.depositAmount)}
@@ -683,13 +1095,13 @@ function OrderTable({
                   {Number(p.shippingDiscountAmount ?? 0) > 0 && <p className="text-[11px] font-bold text-emerald-700">gom đơn -{formatVnd(p.shippingDiscountAmount)}</p>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs font-bold text-gray-700">{PRE_ORDER_STATUS[p.status]}</span>
+                  <span className="text-xs font-bold text-gray-700">{p.status === 'READY' ? adminReadyLabel(p) : PRE_ORDER_STATUS[p.status]}</span>
                   {p.cancelReason && <p className="max-w-[220px] text-[11px] text-gray-500">{p.cancelReason}</p>}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {p.status === 'DEPOSIT_PAID' && c.status === 'FULFILLING' && (
                     <button type="button" disabled={pack.isPending} onClick={() => pack.mutate(p)} className="inline-flex items-center gap-1 rounded-lg bg-[#326318] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-                      <PackageCheck size={14} /> Đóng gói
+                      <PackageCheck size={14} /> Đóng cả đơn
                     </button>
                   )}
                   {p.status === 'PROCESSING' && p.fulfillmentMethod === 'PICKUP' && c.status === 'FULFILLING' && (
@@ -703,7 +1115,7 @@ function OrderTable({
                         <Bell size={12} /> {p.pickupRemindCount ? `Nhắc lại (${p.pickupRemindCount})` : 'Nhắc khách đến lấy'}
                       </button>
                       <button type="button" disabled={noShow.isPending || !p.pickupRemindCount} title={p.pickupRemindCount ? 'Khách không đến: đơn thất bại, giữ tiền cọc' : 'Cần nhắc khách ít nhất 1 lần trước'}
-                        onClick={() => { if (window.confirm(`Đánh dấu đơn ${p.code} khách không đến lấy? Khách sẽ mất cọc ${formatVnd(p.depositAmount)}.`)) noShow.mutate(p) }}
+                        onClick={async () => { if (await globalShowConfirm(`Đơn ${p.code} khách không đến lấy?`, 'Đơn được đánh dấu thất bại.', { danger: true, confirmText: 'Đánh dấu không đến', details: [`Khách: ${p.recipientName}`, `Mất cọc: ${formatVnd(p.depositAmount)}`] })) noShow.mutate(p) }}
                         className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-700 disabled:opacity-40">
                         Khách không đến
                       </button>
@@ -722,9 +1134,71 @@ function OrderTable({
   )
 }
 
+/** Tick từng thùng khi đóng xong; đủ mọi thùng thì đơn chuyển sang đã đóng gói */
+function CrateTicks({ p, disabled, onPacked, onError }: { p: PreOrderResponse; disabled: boolean; onPacked: () => void; onError: (t: string) => void }) {
+  const qc = useQueryClient()
+  const key = ['admin-campaign-orders', p.campaignId]
+  const mutationKey = ['pack-crates', p.preOrderId]
+  const save = useMutation({
+    mutationKey,
+    // Lưu lần lượt: bấm liên tiếp không ghi đè nhau
+    scope: { id: `pack-crates-${p.preOrderId}` },
+    mutationFn: (crates: number[]) => adminCampaignService.markCrates(p.preOrderId, crates),
+    onMutate: (crates) => {
+      qc.setQueryData<PreOrderResponse[]>(key, (old) => old?.map((o) => (o.preOrderId === p.preOrderId ? { ...o, packedCrates: crates } : o)))
+    },
+    onError: (e) => onError(getErrorMessage(e, 'Không lưu được thùng đã đóng.')),
+    onSettled: () => {
+      if (qc.isMutating({ mutationKey }) <= 1) onPacked()
+    },
+  })
+  const done = p.packedCrates ?? []
+  return (
+    <div className="mt-2 flex max-w-[260px] flex-wrap items-center gap-1">
+      {Array.from({ length: p.crateQuantity }, (_, i) => i + 1).map((n) => {
+        const on = done.includes(n)
+        return (
+          <button key={n} type="button" aria-pressed={on} aria-label={`Đóng thùng ${n} đơn ${p.code}`} disabled={disabled}
+            onClick={() => save.mutate(on ? done.filter((x) => x !== n) : [...done, n])}
+            className={`flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-lg border px-1 text-[11px] font-black disabled:opacity-50 ${on ? 'border-[#326318] bg-[#326318] text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-[#326318]'}`}>
+            {on && <Check size={11} />}{n}
+          </button>
+        )
+      })}
+      <span className="ml-1 text-[11px] font-bold tabular-nums text-gray-500">{done.length}/{p.crateQuantity}</span>
+    </div>
+  )
+}
+
+/** Ô mã QR của đơn: có sau khi đóng gói; bấm để xem to và in tem, đơn đã giao thì mở trang tra cứu */
+function OrderQr({ p, onOpen }: { p: PreOrderResponse; onOpen: () => void }) {
+  const packed = ['PROCESSING', 'READY', 'SHIPPING'].includes(p.status)
+  const url = isPackageToken(p.qrCode) ? traceUrl(savedWebUrl(), p.qrCode) : null
+  const frame = 'inline-flex rounded-lg border border-gray-200 bg-white p-1 hover:border-[#326318]'
+  if (packed) {
+    return url ? (
+      <button type="button" onClick={onOpen} title="Xem và in tem QR" aria-label={`Xem và in tem QR đơn ${p.code}`} className={frame}>
+        <QRCodeSVG value={url} size={52} />
+      </button>
+    ) : (
+      <button type="button" onClick={onOpen} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-bold text-gray-700 hover:border-[#326318] hover:text-[#326318]">
+        <QrCode size={12} /> Lấy mã QR
+      </button>
+    )
+  }
+  if (url && p.status === 'DELIVERED') {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" title="Mở trang người quét thấy" aria-label={`Mở trang tra cứu đơn ${p.code}`} className={frame}>
+        <QRCodeSVG value={url} size={52} />
+      </a>
+    )
+  }
+  return <span className="text-[11px] text-gray-400">{p.status === 'DEPOSIT_PAID' ? 'Sau khi đóng gói' : '—'}</span>
+}
+
 /* ─────────────────────────── Cân nhận hàng ─────────────────────────── */
 
-function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; onClose: () => void; onSaved: (r: FarmRegistrationResponse) => void }) {
+function IntakeDialog({ c, r, onClose, onSaved }: { c: CampaignResponse; r: FarmRegistrationResponse; onClose: () => void; onSaved: (r: FarmRegistrationResponse) => void }) {
   const [received, setReceived] = useState(r.receivedWeightKg != null ? String(r.receivedWeightKg) : '')
   const [rejected, setRejected] = useState(r.rejectedWeightKg != null && r.qualityPassed !== false ? String(r.rejectedWeightKg) : '0')
   const [allFailed, setAllFailed] = useState(r.intakeAt != null && r.qualityPassed === false)
@@ -776,6 +1250,7 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
           <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
         <form className="flex flex-col gap-4 overflow-y-auto p-5" onSubmit={(e) => { e.preventDefault(); if (!invalid) save.mutate() }}>
+          <LotFreshnessBox c={c} r={r} />
           <div className="grid grid-cols-2 gap-3">
             <NumField id="kg-can" label="Cân thực tế (kg)" value={received} onChange={setReceived} />
             <NumField id="kg-hu" label="Hư hỏng / loại (kg)" value={allFailed ? received : rejected} onChange={setRejected} disabled={allFailed} />
@@ -839,19 +1314,20 @@ function IntakeDialog({ r, onClose, onSaved }: { r: FarmRegistrationResponse; on
 function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () => void; onCreated: (id: number) => void; prefill?: ApprovePrefill; editing?: CampaignResponse }) {
   const inDays = (n: number) => new Date(Date.now() + n * 86400000)
   const local = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString()
-  const [f, setF] = useState({
-    title: '', description: '', season: '', target: '', min: '', price: '', deposit: '30',
-    publish: local(new Date(Math.ceil(Date.now() / 3600000) * 3600000 + 3600000)).slice(0, 16), farmCutoff: local(inDays(5)).slice(0, 16), cutoff: local(inDays(7)).slice(0, 16), start: local(inDays(8)).slice(0, 10), end: local(inDays(14)).slice(0, 10), site: '',
-    halfKg: '10', freeKg: '20', freeRadius: '10', groupMin: '5',
+  const [f, setF] = useState(() => withFinish({
+    title: '', product: '', description: '', season: '', target: '', price: '', deposit: '30',
+    publish: local(new Date(Math.ceil(Date.now() / 3600000) * 3600000 + 3600000)).slice(0, 16), farmCutoff: local(inDays(5)).slice(0, 16), cutoff: local(inDays(7)).slice(0, 16), start: local(inDays(8)).slice(0, 10), end: local(inDays(14)).slice(0, 10), finish: '', site: '',
     ...prefill?.fields,
     ...(editing ? fieldsOf(editing) : {}),
-  })
+  }))
   const [pickupEnabled, setPickupEnabled] = useState(editing ? editing.pickupEnabled !== false : true)
-  // Sửa chiến dịch: địa chỉ đã lưu là chuỗi ghép, tách lại như khi duyệt đề xuất
-  const seedAddress = prefill?.address ?? (editing?.collectionSiteAddress
-    ? { ...EMPTY_ADDRESS, detail: editing.collectionSiteAddress, lat: editing.collectionSiteLatitude ?? undefined, lng: editing.collectionSiteLongitude ?? undefined }
-    : undefined)
-  const [address, setAddress] = useState<AddressValue>(seedAddress ?? EMPTY_ADDRESS)
+  // Sửa chiến dịch hoặc duyệt đề xuất: điền sẵn địa chỉ đã lưu / shop gửi
+  const [site, setSite] = useState<PlaceValue>(() => {
+    const seed = prefill?.address ?? (editing?.collectionSiteAddress
+      ? { ...EMPTY_ADDRESS, detail: editing.collectionSiteAddress, lat: editing.collectionSiteLatitude ?? undefined, lng: editing.collectionSiteLongitude ?? undefined }
+      : undefined)
+    return { name: f.site, address: (seed ? composeAddress(seed) : '') || f.site, lat: seed?.lat, lng: seed?.lng }
+  })
   const [cover, setCover] = useState(editing?.coverImageUrl ?? prefill?.coverImageUrl ?? '')
   const [coverUploading, setCoverUploading] = useState(false)
   const coverRef = useRef<HTMLInputElement>(null)
@@ -866,19 +1342,6 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
       if (coverRef.current) coverRef.current.value = ''
     }
   }
-  // Duyệt từ đề xuất: địa chỉ shop gửi là chuỗi đã ghép, tách lại thành Tỉnh/Phường để ô chọn hiện sẵn
-  const qcAddr = useQueryClient()
-  const seedDetail = seedAddress?.detail
-  useEffect(() => {
-    const a = seedAddress
-    if (!a?.detail || a.provinceCode != null) return
-    let alive = true
-    parseAddress(qcAddr, a.detail, { lat: a.lat, lng: a.lng }).then((v) => {
-      if (alive && v.provinceCode != null) setAddress((cur) => (cur.provinceCode == null && cur.detail === a.detail ? v : cur))
-    })
-    return () => { alive = false }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seedDetail, qcAddr])
   const [note, setNote] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   useEscape(onClose)
@@ -887,13 +1350,11 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
   const create = useMutation({
     mutationFn: () => {
       const body: CampaignUpsertRequest = {
-        title: f.title.trim(), description: htmlToPlainText(f.description).trim() ? f.description : undefined, season: f.season.trim() || undefined,
-        targetVolumeKg: Number(f.target), minThresholdKg: Number(f.min), rescuePricePerKg: Number(f.price),
-        depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, startDate: f.start || undefined, endDate: f.end || undefined, publishAt: f.publish ? `${f.publish}:00` : undefined, farmCutoffAt: f.farmCutoff ? `${f.farmCutoff}:00` : undefined,
-        collectionSiteName: f.site.trim() || undefined, collectionSiteAddress: composeAddress(address) || undefined,
-        collectionSiteLatitude: address.lat, collectionSiteLongitude: address.lng,
-        shipHalfKg: Number(f.halfKg) || undefined, shipFreeKg: Number(f.freeKg) || undefined,
-        shipFreeRadiusKm: Number(f.freeRadius) || undefined, groupDiscountMinOrders: Number(f.groupMin) || undefined,
+        title: f.title.trim(), productName: f.product.trim(), description: htmlToPlainText(f.description).trim() ? f.description : undefined, season: f.season.trim() || undefined,
+        targetVolumeKg: Number(f.target), minThresholdKg: Number(f.target) / 2, rescuePricePerKg: Number(f.price),
+        depositPercent: Number(f.deposit) / 100, cutoffAt: `${f.cutoff}:00`, startDate: f.start || undefined, endDate: f.end || undefined, finishDate: f.finish || undefined, publishAt: f.publish ? `${f.publish}:00` : undefined, farmCutoffAt: f.farmCutoff ? `${f.farmCutoff}:00` : undefined,
+        collectionSiteName: site.name.trim() || undefined, collectionSiteAddress: site.address.trim() || undefined,
+        collectionSiteLatitude: site.lat, collectionSiteLongitude: site.lng,
         pickupEnabled,
         categoryId: editing ? editing.categoryId ?? undefined : prefill?.categoryId ?? undefined,
         coverImageUrl: cover || undefined,
@@ -942,8 +1403,9 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
         </div>
         <form className="grid gap-3 overflow-y-auto p-5 sm:grid-cols-2" onSubmit={(e) => {
           e.preventDefault()
-          if (address.provinceCode && (!address.wardCode || !address.detail.trim())) {
-            setFormError('Vui lòng chọn đủ Phường/Xã và nhập địa chỉ cụ thể của điểm tập kết.')
+          // Cước xe và phí giao tính từ vị trí này (bản đồ không tải được thì vẫn cho lưu)
+          if (site.address.trim() && site.lat == null && 'google' in window) {
+            setFormError('Chọn một gợi ý hoặc chạm bản đồ để ghim vị trí điểm tập kết.')
             return
           }
           // Đã gửi lời kêu gọi rồi thì giờ đăng bài cũ được giữ nguyên
@@ -966,25 +1428,26 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
           }
           // Thứ tự: chốt đơn đặt trước -> bắt đầu (ngày sau đó) -> kết thúc
           if (f.start && f.cutoff && f.start <= f.cutoff.slice(0, 10)) {
-            setFormError('Ngày chốt đơn đặt trước phải trước ngày bắt đầu chiến dịch (ít nhất 1 ngày).')
+            setFormError('Ngày chốt đơn đặt trước phải trước ngày bắt đầu mở điểm tập kết (ít nhất 1 ngày).')
             return
           }
           if (f.end && f.cutoff && f.end <= f.cutoff.slice(0, 10)) {
-            setFormError('Ngày kết thúc chiến dịch phải sau hạn chốt đơn đặt trước.')
+            setFormError('Ngày kết thúc mở điểm tập kết phải sau hạn chốt đơn đặt trước.')
             return
           }
           if (f.start && f.end && f.end < f.start) {
-            setFormError('Ngày kết thúc không được trước ngày bắt đầu chiến dịch.')
+            setFormError('Ngày kết thúc mở điểm tập kết không được trước ngày bắt đầu mở điểm tập kết.')
             return
           }
-          if (f.target && f.min && Number(f.min) > Number(f.target)) {
-            setFormError('Mục tiêu (kg) phải lớn hơn hoặc bằng ngưỡng tối thiểu.')
+          if (f.finish && f.end && f.finish < f.end) {
+            setFormError('Ngày kết thúc chiến dịch (giao xong) không được trước ngày kết thúc mở điểm tập kết.')
             return
           }
           setFormError(null)
           create.mutate()
         }}>
           <TextField id="cd-title" label="Tên chiến dịch" value={f.title} onChange={set('title')} wide required />
+          <TextField id="cd-product" label="Sản phẩm chính" value={f.product} onChange={set('product')} wide required />
           <div className="flex flex-col gap-1.5 text-sm font-bold text-gray-700 sm:col-span-2">
             Ảnh bìa bài viết
             <div className="flex items-center gap-3">
@@ -1010,11 +1473,19 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
             </Suspense>
           </div>
           <NumField id="cd-target" label="Mục tiêu (kg)" value={f.target} onChange={set('target')} />
-          <NumField id="cd-min" label={prefill ? 'Ngưỡng tối thiểu (kg) · tổng shop đã góp' : 'Ngưỡng tối thiểu (kg)'} value={f.min} onChange={set('min')} />
+          <div className="flex flex-col gap-1.5 text-sm font-bold text-gray-700">
+            Ngưỡng tối thiểu (tự tính)
+            <p className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-black tabular-nums text-gray-900">
+              {Number(f.target) > 0 ? formatKg(Number(f.target) / 2) : '—'}
+            </p>
+            <span className="text-xs font-normal text-gray-500">Bằng 50% tổng hàng. Nhà vườn góp nhiều hơn mục tiêu thì tổng hàng và ngưỡng tăng theo.</span>
+          </div>
           <NumField id="cd-price" label="Giá giải cứu (đ/kg)" value={f.price} onChange={set('price')} />
           <NumField id="cd-deposit" label="Cọc (%)" value={f.deposit} onChange={set('deposit')} />
           <p className="text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Phía nhà vườn góp hàng</p>
-          <TextField id="cd-publish" label="Ngày giờ đăng bài kêu gọi nhà vườn" type="datetime-local" value={f.publish} onChange={set('publish')} required />
+          <TextField id="cd-publish" label="Ngày giờ đăng bài kêu gọi nhà vườn" type="datetime-local" value={f.publish} onChange={set('publish')} required
+            min={editing?.callPostedAt ? undefined : local(new Date()).slice(0, 16)}
+            error={f.publish && !editing?.callPostedAt && new Date(f.publish).getTime() < Date.now() - 60000 ? 'Đã qua, hãy chọn thời điểm sắp tới' : undefined} />
           <TextField id="cd-farm-cutoff" label="Hạn chốt góp hàng (nhà vườn)" type="datetime-local" value={f.farmCutoff} onChange={set('farmCutoff')} required
             min={f.publish || undefined}
             error={f.farmCutoff && f.publish && f.farmCutoff <= f.publish ? 'Phải sau ngày giờ đăng bài' : undefined} />
@@ -1022,29 +1493,27 @@ function CreateDialog({ onClose, onCreated, prefill, editing }: { onClose: () =>
           <TextField id="cd-cutoff" label="Hạn chốt đơn đặt trước" type="datetime-local" value={f.cutoff} onChange={set('cutoff')} required wide
             min={f.farmCutoff || undefined}
             error={f.cutoff && f.farmCutoff && f.cutoff <= f.farmCutoff ? 'Phải sau hạn chốt góp hàng của nhà vườn' : undefined} />
-          <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Thời gian chiến dịch</p>
-          <TextField id="cd-start" label="Ngày bắt đầu chiến dịch" type="date" value={f.start} onChange={set('start')} required
+          <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-[#4a7c2f] sm:col-span-2">Nhận hàng, giao hàng và kết thúc</p>
+          <TextField id="cd-start" label="Ngày bắt đầu mở điểm tập kết" type="date" value={f.start} onChange={set('start')} required
             min={cutoffDay ? nextDay(cutoffDay) : undefined}
             error={f.start && cutoffDay && f.start <= cutoffDay ? `Phải sau hạn chốt đơn đặt trước (từ ${fmtYmd(nextDay(cutoffDay))})` : undefined} />
-          <TextField id="cd-end" label="Ngày kết thúc chiến dịch" type="date" value={f.end} onChange={set('end')} required
+          <TextField id="cd-end" label="Ngày kết thúc mở điểm tập kết " type="date" value={f.end}
+            onChange={(v) => setF((s) => withFinish({ ...s, end: v }))} required
             min={f.start || (cutoffDay ? nextDay(cutoffDay) : undefined)}
             error={f.end && cutoffDay && f.end <= cutoffDay ? 'Phải sau hạn chốt đơn đặt trước'
-              : f.end && f.start && f.end < f.start ? 'Không được trước ngày bắt đầu' : undefined} />
-          <TextField id="cd-site" label="Điểm tập kết" value={f.site} onChange={set('site')} />
+              : f.end && f.start && f.end < f.start ? 'Không được trước ngày bắt đầu mở điểm tập kết' : undefined} />
+          <TextField id="cd-finish" label="Ngày kết thúc chiến dịch " type="date" value={f.finish} onChange={set('finish')}
+            min={f.end || f.start || undefined}
+            error={f.finish && f.end && f.finish < f.end ? 'Không được trước ngày kết thúc mở điểm tập kết' : undefined} />
           <TextField id="cd-season" label="Mùa vụ" value={f.season} onChange={set('season')} />
-          <div className="flex flex-col gap-2.5 sm:col-span-2">
-            <p className="text-sm font-bold text-gray-700">Địa chỉ điểm tập kết</p>
-            <AddressPicker value={address} onChange={setAddress} />
+          <div className="sm:col-span-2">
+            <PlaceSearch id="cd-site" label="Điểm tập kết" value={site} onChange={setSite} placeholder="Nhập địa chỉ điểm tập kết, vd: 20 Võ Văn Ngân, Thủ Đức" />
           </div>
           <fieldset className="grid gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:col-span-2 sm:grid-cols-2">
             <legend className="px-1 text-sm font-bold text-gray-700">Phí giao hàng</legend>
             <p className="text-xs text-gray-500 sm:col-span-2">
-              Phí gốc theo km từ điểm tập kết: dưới 5km 15k · 5–10km 20k · 10–20km 30k · trên 20km +3k/km. Các mốc dưới đây áp cho riêng chiến dịch này.
+              Cố định theo tổng kg của đơn: dưới 30 kg thu 70.000đ · từ 30 kg thu 50.000đ · từ 50 kg miễn phí.
             </p>
-            <NumField id="cd-half" label="Từ bao nhiêu kg giảm 50%" value={f.halfKg} onChange={set('halfKg')} />
-            <NumField id="cd-free" label="Từ bao nhiêu kg miễn phí" value={f.freeKg} onChange={set('freeKg')} />
-            <NumField id="cd-radius" label="Bán kính miễn phí (km)" value={f.freeRadius} onChange={set('freeRadius')} />
-            <NumField id="cd-group" label="Số đơn cùng phường để giảm thêm 50%" value={f.groupMin} onChange={set('groupMin')} />
             <label className="flex items-center gap-2 text-sm font-bold text-gray-700 sm:col-span-2">
               <input type="checkbox" checked={pickupEnabled} onChange={(e) => setPickupEnabled(e.target.checked)} className="h-4 w-4 accent-[#326318]" />
               Cho phép người mua tự đến điểm tập kết lấy hàng (0đ)
@@ -1129,9 +1598,8 @@ function RegistrationDetailDialog({ r, onClose }: { r: FarmRegistrationResponse;
             <Info label="Khối lượng khai" value={kg(r.surplusVolumeKg)} />
             <Info label="Ngày thu hoạch" value={fmtDay(r.harvestDate)} />
             <Info label="Độ bền sau thu hoạch" value={r.shelfLifeTier ? SHELF_LABEL[r.shelfLifeTier] ?? r.shelfLifeTier : '—'} />
-            <Info label="Giá đề xuất" value={r.proposedPricePerKg ? `${formatVnd(r.proposedPricePerKg)}/kg` : '—'} />
-            <Info label="Giá chốt" value={r.agreedPricePerKg != null ? `${formatVnd(r.agreedPricePerKg)}/kg` : 'Chưa chốt'} />
-            <Info label="Cam kết giá" value={r.priceCommitted ? 'Đồng ý giá chiến dịch' : 'Muốn thương lượng'} />
+            <Info label="Giá thu mua" value={r.effectivePricePerKg != null ? `${formatVnd(r.effectivePricePerKg)}/kg` : '—'} />
+            <Info label="Cam kết" value={r.priceCommitted ? 'Đã cam kết' : 'Chưa cam kết'} />
             {r.allocatedVolumeKg != null && <Info label="Được phân bổ" value={kg(r.allocatedVolumeKg)} />}
             {r.payoutAmount != null && <Info label="Đã chi trả" value={formatVnd(r.payoutAmount)} />}
           </section>
@@ -1229,15 +1697,6 @@ function StatusChip({ s, called }: { s: CampaignStatus; called?: boolean }) {
   return <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tone}`}>{label}</span>
 }
 
-function Stat({ label, value, tone = 'text-gray-900' }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`mt-1 text-xl font-black tabular-nums ${tone}`}>{value}</p>
-    </div>
-  )
-}
-
 function Mini({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div>
@@ -1257,6 +1716,16 @@ function NumField({ id, label, value, onChange, disabled }: { id: string; label:
 }
 
 // Ngày (yyyy-mm-dd) kế tiếp, tính theo UTC để không lệch múi giờ
+/** Ngày kết thúc chiến dịch mặc định = kết thúc mở điểm tập kết + 3 ngày (thời gian giao xong); chỉnh lại nếu đang trống hoặc trước ngày kết thúc mở điểm tập kết */
+function withFinish<T extends { end: string; finish: string }>(o: T): T {
+  if (o.end && (!o.finish || o.finish < o.end)) {
+    const d = new Date(o.end + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() + 3)
+    return { ...o, finish: d.toISOString().slice(0, 10) }
+  }
+  return o
+}
+
 function nextDay(day: string) {
   const d = new Date(day + 'T00:00:00Z')
   d.setUTCDate(d.getUTCDate() + 1)
@@ -1268,13 +1737,11 @@ const fmtYmd = (day: string) => day.split('-').reverse().join('/')
 function fieldsOf(c: CampaignResponse) {
   const num = (v?: number | null) => (v == null ? '' : String(v))
   return {
-    title: c.title ?? '', description: c.description ?? '', season: c.season ?? '',
-    target: num(c.targetVolumeKg), min: num(c.minThresholdKg), price: num(c.rescuePricePerKg),
+    title: c.title ?? '', product: c.productName ?? '', description: c.description ?? '', season: c.season ?? '',
+    target: num(c.plannedTargetKg ?? c.targetVolumeKg), price: num(c.rescuePricePerKg),
     deposit: c.depositPercent != null ? String(Math.round(Number(c.depositPercent) * 100)) : '30',
     publish: c.publishAt ? c.publishAt.slice(0, 16) : '', farmCutoff: c.farmCutoffAt ? c.farmCutoffAt.slice(0, 16) : '', cutoff: c.cutoffAt ? c.cutoffAt.slice(0, 16) : '',
-    start: c.startDate ?? '', end: c.endDate ?? '', site: c.collectionSiteName ?? '',
-    halfKg: num(c.shipHalfKg) || '10', freeKg: num(c.shipFreeKg) || '20',
-    freeRadius: num(c.shipFreeRadiusKm) || '10', groupMin: num(c.groupDiscountMinOrders) || '5',
+    start: c.startDate ?? '', end: c.endDate ?? '', finish: c.finishDate ?? '', site: c.collectionSiteName ?? '',
   }
 }
 

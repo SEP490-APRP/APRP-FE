@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { paymentService } from '@/services'
+import { globalShowAlert } from '@/components/common/Popup'
 
 interface PaymentQrModalProps {
   isOpen: boolean
@@ -75,10 +76,10 @@ export const PaymentQrModal: React.FC<PaymentQrModalProps> = ({
         onConfirmed()
       } else {
         // Vẫn chưa nhận được tiền hoặc đang xử lý
-        alert('Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.')
+        void globalShowAlert('Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.', 'Chưa thấy giao dịch', 'info')
       }
     } catch {
-      alert('Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.')
+      void globalShowAlert('Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.', 'Chưa thấy giao dịch', 'warning')
     } finally {
       setIsVerifying(false)
     }

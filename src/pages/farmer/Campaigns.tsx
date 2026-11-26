@@ -9,6 +9,7 @@ import {
   Clock,
   Flame,
   HandCoins,
+  Lock,
   ImagePlus,
   Lightbulb,
   Loader2,
@@ -25,18 +26,19 @@ import {
 import {
   campaignService,
   uploadService,
+  notificationService,
   type CampaignResponse,
   type FarmRegistrationResponse,
+  type NotificationItem,
   type ShelfLifeTier,
 } from '@/services'
-import { useMyProducts } from '@/features/product/hooks/useProductQueries'
-import { formatKg, formatVnd, timeLeftLabel } from '@/features/campaign/utils'
+import { formatKg, formatVnd, timeLeftLabel, openingText, registrationOpen } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
 import CampaignProposals from './CampaignProposals'
 import { campaignProposalService } from '@/services/campaignProposal.service'
 
-const FARMER_KEEP_RATE = 0.9 // nhà vườn nhận 90% sau phí dịch vụ 10% (khớp capnong.wallet.farmer-fee-rate)
+const FARMER_KEEP_RATE = 0.7 // nhà vườn nhận 70% sau phí dịch vụ 30% (khớp capnong.campaign.farmer-fee-rate)
 
 // 3 mức bảo quản, số ngày tính từ NGÀY CHỐT chiến dịch (vd chốt ngày 20: mức 1 tươi tới 22–23, mức 2 tới 23–24, mức 3 tới 25–26)
 export const SHELF_LIFE: { id: ShelfLifeTier; level: number; min: number; max: number; label: string; hint: string; tone: string }[] = [
@@ -53,6 +55,7 @@ const fmtDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString('vi-V
 
 const keys = {
   calls: ['shop-campaigns', 'calls'] as const,
+  adminInvites: ['notifications', 'my', 'campaign-invites'] as const,
   mine: ['shop-campaigns', 'mine'] as const,
 }
 
@@ -65,12 +68,35 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
   // Lời mời cùng đề xuất chiến dịch từ shop lân cận (cùng key với tab Đề xuất để làm mới cùng lúc)
   const invites = useQuery({ queryKey: ['campaign-proposals', 'invites'], queryFn: () => campaignProposalService.getInvites(), retry: 1 })
   const pendingInvites = (invites.data ?? []).filter((p) => p.myInvite?.status === 'PENDING')
+  // Lời mời góp hàng CapNong (Admin) gửi trực tiếp: lấy từ thông báo của shop, hiện popup giống lời mời của shop lân cận
+  const adminInvites = useQuery({
+    queryKey: keys.adminInvites,
+    queryFn: async () => (await notificationService.getMyNotifications()).result ?? [],
+    retry: 1,
+  })
+  const [dismissTick, setDismissTick] = useState(0)
+  const [invitePopup, setInvitePopup] = useState(false)
   // Một shop có thể góp nhiều lô vào cùng chiến dịch
   const myByCampaign = useMemo(() => {
     const m = new Map<number, FarmRegistrationResponse[]>()
     for (const r of [...(mine.data ?? [])].reverse()) m.set(r.campaignId, [...(m.get(r.campaignId) ?? []), r])
     return m
   }, [mine.data])
+  // Chỉ giữ lời mời của chiến dịch đang mở đăng ký góp hàng, shop chưa góp lô và chưa bấm từ chối
+  const pendingAdminInvites = useMemo(
+    () => invitesFromNotifications(adminInvites.data ?? [], calls.data ?? []).filter((i) => !inviteDismissed(i) && !myByCampaign.has(i.campaign.campaignId)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adminInvites.data, calls.data, myByCampaign, dismissTick],
+  )
+  const invitedIds = new Set(pendingAdminInvites.map((i) => i.campaign.campaignId))
+  // Tự bật popup một lần cho mỗi lời mời mới (admin mời lại là thông báo mới nên bật lại)
+  useEffect(() => {
+    const fresh = pendingAdminInvites.filter((i) => !inviteSeen(i))
+    if (fresh.length > 0) {
+      setInvitePopup(true)
+      fresh.forEach(markInviteSeen)
+    }
+  }, [pendingAdminInvites])
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -120,6 +146,24 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
         })}
       </div>
 
+      {pendingAdminInvites.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setInvitePopup(true)}
+          className="flex w-full items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100"
+        >
+          <img src={logoIcon} alt="" className="h-10 w-10 shrink-0 rounded-full border border-amber-200 bg-white object-contain p-1" />
+          <span className="min-w-0 flex-1 text-sm text-amber-900">
+            <b>CapNong mời bạn góp hàng cho {pendingAdminInvites.length} chiến dịch</b>
+            <span className="block truncate text-xs">
+              {pendingAdminInvites[0].campaign.title}
+              {pendingAdminInvites.length > 1 ? ` và ${pendingAdminInvites.length - 1} chiến dịch khác` : ''}. Bấm để xem và trả lời.
+            </span>
+          </span>
+          <span className="shrink-0 rounded-full bg-[#326318] px-3 py-1.5 text-xs font-bold text-white">Xem lời mời</span>
+        </button>
+      )}
+
       {view !== 'propose' && pendingInvites.length > 0 && (
         <button
           type="button"
@@ -148,9 +192,9 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
         ) : !calls.data?.length ? (
           <Empty text="Hiện chưa có chiến dịch nào kêu gọi nhà vườn. CapNong sẽ gửi thông báo khi có chiến dịch mới." />
         ) : (
-          <div className="mx-auto grid max-w-4xl gap-6">
+          <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
             {calls.data.map((c) => (
-              <CallCard key={c.campaignId} c={c} mine={myByCampaign.get(c.campaignId) ?? []} onRegister={() => setRegistering(c)} />
+              <CallCard key={c.campaignId} c={c} mine={myByCampaign.get(c.campaignId) ?? []} invited={invitedIds.has(c.campaignId)} onRegister={() => setRegistering(c)} />
             ))}
           </div>
         )
@@ -166,6 +210,15 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
         </div>
       )}
 
+      {invitePopup && pendingAdminInvites.length > 0 && (
+        <AdminInvitePopup
+          invites={pendingAdminInvites}
+          onClose={() => setInvitePopup(false)}
+          onRegister={(c) => { setInvitePopup(false); setView('calls'); setRegistering(c) }}
+          onDeclined={() => { setDismissTick((t) => t + 1); onInfo?.('Đã từ chối lời mời góp hàng.') }}
+        />
+      )}
+
       {registering && (
         <RegisterDialog
           c={registering}
@@ -173,7 +226,7 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
           onDone={() => {
             setRegistering(null)
             setView('mine')
-            onInfo?.('Đã gửi đăng ký. CapNong sẽ liên hệ thương lượng giá và duyệt lô hàng của bạn.')
+            onInfo?.('Đã gửi đăng ký. CapNong sẽ duyệt lô hàng của bạn.')
           }}
         />
       )}
@@ -183,7 +236,7 @@ export default function Campaigns({ onInfo }: { onInfo?: (msg: string) => void }
 
 /* ─────────────────────────── Thẻ lời kêu gọi ─────────────────────────── */
 
-function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegistrationResponse[]; onRegister: () => void }) {
+function CallCard({ c, mine, invited = false, onRegister }: { c: CampaignResponse; mine: FarmRegistrationResponse[]; invited?: boolean; onRegister: () => void }) {
   const gathered = Number(c.approvedSurplusKg ?? 0)
   const pct = c.targetVolumeKg > 0 ? Math.min(100, (gathered / c.targetVolumeKg) * 100) : 0
   const remaining = Math.max(0, c.targetVolumeKg - gathered)
@@ -192,12 +245,21 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
   const topUp = !!c.topUpOpen
   const need = Number(c.topUpRemainingKg ?? 0)
   return (
-    <article className="overflow-hidden rounded-3xl border border-[#e4ede0] bg-white shadow-sm">
-      {/* Đầu thẻ: ảnh bìa + tiêu đề */}
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:p-6">
-        {c.coverImageUrl && (
-          <img src={c.coverImageUrl} alt="" className="h-36 w-full shrink-0 rounded-2xl object-cover sm:h-28 sm:w-40" />
+    <article className={`flex h-full flex-col overflow-hidden rounded-3xl border bg-white shadow-sm ${invited ? 'border-amber-300 ring-1 ring-amber-200' : 'border-[#e4ede0]'}`}>
+      {/* Đầu thẻ: ảnh bìa phía trên, tiêu đề bên dưới (thẻ xếp hàng ngang nhiều cột) */}
+      <div className="relative h-40 shrink-0 bg-[#eef5e7]">
+        {c.coverImageUrl ? (
+          <img src={c.coverImageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Sprout size={40} className="absolute inset-0 m-auto text-[#4a7c2f]" />
         )}
+        {invited && (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-[#e8590c] px-2.5 py-1 text-[11px] font-extrabold text-white shadow">
+            <Megaphone size={12} /> CapNong mời bạn
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-4 px-5 pt-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-[#e7f3de] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-[#2b5619]">
@@ -213,7 +275,7 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
               </span>
             )}
           </div>
-          <h4 className="mt-2 text-xl font-black leading-snug text-[#1c2216]">{c.title}</h4>
+          <h4 className="mt-2 line-clamp-2 text-lg font-black leading-snug text-[#1c2216]">{c.title}</h4>
           <a
             href={`/chien-dich/${c.campaignId}`}
             target="_blank"
@@ -227,20 +289,20 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
 
       {/* 3 con số chính */}
       {topUp ? (
-        <dl className="grid grid-cols-3 divide-x divide-[#f6d9d5] border-y border-[#f6d9d5] bg-[#fff7f5]">
+        <dl className="mt-4 grid grid-cols-3 divide-x divide-[#f6d9d5] border-y border-[#f6d9d5] bg-[#fff7f5]">
           <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
           <BigStat label="Còn cần bổ sung" value={formatKg(need)} unit={`/ ${formatKg(c.topUpKg)}`} />
           <BigStat label="Mở bổ sung" value={c.topUpCallAt ? fmtDate(c.topUpCallAt) : '—'} />
         </dl>
       ) : (
-        <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
+        <dl className="mt-4 grid grid-cols-3 divide-x divide-[#eef2ea] border-y border-[#eef2ea] bg-[#fafcf8]">
           <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
           <BigStat label="Còn cần gom" value={formatKg(remaining)} unit={`/ ${formatKg(c.targetVolumeKg)}`} />
           <BigStat label="Hạn góp hàng" value={fmtDate(c.farmCutoffAt ?? c.cutoffAt)} />
         </dl>
       )}
 
-      <div className="flex flex-col gap-5 p-5 sm:p-6">
+      <div className="flex flex-1 flex-col gap-4 p-5">
         {topUp && (
           <p className="rounded-2xl bg-[#fdecea] px-4 py-3 text-sm text-[#7a1d16]">
             Các nhà vườn đã giao hết phần được chia nhưng hàng đạt chuẩn vẫn thiếu <b>{formatKg(need)}</b> để giao cho người mua.
@@ -283,10 +345,11 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
 
         <button
           type="button"
+          disabled={!registrationOpen(c)}
           onClick={onRegister}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#326318] px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#244a10] active:scale-[0.99] sm:w-auto sm:self-end"
+          className="mt-auto inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#326318] px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#244a10] active:scale-[0.99] disabled:bg-gray-300 disabled:text-gray-600"
         >
-          <Sprout size={16} /> {topUp ? 'Đăng ký lô bổ sung' : mine.length ? 'Đăng ký thêm lô hàng' : 'Đăng ký góp hàng'}
+          {registrationOpen(c) ? <><Sprout size={16} /> {topUp ? 'Đăng ký lô bổ sung' : mine.length ? 'Đăng ký thêm lô hàng' : 'Đăng ký góp hàng'}</> : <><Clock size={16} /> {openingText(c)}</>}
         </button>
       </div>
     </article>
@@ -295,9 +358,9 @@ function CallCard({ c, mine, onRegister }: { c: CampaignResponse; mine: FarmRegi
 
 function BigStat({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <div className="min-w-0 px-4 py-3 sm:px-6">
-      <dt className="text-[11px] font-bold uppercase tracking-wide text-[#7e8779]">{label}</dt>
-      <dd className="mt-0.5 truncate text-lg font-black text-[#1c2216] sm:text-xl">
+    <div className="min-w-0 px-3 py-3 sm:px-4">
+      <dt className="truncate text-[11px] font-bold uppercase tracking-wide text-[#7e8779]">{label}</dt>
+      <dd className="mt-0.5 truncate text-base font-black text-[#1c2216] sm:text-lg">
         {value}
         {unit && <span className="ml-1 text-xs font-semibold text-[#7e8779]">{unit}</span>}
       </dd>
@@ -305,35 +368,161 @@ function BigStat({ label, value, unit }: { label: string; value: string; unit?: 
   )
 }
 
+/* ─────────────────────────── Popup lời mời góp hàng của CapNong ─────────────────────────── */
+
+/** Lời mời góp hàng CapNong gửi qua thông báo (không có bảng riêng) */
+type CampaignInvite = { notiId: number; message: string | null; campaign: CampaignResponse }
+
+const INVITE_TITLE = 'CapNong mời bạn góp hàng cho chiến dịch giải cứu'
+
+/**
+ * Đọc lời mời từ thông báo: thông báo mới có type CAMPAIGN_INVITE + referenceId = mã chiến dịch;
+ * thông báo cũ chỉ có tiêu đề, nên dò tên chiến dịch trong nội dung. Mỗi chiến dịch giữ lời mời mới nhất.
+ */
+function invitesFromNotifications(notis: NotificationItem[], calls: CampaignResponse[]): CampaignInvite[] {
+  const out = new Map<number, CampaignInvite>()
+  const sorted = [...notis].sort((a, b) => (b.notiId ?? b.id) - (a.notiId ?? a.id))
+  for (const n of sorted) {
+    if (n.type !== 'CAMPAIGN_INVITE' && n.title !== INVITE_TITLE) continue
+    const title = /Chiến dịch "(.+?)" cần/.exec(n.message ?? '')?.[1]
+    const c = calls.find((x) => (n.referenceId != null ? x.campaignId === n.referenceId : x.title === title))
+    if (!c || out.has(c.campaignId)) continue
+    const note = (n.message ?? '').split('Lời nhắn: ')[1]?.trim() || null
+    out.set(c.campaignId, { notiId: n.notiId ?? n.id, message: note, campaign: c })
+  }
+  return [...out.values()]
+}
+
+// Lời mời tới trước giờ đăng ký thì bật lại một lần nữa khi chiến dịch mở
+const inviteSeenKey = (i: CampaignInvite) => `capnong-campaign-invite-seen-${i.notiId}${registrationOpen(i.campaign) ? '' : '-sap-mo'}`
+const inviteDismissKey = (i: CampaignInvite) => `capnong-campaign-invite-declined-${i.notiId}`
+function readFlag(key: string) {
+  try { return localStorage.getItem(key) === '1' } catch { return false }
+}
+function setFlag(key: string) {
+  try { localStorage.setItem(key, '1') } catch { /* trình duyệt chặn lưu trữ: popup có thể hiện lại */ }
+}
+const inviteSeen = (i: CampaignInvite) => readFlag(inviteSeenKey(i))
+const markInviteSeen = (i: CampaignInvite) => setFlag(inviteSeenKey(i))
+const inviteDismissed = (i: CampaignInvite) => readFlag(inviteDismissKey(i))
+
+function AdminInvitePopup({ invites, onClose, onRegister, onDeclined }: {
+  invites: CampaignInvite[]
+  onClose: () => void
+  onRegister: (c: CampaignResponse) => void
+  onDeclined: () => void
+}) {
+  const qc = useQueryClient()
+  const [idx, setIdx] = useState(0)
+  const inv = invites[Math.min(idx, invites.length - 1)]
+  const c = inv.campaign
+  // Từ chối: ghi nhớ trên máy và đánh dấu thông báo đã đọc
+  const decline = useMutation({
+    mutationFn: async () => {
+      setFlag(inviteDismissKey(inv))
+      try { await notificationService.markAsRead(inv.notiId) } catch { /* không chặn việc từ chối */ }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+      onDeclined()
+      if (invites.length <= 1) onClose()
+    },
+  })
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const gathered = Number(c.approvedSurplusKg ?? 0)
+  const remaining = Math.max(0, c.targetVolumeKg - gathered)
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="admin-invite-title" onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[94vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="flex items-center gap-3 border-b border-[#f1f4ed] bg-[#fffaf0] px-5 py-3">
+          <img src={logoIcon} alt="" className="h-10 w-10 shrink-0 rounded-full border border-[#e8ece3] bg-white object-contain p-1" />
+          <p className="min-w-0 flex-1 text-sm text-[#5d6657]">
+            <b className="text-[#1c2216]">CapNong</b>
+            <ShieldCheck size={13} className="mx-1 -mt-0.5 inline text-emerald-600" /> mời bạn góp hàng cho chiến dịch giải cứu
+          </p>
+          {invites.length > 1 && <span className="shrink-0 text-xs font-bold text-[#7e8779]">{idx + 1}/{invites.length}</span>}
+          <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-full p-1.5 text-[#5d6657] hover:bg-[#f1f4ed]"><X size={18} /></button>
+        </div>
+
+        <div className="overflow-y-auto">
+          {c.coverImageUrl && <img src={c.coverImageUrl} alt="" className="h-44 w-full object-cover" />}
+          <div className="space-y-3 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#e7f3de] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-[#2b5619]">
+                {[c.categoryName, c.season].filter(Boolean).join(' · ') || 'Chiến dịch'}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3d6] px-2.5 py-0.5 text-[11px] font-extrabold text-[#8a5a00]">
+                <Clock size={12} /> {timeLeftLabel(c.farmCutoffAt ?? c.cutoffAt)}
+              </span>
+            </div>
+            <h4 id="admin-invite-title" className="text-xl font-black leading-tight text-[#1c2216]">{c.title}</h4>
+            {inv.message && <p className="rounded-2xl bg-[#f6faf2] px-3 py-2 text-sm italic text-[#2b5619]">“{inv.message}”</p>}
+            <dl className="grid grid-cols-3 divide-x divide-[#eef2ea] rounded-2xl border border-[#eef2ea] bg-[#fafcf8]">
+              <BigStat label="Giá thu mua" value={formatVnd(c.rescuePricePerKg)} unit="/kg" />
+              <BigStat label="Còn cần gom" value={formatKg(remaining)} />
+              <BigStat label="Hạn góp hàng" value={fmtDate(c.farmCutoffAt ?? c.cutoffAt)} />
+            </dl>
+            {c.collectionSiteName && (
+              <p className="flex items-start gap-2 text-xs text-[#5d6657]">
+                <MapPin size={14} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
+                <span><b className="text-[#1c2216]">{c.collectionSiteName}</b>{c.collectionSiteAddress ? ` · ${c.collectionSiteAddress}` : ''}</span>
+              </p>
+            )}
+            <a href={`/chien-dich/${c.campaignId}`} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-[#326318] hover:underline">
+              Đọc bài chiến dịch →
+            </a>
+            {decline.isError && <p className="text-sm font-semibold text-[#b3261e]">{getErrorMessage(decline.error, 'Chưa từ chối được lời mời.')}</p>}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-[#f1f4ed] px-5 py-4">
+          <button type="button" disabled={decline.isPending} onClick={() => decline.mutate()}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#e3e8de] px-4 py-2.5 text-sm font-bold text-[#5d6657] hover:border-[#b3261e] hover:text-[#b3261e] disabled:opacity-50">
+            {decline.isPending ? <Loader2 size={15} className="animate-spin" /> : <XCircle size={15} />} Từ chối
+          </button>
+          {invites.length > 1 && (
+            <button type="button" onClick={() => setIdx((idx + 1) % invites.length)} className="rounded-full px-3 py-2.5 text-sm font-bold text-[#326318] hover:bg-[#f1f7ec]">
+              Lời mời tiếp
+            </button>
+          )}
+          <span className="flex-1" />
+          <button type="button" onClick={onClose} className="rounded-full px-4 py-2.5 text-sm font-bold text-[#5d6657] hover:bg-[#f1f4ed]">Để sau</button>
+          <button type="button" disabled={!registrationOpen(c)} onClick={() => onRegister(c)}
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#326318] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#244a10] disabled:bg-gray-300 disabled:text-gray-600">
+            {registrationOpen(c) ? <><Sprout size={16} /> Đăng ký góp hàng</> : <><Clock size={16} /> {openingText(c)}</>}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 /* ─────────────────────────── Form đăng ký lô hàng ─────────────────────────── */
 
 export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; onClose: () => void; onDone: () => void }) {
   const qc = useQueryClient()
-  const { data: myProducts } = useMyProducts({ size: 100 })
-  const products = (myProducts?.content ?? []).map((p) => ({
-    id: Number(p.productId ?? p.id),
-    name: String(p.productName ?? p.name ?? ''),
-    image: (p.images?.find((i: { isPrimary?: boolean }) => i.isPrimary) ?? p.images?.[0])?.imageUrl ?? p.imageUrl ?? '',
-  }))
-
-  const [productId, setProductId] = useState<number | ''>('')
-  const [productName, setProductName] = useState('')
   const [kg, setKg] = useState('')
   const [harvestDate, setHarvestDate] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [shelf, setShelf] = useState<ShelfLifeTier | null>(null)
-  const [price, setPrice] = useState(String(Math.round(Number(c.rescuePricePerKg ?? 0))))
   const [committed, setCommitted] = useState(false)
   const [note, setNote] = useState('')
   const [touched, setTouched] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const kgNum = Number(kg)
-  const priceNum = Number(price)
-  // Giá chốt không vượt giá giải cứu (BE chặn), nên tạm tính theo min(giá đề xuất, giá giải cứu)
-  const payPrice = c.rescuePricePerKg > 0 ? Math.min(priceNum, c.rescuePricePerKg) : priceNum
-  const estimate = kgNum > 0 && priceNum > 0 ? kgNum * payPrice * FARMER_KEEP_RATE : 0
+  // Giá thu mua cố định theo bài chiến dịch của CapNong
+  const price = Number(c.rescuePricePerKg ?? 0)
+  const estimate = kgNum > 0 ? kgNum * price * FARMER_KEEP_RATE : 0
   const today = localIsoDate(new Date())
   // Kêu gọi bổ sung: giới hạn số kg còn thiếu; ngày giao dự kiến đã qua thì tính từ ngày mai
   const topUp = !!c.topUpOpen
@@ -341,10 +530,9 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
   const tomorrow = localIsoDate(new Date(Date.now() + 86400e3))
   const baseDelivery = c.deliveryDate ? c.deliveryDate.slice(0, 10) : null
   const deliveryDate = topUp && (!baseDelivery || baseDelivery < tomorrow) ? tomorrow : baseDelivery
-  const priceDiff = c.rescuePricePerKg > 0 && priceNum > 0 ? (priceNum - c.rescuePricePerKg) / c.rescuePricePerKg : 0
 
-  // Ngày thu hoạch phải trước ngày bắt đầu chiến dịch (chiến dịch cũ chưa có ngày bắt đầu: không sau ngày chốt)
-  // Mốc tính bảo quản = ngày kết thúc chiến dịch (lô bổ sung thu hoạch sau mốc đó thì tính từ ngày thu hoạch)
+  // Ngày thu hoạch phải trước ngày bắt đầu mở điểm tập kết (chiến dịch cũ chưa có ngày bắt đầu: không sau ngày chốt)
+  // Mốc tính bảo quản = ngày kết thúc mở điểm tập kết (lô bổ sung thu hoạch sau mốc đó thì tính từ ngày thu hoạch)
   const cutoffDate = localIsoDate(new Date(c.cutoffAt))
   const startDate = c.startDate ? c.startDate.slice(0, 10) : null
   const endDate = c.endDate ? c.endDate.slice(0, 10) : null
@@ -353,13 +541,12 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
   const anchor = harvestDate && harvestDate > baseAnchor ? harvestDate : baseAnchor
   const freshUntil = (t: ShelfLifeTier) => addDays(anchor, SHELF_MAX_DAYS[t])
   const errors = {
-    product: !productName.trim() ? 'Nhập tên sản phẩm' : null,
     kg: !(kgNum > 0) ? 'Nhập số kg lớn hơn 0' : topUp && kgNum > topUpMax ? `Chiến dịch chỉ còn cần bổ sung ${formatKg(topUpMax)}` : null,
     harvest: !harvestDate
       ? 'Chọn ngày thu hoạch'
       : harvestDate > harvestMax
         ? topUp ? `Lô bổ sung thu hoạch chậm nhất ${fmtDate(harvestMax)}`
-          : startDate ? `Ngày thu hoạch phải trước ngày bắt đầu chiến dịch ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(harvestMax)}`
+          : startDate ? `Ngày thu hoạch phải trước ngày bắt đầu mở điểm tập kết ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(harvestMax)}`
         : null,
     images: images.length === 0 ? 'Thêm ít nhất 1 ảnh lô hàng' : null,
     shelf: !shelf
@@ -367,7 +554,6 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
       : deliveryDate && deliveryDate > freshUntil(shelf)
         ? `${shelfLabel(shelf)} chỉ giữ tươi tới ${fmtDate(freshUntil(shelf))}, nhưng ngày giao là ${fmtDate(deliveryDate)}. Chọn độ bền dài hơn.`
         : null,
-    price: !(priceNum > 0) ? 'Nhập giá đề xuất' : null,
     commit: !committed ? 'Bạn cần tick cam kết' : null,
   }
   const valid = Object.values(errors).every((e) => !e)
@@ -375,13 +561,10 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
   const submit = useMutation({
     mutationFn: () =>
       campaignService.registerFarm(c.campaignId, {
-        productId: productId === '' ? undefined : productId,
-        productName: productName.trim(),
         surplusVolumeKg: kgNum,
         harvestDate,
         productImageUrls: images,
         shelfLifeTier: shelf as ShelfLifeTier,
-        proposedPricePerKg: priceNum,
         priceCommitted: committed,
         note: note.trim() || undefined,
       }),
@@ -390,19 +573,6 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
       onDone()
     },
   })
-
-  const pickProduct = (id: string) => {
-    if (!id) {
-      setProductId('')
-      return
-    }
-    const p = products.find((x) => x.id === Number(id))
-    setProductId(Number(id))
-    if (p) {
-      setProductName(p.name)
-      if (p.image && !images.includes(p.image)) setImages((prev) => [p.image, ...prev].slice(0, 5))
-    }
-  }
 
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return
@@ -458,38 +628,8 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
           }}
         >
           <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">
-          {/* 1. Sản phẩm */}
-          <Step n={1} title="Sản phẩm góp vào chiến dịch" icon={Package}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs font-bold text-[#1c2216]">
-                Chọn từ gian hàng (tuỳ chọn)
-                <select
-                  value={productId}
-                  onChange={(e) => pickProduct(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
-                >
-                  <option value="">— Nhập tên sản phẩm mới —</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs font-bold text-[#1c2216]">
-                Tên sản phẩm
-                <input
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  maxLength={200}
-                  placeholder="Vd: Dưa hấu Long An loại 2"
-                  className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
-                />
-                {err('product')}
-              </label>
-            </div>
-          </Step>
-
-          {/* 2. Số lượng */}
-          <Step n={2} title="Số lượng & ngày thu hoạch" icon={CalendarClock}>
+          {/* 1. Số lượng */}
+          <Step n={1} title="Số lượng & ngày thu hoạch" icon={CalendarClock}>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs font-bold text-[#1c2216]">
                 Số kg dư có thể góp
@@ -518,7 +658,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                   className="mt-1.5 w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 text-sm font-medium"
                 />
                 <span className="mt-1 block text-[11px] font-medium text-[#7e8779]">
-                  Chậm nhất {fmtDate(harvestMax)}{topUp ? '' : startDate ? ` (trước ngày bắt đầu ${fmtDate(startDate)})` : ' (ngày chốt)'}
+                  Chậm nhất {fmtDate(harvestMax)}{topUp ? '' : startDate ? ` (trước ngày bắt đầu mở điểm tập kết ${fmtDate(startDate)})` : ' (ngày chốt)'}
                 </span>
                 {err('harvest')}
               </label>
@@ -537,7 +677,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
                 <li className="flex gap-2">
                   <CalendarClock size={15} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
                   <span>
-                    <span className="block font-bold text-[#1c2216]">Chiến dịch diễn ra</span>
+                    <span className="block font-bold text-[#1c2216]">Mở điểm tập kết</span>
                     <span className="text-[#5d6657]">
                       {startDate && `Từ ${fmtDate(startDate)}`}{startDate && endDate ? ' ' : ''}{endDate && `đến ${fmtDate(endDate)}`}
                     </span>
@@ -562,13 +702,13 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
               </li>
             </ol>
             <p className="mt-2 text-[11px] leading-relaxed text-[#7e8779]">
-              {startDate ? `Ngày thu hoạch phải trước ngày bắt đầu chiến dịch ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(cutoffDate)}`}. Độ bền ở bước 4 tính từ ngày kết thúc chiến dịch{endDate ? ` ${fmtDate(endDate)}` : ''}, và hàng phải còn tươi
+              {startDate ? `Ngày thu hoạch phải trước ngày bắt đầu mở điểm tập kết ${fmtDate(startDate)}` : `Ngày thu hoạch không được sau ngày chốt ${fmtDate(cutoffDate)}`}. Độ bền ở bước 3 tính từ ngày kết thúc mở điểm tập kết{endDate ? ` ${fmtDate(endDate)}` : ''}, và hàng phải còn tươi
               tới ngày giao{deliveryDate ? ` ${fmtDate(deliveryDate)}` : ''}.
             </p>
           </Step>
 
-          {/* 3. Ảnh */}
-          <Step n={3} title="Ảnh minh hoạ lô hàng" icon={Camera} hint="1 – 5 ảnh chụp thật tại vườn giúp CapNong duyệt nhanh hơn.">
+          {/* 2. Ảnh */}
+          <Step n={2} title="Ảnh minh hoạ lô hàng" icon={Camera} hint="1 – 5 ảnh chụp thật tại vườn giúp CapNong duyệt nhanh hơn.">
             <div className="flex flex-wrap gap-3">
               {images.map((url) => (
                 <div key={url} className="relative h-24 w-24 overflow-hidden rounded-2xl border border-[#dfe6d8]">
@@ -599,8 +739,8 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
             {err('images')}
           </Step>
 
-          {/* 4. Bảo quản */}
-          <Step n={4} title="Độ bền sau khi kết thúc chiến dịch" icon={Clock} hint={`Chiến dịch kết thúc ${fmtDate(baseAnchor)}: tính từ ngày đó, hàng của bạn còn tươi thêm bao nhiêu ngày?`}>
+          {/* 3. Bảo quản */}
+          <Step n={3} title="Độ bền sau ngày kết thúc mở điểm tập kết" icon={Clock} hint={`Kết thúc mở điểm tập kết ${fmtDate(baseAnchor)}: tính từ ngày đó, hàng của bạn còn tươi thêm bao nhiêu ngày?`}>
             <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Thời gian bảo quản">
               {SHELF_LIFE.map((s) => (
                 <button
@@ -625,42 +765,25 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
             {err('shelf')}
           </Step>
 
-          {/* 5. Giá & cam kết */}
-          <Step n={5} title="Giá đề xuất & cam kết" icon={HandCoins}>
+          {/* 4. Giá & cam kết */}
+          <Step n={4} title="Giá thu mua & cam kết" icon={HandCoins}>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs font-bold text-[#1c2216]">
-                Giá bạn đề xuất
-                <div className="relative mt-1.5">
-                  <input
-                    type="number"
-                    min={1}
-                    step="any"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full rounded-xl border border-[#dfe6d8] bg-[#fbfcf9] px-3 py-2.5 pr-14 text-sm font-medium"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#7e8779]">đ/kg</span>
-                </div>
-                <span className="mt-1 block font-medium text-[#7e8779]">
-                  Giá giải cứu chiến dịch: {formatVnd(c.rescuePricePerKg)}/kg
-                  {priceDiff > 0 && (
-                    <span className="text-[#b3261e]"> · giá chốt tối đa bằng giá giải cứu, phần cao hơn sẽ không được tính</span>
-                  )}
-                </span>
-                {err('price')}
-              </label>
+              <div className="rounded-2xl border border-[#dfe6d8] bg-white p-3.5 text-xs text-[#5d6657]">
+                <p className="flex items-center gap-1.5 font-bold text-[#1c2216]"><Lock size={13} className="text-[#4a7c2f]" /> Giá thu mua cố định</p>
+                <p className="mt-1 text-xl font-black text-[#1c2216]">{formatVnd(price)}<span className="text-sm font-bold text-[#7e8779]">/kg</span></p>
+                <p className="mt-1">Theo bài đăng chiến dịch của CapNong.</p>
+              </div>
               <div className="rounded-2xl bg-[#f4f7f1] p-3.5 text-xs text-[#5d6657]">
-                <p>Tạm tính bạn nhận (sau phí 10%)</p>
+                <p>Tạm tính bạn nhận (sau phí 30%)</p>
                 <p className="mt-1 text-xl font-black text-[#326318]">{formatVnd(estimate)}</p>
-                <p className="mt-1">Tính theo số kg cân đạt chuẩn tại điểm gom × giá chốt sau thương lượng.</p>
+                <p className="mt-1">Tính theo số kg cân đạt chuẩn tại điểm gom × giá thu mua.</p>
               </div>
             </div>
 
             <label className={`mt-4 flex cursor-pointer gap-3 rounded-2xl border p-4 ${committed ? 'border-[#326318] bg-[#f4f7f1]' : 'border-[#dfe6d8]'}`}>
               <input type="checkbox" checked={committed} onChange={(e) => setCommitted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#326318]" />
               <span className="text-sm leading-relaxed text-[#1c2216]">
-                <strong>Tôi cam kết</strong> giữ đúng mức giá được CapNong chốt sau thương lượng (không vượt giá đề xuất ở
-                trên), giao đủ số kg đã khai và đúng chất lượng như ảnh, mang hàng tới điểm gom đúng hẹn. Hàng không đạt
+                <strong>Tôi cam kết</strong> bán đúng giá thu mua của chiến dịch, giao đủ số kg đã khai và đúng chất lượng như ảnh, mang hàng tới điểm gom đúng hẹn. Hàng không đạt
                 chuẩn khi cân kiểm sẽ không được tính tiền.
               </span>
             </label>
@@ -691,7 +814,7 @@ export function RegisterDialog({ c, onClose, onDone }: { c: CampaignResponse; on
               <p className="flex items-center gap-1.5 font-bold text-[#1c2216]">
                 <CalendarClock size={14} className="shrink-0 text-[#4a7c2f]" /> Hạn góp hàng: {fmtDate(c.farmCutoffAt ?? c.cutoffAt)}
               </p>
-              <p>CapNong sẽ liên hệ thương lượng giá và duyệt lô hàng trước {fmtDate(c.cutoffAt)}.</p>
+              <p>CapNong sẽ duyệt lô hàng trước {fmtDate(c.cutoffAt)}.</p>
             </div>
             <button
               type="submit"
@@ -765,7 +888,7 @@ function SiteLocation({ c, label = 'Mang hàng tới', compact }: { c: CampaignR
 function RegistrationRow({ r }: { r: FarmRegistrationResponse }) {
   const steps = [
     { label: 'Gửi đăng ký', done: true },
-    { label: 'Duyệt & chốt giá', done: r.status === 'APPROVED' },
+    { label: 'Được duyệt', done: r.status === 'APPROVED' },
     { label: 'Cân tại điểm gom', done: !!r.intakeAt },
     { label: 'Nhận tiền', done: !!r.paidOutAt },
   ]
@@ -791,7 +914,7 @@ function RegistrationRow({ r }: { r: FarmRegistrationResponse }) {
           <Mini label="Thu hoạch" value={fmtDate(r.harvestDate)} />
           <Mini label="Bảo quản" value={shelfLabel(r.shelfLifeTier)} />
           <Mini
-            label={r.agreedPricePerKg != null ? 'Giá đã chốt' : 'Giá đề xuất'}
+            label="Giá thu mua"
             value={r.effectivePricePerKg != null ? `${formatVnd(r.effectivePricePerKg)}/kg` : '—'}
           />
           {r.allocatedVolumeKg != null && <Mini label="Được phân bổ" value={formatKg(r.allocatedVolumeKg)} />}
@@ -848,7 +971,7 @@ function Mini({ label, value }: { label: string; value: string }) {
 
 function StatusChip({ status }: { status: FarmRegistrationResponse['status'] }) {
   const map = {
-    PENDING: { t: 'Chờ duyệt & thương lượng giá', c: 'bg-[#fff3d6] text-[#8a5a00]', I: Clock },
+    PENDING: { t: 'Chờ duyệt', c: 'bg-[#fff3d6] text-[#8a5a00]', I: Clock },
     APPROVED: { t: 'Đã duyệt', c: 'bg-[#e7f3de] text-[#2b5619]', I: CheckCircle2 },
     REJECTED: { t: 'Bị từ chối', c: 'bg-[#fdecea] text-[#b3261e]', I: XCircle },
     CANCELLED: { t: 'Chiến dịch đã huỷ', c: 'bg-gray-100 text-gray-600', I: XCircle },

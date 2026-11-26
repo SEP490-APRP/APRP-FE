@@ -202,7 +202,16 @@ export function AddressPicker({ value, onChange, detailLabel = 'Địa chỉ c�
 
 const HCM = { lat: 10.7769, lng: 106.7009 }
 
-function AddressMap({ value, onChange }: { value: AddressValue; onChange: (v: AddressValue) => void }) {
+export function AddressMap({
+  value,
+  onChange,
+  hint = 'Nhập địa chỉ cụ thể để ghim vị trí',
+}: {
+  value: AddressValue
+  onChange: (v: AddressValue) => void
+  /** Lời nhắc khi chưa ghim */
+  hint?: string
+}) {
   const elRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
@@ -248,6 +257,20 @@ function AddressMap({ value, onChange }: { value: AddressValue; onChange: (v: Ad
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Toạ độ được đặt từ bên ngoài (chọn gợi ý địa chỉ): đưa ghim và khung nhìn tới đó
+  useEffect(() => {
+    if (state !== 'ready') return
+    if (value.lat == null || value.lng == null) {
+      if (!value.provinceName) markerRef.current.setVisible(false)
+      return
+    }
+    const at = { lat: value.lat, lng: value.lng }
+    markerRef.current.setPosition(at)
+    markerRef.current.setVisible(true)
+    mapRef.current.setCenter(at)
+    if (mapRef.current.getZoom?.() < 15) mapRef.current.setZoom(16)
+  }, [state, value.lat, value.lng, value.provinceName])
+
   // Địa chỉ đổi mà chưa có toạ độ → tự tìm toạ độ (debounce)
   const query = composeAddress(value)
   useEffect(() => {
@@ -290,7 +313,7 @@ function AddressMap({ value, onChange }: { value: AddressValue; onChange: (v: Ad
       {state === 'ready' && (
         <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow">
           {locating ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} className="text-[#326318]" />}
-          {value.lat != null ? 'Kéo ghim hoặc chạm bản đồ để chỉnh vị trí' : 'Nhập địa chỉ cụ thể để ghim vị trí'}
+          {value.lat != null ? 'Kéo ghim hoặc chạm bản đồ để chỉnh vị trí' : hint}
         </div>
       )}
       {value.lat != null && (
