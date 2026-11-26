@@ -28,6 +28,18 @@ const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'SNACK', label: 'Ăn nhẹ & tráng miệng' },
 ]
 
+const COMBO_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Món Canh / Súp', label: 'Món Canh / Súp' },
+  { value: 'Món Xào', label: 'Món Xào' },
+  { value: 'Món Kho / Hầm', label: 'Món Kho / Hầm' },
+  { value: 'Món Hấp / Luộc', label: 'Món Hấp / Luộc' },
+  { value: 'Món Lẩu', label: 'Món Lẩu' },
+  { value: 'Món Chay', label: 'Món Chay' },
+  { value: 'Salad Eat Clean', label: 'Salad Eat Clean' },
+  { value: 'Nước Ép / Sinh Tố', label: 'Nước Ép / Sinh Tố' },
+  { value: 'Tráng Miệng', label: 'Tráng Miệng' },
+]
+
 export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo, onClose, onInfo }: ComboBuilderProps) {
   // Loại trừ React SyntheticEvent nếu bị truyền nhầm qua onClick
   const isEvent =
@@ -51,7 +63,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
     String(initialCombo?.stockQuantity || initialCombo?.totalQuantity || initialCombo?.stock || '20'),
   )
   const [mealType, setMealType] = useState<MealType>(initialCombo?.mealType || 'DINNER')
-  const [type, setType] = useState(initialCombo?.type || 'Món lẩu & xào')
+  const [type, setType] = useState(initialCombo?.type || 'Món Lẩu')
+  const comboTypeOptions =
+    type && !COMBO_TYPE_OPTIONS.some((opt) => opt.value === type)
+      ? [{ value: type, label: type }, ...COMBO_TYPE_OPTIONS]
+      : COMBO_TYPE_OPTIONS
   const [region, setRegion] = useState(initialCombo?.region || 'Đà Lạt & Lâm Đồng')
   const [description, setDescription] = useState(initialCombo?.description || '')
   const [imageUrl, setImageUrl] = useState(
@@ -445,13 +461,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
             </div>
             <div>
               <label className="block font-bold text-[#353d2f] mb-1">Thể loại combo</label>
-              <input
-                type="text"
-                maxLength={50}
+              <CustomSelect
                 value={type}
-                onChange={(e) => setType(e.target.value)}
-                placeholder="VD: Món lẩu, Nấu canh..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                onChange={(val) => setType(String(val))}
+                options={comboTypeOptions}
+                placeholder="Chọn thể loại combo..."
               />
             </div>
           </div>
