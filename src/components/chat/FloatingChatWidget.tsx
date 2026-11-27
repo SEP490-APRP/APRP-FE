@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { globalShowAlert } from '@/components/common/Popup'
 import {
   MessageSquare,
   X,
@@ -113,10 +114,12 @@ export const FloatingChatWidget: React.FC = () => {
     const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name)
     const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
     if (file.size > maxSize) {
-      alert(
+      globalShowAlert(
         isVideo
           ? 'Video đính kèm không được vượt quá 50MB'
           : 'Hình ảnh đính kèm không được vượt quá 10MB',
+        'Tệp quá lớn',
+        'warning',
       )
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
@@ -134,7 +137,7 @@ export const FloatingChatWidget: React.FC = () => {
       }
     } catch (err) {
       console.error('[FloatingChatWidget] Upload media error:', err)
-      alert('Tải tệp tin thất bại. Vui lòng thử lại.')
+      globalShowAlert('Tải tệp tin thất bại. Vui lòng thử lại.', 'Lỗi tải tệp', 'error')
     } finally {
       setUploadingMedia(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

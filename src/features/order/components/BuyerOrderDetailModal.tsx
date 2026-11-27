@@ -418,9 +418,12 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                           <p className="font-black text-emerald-800 text-xs sm:text-sm">
                             {Number(subtotal).toLocaleString('vi-VN')} đ
                           </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
+                          {(order.status === 'DELIVERED' ||
+                            order.status === 'COMPLETED' ||
+                            order.status === 'REFUND_REQUESTED' ||
+                            (order.status === 'REFUNDED' && Boolean(order.deliveredAt))) && (
                             <div className="flex items-center gap-1.5 justify-end">
-                              {onReturnItem && !it.isRequestedReturn && (
+                              {onReturnItem && !it.isRequestedReturn && order.status !== 'REFUNDED' && (
                                 <button
                                   type="button"
                                   onClick={() => onReturnItem(it, order.orderId ?? order.id ?? 0)}
@@ -429,7 +432,7 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                                   Trả hàng
                                 </button>
                               )}
-                              {onReviewItem && !it.isReviewed && (
+                              {onReviewItem && !it.isReviewed && !it.isRequestedReturn && (
                                 <button
                                   type="button"
                                   onClick={() => onReviewItem(it, order.orderId ?? order.id ?? 0)}

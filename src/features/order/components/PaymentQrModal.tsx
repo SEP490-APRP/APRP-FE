@@ -3,6 +3,7 @@ import { QrCode, ExternalLink, CheckCircle, ShieldAlert, Loader2 } from 'lucide-
 import { QRCodeSVG } from 'qrcode.react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { globalShowAlert } from '@/components/common/Popup'
 import { paymentService } from '@/services'
 
 interface PaymentQrModalProps {
@@ -75,10 +76,18 @@ export const PaymentQrModal: React.FC<PaymentQrModalProps> = ({
         onConfirmed()
       } else {
         // Vẫn chưa nhận được tiền hoặc đang xử lý
-        alert('Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.')
+        globalShowAlert(
+          'Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.',
+          'Chưa ghi nhận thanh toán',
+          'info',
+        )
       }
     } catch {
-      alert('Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.')
+      globalShowAlert(
+        'Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.',
+        'Chưa ghi nhận thanh toán',
+        'warning',
+      )
     } finally {
       setIsVerifying(false)
     }

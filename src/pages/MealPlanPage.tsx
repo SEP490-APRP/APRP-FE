@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { globalShowConfirm } from '@/components/common/Popup'
 import {
   Sparkles,
   HeartPulse,
@@ -211,11 +212,11 @@ export default function MealPlanPage() {
 
   const handleArchivePlan = async () => {
     if (!selectedPlanId) return
-    if (
-      window.confirm(
-        'Bạn có chắc muốn lưu trữ thực đơn này? Sau khi lưu trữ, thực đơn sẽ hoàn tất và không thể chỉnh sửa tiếp.'
-      )
-    ) {
+    const confirmed = await globalShowConfirm(
+      'Lưu trữ thực đơn',
+      'Bạn có chắc muốn lưu trữ thực đơn này? Sau khi lưu trữ, thực đơn sẽ hoàn tất và không thể chỉnh sửa tiếp.',
+    )
+    if (confirmed) {
       try {
         await archivePlanMutation.mutateAsync(selectedPlanId)
         useUiStore.getState().showToast('✓ Đã lưu trữ thực đơn vào lịch sử thành công.')
@@ -228,7 +229,11 @@ export default function MealPlanPage() {
 
   const handleDeletePlan = async () => {
     if (!selectedPlanId) return
-    if (window.confirm('Bạn có chắc chắn muốn xóa bản nháp thực đơn này?')) {
+    const confirmed = await globalShowConfirm(
+      'Xóa bản nháp thực đơn',
+      'Bạn có chắc chắn muốn xóa bản nháp thực đơn này?',
+    )
+    if (confirmed) {
       try {
         await deletePlanMutation.mutateAsync(selectedPlanId)
         useUiStore.getState().showToast('✓ Đã xóa bản nháp thực đơn.')
