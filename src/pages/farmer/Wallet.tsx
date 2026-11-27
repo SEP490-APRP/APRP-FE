@@ -178,24 +178,12 @@ export default function Wallet({ onOpenWithdraw }: WalletProps) {
           id="tour-wallet-history"
           className="lg:col-span-7 xl:col-span-8 bg-white rounded-3xl p-6 border border-[#e8ece3] shadow-sm space-y-4"
         >
-          <div className="flex items-center justify-between pb-3 border-b border-[#f1f4ed]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#eaf5e1] text-[#2b5619] flex items-center justify-center">
-                <History size={17} />
-              </div>
-              <div>
-                <h4 className="text-base font-black text-[#1c2216]">Lịch Sử Biến Động Ví</h4>
-                <p className="text-[11px] text-[#788472]">Chi tiết các khoản cộng/trừ và doanh thu theo đơn hàng</p>
-              </div>
-            </div>
-            {txPage && txPage.totalElements > 0 && (
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#f4f7f1] text-[#2b5619]">
-                {txPage.totalElements} giao dịch
-              </span>
-            )}
-          </div>
-
-          <WalletTransactionList items={txPage?.content ?? []} isLoading={txQuery.isLoading} />
+          <WalletTransactionList
+            items={txPage?.content ?? []}
+            isLoading={txQuery.isLoading}
+            mainBalance={wallet?.balance ?? 0}
+            frozenBalance={wallet?.frozenBalance ?? 0}
+          />
 
           {txPage && txPage.totalPages > 1 && (
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#f1f4ed]">

@@ -203,6 +203,7 @@ export const WALLET_TX_LABEL: Record<WalletTransactionType, string> = {
   CAMPAIGN_DEPOSIT_WALLET_REFUND: 'Hoàn phần cọc đã trả bằng ví',
   CAMPAIGN_DAMAGE_COMPENSATION: 'Bồi thường hàng hư chiến dịch',
   CAMPAIGN_DAMAGE_REFUND: 'Nhận tiền hàng hư chiến dịch',
+  REFERRAL_COMMISSION: 'Hoa hồng tiếp thị liên kết',
 }
 
 export const walletService = {

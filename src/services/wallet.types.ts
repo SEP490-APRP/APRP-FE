@@ -115,6 +115,7 @@ export type WalletTransactionType =
   | 'CAMPAIGN_DEPOSIT_WALLET_REFUND'
   | 'CAMPAIGN_DAMAGE_COMPENSATION'
   | 'CAMPAIGN_DAMAGE_REFUND'
+  | 'REFERRAL_COMMISSION'
 
 export interface WalletTransactionResponse {
   id: number
