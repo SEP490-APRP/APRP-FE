@@ -14,7 +14,7 @@ import logoIcon from '@/assets/logo-icon.png'
 /** Dữ liệu điền sẵn cho form tạo chiến dịch khi duyệt / gộp đề xuất */
 export interface ApprovePrefill {
   proposalIds: number[]
-  fields: Partial<Record<'title' | 'description' | 'season' | 'target' | 'min' | 'price' | 'site' | 'farmCutoff' | 'cutoff' | 'start' | 'end', string>>
+  fields: Partial<Record<'title' | 'product' | 'description' | 'season' | 'target' | 'price' | 'site' | 'farmCutoff' | 'cutoff' | 'start' | 'end', string>>
   address: AddressValue
   categoryId?: number
   coverImageUrl?: string
@@ -94,10 +94,10 @@ export function buildPrefill(list: CampaignProposal[]): ApprovePrefill {
     proposalIds: list.map((p) => p.proposalId),
     fields: {
       title: `Giải cứu ${product}${main.siteName ? ` – ${main.siteName}` : ''}`,
+      product: main.productName ?? '',
       description: story,
       // Ngưỡng tối thiểu = tổng kg các shop đã đồng ý góp; mục tiêu để admin tự điền
-      target: '',
-      min: String(Math.round(total)),
+      target: String(Math.round(total)),
       price: price != null ? String(price) : '',
       site: main.siteName ?? '',
       ...(cutoff ? { cutoff } : {}),

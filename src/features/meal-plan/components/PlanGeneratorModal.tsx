@@ -55,7 +55,7 @@ export default function PlanGeneratorModal({
   onClose,
   onSuccess,
 }: PlanGeneratorModalProps) {
-  const { data: profile } = useHealthProfile()
+  const { data: profile } = useHealthProfile(isOpen)
   const generateMutation = useGenerateAiPlan()
   const preCheckMutation = usePreCheckPlan()
 

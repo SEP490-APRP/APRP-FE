@@ -16,7 +16,8 @@ import heroFarmerImg from '@/assets/hero-farmer.jpg'
 import campaignImg from '@/assets/farmer-forum-banner.jpg'
 import comboImg from '@/assets/combo-hotpot.jpg'
 import aiImg from '@/assets/ai-meal.jpg'
-import { useActiveCampaigns } from '@/features/campaign/hooks/useCampaignQueries'
+import { useActiveCampaigns, useHomeBanners } from '@/features/campaign/hooks/useCampaignQueries'
+import { bannerOf } from '@/features/campaign/components/CampaignBanner'
 import { formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
 import type { CampaignResponse } from '@/services'
 
@@ -31,17 +32,30 @@ type Slide = {
 
 /**
  * Section đầu trang chủ: nhiều banner tự chuyển.
- * - Tự chuyển mỗi 6,5 giây, dừng khi rê chuột / focus bàn phím / tab bị ẩn / người dùng bấm tạm dừng.
+ * - Admin gắn chiến dịch vào banner (Quản lý chiến dịch > Banner trang chủ): mỗi chiến dịch là một banner,
+ *   số giây tự chuyển cũng do Admin đặt. Chưa gắn chiến dịch nào thì dùng 1 banner chiến dịch chung như cũ.
+ * - Mặc định tự chuyển mỗi 6,5 giây, dừng khi rê chuột / focus bàn phím / tab bị ẩn / người dùng bấm tạm dừng.
  * - Không tự chạy khi hệ điều hành bật "giảm chuyển động".
  * - Vuốt trái/phải trên điện thoại, phím ← → khi focus vào banner.
  */
 export default function HeroCarousel() {
   const { data } = useActiveCampaigns(0, 1)
   const featured = data?.content?.[0]
+  const { data: home } = useHomeBanners()
+  const picked = home?.campaigns ?? []
+  const autoplayMs = home?.intervalSeconds ? home.intervalSeconds * 1000 : AUTOPLAY_MS
+
+  const campaignSlides: Slide[] = picked.length
+    ? picked.map((c) => ({
+        id: `campaign-${c.campaignId}`,
+        label: c.title,
+        render: (a: boolean) => <PickedCampaignSlide active={a} campaign={c} />,
+      }))
+    : [{ id: 'campaign', label: 'Chiến dịch giải cứu', render: (a) => <CampaignSlide active={a} campaign={featured} /> }]
 
   const slides: Slide[] = [
     { id: 'rescue', label: 'Giải cứu hôm nay', render: (a) => <RescueSlide active={a} /> },
-    { id: 'campaign', label: 'Chiến dịch giải cứu', render: (a) => <CampaignSlide active={a} campaign={featured} /> },
+    ...campaignSlides,
     { id: 'combo', label: 'Combo & Túi mù', render: (a) => <ComboSlide active={a} /> },
     { id: 'ai', label: 'Thực đơn AI', render: (a) => <AiSlide active={a} /> },
   ]
@@ -64,11 +78,16 @@ export default function HeroCarousel() {
 
   const go = useCallback((next: number) => setIndex(((next % count) + count) % count), [count])
 
+  // Danh sách banner thay đổi (Admin bỏ bớt chiến dịch) thì quay về banner đầu
+  useEffect(() => {
+    if (index >= count) setIndex(0)
+  }, [index, count])
+
   useEffect(() => {
     if (!running) return
-    const t = window.setTimeout(() => go(index + 1), AUTOPLAY_MS)
+    const t = window.setTimeout(() => go(index + 1), autoplayMs)
     return () => window.clearTimeout(t)
-  }, [running, index, go])
+  }, [running, index, go, autoplayMs])
 
   return (
     <section
@@ -121,14 +140,14 @@ export default function HeroCarousel() {
                   <span
                     key={`${i}-${index}-${running}`}
                     className={`absolute inset-y-0 left-0 rounded-full ${
-                      s.id === 'campaign' ? 'bg-tertiary-fixed-dim' : 'bg-white'
+                      s.id.startsWith('campaign') ? 'bg-tertiary-fixed-dim' : 'bg-white'
                     }`}
                     style={
                       i < index
                         ? { width: '100%' }
                         : i === index
                           ? running
-                            ? { width: '100%', animation: `capnong-hero-progress ${AUTOPLAY_MS}ms linear` }
+                            ? { width: '100%', animation: `capnong-hero-progress ${autoplayMs}ms linear` }
                             : { width: '100%' }
                           : { width: '0%' }
                     }
@@ -139,7 +158,7 @@ export default function HeroCarousel() {
                     i === index ? 'text-white' : 'text-white/55 group-hover:text-white/85'
                   }`}
                 >
-                  {s.id === 'campaign' && (
+                  {s.id.startsWith('campaign') && (
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim mr-1.5 align-middle" />
                   )}
                   {s.label}
@@ -375,6 +394,76 @@ function CampaignSlide({ active, campaign: c }: { active: boolean; campaign?: Ca
       />
     </PhotoSlide>
   )
+}
+
+/* ──────────────── 2b. Banner từng chiến dịch Admin gắn vào trang chủ ──────────────── */
+
+function PickedCampaignSlide({ active, campaign: c }: { active: boolean; campaign: CampaignResponse }) {
+  const b = bannerOf(c)
+  const href = `/chien-dich/${c.campaignId}`
+  // Chiến dịch còn ở bước kêu gọi nhà vườn góp hàng, chưa mở đặt trước
+  const farmCall = c.status === 'DRAFT'
+
+  if (b.mode === 'IMAGE') {
+    // Ảnh banner hoàn chỉnh Admin tải lên: hiện trọn ảnh, nền là chính ảnh đó làm mờ
+    return (
+      <Link to={href} aria-label={`Xem chiến dịch ${c.title}`} className="absolute inset-0 block overflow-hidden bg-on-surface">
+        <img src={b.imageUrl} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" />
+        <div className="absolute inset-0 bg-on-surface/40" />
+        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-6 sm:pt-8 pb-24 sm:pb-28 flex items-center justify-center">
+          <img
+            src={b.imageUrl}
+            alt={b.headline}
+            decoding="async"
+            className={`max-w-full max-h-full object-contain rounded-2xl shadow-2xl ${active ? 'capnong-hero-zoom' : ''}`}
+          />
+        </div>
+      </Link>
+    )
+  }
+
+  return (
+    <PhotoSlide active={active} img={c.coverImageUrl || campaignImg} alt={c.title} imgPosition="object-center">
+      <Pill live>{farmCall ? 'Chiến dịch · Đang kêu gọi nhà vườn' : 'Chiến dịch giải cứu · Đang mở'}</Pill>
+      <h2 className="text-3xl sm:text-4xl md:text-5xl text-surface-bright font-extrabold tracking-tight leading-[1.18] line-clamp-3">
+        {b.headline}
+        {b.subline && (
+          <>
+            <br />
+            <span className="text-tertiary-fixed-dim text-2xl sm:text-3xl md:text-4xl">{b.subline}</span>
+          </>
+        )}
+      </h2>
+      {c.description && (
+        <p className="text-sm sm:text-base lg:text-lg text-surface-container-high leading-relaxed max-w-xl line-clamp-3">{c.description}</p>
+      )}
+      <Ctas
+        primary={{ href, label: farmCall ? 'Đọc lời kêu gọi' : b.ctaText ? capitalize(b.ctaText) : 'Đặt trước ngay', icon: BookOpen }}
+        ghost={{ href: '/chien-dich', label: 'Tất cả chiến dịch', icon: CalendarClock }}
+      />
+      <Stats
+        items={
+          farmCall
+            ? [
+                [`${c.approvedFarmCount ?? 0}`, 'Nhà vườn đã góp'],
+                [formatKg(c.targetVolumeKg), 'Mục tiêu'],
+                [timeLeftLabel(c.farmCutoffAt ?? c.cutoffAt).replace('Còn ', ''), 'Đến hạn góp hàng'],
+              ]
+            : [
+                [`${progressOf(c)}%`, `Đã đặt ${formatKg(c.bookedVolumeKg)}`],
+                [`${formatVnd(c.rescuePricePerKg)}`, 'Giá giải cứu / kg'],
+                [timeLeftLabel(c.cutoffAt).replace('Còn ', ''), 'Đến ngày chốt đơn'],
+              ]
+        }
+      />
+    </PhotoSlide>
+  )
+}
+
+/** "ĐẶT TRƯỚC NGAY" -> "Đặt trước ngay" cho nút trên banner lớn */
+const capitalize = (t: string) => {
+  const low = t.toLocaleLowerCase('vi-VN')
+  return low.charAt(0).toLocaleUpperCase('vi-VN') + low.slice(1)
 }
 
 /* ───────────────────────── 3. Combo & Túi mù ───────────────────────── */

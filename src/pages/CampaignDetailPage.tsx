@@ -25,14 +25,17 @@ import {
 } from 'lucide-react'
 import bannerImg from '@/assets/farmer-forum-banner.jpg'
 import { useCampaign } from '@/features/campaign/hooks/useCampaignQueries'
-import { CRATE_SIZES, formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
-import { adminCampaignService, campaignService, type CampaignResponse, type CrateSize } from '@/services'
+import { splitCrates } from '@/features/campaign/crates'
+import { wardOf } from '@/features/campaign/ward'
+import { formatKg, formatVnd, progressOf, timeLeftLabel } from '@/features/campaign/utils'
+import { adminCampaignService, campaignService, type CampaignResponse } from '@/services'
 import logoIcon from '@/assets/logo-icon.png'
 import { useMyWallet } from '@/features/wallet/hooks/useWalletQueries'
-import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
+import { PlaceSearch, type PlaceValue } from '@/components/common/AddressPicker'
 import comboImg from '@/assets/combo-green.jpg'
 import farmerImg from '@/assets/hero-farmer.jpg'
 import { RegisterDialog } from '@/pages/farmer/Campaigns'
+import CampaignOutcomeCard, { hasOutcome } from './CampaignOutcomeCard'
 import { useAuth } from '@/stores'
 import { getErrorMessage } from '@/utils'
 import { RichTextContent, htmlToPlainText, isHtmlContent } from '@/components/common/RichTextEditor/RichTextContent'
@@ -182,6 +185,9 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
               <Prose>{defaultLead(c)}</Prose>
             )}
 
+            {/* Màn nhỏ không có cột phải: báo cáo tổng kết nằm trong thân bài */}
+            {hasOutcome(c) && <div className="my-8 lg:hidden"><CampaignOutcomeCard c={c} /></div>}
+
             {/* Con số của chiến dịch (mẫu B: thanh mốc ngưỡng & mục tiêu) */}
             <CampaignNumbers c={c} depositPct={depositPct} />
 
@@ -239,7 +245,9 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
 
           {/* Cột phải (kiểu trang gây quỹ): tiến độ + Cùng tham gia, bám theo khi cuộn */}
           <aside className="hidden lg:block">
-            <div className="sticky top-24 flex flex-col gap-4">
+            {/* Hoàn tất: báo cáo cao hơn màn hình nên không ghim cột khi cuộn */}
+            <div className={`flex flex-col gap-4 ${hasOutcome(c) ? '' : 'sticky top-24'}`}>
+              {hasOutcome(c) ? <CampaignOutcomeCard c={c} /> : (
               <section className="rounded-3xl border border-[#e4ddcc] bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -270,6 +278,7 @@ function Article({ c, preview }: { c: CampaignResponse; preview: boolean }) {
                   </a>
                 )}
               </section>
+              )}
 
               <section className="rounded-3xl border border-[#e4ddcc] bg-white p-5 shadow-sm">
                 <p className="mb-3 text-base font-black text-[#1c1c18]">Cùng tham gia</p>
@@ -369,21 +378,15 @@ function Chip({ icon: Icon, warn, children }: { icon: typeof Wallet; warn?: bool
 /* ─────────────────────────── Cách tính phí giao ─────────────────────────── */
 
 function ShippingRulesCard({ c }: { c: CampaignResponse }) {
-  const half = Number(c.shipHalfKg ?? 10)
-  const free = Number(c.shipFreeKg ?? 20)
-  const radius = Number(c.shipFreeRadiusKm ?? 10)
-  const group = Number(c.groupDiscountMinOrders ?? 5)
-  // Bậc thang ưu đãi: cột càng cao = mua càng nhiều, ship càng rẻ
+  const mid = Number(c.shipHalfKg ?? 30)
+  const free = Number(c.shipFreeKg ?? 50)
+  const midFee = Number(c.shipMidFee ?? 50_000)
+  const smallFee = Number(c.shipSmallFee ?? 70_000)
+  // Bậc thang phí: cột càng cao = mua càng nhiều, ship càng rẻ
   const steps = [
-    { kg: `Dưới ${formatKg(half)}`, fee: 'Phí gốc', sub: 'theo khoảng cách', h: 'h-16', tone: 'bg-white/15 text-white', badge: null },
-    { kg: `Từ ${formatKg(half)}`, fee: '-50%', sub: 'phí giao', h: 'h-28', tone: 'bg-[#9ed67d] text-[#1f3d10]', badge: null },
-    { kg: `Từ ${formatKg(free)}`, fee: '0đ', sub: `trong ${radius} km`, h: 'h-40', tone: 'bg-[#ffea79] text-[#3d2a00]', badge: 'Freeship' },
-  ]
-  const tiers = [
-    ['< 5 km', '15k'],
-    ['5–10 km', '20k'],
-    ['10–20 km', '30k'],
-    ['> 20 km', '30k + 3k/km'],
+    { kg: `Dưới ${formatKg(mid)}`, fee: formatVnd(smallFee), sub: 'mỗi đơn', h: 'h-16', tone: 'bg-white/15 text-white', badge: null },
+    { kg: `Từ ${formatKg(mid)}`, fee: formatVnd(midFee), sub: 'mỗi đơn', h: 'h-28', tone: 'bg-[#9ed67d] text-[#1f3d10]', badge: null },
+    { kg: `Từ ${formatKg(free)}`, fee: '0đ', sub: 'phí giao', h: 'h-40', tone: 'bg-[#ffea79] text-[#3d2a00]', badge: 'Freeship' },
   ]
   return (
     <section className="mt-6 overflow-hidden rounded-3xl shadow-sm">
@@ -402,12 +405,12 @@ function ShippingRulesCard({ c }: { c: CampaignResponse }) {
               <span className="text-[#ffea79]">ship càng rẻ</span>
             </h3>
             <p className="mt-2 text-sm text-white/80">
-              Cộng dồn mọi thùng trong đơn (2 thùng 5 kg = 10 kg). Phí biết trước khi đặt, chỉ có thể giảm chứ không tăng.
+              Cộng dồn mọi thùng trong đơn (2 thùng 15 kg = 30 kg). Phí cố định theo số kg, biết trước khi đặt.
             </p>
           </div>
 
           {/* Bậc thang */}
-          <div className="flex items-end gap-2.5" aria-label="Bậc ưu đãi phí giao theo tổng kg">
+          <div className="flex items-end gap-2.5" aria-label="Phí giao theo tổng kg">
             {steps.map((s) => (
               <div key={s.kg} className="flex min-w-0 flex-1 flex-col items-center">
                 <span className={`${s.badge ? 'mb-4' : 'mb-1.5'} text-center text-xs font-bold text-white/90`}>{s.kg}</span>
@@ -417,7 +420,7 @@ function ShippingRulesCard({ c }: { c: CampaignResponse }) {
                       {s.badge}
                     </span>
                   )}
-                  <span className="text-2xl font-black leading-none">{s.fee}</span>
+                  <span className="text-lg font-black leading-none sm:text-2xl">{s.fee}</span>
                   <span className="mt-1 text-[11px] font-semibold opacity-80">{s.sub}</span>
                 </div>
               </div>
@@ -426,34 +429,14 @@ function ShippingRulesCard({ c }: { c: CampaignResponse }) {
         </div>
       </div>
 
-      {/* Phí gốc + ưu đãi khác */}
+      {/* Tự đến lấy */}
       <div className="border-x border-b border-[#e4ddcc] bg-white px-6 py-5 sm:px-8">
-        <p className="text-xs font-extrabold uppercase tracking-wider text-[#6b7363]">
-          Phí gốc theo khoảng cách từ {c.collectionSiteName || 'điểm tập kết'}
-        </p>
-        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {tiers.map(([km, fee]) => (
-            <div key={km} className="rounded-xl border border-[#ede8df] bg-[#fcf9f1] px-3 py-2 text-center">
-              <p className="text-xs text-[#6b7363]">{km}</p>
-              <p className="text-base font-black text-[#1c1c18]">{fee}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-[#6b7363]">Từ {formatKg(free)} mà ở xa hơn {radius} km: vẫn được giảm 50%.</p>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
           <div className="flex gap-3 rounded-2xl bg-[#f6fbf1] p-3.5 text-sm">
             <MapPin size={18} className="mt-0.5 shrink-0 text-[#4a7c2f]" />
             <span>
               <b className="text-[#1c1c18]">Tự đến điểm tập kết: 0đ.</b>{' '}
               <span className="text-[#42493c]">CapNong báo khi bắt đầu nhận hàng và khi đơn đóng gói xong.</span>
-            </span>
-          </div>
-          <div className="flex gap-3 rounded-2xl bg-[#fff8e6] p-3.5 text-sm">
-            <Sprout size={18} className="mt-0.5 shrink-0 text-[#c27c00]" />
-            <span>
-              <b className="text-[#1c1c18]">Rủ hàng xóm cùng đặt.</b>{' '}
-              <span className="text-[#42493c]">Phường có từ {group} đơn trở lên được giảm thêm 50% phí giao khi chốt.</span>
             </span>
           </div>
         </div>
@@ -765,23 +748,30 @@ function FarmJoinBox({ c, open, compact }: { c: CampaignResponse; open: boolean;
 
 /* ─────────────────────────── Khung đặt trước ở cuối bài ─────────────────────────── */
 
-const CRATE_ENUM: Record<(typeof CRATE_SIZES)[number], CrateSize> = { 5: 'KG_5', 10: 'KG_10', 15: 'KG_15' }
+/** Mức kg chọn nhanh (30 kg và 50 kg là hai mốc giảm phí giao) */
+const QUICK_KG = [10, 20, 30, 50]
 
 function PreOrderBox({ c }: { c: CampaignResponse }) {
   const { user } = useAuth()
-  const [crate, setCrate] = useState<(typeof CRATE_SIZES)[number]>(5)
+  // Người mua chỉ nhập số kg, hệ thống tự chia thùng
+  const [kgText, setKgText] = useState('5')
   // Cách nhận hàng: giao tận nơi (tính phí theo km + tổng kg) hoặc tự đến điểm tập kết (0đ)
   const pickupAllowed = c.pickupEnabled !== false
   const [method, setMethod] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY')
-  const [qty, setQty] = useState(1)
   const [name, setName] = useState(user?.fullName || user?.name || '')
   const [phone, setPhone] = useState(user?.phoneNumber || user?.phone || '')
-  const [addr, setAddr] = useState<AddressValue>(EMPTY_ADDRESS)
+  // Một ô địa chỉ có gợi ý, chọn xong là ghim trên bản đồ
+  const [addr, setAddr] = useState<PlaceValue>({ name: '', address: '' })
   const [addrError, setAddrError] = useState<string | null>(null)
-  const address = composeAddress(addr)
+  const address = addr.address.trim()
   const [note, setNote] = useState('')
 
-  const totalKg = crate * qty
+  const typedKg = Number(kgText || 0)
+  const split = splitCrates(typedKg)
+  const totalKg = split ? typedKg : 0
+  const crate = split?.crateKg ?? 0
+  const qty = split?.quantity ?? 0
+  const stepKg = (d: number) => setKgText(String(Math.max(5, (Math.floor(typedKg / 5) + d) * 5)))
   const total = totalKg * Number(c.rescuePricePerKg ?? 0)
   const depositPctLabel = Math.round(Number(c.depositPercent ?? 0) * 100)
   const remainingKg = Math.max(0, Number(c.remainingVolumeKg ?? c.targetVolumeKg - c.bookedVolumeKg))
@@ -789,7 +779,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
 
   // Báo giá phí giao từ server (khoảng cách thật tới điểm tập kết + tổng kg)
   // Có ghim toạ độ thì dùng; bản đồ không tải được thì gửi địa chỉ đầy đủ để server tự tìm toạ độ
-  const addressComplete = !!addr.provinceName && !!addr.wardName && !!addr.detail.trim()
+  const addressComplete = address.length >= 10
   const quoteReady = method === 'PICKUP' || (addr.lat != null && addr.lng != null) || addressComplete
   const quoteAddress = useDebounced(address, 600)
   const quote = useQuery({
@@ -802,7 +792,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         lng: addr.lng,
         address: (addr.lat == null ? quoteAddress : address) || undefined,
       }),
-    enabled: quoteReady && (addr.lat != null || quoteAddress === address),
+    enabled: totalKg > 0 && quoteReady && (addr.lat != null || quoteAddress === address),
     staleTime: 60_000,
   })
   const shipFee = method === 'PICKUP' ? 0 : quote.data?.shippingFee ?? null
@@ -820,8 +810,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   const order = useMutation({
     mutationFn: () =>
       campaignService.createPreOrder(c.campaignId, {
-        crateSize: CRATE_ENUM[crate],
-        crateQuantity: qty,
+        totalKg,
         recipientName: name.trim(),
         recipientPhone: phone.trim(),
         shippingAddress: method === 'PICKUP' ? '' : address,
@@ -830,7 +819,7 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
         note: note.trim() || undefined,
         useWallet: payWithWallet && walletBalance > 0,
         fulfillmentMethod: method,
-        deliveryWard: method === 'PICKUP' ? undefined : addr.wardName || undefined,
+        deliveryWard: method === 'PICKUP' ? undefined : wardOf(address),
       }),
     onSuccess: (res) => {
       if (res.checkoutUrl) window.location.href = res.checkoutUrl
@@ -842,12 +831,13 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
   // Bước 1 chỉ kiểm tra form rồi mở bước xác nhận; tạo đơn và sang PayOS ở bước 2
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (method === 'DELIVERY' && (!addr.wardCode || !addr.detail.trim())) {
-      setAddrError('Chọn Tỉnh/Thành phố, Phường/Xã và nhập địa chỉ cụ thể để giao hàng.')
+    // Bản đồ tải được thì phải ghim vị trí: phí giao và hub nhận hàng tính từ đó
+    if (method === 'DELIVERY' && (!address || (addr.lat == null && 'google' in window))) {
+      setAddrError(address ? 'Chọn một gợi ý hoặc chạm bản đồ để ghim vị trí giao hàng.' : 'Nhập địa chỉ giao hàng.')
       return
     }
     setAddrError(null)
-    if (!overLimit) {
+    if (split && !overLimit) {
       order.reset()
       setConfirming(true)
     }
@@ -878,36 +868,37 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
       ) : (
         <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
           <fieldset>
-            <legend className="text-sm font-bold text-[#1c1c18]">Cỡ thùng</legend>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {CRATE_SIZES.map((kg) => (
-                <button
-                  key={kg}
-                  type="button"
-                  aria-pressed={crate === kg}
-                  onClick={() => setCrate(kg)}
-                  className={`rounded-2xl border px-3 py-3 text-left transition ${crate === kg ? 'border-[#4a7c2f] bg-[#f2f9ed] ring-2 ring-[#4a7c2f]/30' : 'border-[#e4ddcc] hover:border-[#9ed67d]'
-                    }`}
-                >
-                  <span className="block text-base font-black text-[#1c1c18]">{kg} kg</span>
-                  <span className="block text-xs text-[#6b7363]">{formatVnd(kg * Number(c.rescuePricePerKg))}</span>
+            <legend className="text-sm font-bold text-[#1c1c18]">Bạn muốn mua bao nhiêu kg?</legend>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center rounded-full border border-[#e4ddcc]">
+                <button type="button" aria-label="Bớt 5 kg" onClick={() => stepKg(-1)} disabled={typedKg <= 5} className="p-3 text-[#2b5619] disabled:opacity-40">
+                  <Minus size={16} />
+                </button>
+                <input
+                  aria-label="Số kg muốn mua"
+                  inputMode="numeric"
+                  value={kgText}
+                  onChange={(e) => setKgText(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  className="w-20 bg-transparent text-center text-xl font-black text-[#1c1c18] outline-none"
+                />
+                <span className="pr-1 text-sm font-bold text-[#6b7363]">kg</span>
+                <button type="button" aria-label="Thêm 5 kg" onClick={() => stepKg(1)} className="p-3 text-[#2b5619]">
+                  <Plus size={16} />
+                </button>
+              </div>
+              {QUICK_KG.map((k) => (
+                <button key={k} type="button" aria-pressed={typedKg === k} onClick={() => setKgText(String(k))}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-bold ${typedKg === k ? 'border-[#4a7c2f] bg-[#f2f9ed] text-[#2b5619]' : 'border-[#e4ddcc] text-[#42493c] hover:border-[#9ed67d]'}`}>
+                  {k} kg
                 </button>
               ))}
             </div>
+            {split ? (
+              <p className="mt-2 text-sm text-[#42493c]">Hệ thống chia thành <b>{qty} thùng × {crate} kg</b></p>
+            ) : (
+              <p role="alert" className="mt-2 text-sm font-semibold text-[#b3261e]">Nhập số kg là bội số của 5 (5, 10, 15…).</p>
+            )}
           </fieldset>
-
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-bold text-[#1c1c18]">Số thùng</span>
-            <div className="inline-flex items-center rounded-full border border-[#e4ddcc]">
-              <button type="button" aria-label="Bớt một thùng" onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2.5 text-[#2b5619] disabled:opacity-40" disabled={qty <= 1}>
-                <Minus size={16} />
-              </button>
-              <span className="w-10 text-center font-black" aria-live="polite">{qty}</span>
-              <button type="button" aria-label="Thêm một thùng" onClick={() => setQty((q) => Math.min(99, q + 1))} className="p-2.5 text-[#2b5619]">
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Người nhận" value={name} onChange={setName} autoComplete="name" />
@@ -965,8 +956,8 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
                 </div>
               ) : (
                 <>
-                  <AddressPicker value={addr} onChange={setAddr} required />
-                  {user?.address && !addr.provinceCode && (
+                  <PlaceSearch id="po-address" label="Địa chỉ giao hàng" value={addr} onChange={setAddr} placeholder="Nhập số nhà, tên đường, vd: 45 Lê Lợi, Quận 1" />
+                  {user?.address && !addr.address && (
                     <p className="text-xs text-[#6b7363]">Địa chỉ trong hồ sơ: {user.address}</p>
                   )}
                 </>
@@ -1026,11 +1017,6 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
           </section>
           {method === 'DELIVERY' && quote.data && (
             <div className="-mt-2 flex flex-col gap-1 text-xs">
-              {quote.data.discountPercent > 0 && quote.data.baseFee != null && (
-                <p className="font-semibold text-[#2b5619]">
-                  Phí gốc {formatVnd(quote.data.baseFee)} · {quote.data.note}
-                </p>
-              )}
               {quote.data.nextTierKg != null && quote.data.nextTierKg > 0 && (
                 <p className="rounded-xl bg-[#fff8e6] px-3 py-2 font-semibold text-[#6b4e00]">
                   Mua thêm {formatKg(quote.data.nextTierKg)} để được {quote.data.nextTierLabel}.
@@ -1040,12 +1026,12 @@ function PreOrderBox({ c }: { c: CampaignResponse }) {
           )}
 
           {overLimit && (
-            <p className="text-sm font-semibold text-[#b3261e]">Chiến dịch chỉ còn {formatKg(remainingKg)}, bạn giảm số thùng nhé.</p>
+            <p className="text-sm font-semibold text-[#b3261e]">Chiến dịch chỉ còn {formatKg(remainingKg)}, bạn giảm số kg nhé.</p>
           )}
 
           <button
             type="submit"
-            disabled={order.isPending || overLimit}
+            disabled={order.isPending || overLimit || !split}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4a7c2f] px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-[#4a7c2f]/30 transition hover:bg-[#2b5619] disabled:opacity-60"
           >
             <ArrowRight size={18} />

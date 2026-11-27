@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
 } from 'lucide-react'
+import { globalShowPrompt } from '@/components/common/Popup'
 
 export interface MyCKEditorProps {
   data?: string
@@ -105,8 +106,8 @@ const MyCKEditor: React.FC<MyCKEditorProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => {
-            const url = prompt('Nhập địa chỉ liên kết (URL):', 'https://')
+          onClick={async () => {
+            const url = await globalShowPrompt('Chèn liên kết', { label: 'Địa chỉ liên kết (URL)', defaultValue: 'https://' })
             if (url)
               applyFormat(
                 `<a href="${url}" target="_blank" class="text-emerald-600 underline">`,
@@ -120,8 +121,8 @@ const MyCKEditor: React.FC<MyCKEditorProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => {
-            const url = prompt('Nhập URL hình ảnh:', 'https://images.unsplash.com/...')
+          onClick={async () => {
+            const url = await globalShowPrompt('Chèn hình ảnh', { label: 'Địa chỉ hình ảnh (URL)', placeholder: 'https://images.unsplash.com/...' })
             if (url)
               applyFormat(
                 `<img src="${url}" alt="Hình ảnh" class="rounded-xl my-3 max-w-full" />\n`,

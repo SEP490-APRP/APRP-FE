@@ -5,6 +5,7 @@ import { DamageClaimDialog } from './DamageClaimDialog'
 import { Button } from '@/components/ui/Button'
 import logoIcon from '@/assets/logo-icon.png'
 import type { PreOrderResponse } from '@/services'
+import { readyLabel } from '@/features/campaign/utils'
 
 type PreStatus = PreOrderResponse['status']
 
@@ -54,7 +55,8 @@ export const PreOrderCard: React.FC<{
   const damageRefund = Number(p.damageRefundTotal ?? 0)
   const base = STATUS[p.status] ?? STATUS.PENDING
   // Đơn cũ nhận trước khi có trạng thái SHIPPING: READY + pickedUpAt cũng là "Đang giao"
-  const st = p.status === 'READY' && p.pickedUpAt ? STATUS.SHIPPING : base
+  const st = p.status !== 'READY' ? base : p.pickedUpAt ? STATUS.SHIPPING
+    : { ...base, label: readyLabel(p.hubStage, base.label) }
   const unpaid = p.status === 'PENDING'
   const stepIndex = STEPS.findIndex((s) => s.key.includes(p.status))
   const reduced = p.originalCrateQuantity != null && p.originalCrateQuantity > p.crateQuantity

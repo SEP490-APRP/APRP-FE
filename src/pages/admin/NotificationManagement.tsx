@@ -23,6 +23,7 @@ import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { useNotificationStore } from '@/stores'
 import { formatNotificationDate } from '@/components/common/NotificationModal/NotificationDetailModal'
 import type { NotificationItem } from '@/services/notification.types'
+import { globalShowAlert } from '@/components/common/Popup'
 
 type TargetOption = 'all' | 'buyer' | 'farmer' | 'shipper'
 
@@ -136,7 +137,7 @@ const NotificationManagement: React.FC = () => {
         }
       } catch (err) {
         console.error('Lỗi tải ảnh:', err)
-        alert('Tải ảnh thất bại, vui lòng thử lại!')
+        void globalShowAlert('Tải ảnh thất bại, vui lòng thử lại!', 'error')
         setSelectedImageFile(null)
         setImagePreview(null)
       } finally {

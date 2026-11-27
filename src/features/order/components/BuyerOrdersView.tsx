@@ -33,6 +33,7 @@ import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'REFUND' | 'CANCELLED'
 
@@ -251,11 +252,8 @@ export const BuyerOrdersView: React.FC = () => {
   }, [preOrders, searchKeyword])
 
   const handleCancelPreOrder = async (p: PreOrderResponse) => {
-    const confirmed = await globalShowConfirm(
-      'Xác nhận hủy đơn',
-      `Hủy đơn đặt trước ${p.code}? Đơn chưa cọc nên bạn không mất tiền.`,
-    )
-    if (!confirmed) return
+    const agreed = await globalShowConfirm(`Hủy đơn đặt trước ${p.code}?`, 'Đơn chưa cọc nên bạn không mất tiền.', { danger: true, confirmText: 'Hủy đơn', cancelText: 'Giữ đơn' })
+    if (!agreed) return
     setCancellingPreOrderId(p.preOrderId)
     try {
       await campaignService.cancelPreOrder(p.preOrderId)
@@ -456,11 +454,8 @@ export const BuyerOrdersView: React.FC = () => {
   const handleCompleteOrder = async (order: OrderResponse) => {
     const id = order.orderId || order.id
     if (!id) return
-    const confirmed = await globalShowConfirm(
-      'Xác nhận đã nhận hàng',
-      `Xác nhận bạn đã nhận đủ hàng của đơn #${id}? Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.`,
-    )
-    if (!confirmed) {
+    const received = await globalShowConfirm(`Bạn đã nhận đủ hàng của đơn #${id}?`, 'Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.', { warning: true, confirmText: 'Đã nhận đủ hàng', cancelText: 'Chưa' })
+    if (!received) {
       return
     }
     setCompleteError(null)
