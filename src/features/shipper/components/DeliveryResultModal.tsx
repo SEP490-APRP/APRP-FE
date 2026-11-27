@@ -3,8 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Camera, CheckCircle2, Coins, ImagePlus, Phone, X } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/utils'
-import { money } from '@/mocks/catalog'
+import { cn, formatCurrency as money } from '@/utils'
 import {
   MAX_PROOF_IMAGES,
   MIN_FAIL_CALL_ATTEMPTS,

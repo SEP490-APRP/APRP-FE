@@ -1,6 +1,6 @@
 import React from 'react'
 import { Minus, Plus, ShoppingBasket, Trash2, Loader2 } from 'lucide-react'
-import { money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 import type { CartItemResponse } from '@/types/cart.types'
 
 interface CartItemRowProps {

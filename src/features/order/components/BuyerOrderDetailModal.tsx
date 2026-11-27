@@ -117,11 +117,15 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
 
   // Tiến trình trạng thái đơn hàng (Timeline Stepper)
   const getTimelineSteps = (status?: OrderStatus): TimelineStep[] => {
-    const isCancelled = status === 'CANCELLED' || status === 'FAILED'
+    const isCancelled =
+      status === 'CANCELLED' ||
+      status === 'FAILED' ||
+      status === 'RETURNING_TO_SHOP' ||
+      status === 'RETURNED_TO_SHOP'
     if (isCancelled) {
       return [
         { label: 'Đặt hàng', done: true, current: false, isError: false },
-        { label: status === 'FAILED' ? 'Giao thất bại' : 'Đã hủy đơn', done: true, current: true, isError: true },
+        { label: status === 'CANCELLED' ? 'Đã hủy đơn' : 'Giao thất bại', done: true, current: true, isError: true },
       ]
     }
 
@@ -474,9 +478,14 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                 )}
 
                 {order.refundAmount !== undefined && order.refundAmount > 0 && (
-                  <div className="flex justify-between items-center text-rose-600 font-bold">
-                    <span>Đã hoàn tiền:</span>
-                    <span>-{Number(order.refundAmount).toLocaleString('vi-VN')} đ</span>
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between items-center text-rose-600 font-bold">
+                      <span>Số tiền hoàn lại:</span>
+                      <span>{Number(order.refundAmount).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    {order.refundReason && (
+                      <p className="text-[11px] text-rose-500 text-right">{order.refundReason}</p>
+                    )}
                   </div>
                 )}
 

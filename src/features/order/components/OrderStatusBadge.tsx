@@ -127,6 +127,28 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
     )
   }
 
+  if (normalizedStatus === 'RETURNING_TO_SHOP') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 ${className}`}
+      >
+        <RotateCcw size={13} className="text-orange-600" />
+        Đang hoàn về Shop
+      </span>
+    )
+  }
+
+  if (normalizedStatus === 'RETURNED_TO_SHOP') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 ${className}`}
+      >
+        <Clock size={13} className="text-purple-600" />
+        Chờ Shop xác nhận hoàn
+      </span>
+    )
+  }
+
   if (normalizedStatus === 'REFUND_REQUESTED') {
     return (
       <span

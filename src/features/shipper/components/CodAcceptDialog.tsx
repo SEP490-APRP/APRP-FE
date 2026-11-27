@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ShieldCheck, Wallet } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 import { TopupDialog, useMyWallet } from '@/features/wallet'
 
 interface CodAcceptDialogProps {

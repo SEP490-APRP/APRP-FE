@@ -129,13 +129,10 @@ export function FilterPanel({
   // Bỏ 'Combo & Túi mù' khỏi danh mục nông sản tươi (combo có trang riêng /combo-tui-mu)
   const freshCategories = filterFreshCategories(apiCategories)
 
-  const categoryOptions =
-    freshCategories.length > 0
-      ? [
-          { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
-          ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
-        ]
-      : CATEGORIES
+  const categoryOptions = [
+    { id: 'Tất cả', label: 'Tất cả nông sản' } as const,
+    ...freshCategories.map((c) => ({ id: c.name, label: c.name })),
+  ]
 
   const set =
     <K extends keyof Filters>(key: K) =>
