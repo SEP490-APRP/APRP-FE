@@ -1,1 +1,1 @@
-export { globalShowAlert, globalShowConfirm, PopupProvider, usePopup } from './PopupContext'
+export { globalShowAlert, globalShowConfirm, globalShowPrompt, PopupProvider, usePopup } from './PopupContext'

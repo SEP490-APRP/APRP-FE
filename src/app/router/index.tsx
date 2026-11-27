@@ -33,6 +33,7 @@ import {
   ProfileRoute,
   BuyerMessagesRoute,
   SectionOrNotFound,
+  TraceRoute,
 } from './routeAdapters'
 import { DEFAULT_TITLE, type RouteHandle } from './routeMeta'
 
@@ -77,6 +78,9 @@ export const router = createBrowserRouter([
         element: <ShipperRoute />,
         handle: title('Cổng Giao Hàng · Shipper CapNong'),
       },
+
+      // Quét tem QR trên thùng hàng: trang riêng, ai cũng mở được
+      { path: 'truy-xuat/:token', element: <TraceRoute />, handle: title('Thông tin thùng hàng · CapNong') },
 
       // 4. Phân hệ Cửa hàng cho khách mua (Storefront)
       {
