@@ -6,6 +6,7 @@ export const campaignKeys = {
   active: (page: number, size: number) => [...campaignKeys.all, 'active', page, size] as const,
   list: (phase: CampaignPhase, page: number, size: number) => [...campaignKeys.all, 'list', phase, page, size] as const,
   detail: (id: number) => [...campaignKeys.all, 'detail', id] as const,
+  homeBanners: () => [...campaignKeys.all, 'home-banners'] as const,
 }
 
 /** Chiến dịch đang mở bán. Lỗi mạng / BE chưa chạy thì trả rỗng để giao diện dùng nội dung mặc định. */
@@ -13,6 +14,16 @@ export function useActiveCampaigns(page = 0, size = 10) {
   return useQuery({
     queryKey: campaignKeys.active(page, size),
     queryFn: () => campaignService.getActiveCampaigns(page, size),
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+/** Banner chiến dịch ở đầu trang chủ (Admin chọn + số giây tự chuyển). Lỗi thì trang chủ dùng banner mặc định. */
+export function useHomeBanners() {
+  return useQuery({
+    queryKey: campaignKeys.homeBanners(),
+    queryFn: () => campaignService.getHomeBanners(),
     staleTime: 60_000,
     retry: 1,
   })

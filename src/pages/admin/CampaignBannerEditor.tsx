@@ -18,12 +18,24 @@ import {
 import { formatKg, formatVnd, timeLeftLabel } from '@/features/campaign/utils'
 import { adminCampaignService, uploadService, type CampaignResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
+import SpotlightTip from '@/components/common/SpotlightTip'
 
 /**
  * Admin tuỳ chỉnh banner chiến dịch hiện ở trang chủ (popup lớn, thẻ góc, viên thuốc).
  * Mặc định banner dựng từ thông tin chiến dịch; Admin sửa chữ, đổi màu, đổi ảnh, hoặc tải nguyên ảnh banner riêng.
  */
-export default function CampaignBannerEditor({ c, onNotice }: { c: CampaignResponse; onNotice: (n: { ok: boolean; text: string }) => void }) {
+export default function CampaignBannerEditor({
+  c,
+  onNotice,
+  guide = false,
+  onGuideDone,
+}: {
+  c: CampaignResponse
+  onNotice: (n: { ok: boolean; text: string }) => void
+  /** Đang theo chỉ dẫn sau khi mở bán: chỉ vào công tắc hiện ở trang chủ */
+  guide?: boolean
+  onGuideDone?: () => void
+}) {
   const qc = useQueryClient()
   const [b, setB] = useState<BannerConfig>(() => bannerOf(c))
   const [preview, setPreview] = useState<'popup' | 'card' | 'pill'>('popup')
@@ -91,12 +103,24 @@ export default function CampaignBannerEditor({ c, onNotice }: { c: CampaignRespo
               Hiện thành popup khi khách mở trang chủ, đóng lại thì thu về góc phải. Chỉ hiện khi chiến dịch đang nhận đặt trước.
             </p>
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-gray-800">
+          <label id="banner-show-on-home" className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-gray-800">
             <input type="checkbox" className="peer sr-only" checked={b.showOnHome} onChange={(e) => set('showOnHome', e.target.checked)} disabled={locked} />
             <span className="relative h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-[#326318] peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" />
             Hiện ở trang chủ
           </label>
         </div>
+
+        {guide && !locked && !b.showOnHome && (
+          <SpotlightTip
+            targetId="banner-show-on-home"
+            eyebrow="Bước cuối"
+            title="Bật hiện ở trang chủ"
+            text="Banner đang tắt nên người mua chưa thấy. Bật công tắc này, chỉnh ảnh và lời kêu gọi rồi bấm Lưu banner."
+            actionLabel="Bật ngay"
+            onAction={() => { set('showOnHome', true); onGuideDone?.() }}
+            onClose={() => onGuideDone?.()}
+          />
+        )}
 
         {locked && <p className="rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-600">Chiến dịch đã kết thúc nên không sửa banner được nữa.</p>}
         {!locked && c.status !== 'ACTIVE' && (

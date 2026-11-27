@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { globalShowAlert } from '@/components/common/Popup'
 import {
   MessageSquare,
   X,
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useAuth, useChatStore, useUiStore } from '@/stores'
 import { uploadService } from '@/services/upload.service'
-import { globalShowConfirm } from '@/components/common/Popup'
+import { globalShowConfirm, globalShowAlert } from '@/components/common/Popup'
 import type { Conversation } from '@/types/chat'
 
 const isVideoMedia = (url?: string, type?: string) => {

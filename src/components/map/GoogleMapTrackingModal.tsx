@@ -870,9 +870,11 @@ export const GoogleMapTrackingModal: React.FC<GoogleMapTrackingModalProps> = ({
         zoom: 15,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // index.html đặt referrer no-referrer nên OpenStreetMap chặn ô bản đồ: gửi origin riêng cho ô bản đồ
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19,
+        referrerPolicy: 'origin',
       }).addTo(map);
 
       leafletMapRef.current = map;

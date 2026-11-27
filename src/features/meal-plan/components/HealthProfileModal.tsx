@@ -27,7 +27,7 @@ interface HealthProfileModalProps {
 }
 
 export default function HealthProfileModal({ isOpen, onClose }: HealthProfileModalProps) {
-  const { data: profile, isLoading: isProfileLoading } = useHealthProfile()
+  const { data: profile, isLoading: isProfileLoading } = useHealthProfile(isOpen)
   const extractMutation = useExtractHealthProfile()
   const confirmMutation = useConfirmHealthProfile()
 
