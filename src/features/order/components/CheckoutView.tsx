@@ -988,10 +988,13 @@ export const CheckoutView: React.FC = () => {
       })
     }
 
-    addBreakdown(previewData?.voucherDiscountsDetail)
-    previewData?.shopOrders?.forEach((order) => {
-      addBreakdown(order.voucherDiscountsDetail)
-    })
+    if (previewData?.voucherDiscountsDetail && Object.keys(previewData.voucherDiscountsDetail).length > 0) {
+      addBreakdown(previewData.voucherDiscountsDetail)
+    } else {
+      previewData?.shopOrders?.forEach((order) => {
+        addBreakdown(order.voucherDiscountsDetail)
+      })
+    }
 
     return Array.from(entries.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [previewData])
@@ -1598,7 +1601,7 @@ export const CheckoutView: React.FC = () => {
                           +{shopShippingFee.toLocaleString('vi-VN')}&nbsp;đ
                         </span>
                         {shopPreview?.voucherDiscount && shopPreview.voucherDiscount > 0 ? (
-                          <span className="text-emerald-700 font-bold ml-1 whitespace-nowrap">
+                          <span className="text-red-600 font-bold ml-1 whitespace-nowrap">
                             · Giảm voucher: -{shopPreview.voucherDiscount.toLocaleString('vi-VN')}&nbsp;đ
                           </span>
                         ) : null}
@@ -1609,7 +1612,7 @@ export const CheckoutView: React.FC = () => {
                           {Object.entries(shopPreview.voucherDiscountsDetail).map(([code, value]) => (
                             <span
                               key={`${shop.shopId}-${code}`}
-                              className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 whitespace-nowrap"
+                              className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 whitespace-nowrap"
                             >
                               {code}: -{Number(value || 0).toLocaleString('vi-VN')}đ
                             </span>
@@ -1762,7 +1765,7 @@ export const CheckoutView: React.FC = () => {
                 </div>
 
                 {discount > 0 && (
-                  <div className="flex justify-between items-center text-emerald-700 gap-2">
+                  <div className="flex justify-between items-center text-red-600 gap-2">
                     <span className="whitespace-nowrap">Giảm giá voucher:</span>
                     <span className="font-semibold whitespace-nowrap shrink-0">-{discount.toLocaleString('vi-VN')}&nbsp;đ</span>
                   </div>
@@ -1774,7 +1777,7 @@ export const CheckoutView: React.FC = () => {
                       Chi tiết mã giảm giá
                     </div>
                     {voucherBreakdown.map(([code, value]) => (
-                      <div key={code} className="flex justify-between items-center gap-2 text-[11px] text-emerald-700">
+                      <div key={code} className="flex justify-between items-center gap-2 text-[11px] text-red-600">
                         <span className="font-semibold truncate">{code}</span>
                         <span className="whitespace-nowrap shrink-0">-{Number(value || 0).toLocaleString('vi-VN')}&nbsp;đ</span>
                       </div>
@@ -2371,6 +2374,7 @@ export const CheckoutView: React.FC = () => {
                                         {vc.voucherType === 'PERCENTAGE'
                                           ? `Giảm ${vc.discountValue}% phí vận chuyển`
                                           : `Miễn phí vận chuyển ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
+                                        {vc.voucherType === 'PERCENTAGE' && vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
                                       </p>
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
@@ -2508,7 +2512,7 @@ export const CheckoutView: React.FC = () => {
                                         {isPercent
                                           ? `Giảm ${vc.discountValue}%`
                                           : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
-                                        {vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
+                                        {isPercent && vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
                                       </p>
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ

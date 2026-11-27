@@ -467,7 +467,7 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                 </div>
 
                 {order.voucherDiscountAmount !== undefined && order.voucherDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center text-emerald-700 font-bold">
+                  <div className="flex justify-between items-center text-red-600 font-bold">
                     <span>Giảm giá Voucher:</span>
                     <span>-{Number(order.voucherDiscountAmount).toLocaleString('vi-VN')} đ</span>
                   </div>

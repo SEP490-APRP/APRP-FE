@@ -202,7 +202,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
         voucherScope: 'SHOP',
         voucherTarget: voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget,
         discountValue: Number(discountValue),
-        maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
+        maxDiscount: voucherType === 'PERCENTAGE' && maxDiscount ? Number(maxDiscount) : undefined,
         minOrderValue: Number(minOrderValue),
         claimLimit: Number(claimLimit),
         perUserLimit: Number(perUserLimit),

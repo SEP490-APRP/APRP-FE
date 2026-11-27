@@ -288,7 +288,7 @@ export default function VoucherManagement() {
         voucherScope,
         voucherTarget: voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget,
         discountValue: Number(discountValue),
-        maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
+        maxDiscount: voucherType === 'PERCENTAGE' && maxDiscount ? Number(maxDiscount) : undefined,
         minOrderValue: Number(minOrderValue),
         claimLimit: Number(claimLimit),
         perUserLimit: Number(perUserLimit),
