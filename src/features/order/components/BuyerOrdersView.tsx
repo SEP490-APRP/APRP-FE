@@ -33,7 +33,6 @@ import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
-import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 type TabKey = 'ALL' | 'AWAITING_PAYMENT' | 'PENDING' | 'SHIPPING' | 'COMPLETED' | 'REFUND' | 'CANCELLED'
 

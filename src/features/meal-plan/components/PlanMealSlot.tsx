@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { globalShowConfirm } from '@/components/common/Popup'
 import {
   Sunrise,
   Sun,

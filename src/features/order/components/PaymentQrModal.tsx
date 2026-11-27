@@ -5,7 +5,6 @@ import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { globalShowAlert } from '@/components/common/Popup'
 import { paymentService } from '@/services'
-import { globalShowAlert } from '@/components/common/Popup'
 
 interface PaymentQrModalProps {
   isOpen: boolean

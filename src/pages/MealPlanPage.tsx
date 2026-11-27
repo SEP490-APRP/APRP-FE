@@ -41,7 +41,6 @@ import mealBanner from '@/assets/ai-meal.jpg'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/stores'
 import { useUiStore } from '@/stores/useUiStore'
-import { globalShowConfirm } from '@/components/common/Popup'
 
 export default function MealPlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null)
