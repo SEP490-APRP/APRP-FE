@@ -15,6 +15,8 @@ export const ORDER_STATUS_CONFIG: Record<
   COMPLETED: { label: 'Hoàn thành', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   CANCELLED: { label: 'Đã hủy', className: 'bg-red-50 text-red-600 border-red-200' },
   FAILED: { label: 'Giao thất bại', className: 'bg-red-100 text-red-700 border-red-300' },
+  RETURNING_TO_SHOP: { label: 'Đang hoàn về Shop', className: 'bg-orange-50 text-orange-700 border-orange-300' },
+  RETURNED_TO_SHOP: { label: 'Chờ Shop xác nhận hoàn', className: 'bg-purple-50 text-purple-700 border-purple-300' },
   REFUND_REQUESTED: { label: 'Đang yêu cầu trả hàng', className: 'bg-amber-50 text-amber-700 border-amber-300' },
   REFUNDED: { label: 'Đã hoàn tiền', className: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
   // Return lifecycle statuses

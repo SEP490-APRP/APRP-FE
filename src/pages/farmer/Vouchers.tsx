@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { CapNongLoading } from '@/components/ui/Loading'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 interface VouchersProps {
   onOpenCreateVoucher?: () => void
@@ -174,7 +175,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
   }
 
   const handleDeleteVoucher = async (voucherId: number, code: string) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn voucher "${code}" không? Hành động này không thể hoàn tác.`)) {
+    if (!(await globalShowConfirm(`Xóa vĩnh viễn voucher "${code}"?`, 'Hành động này không thể hoàn tác.', { danger: true, confirmText: 'Xóa voucher' }))) {
       return
     }
     setDeletingId(voucherId)
@@ -202,7 +203,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
         voucherScope: 'SHOP',
         voucherTarget: voucherType === 'FREE_SHIPPING' ? 'SHIPPING' : voucherTarget,
         discountValue: Number(discountValue),
-        maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
+        maxDiscount: voucherType === 'PERCENTAGE' && maxDiscount ? Number(maxDiscount) : undefined,
         minOrderValue: Number(minOrderValue),
         claimLimit: Number(claimLimit),
         perUserLimit: Number(perUserLimit),
@@ -220,7 +221,7 @@ export default function Vouchers({ onInfo }: VouchersProps) {
       await loadVouchers()
     } catch (err: any) {
       console.error('Lỗi tạo voucher:', err)
-      alert(err?.response?.data?.message || 'Không thể tạo voucher. Vui lòng kiểm tra lại thông tin.')
+      void globalShowAlert(err?.response?.data?.message || 'Không thể tạo voucher. Vui lòng kiểm tra lại thông tin.', 'error')
     } finally {
       setIsSubmitting(false)
     }

@@ -11,6 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Banknote,
   Flame,
+  Warehouse,
   BarChart3,
   Bell,
   Gavel,
@@ -42,6 +43,7 @@ import { Skeleton, TableSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/StateViews'
 import { cn } from '@/utils'
 import { useNewProposalBadge } from '@/features/campaign/hooks/useNewProposalBadge'
+import { useHubArrivalBadge } from '@/features/campaign/hooks/useHubArrivalBadge'
 
 /* ------------------------------------------------------------------ */
 /* Tách code theo tab: người mua không phải tải ~250KB code admin       */
@@ -91,6 +93,11 @@ const TABS = {
     page: lazy(() => import('./AdminCampaigns')),
     badge: 'Mới',
   },
+  hubs: {
+    name: 'Điểm trung chuyển (Hub)',
+    icon: Warehouse,
+    page: lazy(() => import('./AdminHubs')),
+  },
   wallet: { name: 'Ví sàn & Rút tiền', icon: Wallet, page: lazy(() => import('./AdminWallet')) },
   vouchers: {
     name: 'Mã giảm giá',
@@ -124,7 +131,7 @@ const SECTIONS: { title: string; items: AdminTabId[] }[] = [
   { title: 'Tổng quan & Báo cáo', items: ['overview', 'user-report'] },
   { title: 'Kiểm duyệt & Đánh giá', items: ['kyc', 'products', 'disputes', 'reviews'] },
   { title: 'Thành viên', items: ['shops', 'shippers', 'bad-buyers'] },
-  { title: 'Chiến dịch', items: ['campaigns'] },
+  { title: 'Chiến dịch', items: ['campaigns', 'hubs'] },
   { title: 'Tài chính & Đối soát', items: ['cod', 'wallet', 'vouchers'] },
   { title: 'Truyền thông & CSKH', items: ['news', 'notifications', 'messages'] },
 ]
@@ -152,6 +159,8 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
   // Số đề xuất chiến dịch mới từ shop, admin mở tab xem rồi thì mất
   const { count: newProposals } = useNewProposalBadge()
+  // Số đơn xe tải đã giao tới hub đang chờ xác nhận
+  const { count: newArrivals } = useHubArrivalBadge()
   const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
@@ -248,6 +257,10 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                     ) : id === 'campaigns' && newProposals > 0 ? (
                       <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newProposals} đề xuất mới từ shop`}>
                         {newProposals}
+                      </span>
+                    ) : id === 'hubs' && newArrivals > 0 ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newArrivals} đơn chờ hub xác nhận`}>
+                        {newArrivals}
                       </span>
                     ) : 'badge' in item && (item as { badge?: React.ReactNode }).badge ? (
                       <span

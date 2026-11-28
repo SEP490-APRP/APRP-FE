@@ -1,5 +1,13 @@
-import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Clock, History } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  Clock,
+  Gift,
+  History,
+  X,
+} from 'lucide-react'
 import {
   formatBackendDate,
   formatVnd,
@@ -7,49 +15,117 @@ import {
   type WalletTransactionResponse,
 } from '@/services/wallet.service'
 
+export type TransactionCategory = 'MAIN' | 'HOLD' | 'COMMISSION'
+
 interface WalletTransactionListProps {
   items: WalletTransactionResponse[]
   isLoading?: boolean
   emptyText?: string
+  mainBalance?: number
+  frozenBalance?: number
+  commissionBalance?: number
+  showCommissionTab?: boolean
+  showHoldTab?: boolean
 }
 
-/** Nguồn tiền của bút toán, để sổ cái minh bạch: tiền này từ đâu, vì sao */
-function sourceOf(tx: WalletTransactionResponse): { label: string; tone: string; explain: string } {
-  const t = tx.type as string
-  if (t === 'CAMPAIGN_DEPOSIT_HOLD')
-    return { label: 'Cọc chiến dịch', tone: 'bg-amber-100 text-amber-800', explain: 'Tiền cọc người mua trả khi đặt trước. Sàn chỉ cầm giữ hộ, chưa phải doanh thu: huỷ chiến dịch thì hoàn lại người mua, hoàn tất thì giải ngân trả nhà vườn.' }
-  if (t === 'CAMPAIGN_DEPOSIT_REFUNDED')
-    return { label: 'Hoàn cọc chiến dịch', tone: 'bg-sky-100 text-sky-800', explain: 'Cọc đang giữ được trả lại vào ví CapNong của người mua (chiến dịch huỷ hoặc thiếu hàng).' }
-  if (t === 'CAMPAIGN_DEPOSIT_RELEASED')
-    return { label: 'Giải ngân cọc', tone: 'bg-emerald-100 text-emerald-800', explain: 'Chiến dịch hoàn tất: cọc chuyển từ tạm giữ sang số dư sàn để chi trả nhà vườn.' }
-  if (t === 'CAMPAIGN_DEPOSIT_WALLET_PAID' || t === 'CAMPAIGN_DEPOSIT_WALLET_REFUND')
-    return { label: 'Cọc chiến dịch', tone: 'bg-amber-100 text-amber-800', explain: 'Phần cọc người mua trả bằng số dư ví CapNong.' }
-  if (t.startsWith('CAMPAIGN_'))
-    return { label: 'Chiến dịch', tone: 'bg-lime-100 text-lime-800', explain: 'Bút toán thuộc chiến dịch giải cứu (thu phần còn lại, chi trả nhà vườn / shipper, bồi thường hàng hư).' }
-  if (t.startsWith('WITHDRAW')) return { label: 'Rút tiền', tone: 'bg-gray-100 text-gray-700', explain: 'Lệnh rút tiền về tài khoản ngân hàng.' }
-  if (t === 'TOP_UP') return { label: 'Nạp ví', tone: 'bg-gray-100 text-gray-700', explain: 'Nạp tiền vào ví qua PayOS.' }
-  if (t.startsWith('COD')) return { label: 'COD', tone: 'bg-gray-100 text-gray-700', explain: 'Tiền mặt thu hộ khi giao đơn COD.' }
-  return { label: tx.orderId ? 'Đơn hàng' : 'Khác', tone: 'bg-gray-100 text-gray-700', explain: tx.orderId ? 'Bút toán của đơn hàng thường.' : '' }
+/** Phân loại giao dịch theo màu và loại ví */
+export function getTransactionCategory(tx: WalletTransactionResponse): TransactionCategory {
+  const typeStr = tx.type as string
+  if (
+    typeStr === 'REFERRAL_COMMISSION' ||
+    (tx.walletType as string) === 'REFERRAL' ||
+    tx.description?.toLowerCase().includes('hoa hồng') ||
+    tx.description?.toLowerCase().includes('tiếp thị liên kết')
+  ) {
+    return 'COMMISSION'
+  }
+  if (tx.hold === true || tx.reserve === true) {
+    return 'HOLD'
+  }
+  return 'MAIN'
 }
 
-/** Lấy mã chiến dịch và mã đơn đặt trước từ mô tả bút toán (BE ghi dạng "... đơn XXX ... chiến dịch YYY") */
-function refsOf(description?: string) {
-  const d = description ?? ''
-  const campaign = /chiến dịch\s+([A-Z][A-Z0-9-]{4,})/u.exec(d)?.[1]
-  const preOrder = /đơn(?: đặt trước)?\s+([A-Z][A-Z0-9-]{4,})/u.exec(d)?.[1]
-  return { campaign, preOrder }
+/** Tên hiển thị thân thiện khớp mẫu ảnh */
+export function getTransactionTitle(tx: WalletTransactionResponse): string {
+  const typeStr = tx.type as string
+  if (typeStr === 'REFERRAL_COMMISSION' || tx.description?.toLowerCase().includes('hoa hồng')) {
+    return 'Hoa hồng tiếp thị liên kết'
+  }
+  if (tx.type === 'BUYER_REFUND' || tx.type === 'ORDER_WALLET_REFUND') {
+    return 'Hoàn tiền đơn hàng'
+  }
+  if (tx.type === 'TOP_UP') {
+    return 'Nạp tiền vào ví'
+  }
+  if (tx.type === 'ORDER_WALLET_PAYMENT') {
+    return 'Thanh toán đơn hàng'
+  }
+  if (tx.type === 'WITHDRAW_REQUESTED') {
+    return 'Rút tiền về ngân hàng'
+  }
+  if (tx.type === 'WITHDRAW_REFUNDED') {
+    return 'Hoàn tiền lệnh rút bị từ chối'
+  }
+  if (tx.hold || tx.type === 'SHOP_INCOME_HOLD' || tx.type === 'PLATFORM_INCOME_HOLD' || tx.type === 'SHIPPER_INCOME_HOLD') {
+    if (tx.amount < 0) {
+      return 'Admin điều chỉnh tạm giữ'
+    }
+    return 'Admin tạm giữ tiền'
+  }
+  if (tx.type === 'HOLD_RELEASED') {
+    return 'Giải ngân tiền tạm giữ'
+  }
+  if (tx.type === 'SHOP_INCOME' || tx.type === 'SHIPPER_INCOME') {
+    return 'Tiền được cộng vào ví'
+  }
+  if (tx.type === 'SHOP_RETURN_SHIPPING_DEDUCT') {
+    return 'Thanh toán cước ship hoàn'
+  }
+  if (tx.type === 'COD_RESERVED') {
+    return 'Ký quỹ nhận đơn COD'
+  }
+  if (tx.type === 'COD_RESERVE_RELEASED') {
+    return 'Hoàn trả ký quỹ đơn COD'
+  }
+  if (tx.amount >= 0) {
+    return 'Tiền được cộng vào ví'
+  }
+  return WALLET_TX_LABEL[tx.type] ?? 'Giao dịch ví'
 }
 
-/** Danh sách biến động ví (dùng chung cho Shop, Shipper, Admin). Bấm 1 dòng để xem chi tiết nguồn tiền */
 export function WalletTransactionList({
   items,
   isLoading,
-  emptyText = 'Chưa có giao dịch biến động nào. Doanh thu tiền bán nông sản sẽ tự động được ghi nhận tại đây khi đơn hoàn tất.',
+  emptyText = 'Chưa có giao dịch biến động nào.',
+  showCommissionTab = false,
+  showHoldTab = false,
 }: WalletTransactionListProps) {
-  const [openId, setOpenId] = useState<number | null>(null)
+  const [selectedTx, setSelectedTx] = useState<WalletTransactionResponse | null>(null)
+  const [filterCategory, setFilterCategory] = useState<'ALL' | TransactionCategory>('ALL')
+
+  // Đếm số lượng theo từng loại ví
+  const { mainCount, holdCount, commissionCount } = useMemo(() => {
+    let main = 0
+    let hold = 0
+    let commission = 0
+    for (const item of items) {
+      const cat = getTransactionCategory(item)
+      if (cat === 'HOLD') hold++
+      else if (cat === 'COMMISSION') commission++
+      else main++
+    }
+    return { mainCount: main, holdCount: hold, commissionCount: commission }
+  }, [items])
+
+  // Lọc theo tab được chọn
+  const filteredItems = useMemo(() => {
+    if (filterCategory === 'ALL') return items
+    return items.filter((tx) => getTransactionCategory(tx) === filterCategory)
+  }, [items, filterCategory])
+
   if (isLoading) {
     return (
-      <div className="space-y-3 py-2">
+      <div className="space-y-3 py-4">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="h-16 rounded-2xl bg-[#f3f6ef] animate-pulse" />
         ))}
@@ -72,99 +148,334 @@ export function WalletTransactionList({
   }
 
   return (
-    <div className="divide-y divide-[#f1f4ed]">
-      {items.map((tx) => {
-        const isIn = tx.amount >= 0
-        // Giữ chỗ ký quỹ COD hiển thị như tạm giữ: không đổi số dư, chỉ đổi số dư khả dụng
-        const isHold = tx.hold === true || tx.reserve === true
-        const src = sourceOf(tx)
-        const refs = refsOf(tx.description)
-        const open = openId === tx.id
-        return (
-          <div key={tx.id}>
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={() => setOpenId(open ? null : tx.id)}
-              className="flex w-full items-center justify-between gap-3 py-3.5 px-2 rounded-xl text-left hover:bg-[#fafbfa] transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3 min-w-0">
+    <div className="space-y-3">
+      {/* BỘ LỌC PHÂN LOẠI THEO MÀU (PILLS) */}
+      <div className="flex flex-wrap items-center gap-2 pb-2.5 border-b border-gray-100">
+        {/* Tất cả */}
+        <button
+          type="button"
+          onClick={() => setFilterCategory('ALL')}
+          className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            filterCategory === 'ALL'
+              ? 'bg-[#e6f4ea] text-[#137333] border border-emerald-300 shadow-2xs'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent'
+          }`}
+        >
+          Tất cả ({items.length})
+        </button>
+
+        {/* Ví chính (Xanh lá) */}
+        <button
+          type="button"
+          onClick={() => setFilterCategory('MAIN')}
+          className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            filterCategory === 'MAIN'
+              ? 'bg-[#e6f4ea] text-[#137333] border border-emerald-300 shadow-2xs'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent'
+          }`}
+        >
+          Ví chính ({mainCount})
+        </button>
+
+        {/* Ví tạm giữ (Màu Cam / Hổ phách) */}
+        {(showHoldTab || holdCount > 0) && (
+          <button
+            type="button"
+            onClick={() => setFilterCategory('HOLD')}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              filterCategory === 'HOLD'
+                ? 'bg-[#fef3e6] text-[#b06000] border border-amber-300 shadow-2xs'
+                : 'bg-[#fef3e6]/60 text-[#b06000] hover:bg-[#fef3e6] border border-transparent'
+            }`}
+          >
+            Ví tạm giữ ({holdCount})
+          </button>
+        )}
+
+        {/* Ví hoa hồng (Màu Xanh dương) */}
+        {(showCommissionTab || commissionCount > 0) && (
+          <button
+            type="button"
+            onClick={() => setFilterCategory('COMMISSION')}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              filterCategory === 'COMMISSION'
+                ? 'bg-[#e8f0fe] text-[#1a73e8] border border-blue-300 shadow-2xs'
+                : 'bg-[#e8f0fe]/60 text-[#1a73e8] hover:bg-[#e8f0fe] border border-transparent'
+            }`}
+          >
+            Ví hoa hồng ({commissionCount})
+          </button>
+        )}
+      </div>
+
+      {/* DANH SÁCH GIAO DỊCH */}
+      {filteredItems.length === 0 ? (
+        <div className="py-10 px-4 text-center rounded-2xl bg-[#fafbfa] border border-dashed border-[#e3e8dd]">
+          <div className="w-10 h-10 rounded-full bg-[#f0f4ec] text-[#6b7b64] flex items-center justify-center mx-auto mb-2">
+            <History size={20} />
+          </div>
+          <p className="text-xs text-gray-500 font-medium">
+            Không có giao dịch nào trong danh mục này.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {filteredItems.map((tx) => {
+            const cat = getTransactionCategory(tx)
+            const isIn = tx.amount >= 0
+            const isHold = cat === 'HOLD'
+            const title = getTransactionTitle(tx)
+            const dateStr = formatBackendDate(tx.createdAt)
+
+            // Số dư sau của ví bị tác động
+            const balanceAfter = isHold ? tx.frozenAfter ?? 0 : tx.balanceAfter
+
+            return (
+              <div key={tx.id} className="transition-colors">
                 <div
-                  className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${
-                    isHold
-                      ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                      : isIn
-                        ? 'bg-[#eaf5e1] text-[#2b5619] border border-[#cbe5bd]'
-                        : 'bg-[#fdeeed] text-[#c5221f] border border-[#fac8c6]'
+                  onClick={() => setSelectedTx(tx)}
+                  className="flex items-center justify-between py-3.5 hover:bg-gray-50/80 transition-colors cursor-pointer rounded-xl px-2 -mx-2"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Icon Circle phân biệt màu */}
+                    <div
+                      className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center shadow-2xs ${
+                        cat === 'HOLD'
+                          ? 'bg-[#fef3e6] text-[#b06000]'
+                          : cat === 'COMMISSION'
+                            ? 'bg-[#e8f0fe] text-[#1a73e8]'
+                            : 'bg-[#e6f4ea] text-[#137333]'
+                      }`}
+                    >
+                      {cat === 'HOLD' ? (
+                        <Clock size={18} />
+                      ) : cat === 'COMMISSION' ? (
+                        <Gift size={18} />
+                      ) : isIn ? (
+                        <ArrowDownLeft size={18} />
+                      ) : (
+                        <ArrowUpRight size={18} />
+                      )}
+                    </div>
+
+                    {/* Tiêu đề, thông tin phụ & Tag phân loại */}
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{title}</p>
+                      <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5 truncate">
+                        {tx.orderId ? `Đơn hàng #${tx.orderId} · ` : ''}
+                        {dateStr}
+                      </p>
+
+                      {/* Tag pill dưới tiêu đề */}
+                      <div className="mt-1">
+                        {cat === 'HOLD' ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fef3e6] text-[#b06000]">
+                            Ví tạm giữ
+                          </span>
+                        ) : cat === 'COMMISSION' ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e8f0fe] text-[#1a73e8]">
+                            Ví hoa hồng
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">
+                            Ví chính
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cột số tiền & icon mở modal */}
+                  <div className="flex items-center gap-2 pl-3 shrink-0">
+                    <div className="text-right">
+                      <div
+                        className={`text-sm sm:text-base font-bold whitespace-nowrap ${
+                          cat === 'HOLD'
+                            ? 'text-[#b06000]'
+                            : cat === 'COMMISSION'
+                              ? 'text-[#1a73e8]'
+                              : isIn
+                                ? 'text-[#137333]'
+                                : 'text-gray-900'
+                        }`}
+                      >
+                        {formatVnd(tx.amount, true)}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-medium mt-0.5">
+                        {cat === 'HOLD'
+                          ? `Tạm giữ: ${formatVnd(balanceAfter)}`
+                          : `Số dư: ${formatVnd(balanceAfter)}`}
+                      </div>
+                    </div>
+
+                    <ChevronDown
+                      size={16}
+                      className="text-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* MODAL CHI TIẾT GIAO DỊCH (CHUẨN 100% THEO MẪU ẢNH) */}
+      {selectedTx && (() => {
+        const selCat = getTransactionCategory(selectedTx)
+        const selIsIn = selectedTx.amount >= 0
+        const selIsHold = selCat === 'HOLD'
+        const selIsCommission = selCat === 'COMMISSION'
+        const selTitle = getTransactionTitle(selectedTx)
+        const selBalanceAfter = selIsHold ? selectedTx.frozenAfter ?? 0 : selectedTx.balanceAfter
+        const selBalanceBefore = selBalanceAfter - selectedTx.amount
+        const selDateStr = formatBackendDate(selectedTx.createdAt)
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in"
+            onClick={() => setSelectedTx(null)}
+          >
+            <div
+              className="bg-white rounded-3xl w-full max-w-sm sm:max-w-md shadow-2xl relative overflow-hidden border border-gray-100 p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header: Chi tiết giao dịch + Badge Thành công + Nút X */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">Chi tiết giao dịch</h3>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333]">
+                    Thành công
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTx(null)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Khối Hero Amount */}
+              <div className="text-center py-2">
+                <p className="text-xs text-gray-400 font-medium">Số tiền giao dịch</p>
+                <div
+                  className={`text-3xl sm:text-4xl font-extrabold my-1.5 ${
+                    selIsHold
+                      ? 'text-[#b06000]'
+                      : selIsCommission
+                        ? 'text-[#1a73e8]'
+                        : selIsIn
+                          ? 'text-[#137333]'
+                          : 'text-gray-900'
                   }`}
                 >
-                  {isHold ? <Clock size={18} /> : isIn ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                  {formatVnd(selectedTx.amount, true)}
                 </div>
-                <div className="min-w-0">
-                  <h5 className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-[#1c2216]">
-                    <span className={`rounded-full px-1.5 py-px text-[10px] font-bold ${src.tone}`}>{src.label}</span>
-                    <span className="truncate">
-                      {WALLET_TX_LABEL[tx.type] ?? tx.type}
-                      {tx.orderId ? ` · Đơn #${tx.orderId}` : ''}
-                      {refs.campaign ? ` · ${refs.campaign}` : ''}
+                <p className="text-sm sm:text-base font-bold text-gray-900">{selTitle}</p>
+                <div className="mt-2">
+                  {selCat === 'HOLD' ? (
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#fef3e6] text-[#b06000]">
+                      Ví tạm giữ
                     </span>
-                  </h5>
-                  {tx.description && (
-                    <p className="text-[11px] text-[#6e7767] truncate mt-0.5" title={tx.description}>
-                      {tx.description}
-                    </p>
+                  ) : selCat === 'COMMISSION' ? (
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#e8f0fe] text-[#1a73e8]">
+                      Ví hoa hồng
+                    </span>
+                  ) : (
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333]">
+                      Ví chính
+                    </span>
                   )}
-                  <span className="text-[10px] text-[#858f7e] mt-0.5 inline-block">{formatBackendDate(tx.createdAt)}</span>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <div className="text-right">
-                  <div
-                    className={`text-sm font-black ${
-                      isHold ? 'text-amber-600' : isIn ? 'text-[#2b5619]' : 'text-[#c5221f]'
-                    }`}
-                  >
-                    {formatVnd(tx.amount, true)}
+
+              {/* Thông tin giao dịch */}
+              <div className="pt-3 border-t border-gray-100 space-y-2.5">
+                <h4 className="text-sm font-bold text-gray-900">Thông tin giao dịch</h4>
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-gray-400 shrink-0">Nội dung</span>
+                    <span className="text-gray-900 font-medium text-right break-words max-w-[240px]">
+                      {selectedTx.description || selTitle}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-[#858f7e] mt-0.5">
-                    {tx.reserve
-                      ? `Số dư: ${formatVnd(tx.balanceAfter)}`
-                      : isHold
-                        ? `Tạm giữ: ${formatVnd(tx.frozenAfter ?? 0)}`
-                        : `Số dư: ${formatVnd(tx.balanceAfter)}`}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">Mã giao dịch</span>
+                    <span className="text-gray-900 font-bold">#{selectedTx.id}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">Đơn hàng</span>
+                    <span className="text-gray-900 font-bold">
+                      {selectedTx.orderId ? `#${selectedTx.orderId}` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">Thời gian</span>
+                    <span className="text-gray-900 font-medium">{selDateStr}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">Loại giao dịch</span>
+                    <span className="text-gray-900 font-bold">
+                      {selIsHold ? 'Tạm giữ' : selIsIn ? 'Cộng tiền' : 'Trừ tiền'}
+                    </span>
                   </div>
                 </div>
-                <ChevronDown size={14} className={`text-[#858f7e] transition-transform ${open ? 'rotate-180' : ''}`} />
               </div>
-            </button>
-            {open && (
-              <dl className="mb-3 grid gap-x-6 gap-y-2 rounded-2xl bg-[#f7faf4] border border-[#e8efe2] p-4 text-xs sm:grid-cols-2">
-                <Info label="Nguồn tiền" value={src.label} />
-                <Info label="Loại bút toán" value={WALLET_TX_LABEL[tx.type] ?? tx.type} />
-                {refs.campaign && <Info label="Chiến dịch" value={refs.campaign} />}
-                {refs.preOrder && <Info label="Đơn đặt trước / đơn" value={refs.preOrder} />}
-                {tx.orderId != null && <Info label="Đơn hàng" value={`#${tx.orderId}`} />}
-                <Info label={isHold ? 'Thay đổi tiền tạm giữ' : 'Thay đổi số dư'} value={formatVnd(tx.amount, true)} />
-                <Info label="Tạm giữ sau bút toán" value={formatVnd(tx.frozenAfter ?? 0)} />
-                <Info label="Số dư sau bút toán" value={formatVnd(tx.balanceAfter)} />
-                <Info label="Thời gian" value={formatBackendDate(tx.createdAt)} />
-                <Info label="Mã bút toán" value={`#${tx.id}`} />
-                {src.explain && <p className="text-[11px] leading-relaxed text-[#5d6657] sm:col-span-2">{src.explain}</p>}
-                {tx.description && <p className="whitespace-pre-line text-[11px] text-[#1c2216] sm:col-span-2">Ghi chú: {tx.description}</p>}
-              </dl>
-            )}
+
+              {/* Biến động số dư */}
+              <div className="pt-3 border-t border-gray-100 space-y-2.5">
+                <h4 className="text-sm font-bold text-gray-900">Biến động số dư</h4>
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">
+                      {selIsHold ? 'Tạm giữ trước' : 'Số dư trước'}
+                    </span>
+                    <span className="text-gray-900 font-bold">{formatVnd(selBalanceBefore)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-gray-400">Thay đổi</span>
+                    <span
+                      className={`font-bold ${
+                        selIsHold
+                          ? 'text-[#b06000]'
+                          : selIsCommission
+                            ? 'text-[#1a73e8]'
+                            : selIsIn
+                              ? 'text-[#137333]'
+                              : 'text-gray-900'
+                      }`}
+                    >
+                      {formatVnd(selectedTx.amount, true)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 pt-1">
+                    <span className="text-gray-900 font-bold text-sm">
+                      {selIsHold ? 'Tạm giữ sau' : 'Số dư sau'}
+                    </span>
+                    <span className="text-gray-900 font-extrabold text-base">
+                      {formatVnd(selBalanceAfter)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Giải thích */}
+              <div className="pt-3 border-t border-gray-100 space-y-1.5">
+                <h4 className="text-sm font-bold text-gray-900">Giải thích</h4>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {selCat === 'HOLD'
+                    ? 'Khoản tiền được tạm giữ để bảo đảm đơn hàng (trong 24 giờ sau khi giao hàng thành công). Sau thời hạn này hoặc khi đơn hoàn tất, tiền sẽ tự động chuyển sang ví số dư chính để bạn rút về tài khoản ngân hàng.'
+                    : selCat === 'COMMISSION'
+                      ? 'Khoản hoa hồng tiếp thị liên kết được ghi nhận vào ví hoa hồng khi người mua hoàn tất đơn hàng.'
+                      : 'Khoản tiền được ghi nhận vào ví chính sau khi giao dịch hoàn thành.'}
+                </p>
+              </div>
+            </div>
           </div>
         )
-      })}
-    </div>
-  )
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[11px] text-[#858f7e]">{label}</dt>
-      <dd className="break-words font-bold text-[#1c2216]">{value}</dd>
+      })()}
     </div>
   )
 }

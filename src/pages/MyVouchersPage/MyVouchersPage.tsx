@@ -421,7 +421,7 @@ const MyVouchersPage: React.FC = () => {
                         {voucher.minOrderValue && Number(voucher.minOrderValue) > 0
                           ? `Đơn tối thiểu ${formatMoney(Number(voucher.minOrderValue))}`
                           : 'Cho mọi giá trị đơn hàng'}
-                        {voucher.maxDiscount && Number(voucher.maxDiscount) > 0 && (
+                        {voucher.voucherType === 'PERCENTAGE' && voucher.maxDiscount && Number(voucher.maxDiscount) > 0 && (
                           <span> · Tối đa {formatMoney(Number(voucher.maxDiscount))}</span>
                         )}
                         {!voucher.isCollected && voucher.claimLimit && (

@@ -18,7 +18,6 @@ import type {
   WithdrawResponse,
   WithdrawStatus,
 } from './wallet.types'
-import { freshResponses } from '@/mocks/fresh'
 
 export type * from './wallet.types'
 
@@ -204,9 +203,10 @@ export const WALLET_TX_LABEL: Record<WalletTransactionType, string> = {
   CAMPAIGN_DEPOSIT_WALLET_REFUND: 'Hoàn phần cọc đã trả bằng ví',
   CAMPAIGN_DAMAGE_COMPENSATION: 'Bồi thường hàng hư chiến dịch',
   CAMPAIGN_DAMAGE_REFUND: 'Nhận tiền hàng hư chiến dịch',
+  REFERRAL_COMMISSION: 'Hoa hồng tiếp thị liên kết',
 }
 
-export const walletService = freshResponses({
+export const walletService = {
   async getAllPendingWithdrawRequests(): Promise<ApiResponse<WithdrawRequestResponse[]>> {
     const list = await walletApi.getWithdrawals('PENDING')
     return { code: 1000, result: (list ?? []).map(toLegacyWithdraw) }
@@ -277,4 +277,4 @@ export const walletService = freshResponses({
     await walletApi.rejectWithdraw(requestId, note)
     return { code: 1000, result: true, message: 'Đã từ chối lệnh rút tiền và hoàn tiền về ví' }
   },
-})
+}

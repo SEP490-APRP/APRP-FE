@@ -274,13 +274,10 @@ export default function MyWalletPage() {
           </div>
 
           <div className="rounded-3xl border border-[#e8ece3] bg-white p-6 shadow-sm lg:col-span-3">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-black text-[#1c2216]">Lịch sử biến động ví</h2>
-              <span className="text-xs text-[#858f7e]">{tx?.totalElements ?? 0} giao dịch</span>
-            </div>
             <WalletTransactionList
               items={tx?.content ?? []}
               isLoading={txQuery.isLoading}
+              showCommissionTab={true}
               emptyText="Chưa có giao dịch. Hoa hồng giới thiệu sẽ hiện ở đây khi bạn bè mua hàng qua link của bạn."
             />
             {totalPages > 1 && (

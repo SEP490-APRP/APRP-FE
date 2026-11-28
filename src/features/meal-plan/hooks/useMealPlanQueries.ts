@@ -30,10 +30,11 @@ export const HEALTH_PROFILE_KEYS = {
 }
 
 /** Hook lấy danh sách kế hoạch của Buyer */
-export function useMyPlans(status?: PlanStatus, page = 1, size = 10) {
+export function useMyPlans(status?: PlanStatus, page = 1, size = 10, enabled = true) {
   return useQuery({
     queryKey: MEAL_PLAN_KEYS.list(status, page),
     queryFn: () => mealPlanService.getMyPlans({ status, page, size }),
+    enabled,
   })
 }
 
@@ -216,10 +217,11 @@ export function useAddPlanToCart() {
 }
 
 /** Hook lấy hồ sơ sức khỏe */
-export function useHealthProfile() {
+export function useHealthProfile(enabled = true) {
   return useQuery({
     queryKey: HEALTH_PROFILE_KEYS.profile,
     queryFn: () => healthProfileService.getMyProfile(),
+    enabled,
   })
 }
 

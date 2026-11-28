@@ -40,6 +40,7 @@ const ShipperDashboard = lazy(() => import('@/pages/shipper/Dashboard'))
 const MealPlanPage = lazy(() => import('@/pages/MealPlanPage'))
 const CampaignsPage = lazy(() => import('@/pages/CampaignsPage'))
 const CampaignDetailPage = lazy(() => import('@/pages/CampaignDetailPage'))
+const TracePage = lazy(() => import('@/pages/TracePage'))
 const BuyerMessagesPage = lazy(() => import('@/pages/chat/BuyerMessagesPage'))
 const ReferralRedirectPage = lazy(() => import('@/pages/ReferralRedirectPage'))
 
@@ -88,6 +89,10 @@ export function CampaignsRoute() {
 
 export function CampaignDetailRoute() {
   return <CampaignDetailPage />
+}
+
+export function TraceRoute() {
+  return <TracePage />
 }
 
 export function PrivacyRoute() {

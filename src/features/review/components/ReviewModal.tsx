@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Star, X, UploadCloud, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { globalShowAlert } from '@/components/common/Popup'
@@ -35,6 +35,19 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Reset form state whenever the modal opens or targets a different order item
+  useEffect(() => {
+    if (isOpen) {
+      setRating(5)
+      setHoverRating(null)
+      setComment('')
+      setImageUrls([])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }, [isOpen, item?.orderDetailId, item?.mysteryBoxId])
 
   if (!isOpen || !item) return null
 

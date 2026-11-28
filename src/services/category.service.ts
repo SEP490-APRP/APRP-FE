@@ -1,18 +1,8 @@
 import type { ApiResponse } from '@/types'
 import type { CategoryResponse } from './category.types'
 import { axiosInstance } from './api/axiosInstance'
-import { ENV } from '@/utils'
 
 export type * from './category.types'
-
-const MOCK_CATEGORIES: CategoryResponse[] = [
-  { categoryId: 1, name: 'Rau ăn lá', description: 'Các loại rau xanh thu hoạch tươi sáng sớm' },
-  { categoryId: 2, name: 'Củ quả vườn', description: 'Củ và quả sạch tự nhiên giải cứu từ nhà vườn' },
-  { categoryId: 3, name: 'Trái cây theo mùa', description: 'Hoa quả đặc sản các vùng miền vào vụ thu hoạch' },
-  { categoryId: 4, name: 'Nông sản hữu cơ', description: 'Nông sản canh tác chuẩn VietGAP & Organic' },
-  { categoryId: 5, name: 'Nấm & Thực vật', description: 'Các loại nấm tươi sạch giàu dinh dưỡng' },
-  { categoryId: 6, name: 'Đặc sản Đà Lạt', description: 'Rau củ ôn đới chuyển trực tiếp từ Đà Lạt' },
-]
 
 export const categoryService = {
   async getAll(): Promise<ApiResponse<CategoryResponse[]>> {

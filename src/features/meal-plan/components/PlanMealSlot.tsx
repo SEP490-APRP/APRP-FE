@@ -23,6 +23,7 @@ import {
   useRemoveMealItem,
 } from '../hooks/useMealPlanQueries'
 import { useUiStore } from '@/stores/useUiStore'
+import { globalShowConfirm } from '@/components/common/Popup'
 
 interface PlanMealSlotProps {
   meal: PlanMealResponse
@@ -144,7 +145,7 @@ export default function PlanMealSlot({
 
   const handleRemoveItem = async (itemId: number) => {
     if (isReadOnly || planStatus === 'ARCHIVED') return
-    if (window.confirm('Bạn có chắc muốn xóa món này khỏi bữa ăn?')) {
+    if (await globalShowConfirm('Xóa món này?', 'Món sẽ được bỏ khỏi bữa ăn.', { danger: true, confirmText: 'Xóa món' })) {
       try {
         await removeItem.mutateAsync({ mealId: meal.id, itemId })
         useUiStore.getState().showToast('Đã xóa món khỏi bữa ăn.')

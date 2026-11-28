@@ -117,11 +117,15 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
 
   // Tiến trình trạng thái đơn hàng (Timeline Stepper)
   const getTimelineSteps = (status?: OrderStatus): TimelineStep[] => {
-    const isCancelled = status === 'CANCELLED' || status === 'FAILED'
+    const isCancelled =
+      status === 'CANCELLED' ||
+      status === 'FAILED' ||
+      status === 'RETURNING_TO_SHOP' ||
+      status === 'RETURNED_TO_SHOP'
     if (isCancelled) {
       return [
         { label: 'Đặt hàng', done: true, current: false, isError: false },
-        { label: status === 'FAILED' ? 'Giao thất bại' : 'Đã hủy đơn', done: true, current: true, isError: true },
+        { label: status === 'CANCELLED' ? 'Đã hủy đơn' : 'Giao thất bại', done: true, current: true, isError: true },
       ]
     }
 
@@ -414,9 +418,12 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                           <p className="font-black text-emerald-800 text-xs sm:text-sm">
                             {Number(subtotal).toLocaleString('vi-VN')} đ
                           </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
+                          {(order.status === 'DELIVERED' ||
+                            order.status === 'COMPLETED' ||
+                            order.status === 'REFUND_REQUESTED' ||
+                            (order.status === 'REFUNDED' && Boolean(order.deliveredAt))) && (
                             <div className="flex items-center gap-1.5 justify-end">
-                              {onReturnItem && !it.isRequestedReturn && (
+                              {onReturnItem && !it.isRequestedReturn && order.status !== 'REFUNDED' && (
                                 <button
                                   type="button"
                                   onClick={() => onReturnItem(it, order.orderId ?? order.id ?? 0)}
@@ -425,7 +432,7 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                                   Trả hàng
                                 </button>
                               )}
-                              {onReviewItem && !it.isReviewed && (
+                              {onReviewItem && !it.isReviewed && !it.isRequestedReturn && (
                                 <button
                                   type="button"
                                   onClick={() => onReviewItem(it, order.orderId ?? order.id ?? 0)}
@@ -467,16 +474,21 @@ export const BuyerOrderDetailModal: React.FC<BuyerOrderDetailModalProps> = ({
                 </div>
 
                 {order.voucherDiscountAmount !== undefined && order.voucherDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center text-emerald-700 font-bold">
+                  <div className="flex justify-between items-center text-red-600 font-bold">
                     <span>Giảm giá Voucher:</span>
                     <span>-{Number(order.voucherDiscountAmount).toLocaleString('vi-VN')} đ</span>
                   </div>
                 )}
 
                 {order.refundAmount !== undefined && order.refundAmount > 0 && (
-                  <div className="flex justify-between items-center text-rose-600 font-bold">
-                    <span>Đã hoàn tiền:</span>
-                    <span>-{Number(order.refundAmount).toLocaleString('vi-VN')} đ</span>
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between items-center text-rose-600 font-bold">
+                      <span>Số tiền hoàn lại:</span>
+                      <span>{Number(order.refundAmount).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    {order.refundReason && (
+                      <p className="text-[11px] text-rose-500 text-right">{order.refundReason}</p>
+                    )}
                   </div>
                 )}
 

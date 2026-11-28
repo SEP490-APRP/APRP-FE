@@ -79,8 +79,6 @@ const Disputes: React.FC = () => {
       if (statusFilter === 'ALL') return true
       if (statusFilter === 'PENDING') {
         return (
-          d.status === 'PENDING' ||
-          d.status === 'SHOP_APPROVED' ||
           d.status === 'DISPUTED' ||
           d.status === 'ADMIN_APPROVED' ||
           d.status === 'REFUND_PENDING' ||
@@ -550,11 +548,24 @@ const Disputes: React.FC = () => {
                 {selectedDispute.status === 'ADMIN_APPROVED' ? (
                   <div className="p-4 bg-sky-50 border border-sky-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
                     <p className="text-xs font-black text-sky-950">
-                      KẾT QUẢ XỬ LÝ: Admin đã duyệt chấp thuận khiếu nại
+                      KẾT QUẢ XỬ LÝ: Admin đã duyệt hoàn tiền {(() => {
+                        const itemTotal = selectedDispute.itemTotal || ((selectedDispute.unitPrice || 0) * (selectedDispute.quantity || 1))
+                        if (itemTotal > 0 && selectedDispute.refundAmount) {
+                          const pct = Math.round((selectedDispute.refundAmount / itemTotal) * 100)
+                          return `${pct}%`
+                        }
+                        return ''
+                      })()} (
+                      {(selectedDispute.refundAmount || 0).toLocaleString()}đ)
                     </p>
                     <p className="text-xs text-sky-900 font-medium leading-relaxed">
                       Đã chuyển thông báo cho Shop. Shop có 24h để lựa chọn: Thu hồi hàng về vườn (tạo đơn cho Shipper lấy) hoặc Hoàn tiền ngay cho khách.
                     </p>
+                    {selectedDispute.adminRemark && (
+                      <p className="text-xs text-sky-950 font-medium bg-white/70 p-2 rounded-lg border border-sky-100">
+                        Ghi chú Admin: {selectedDispute.adminRemark}
+                      </p>
+                    )}
                     <p className="text-[10px] text-sky-800/80 font-medium pt-0.5">
                       Thời gian: {formatDateTime(selectedDispute.updatedAt || selectedDispute.createdAt)}
                     </p>
@@ -574,7 +585,14 @@ const Disputes: React.FC = () => {
                 ) : selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'APPROVED' ? (
                   <div className="p-4 bg-[#dcfce7] border border-emerald-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
                     <p className="text-xs font-black text-emerald-950">
-                      KẾT QUẢ XỬ LÝ: Đã phê duyệt hoàn tiền 100% (
+                      KẾT QUẢ XỬ LÝ: Đã phê duyệt hoàn tiền {(() => {
+                        const itemTotal = selectedDispute.itemTotal || ((selectedDispute.unitPrice || 0) * (selectedDispute.quantity || 1))
+                        if (itemTotal > 0 && selectedDispute.refundAmount) {
+                          const pct = Math.round((selectedDispute.refundAmount / itemTotal) * 100)
+                          return `${pct}%`
+                        }
+                        return '100%'
+                      })()} (
                       {(selectedDispute.refundAmount || 0).toLocaleString()}đ)
                     </p>
                     <p className="text-xs text-emerald-900 font-medium">
@@ -603,8 +621,8 @@ const Disputes: React.FC = () => {
                       Thời gian: {formatDateTime(selectedDispute.updatedAt || selectedDispute.createdAt)}
                     </p>
                   </div>
-                ) : (
-                  /* Nếu đơn đang chờ xử lý: Hiển thị các lựa chọn của Admin */
+                ) : selectedDispute.status === 'DISPUTED' ? (
+                  /* Nếu đơn là DISPUTED (Shop đã từ chối): Hiển thị form phân xử của Admin */
                   <div className="space-y-2.5">
                     <textarea
                       value={adminRemark}
@@ -621,8 +639,6 @@ const Disputes: React.FC = () => {
                     >
                       {submitting ? (
                         <Loader2 className="size-4 animate-spin mx-auto" />
-                      ) : selectedDispute.status === 'SHOP_APPROVED' ? (
-                        'XÁC NHẬN HOÀN TIỀN 100%'
                       ) : (
                         'PHÊ DUYỆT HOÀN TIỀN 100%'
                       )}
@@ -646,6 +662,16 @@ const Disputes: React.FC = () => {
                         TỪ CHỐI
                       </button>
                     </div>
+                  </div>
+                ) : (
+                  /* Nếu đơn chưa được Shop xử lý hoặc đang chờ bước khác */
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-gray-800 space-y-1.5 animate-in fade-in">
+                    <p className="text-xs font-black text-amber-950">
+                      ĐANG CHỜ NHÀ VƯỜN PHẢN HỒI
+                    </p>
+                    <p className="text-xs text-amber-900 font-medium leading-relaxed">
+                      Yêu cầu hoàn trả này đang ở trạng thái chờ Nhà vườn phản hồi. Admin chỉ có quyền can thiệp phân xử khi Nhà vườn từ chối yêu cầu của người mua.
+                    </p>
                   </div>
                 )}
               </div>

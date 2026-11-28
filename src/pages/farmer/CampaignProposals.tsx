@@ -35,7 +35,7 @@ import {
 } from '@/services'
 import { categoryService, type CategoryResponse } from '@/services/category.service'
 import { useShopProfile, useUpdateShopProfile } from '@/features/shop/hooks/useShopProfile'
-import { AddressPicker, composeAddress, EMPTY_ADDRESS, type AddressValue } from '@/components/common/AddressPicker'
+import { PlaceSearch, type PlaceValue } from '@/components/common/AddressPicker'
 import { formatKg, formatVnd } from '@/features/campaign/utils'
 import { getErrorMessage } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
@@ -525,12 +525,15 @@ function ProposalForm({ p, initialErrors, onClose, onSaved }: {
     shelf: (p?.shelfLifeTier ?? 'DAYS_3_4') as ShelfLifeTier,
     desired: p?.desiredPricePerKg != null ? String(p.desiredPricePerKg) : '',
     market: p?.marketPricePerKg != null ? String(p.marketPricePerKg) : '',
-    siteName: p?.siteName ?? '',
   })
   const [photos, setPhotos] = useState<string[]>(p?.photoUrls ?? [])
-  const [address, setAddress] = useState<AddressValue>(
-    p?.siteAddress ? { ...EMPTY_ADDRESS, detail: p.siteAddress, lat: p.siteLatitude ?? undefined, lng: p.siteLongitude ?? undefined } : EMPTY_ADDRESS,
-  )
+  // Một ô điểm tập kết như màn tạo chiến dịch của admin: tên lấy theo dòng đầu của địa chỉ đã chọn
+  const [site, setSite] = useState<PlaceValue>({
+    name: p?.siteName ?? '',
+    address: p?.siteAddress || p?.siteName || '',
+    lat: p?.siteLatitude ?? undefined,
+    lng: p?.siteLongitude ?? undefined,
+  })
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   useEscape(onClose)
@@ -551,10 +554,10 @@ function ProposalForm({ p, initialErrors, onClose, onSaved }: {
         shelfLifeTier: f.shelf,
         desiredPricePerKg: f.desired ? Number(f.desired) : null,
         marketPricePerKg: f.market ? Number(f.market) : null,
-        siteName: f.siteName,
-        siteAddress: composeAddress(address),
-        siteLatitude: address.lat ?? null,
-        siteLongitude: address.lng ?? null,
+        siteName: site.name,
+        siteAddress: site.address.trim(),
+        siteLatitude: site.lat ?? null,
+        siteLongitude: site.lng ?? null,
       }
       return p ? campaignProposalService.update(p.proposalId, body) : campaignProposalService.create(body)
     },
@@ -580,8 +583,7 @@ function ProposalForm({ p, initialErrors, onClose, onSaved }: {
   else if (f.openDate && f.closeDate <= f.openDate) check.proposedCloseDate = 'Phải sau ngày mở chiến dịch'
   else if (f.harvestTo && f.harvestTo > f.closeDate) check.proposedCloseDate = 'Không được trước ngày thu hoạch xong'
   if (!(Number(f.desired) > 0)) check.desiredPricePerKg = 'Nhập giá mong muốn'
-  if (!f.siteName.trim()) check.siteName = 'Nhập tên điểm tập kết'
-  if (address.lat == null || address.lng == null || !composeAddress(address)) check.site = 'Chọn địa chỉ và ghim điểm tập kết trên bản đồ'
+  if (site.lat == null || site.lng == null || !site.name.trim() || !site.address.trim()) check.site = 'Chọn địa chỉ và ghim điểm tập kết trên bản đồ'
   const [tried, setTried] = useState(!!initialErrors && Object.keys(initialErrors).length > 0)
   const serverErrors = fieldErrorsOf(save.error)
   // Lỗi BE (vd danh mục không còn) luôn hiện; thiếu thông tin chỉ hiện sau lần bấm lưu đầu tiên
@@ -683,13 +685,11 @@ function ProposalForm({ p, initialErrors, onClose, onSaved }: {
         <Field label="Giá thương lái đang trả (đ/kg)">
           <input type="number" min={0} value={f.market} onChange={(e) => set('market')(e.target.value)} className={inputCls} />
         </Field>
-        <Field label="Tên điểm tập kết dự kiến" wide error={errorOf('siteName')}>
-          <input value={f.siteName} onChange={(e) => set('siteName')(e.target.value)} placeholder="vd Sân HTX Hàm Thuận Nam" className={inputCls} />
-        </Field>
         <div className="sm:col-span-2">
-          <p className="mb-1.5 text-xs font-bold text-[#5d6657]">Địa chỉ điểm tập kết (ghim trên bản đồ để tìm shop lân cận)</p>
-          <AddressPicker value={address} onChange={setAddress} />
-          {errorOf('site') && <p data-field-error className="mt-1 text-xs font-semibold text-[#b3261e]">{errorOf('site')}</p>}
+          <PlaceSearch id="cp-site" label="Điểm tập kết" value={site} onChange={setSite} placeholder="Nhập địa chỉ điểm tập kết, vd: 20 Võ Văn Ngân, Thủ Đức" />
+          {(errorOf('site') ?? errorOf('siteName')) && (
+            <p data-field-error className="mt-1 text-xs font-semibold text-[#b3261e]">{errorOf('site') ?? errorOf('siteName')}</p>
+          )}
         </div>
         {save.isError && Object.keys(serverErrors).length === 0 && (
           <p className="text-sm font-semibold text-[#b3261e] sm:col-span-2">{getErrorMessage(save.error, 'Chưa lưu được đề xuất.')}</p>
@@ -813,19 +813,19 @@ function NearbyDialog({ p, onClose, onInvited, onSubmitted }: { p: CampaignPropo
 /* ─────────────────────────── Ghim vị trí vườn ─────────────────────────── */
 
 function PinDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [address, setAddress] = useState<AddressValue>(EMPTY_ADDRESS)
+  const [place, setPlace] = useState<PlaceValue>({ name: '', address: '' })
   const update = useUpdateShopProfile()
   useEscape(onClose)
   return (
     <Dialog title="Ghim vị trí vườn / kho" onClose={onClose}>
       <div className="space-y-4 overflow-y-auto p-5">
         <p className="text-xs text-[#5d6657]">Vị trí chính xác không hiện cho shop khác, họ chỉ thấy khoảng cách làm tròn.</p>
-        <AddressPicker value={address} onChange={setAddress} />
+        <PlaceSearch id="shop-pin" label="Địa chỉ vườn / kho" value={place} onChange={setPlace} placeholder="Nhập địa chỉ vườn, vd: Xã Tân Xuân, Hóc Môn" />
         {update.isError && <p className="text-sm font-semibold text-[#b3261e]">{getErrorMessage(update.error, 'Chưa lưu được vị trí.')}</p>}
         <button
           type="button"
-          disabled={address.lat == null || update.isPending}
-          onClick={() => update.mutate({ shopLatitude: address.lat, shopLongitude: address.lng, address: composeAddress(address) || undefined }, { onSuccess: onSaved })}
+          disabled={place.lat == null || update.isPending}
+          onClick={() => update.mutate({ shopLatitude: place.lat, shopLongitude: place.lng, address: place.address.trim() || undefined }, { onSuccess: onSaved })}
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#326318] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
         >
           {update.isPending && <Loader2 size={16} className="animate-spin" />} Lưu vị trí

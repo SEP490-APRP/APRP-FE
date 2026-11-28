@@ -20,7 +20,6 @@ import type {
   CreateOrderRequest,
 } from '@/types/order.types'
 import type { OrderResponse as MockOrderResponse } from './order.types'
-import { mockOrders } from '@/mocks/order.mock'
 
 /** BE luôn wrap response trong { code, message, result } */
 interface ApiResponse<T> {
@@ -125,6 +124,14 @@ export async function readyOrder(orderId: number): Promise<OrderResponse> {
   return unwrap<OrderResponse>(res)
 }
 
+/**
+ * PUT /orders/{id}/confirm-return-received [@SHOP]
+ */
+export async function confirmReturnReceived(orderId: number): Promise<OrderResponse> {
+  const res = await axiosInstance.put(`/orders/${orderId}/confirm-return-received`)
+  return unwrap<OrderResponse>(res)
+}
+
 // ── SHIPPER: Vận chuyển & Giao hàng ──────────────────────────────────────────
 
 /**
@@ -205,6 +212,7 @@ export const orderService = {
   fetchShopOrders,
   confirmOrder,
   readyOrder,
+  confirmReturnReceived,
   shipOrder,
   deliverOrder,
   failOrder,
@@ -212,15 +220,8 @@ export const orderService = {
   completeOrder,
   getAddressSuggestions,
   async getAllOrders(): Promise<{ code: number; result: MockOrderResponse[] }> {
-    try {
-      const res = await axiosInstance.get('/orders/admin/all')
-      if (res.data?.result) {
-        return res.data
-      }
-    } catch {
-      // Fallback khi chạy offline / dev mock
-    }
-    return { code: 200, result: structuredClone(mockOrders) }
+    const res = await axiosInstance.get('/orders/admin/all')
+    return { code: 200, result: res.data?.result ?? [] }
   },
 }
 

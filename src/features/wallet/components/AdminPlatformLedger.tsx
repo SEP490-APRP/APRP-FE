@@ -18,11 +18,7 @@ export function AdminPlatformLedger() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <History className="size-5 text-primary" />
-            <h3 className="text-base font-bold text-gray-900">Sổ cái ví sàn</h3>
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
             <Percent className="size-3" />
             Phí dịch vụ đã thu: {formatVnd(platform.data?.commissionEarned ?? 0)}
@@ -31,6 +27,8 @@ export function AdminPlatformLedger() {
         <WalletTransactionList
           items={txPage?.content ?? []}
           isLoading={txQuery.isLoading}
+          mainBalance={platform.data?.balance ?? 0}
+          frozenBalance={platform.data?.frozenBalance ?? 0}
           emptyText="Chưa có đơn nào được chia tiền."
         />
         {txPage && txPage.totalPages > 1 && (

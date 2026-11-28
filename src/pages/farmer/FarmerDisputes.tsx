@@ -521,9 +521,25 @@ export default function FarmerDisputes() {
 
                 <div className="text-right shrink-0">
                   <span className="text-[10px] font-bold text-stone-400 block uppercase whitespace-nowrap">Số tiền hoàn</span>
-                  <span className="text-base sm:text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
-                    {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
-                  </span>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {(() => {
+                      const itemTotal = selectedDispute.itemTotal || ((selectedDispute.unitPrice || 0) * (selectedDispute.quantity || 1))
+                      if (itemTotal > 0 && selectedDispute.refundAmount) {
+                        const pct = Math.round((selectedDispute.refundAmount / itemTotal) * 100)
+                        return (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            pct >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {pct}%
+                          </span>
+                        )
+                      }
+                      return null
+                    })()}
+                    <span className="text-base sm:text-lg font-black text-rose-600 whitespace-nowrap shrink-0">
+                      {Number(selectedDispute.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -740,10 +756,42 @@ export default function FarmerDisputes() {
                 <div className="p-3.5 rounded-lg bg-indigo-50 border border-indigo-200 space-y-1.5">
                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
                     <Gavel size={16} className="text-indigo-600 shrink-0" />
-                    <span>Admin đã phê duyệt yêu cầu từ khách hàng</span>
+                    <span>
+                      Admin đã phân xử: Phê duyệt hoàn {(() => {
+                        const itemTotal = selectedDispute.itemTotal || ((selectedDispute.unitPrice || 0) * (selectedDispute.quantity || 1))
+                        const pct = itemTotal > 0 && selectedDispute.refundAmount ? Math.round((selectedDispute.refundAmount / itemTotal) * 100) : 100
+                        return `${pct}% (${(selectedDispute.refundAmount || 0).toLocaleString()}đ)`
+                      })()}
+                    </span>
                   </div>
+                  {selectedDispute.adminRemark && (
+                    <p className="text-xs text-indigo-950 font-medium bg-white/70 p-2 rounded border border-indigo-100">
+                      Ghi chú từ Admin: {selectedDispute.adminRemark}
+                    </p>
+                  )}
                   <p className="text-[11px] text-indigo-800 leading-relaxed">
-                    Vui lòng chọn 1 trong 2 phương án xử lý ở trên để hoàn tất thủ tục khiếu nại.
+                    Vui lòng chọn 1 trong 2 phương án xử lý ở trên trong vòng 24 giờ. Nếu không chọn, hệ thống sẽ tự động hoàn tiền cho người mua (không thu hồi hàng).
+                  </p>
+                </div>
+              )}
+
+              {/* Thông báo kết quả khi đơn khiếu nại đã hoàn tất */}
+              {(selectedDispute.status === 'COMPLETED' || selectedDispute.status === 'APPROVED') && (
+                <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span>
+                      Đã hoàn tất quy trình xử lý ({(() => {
+                        const itemTotal = selectedDispute.itemTotal || ((selectedDispute.unitPrice || 0) * (selectedDispute.quantity || 1))
+                        const pct = itemTotal > 0 && selectedDispute.refundAmount ? Math.round((selectedDispute.refundAmount / itemTotal) * 100) : 100
+                        return `Hoàn ${pct}% - ${(selectedDispute.refundAmount || 0).toLocaleString()}đ`
+                      })()})
+                    </span>
+                  </div>
+                  <p className="text-emerald-800 text-[11px]">
+                    {selectedDispute.isReturnGoods
+                      ? 'Hàng đã được Shipper thu hồi và giao trả về cho gian hàng của bạn.'
+                      : 'Người mua được giữ lại sản phẩm, không thu hồi hàng vật lý.'}
                   </p>
                 </div>
               )}
