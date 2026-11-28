@@ -243,7 +243,7 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
       setFormError(null)
       const res = await uploadService.uploadImage(file, 'combos', {
         moderate: true,
-        productName: name.trim() || 'Combo nông sản',
+        productName: comboName.trim() || 'Combo nông sản',
         categoryId: 5,
       })
       if (res.result?.url) {
