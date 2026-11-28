@@ -22,17 +22,6 @@ interface ImageSearchModalProps {
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
 
-const QUICK_SUGGESTIONS = [
-  { label: 'Cà chua bi', keyword: 'cà chua' },
-  { label: 'Bơ sáp 034', keyword: 'bơ' },
-  { label: 'Bông cải xanh', keyword: 'bông cải' },
-  { label: 'Bắp cải trái tim', keyword: 'bắp cải' },
-  { label: 'Cà rốt Đà Lạt', keyword: 'cà rốt' },
-  { label: 'Dưa hấu đỏ', keyword: 'dưa hấu' },
-  { label: 'Thanh long', keyword: 'thanh long' },
-  { label: 'Nấm đùi gà', keyword: 'nấm' },
-]
-
 export default function ImageSearchModal({
   isOpen,
   onClose,
@@ -47,31 +36,6 @@ export default function ImageSearchModal({
   const [isCooldown, setIsCooldown] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [dynamicSuggestions, setDynamicSuggestions] = useState<{ label: string; keyword: string }[]>([])
-
-  // Lấy động danh sách nông sản thực tế từ CSDL để hiển thị gợi ý (không dùng dữ liệu tĩnh)
-  useEffect(() => {
-    productService
-      .getAll({ page: 1, size: 8 })
-      .then((res) => {
-        if (res.result && res.result.length > 0) {
-          const items = res.result
-            .map((p) => {
-              const name = p.productName || (p as any).name || ''
-              const shortName = name.split(' ').slice(0, 3).join(' ')
-              return { label: shortName || name, keyword: shortName || name }
-            })
-            .filter((item, idx, self) => item.label && self.findIndex((s) => s.label === item.label) === idx)
-            .slice(0, 8)
-          if (items.length > 0) {
-            setDynamicSuggestions(items)
-          }
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  const suggestions = dynamicSuggestions.length > 0 ? dynamicSuggestions : QUICK_SUGGESTIONS
 
   // Reset toàn bộ state khi đóng/mở modal
   useEffect(() => {
@@ -191,8 +155,24 @@ export default function ImageSearchModal({
       if (response.result) {
         const isAgri = Boolean(response.result.isAgricultural ?? (response.result as any).agricultural)
 
-        // Nếu nhận diện là nông sản: Chuyển ngay sang trang kết quả tìm kiếm sản phẩm và đóng modal
+        // Nếu nhận diện là nông sản: Lưu danh sách ID sản phẩm khớp Vector + Từ khóa từ Backend và chuyển sang trang kết quả
         if (isAgri && response.result.searchKeyword) {
+          try {
+            const matchedIds = (response.result.products || [])
+              .map((p: any) => String(p.productId ?? p.id ?? ''))
+              .filter(Boolean)
+            sessionStorage.setItem(
+              'capnong_visual_search_match',
+              JSON.stringify({
+                keyword: response.result.searchKeyword,
+                identifiedProduce: response.result.identifiedProduce,
+                productIds: matchedIds,
+                timestamp: Date.now(),
+              }),
+            )
+          } catch {
+            // Ignore sessionStorage quota errors
+          }
           onSelectKeyword(response.result.searchKeyword)
           onClose()
           return
@@ -321,32 +301,9 @@ export default function ImageSearchModal({
                 </div>
               </div>
 
-              {/* Gợi ý tìm kiếm phổ biến (Interactive Chips từ DB) */}
-              <div className="p-3.5 rounded-xl bg-[#faf7ef] border border-[#ede5d6] text-xs text-[#6a7463]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5 font-bold text-[#2a3520] text-xs">
-                    <Search size={13} className="text-[#326318]" />
-                    <span>Gợi ý tìm nhanh nông sản trong kho:</span>
-                  </div>
-                  <span className="text-[10px] text-[#717b6a]">Bấm để tìm</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((item) => (
-                    <button
-                      key={item.keyword}
-                      type="button"
-                      onClick={() => {
-                        onSelectKeyword(item.keyword)
-                        onClose()
-                      }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#326318] text-[#343e2c] hover:text-white border border-[#e5dec9] hover:border-[#326318] text-xs font-semibold transition-all shadow-xs cursor-pointer group"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#326318] group-hover:bg-white transition-colors" />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-[#75806e] mt-2 leading-relaxed pt-2 border-t border-[#ede5d4]">
+              {/* Mẹo chụp ảnh & lưu ý sử dụng AI */}
+              <div className="p-3.5 rounded-xl bg-[#faf7ef] border border-[#ede5d6] text-xs text-[#6a7463] space-y-1">
+                <p className="text-[11px] text-[#75806e] leading-relaxed">
                   <strong>Mẹo:</strong> Chọn ảnh rõ nét, chụp cận cảnh 1 loại củ, quả hoặc rau tươi với đủ ánh sáng để hệ thống nhận diện chuẩn xác nhất.
                 </p>
                 <p className="text-[11px] text-[#717a6c] text-center italic pt-1">

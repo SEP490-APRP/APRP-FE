@@ -38,11 +38,11 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
     <div className="flex flex-col h-full min-h-0 bg-white">
       {/* Header Sidebar */}
       <div className="p-3.5 border-b border-[#e8ece3] bg-[#fafcf9] shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-black tracking-wider text-[#485341] uppercase">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-black tracking-wider text-[#3d4737] uppercase">
             {sidebarTitle}
           </span>
-          <span className="text-[10px] bg-[#eaf4e5] text-[#326318] px-2 py-0.5 rounded-full font-extrabold">
+          <span className="text-[10px] bg-[#eaf4e5] text-[#2b5619] px-2.5 py-0.5 rounded-full font-extrabold border border-[#cbe3c3]">
             {filteredConversations.length}
           </span>
         </div>
@@ -55,7 +55,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
             placeholder="Tìm kiếm nhà vườn, khách mua..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-[#dce3d5] rounded-lg outline-none focus:border-[#326318] transition text-[#1c2216] placeholder:text-gray-400"
+            className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-[#dce3d5] rounded-xl outline-none focus:border-[#2b5619] focus:ring-2 focus:ring-[#2b5619]/10 transition text-[#1c2216] placeholder:text-gray-400"
           />
         </div>
       </div>

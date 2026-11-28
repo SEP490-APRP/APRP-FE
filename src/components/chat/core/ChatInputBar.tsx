@@ -309,7 +309,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                   handleSend()
                 }
               }}
-              className="flex-1 bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1c2216] px-3.5 py-2.5 rounded-lg outline-none transition"
+              className="flex-1 bg-[#f4f7f1] border border-[#dce3d5] focus:border-[#2b5619] focus:bg-white text-xs text-[#1c2216] px-4 py-2.5 rounded-xl outline-none transition"
             />
 
             {/* Nút gửi */}
@@ -317,7 +317,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               type="button"
               disabled={(!messageInput.trim() && !pendingMedia) || sending || disabled}
               onClick={handleSend}
-              className="p-2.5 bg-[#326318] hover:bg-[#285013] text-white rounded-lg transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+              className="p-2.5 bg-[#2b5619] hover:bg-[#1e3f12] text-white rounded-xl transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-xs shrink-0"
               title="Gửi tin nhắn"
             >
               {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

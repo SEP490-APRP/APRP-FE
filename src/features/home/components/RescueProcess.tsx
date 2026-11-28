@@ -1,4 +1,6 @@
-﻿export default function RescueProcess({ onInfo }: { onInfo: (title: string) => void }) {
+import { Link } from 'react-router-dom'
+
+export default function RescueProcess({ onInfo: _onInfo }: { onInfo?: (title: string) => void }) {
   return (
     <section id="quy-trinh" aria-labelledby="quy-trinh-title">
       <div className="rescue-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -27,9 +29,9 @@
             <div className="rescue-info">
               <h3>Chọn nông sản</h3>
               <p>Khám phá rau củ xấu mã nhưng vẫn tươi ngon, an toàn.</p>
-              <a className="rescue-btn" href="/giai-cuu-hom-nay">
+              <Link className="rescue-btn" to="/nong-san-tuoi">
                 Khám phá ngay
-              </a>
+              </Link>
             </div>
           </li>
 
@@ -49,9 +51,6 @@
             <div className="rescue-info">
               <h3>Đặt hàng</h3>
               <p>Thanh toán linh hoạt, tiền được bảo chứng đến khi bạn hài lòng.</p>
-              <button type="button" className="rescue-btn" onClick={() => onInfo('Xem bảo chứng')}>
-                Xem bảo chứng
-              </button>
             </div>
           </li>
 
@@ -70,9 +69,9 @@
             <div className="rescue-info">
               <h3>Đóng gói</h3>
               <p>Nhà vườn đóng gói bằng vật liệu tái chế, giữ trọn độ tươi.</p>
-              <a className="rescue-btn" href="/cau-chuyen-nong-dan">
+              <Link className="rescue-btn" to="/cau-chuyen-nong-dan">
                 Xem nhà vườn
-              </a>
+              </Link>
             </div>
           </li>
 
@@ -95,9 +94,6 @@
             <div className="rescue-info">
               <h3>Giao tận nơi</h3>
               <p>Shipper xanh giao nhanh trong 2–4 giờ, đổi trả rõ ràng.</p>
-              <button type="button" className="rescue-btn" onClick={() => onInfo('Xem chính sách')}>
-                Xem chính sách
-              </button>
             </div>
           </li>
         </ol>

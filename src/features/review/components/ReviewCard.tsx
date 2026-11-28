@@ -1,5 +1,5 @@
-import React from 'react'
-import { Star, Clock, Maximize2, MessageSquare, Loader2, Send } from 'lucide-react'
+﻿import React from 'react'
+import { Star, Clock, Maximize2, MessageSquare, Loader2, Send, Store } from 'lucide-react'
 import type { ReviewResponse } from '@/services/review.types'
 import { QUICK_REPLY_TEMPLATES } from '../review.constants'
 import { Button } from '@/components/ui/Button'
@@ -57,33 +57,52 @@ export function ReviewCard({
   return (
     <div
       id={isFirstCard ? 'tour-reviews-first-card' : undefined}
-      className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e5ebd9] shadow-2xs hover:border-[#326318]/30 transition-all space-y-2.5"
+      className="bg-white rounded-lg p-3.5 sm:p-4 border border-[#e5ebd9] shadow-2xs hover:border-[#326318]/30 transition-all space-y-2.5"
     >
-      {/* Header Card: Tên khách + Mã đơn + NÚT SẢN PHẨM TRONG KHO */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-[#f4f7f0] gap-2">
-        <div className="flex items-center gap-2.5">
+      {/* Header Card: Bố cục F-Pattern chuẩn */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-[#f1f4ed] gap-2.5">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
           {/* Avatar nhỏ gọn */}
-          <div className="size-8 rounded-full bg-[#326318] text-white font-black text-xs flex items-center justify-center shrink-0">
+          <div className="size-8 rounded-full bg-[#2b5619] text-white font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
             {(rev.fullName || rev.buyerName || 'K').charAt(0).toUpperCase()}
           </div>
 
-          <div>
-            <strong className="text-xs font-bold text-[#1c2216]">
-              {rev.fullName || rev.buyerName || `Khách hàng #${rev.buyerId}`}
-            </strong>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <strong className="text-xs sm:text-sm font-black text-[#1c2216]">
+                {rev.fullName || rev.buyerName || `Khách hàng #${rev.buyerId}`}
+              </strong>
 
-            <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-[#7e8779]">
+              <span className="text-[11px] text-[#7e8779]">đã mua</span>
+
+              {/* Nút xem sản phẩm trong kho đặt cạnh tên khách */}
+              <button
+                type="button"
+                onClick={() => {
+                  const targetSearchName = (rev.productName || rev.boxType || rev.comboName || '').trim()
+                  if (targetSearchName) {
+                    onNavigateToProductInventory?.(targetSearchName)
+                  }
+                }}
+                title="Bấm để xem và quản lý mặt hàng này trong Kho Nông Sản của bạn"
+                className="inline-flex items-center text-[11px] font-bold text-[#2b5619] hover:text-[#1e3d12] bg-[#f0f6ec] hover:bg-[#e2ebd9] px-2 py-0.5 rounded-md border border-[#2b5619]/25 transition-all cursor-pointer max-w-[220px] truncate shadow-2xs"
+              >
+                <span className="truncate">{itemTitle}</span>
+              </button>
+
               {rev.orderId && (
                 <button
                   type="button"
                   onClick={() => onViewOrder(rev.orderId!)}
                   title="Bấm để xem chi tiết đơn hàng này"
-                  className="font-bold text-[#326318] hover:text-[#1a3a09] bg-[#326318]/10 hover:bg-[#326318]/20 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer inline-flex items-center gap-1"
+                  className="font-bold text-[#2b5619] hover:underline bg-[#2b5619]/10 hover:bg-[#2b5619]/20 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer inline-flex items-center gap-0.5"
                 >
                   <span>#ORD-{rev.orderId}</span>
-                  <span className="text-[9px] underline font-normal opacity-85">Chi tiết</span>
                 </button>
               )}
+            </div>
+
+            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[#7e8779]">
               <span className="flex items-center gap-1">
                 <Clock size={10} />
                 {dateStr}
@@ -92,37 +111,32 @@ export function ReviewCard({
           </div>
         </div>
 
-        {/* NÚT TRUY CẬP VÀO KHO NÔNG SẢN CỦA SHOP (Nhỏ gọn, thuần text) */}
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              const targetSearchName = (rev.productName || rev.boxType || rev.comboName || '').trim()
-              if (targetSearchName) {
-                onNavigateToProductInventory?.(targetSearchName)
-              }
-            }}
-            title="Bấm để xem và quản lý mặt hàng này trong Kho Nông Sản của bạn"
-            className="inline-flex items-center text-[11px] font-bold text-[#326318] hover:text-[#1a3a09] bg-[#f0f6ec] hover:bg-[#e2ebd9] px-2.5 py-1 rounded-lg border border-[#326318]/25 transition-all cursor-pointer max-w-xs truncate shadow-2xs"
-          >
-            <span className="truncate">{itemTitle}</span>
-          </button>
-        </div>
-      </div>
+        {/* Góc phải: Sao đánh giá & Trạng thái phản hồi */}
+        <div className="flex items-center gap-2.5 sm:self-center self-start shrink-0">
+          <div className="flex items-center gap-0.5 text-amber-400">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                size={14}
+                className={
+                  i < starCount
+                    ? 'fill-amber-400 text-amber-400'
+                    : 'text-neutral-200 fill-neutral-100'
+                }
+              />
+            ))}
+          </div>
 
-      {/* Rating Stars */}
-      <div className="flex items-center gap-0.5 text-amber-400">
-        {[...Array(5)].map((_, i) => (
-          <Star
-            key={i}
-            size={13}
-            className={
-              i < starCount
-                ? 'fill-amber-400 text-amber-400'
-                : 'text-neutral-200 fill-neutral-100'
-            }
-          />
-        ))}
+          {rev.replyFromShop ? (
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+              Đã phản hồi
+            </span>
+          ) : (
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+              Chưa phản hồi
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Nội dung Nhận xét */}
@@ -170,20 +184,21 @@ export function ReviewCard({
 
       {/* Phản hồi từ Nhà Vườn */}
       {rev.replyFromShop && !isReplying && (
-        <div className="bg-[#f7f9f5] p-2.5 rounded-lg border border-[#e3ebd9] mt-1.5">
-          <div className="flex items-center justify-between pb-0.5">
-            <span className="text-[11px] font-bold text-[#326318]">
-              Phản hồi từ Nhà Vườn:
+        <div className="bg-[#f7fbf3] p-3 rounded-lg border border-[#dce8d2] mt-2">
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-[11px] font-bold text-[#2b5619] flex items-center gap-1.5">
+              <Store size={13} />
+              <span>Phản hồi từ Nhà Vườn:</span>
             </span>
             <button
               type="button"
               onClick={() => onOpenReply(rev)}
-              className="text-[11px] font-bold text-[#7e8779] hover:text-[#326318] underline cursor-pointer"
+              className="text-[11px] font-bold text-[#7e8779] hover:text-[#2b5619] underline cursor-pointer"
             >
               Chỉnh sửa
             </button>
           </div>
-          <p className="text-xs text-[#444f3e] leading-relaxed">
+          <p className="text-xs text-[#3d4a36] leading-relaxed">
             {rev.replyFromShop}
           </p>
         </div>
@@ -246,13 +261,13 @@ export function ReviewCard({
           </div>
         </div>
       ) : !rev.replyFromShop ? (
-        <div className="flex items-center justify-end pt-0.5">
+        <div className="flex items-center justify-end pt-1">
           <button
             type="button"
             onClick={() => onOpenReply(rev)}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-[#326318] hover:bg-[#254d12] px-3 py-1 rounded-lg shadow-2xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#2b5619] hover:bg-[#1e3d12] px-3.5 py-1.5 rounded-lg shadow-2xs transition-all cursor-pointer"
           >
-            <MessageSquare size={11} />
+            <MessageSquare size={13} />
             <span>Phản hồi khách hàng</span>
           </button>
         </div>

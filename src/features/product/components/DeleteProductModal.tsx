@@ -121,22 +121,22 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
         }
       }}
     >
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200/90 animate-scaleUp relative overflow-hidden">
+      <div className="bg-white rounded-xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-stone-200/90 animate-scaleUp relative overflow-hidden">
         {/* Nút đóng (X) */}
         <button
           type="button"
           onClick={onClose}
           disabled={isDeleting}
           aria-label="Đóng hộp thoại"
-          className="absolute right-4 top-4 p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer disabled:opacity-50"
+          className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer disabled:opacity-50"
         >
           <X size={18} />
         </button>
 
         {/* Header với Icon cảnh báo */}
-        <div className="flex items-start gap-3.5 mb-4">
+        <div className="flex items-start gap-3 mb-3.5">
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${actionType.iconBg}`}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${actionType.iconBg}`}
           >
             {actionType.icon}
           </div>
@@ -144,7 +144,7 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
             <div className="flex items-center gap-2">
               <h3
                 id="delete-modal-title"
-                className="text-base sm:text-lg font-black text-[#1c2216]"
+                className="text-base font-black text-[#1c2216]"
               >
                 {actionType.title}
               </h3>
@@ -156,11 +156,11 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
         </div>
 
         {/* Thẻ xem trước Nông sản (Product preview card) */}
-        <div className="p-3 bg-[#fafcf9] border border-[#e3ebdc] rounded-2xl flex items-center gap-3.5 my-4">
+        <div className="p-3 bg-[#fafcf9] border border-[#e3ebdc] rounded-lg flex items-center gap-3 my-3.5">
           <img
             src={imgUrl}
             alt={prodName}
-            className="w-14 h-14 rounded-xl object-cover border border-[#d6e0cc] shrink-0"
+            className="w-12 h-12 rounded-lg object-cover border border-[#d6e0cc] shrink-0"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -183,20 +183,20 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
         </div>
 
         {/* Hộp ghi chú / lưu ý */}
-        <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2 mb-5">
-          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+        <div className="p-3 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2 mb-4">
+          <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
           <p className="leading-relaxed text-[11px] sm:text-xs text-amber-800">
             {actionType.warningDesc}
           </p>
         </div>
 
         {/* Nút hành động */}
-        <div className="flex items-center gap-2.5 pt-1">
+        <div className="flex items-center gap-2 pt-1">
           <button
             type="button"
             onClick={onClose}
             disabled={isDeleting}
-            className="flex-1 py-2.5 px-4 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+            className="flex-1 py-2 px-3.5 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
           >
             Giữ lại
           </button>
@@ -204,7 +204,7 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 ${actionType.confirmBtnBg}`}
+            className={`flex-1 py-2 px-3.5 rounded-lg text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 ${actionType.confirmBtnBg}`}
           >
             {isDeleting ? (
               <>

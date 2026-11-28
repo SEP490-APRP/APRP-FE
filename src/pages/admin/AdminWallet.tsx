@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Wallet, TrendingUp, Download, Loader2, AlertCircle, XCircle } from 'lucide-react'
+import {
+  Wallet,
+  TrendingUp,
+  Download,
+  Loader2,
+  AlertCircle,
+  XCircle,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react'
 import type { WithdrawRequestResponse } from '@/services'
 import {
   AdminPlatformLedger,
@@ -54,6 +63,7 @@ const AdminWallet: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'SUCCESS' | 'REJECTED' | 'PENDING'>(
     'ALL',
   )
+  const [activeWithdrawTab, setActiveWithdrawTab] = useState<'PENDING' | 'HISTORY'>('PENDING')
 
   const overview = useAdminWalletOverview()
   const createQr = useCreateWithdrawQr()
@@ -287,283 +297,302 @@ const AdminWallet: React.FC = () => {
         </div>
       </div>
 
-      {/* Withdrawal Queue */}
+      {/* Unified Withdrawal Management Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-8">
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="size-10 bg-amber-50 rounded-xl flex items-center justify-center">
               <Wallet className="size-5 text-amber-600" />
             </div>
-            <h3 className="font-bold text-gray-800 uppercase tracking-tight text-sm">
-              Hàng đợi yêu cầu rút tiền
-            </h3>
-          </div>
-          <button
-            disabled
-            title="Tính năng đang cập nhật"
-            className="text-xs font-bold text-gray-400 cursor-not-allowed"
-          >
-            Xử lý hàng loạt
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Mã / Chủ ví
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Phân loại
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Số tiền yêu cầu
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Thông tin ngân hàng
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Ngày yêu cầu
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Thao tác
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {pendingRequests.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center opacity-40">
-                      <Wallet className="size-12 mb-3 text-gray-300" />
-                      <p className="text-sm font-medium text-gray-500">
-                        Không có thêm yêu cầu nào đang chờ xử lý.
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                pendingRequests.map((req) => {
-                  const kind = getWithdrawOwnerKind(req)
-                  return (
-                    <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">
-                            {getWithdrawOwnerLabel(req)}
-                          </span>
-                          <span className="text-xs text-gray-400">Ví ID: {req.walletId}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2 py-1 text-xs font-bold rounded-md ${getWithdrawKindBadgeClass(kind)}`}
-                        >
-                          {kind}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-gray-900">
-                          {(req.amount || 0).toLocaleString('vi-VN')}{' '}
-                          <span className="font-normal">đ</span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-xs leading-tight">
-                          <p className="font-bold text-gray-700">
-                            {req.bankAccountNumber || '...'}
-                          </p>
-                          <p className="text-gray-400 uppercase">
-                            {req.bankName || 'Chưa cung cấp'}
-                          </p>
-                          {req.bankAccountName && (
-                            <p className="text-gray-600 font-semibold uppercase">{req.bankAccountName}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-gray-500 font-medium">
-                        {req.createdAt ? new Date(req.createdAt).toLocaleString('vi-VN') : 'Đang chờ'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleApprove(req.id)}
-                            disabled={isProcessing}
-                            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                          >
-                            DUYỆT
-                          </button>
-                          <button
-                            onClick={() => handleOpenReject(req.id)}
-                            disabled={isProcessing}
-                            className="px-4 py-2 bg-white border border-red-100 text-red-600 text-xs font-bold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
-                          >
-                            TỪ CHỐI
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* History Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-gray-100 rounded-xl flex items-center justify-center">
-              <svg
-                className="size-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
+            <div>
+              <h3 className="font-bold text-gray-800 uppercase tracking-tight text-sm">
+                Quản lý yêu cầu rút tiền
+              </h3>
+              <p className="text-xs text-gray-400">Duyệt giải ngân và theo dõi lịch sử rút tiền của thành viên</p>
             </div>
-            <h3 className="font-bold text-gray-800 uppercase tracking-tight text-sm">
-              Lịch sử giao dịch chi tiết
-            </h3>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={historyFilter}
-              onChange={(e) =>
-                setHistoryFilter(e.target.value as 'ALL' | 'SUCCESS' | 'REJECTED' | 'PENDING')
-              }
-              className="text-xs font-semibold border-gray-200 rounded-lg bg-gray-50 px-3 py-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="ALL">Tất cả giao dịch</option>
-              <option value="SUCCESS">Thành công</option>
-              <option value="REJECTED">Từ chối</option>
-              <option value="PENDING">Đang xử lý</option>
-            </select>
+
+          {/* Tab Navigation */}
+          <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100">
             <button
-              disabled
-              title="Tính năng đang cập nhật"
-              className="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold cursor-not-allowed transition-colors flex items-center gap-2"
+              type="button"
+              onClick={() => setActiveWithdrawTab('PENDING')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeWithdrawTab === 'PENDING'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
             >
-              <Download className="size-4" />
-              TẢI SAO KÊ
+              <Clock className="size-3.5 text-amber-500" />
+              Chờ duyệt
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  pendingRequests.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {pendingRequests.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveWithdrawTab('HISTORY')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeWithdrawTab === 'HISTORY'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <CheckCircle2 className="size-3.5 text-emerald-600" />
+              Lịch sử đã xử lý
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-gray-200 text-gray-600">
+                {history.length}
+              </span>
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Mã GD
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Loại
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Đối tác
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Số tiền
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Thời gian
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Ghi chú
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredHistory.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center opacity-40">
-                      <svg
-                        className="size-12 mb-3 text-gray-300"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <p className="text-sm font-medium text-gray-500">
-                        Không có lịch sử giao dịch.
-                      </p>
-                    </div>
-                  </td>
+        {/* Filters bar when in HISTORY tab */}
+        {activeWithdrawTab === 'HISTORY' && (
+          <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium">Bộ lọc:</span>
+              <select
+                value={historyFilter}
+                onChange={(e) =>
+                  setHistoryFilter(e.target.value as 'ALL' | 'SUCCESS' | 'REJECTED' | 'PENDING')
+                }
+                className="text-xs font-semibold border-gray-200 rounded-lg bg-white px-3 py-1.5 focus:ring-primary focus:border-primary"
+              >
+                <option value="ALL">Tất cả ({history.length})</option>
+                <option value="SUCCESS">Thành công ({history.filter((h) => h.status === 'SUCCESS').length})</option>
+                <option value="REJECTED">Bị từ chối ({history.filter((h) => h.status === 'REJECTED').length})</option>
+              </select>
+            </div>
+            <span className="text-xs text-gray-400">
+              Hiển thị {filteredHistory.length} / {history.length} yêu cầu
+            </span>
+          </div>
+        )}
+
+        {/* TAB 1: PENDING REQUESTS */}
+        {activeWithdrawTab === 'PENDING' && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Mã / Chủ ví
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Phân loại
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Số tiền yêu cầu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Thông tin ngân hàng
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Ngày yêu cầu
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Thao tác
+                  </th>
                 </tr>
-              ) : (
-                filteredHistory.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-xs font-bold text-gray-900">#{tx.id}</td>
-                    <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600">
-                        <span className="size-1.5 rounded-full bg-purple-600"></span>
-                        RÚT TIỀN
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-medium text-gray-600">
-                      {getWithdrawOwnerLabel(tx)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-xs font-bold text-gray-900">
-                      {tx.status === 'SUCCESS' ? '-' : ''}
-                      {(tx.amount || 0).toLocaleString('vi-VN')} đ
-                    </td>
-                    <td className="px-6 py-4 text-xs text-gray-400">
-                      {tx.processedAt || tx.createdAt
-                        ? new Date((tx.processedAt || tx.createdAt) as string).toLocaleString('vi-VN')
-                        : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          tx.status === 'SUCCESS'
-                            ? 'bg-green-50 text-green-600'
-                            : tx.status === 'REJECTED'
-                              ? 'bg-red-50 text-red-600'
-                              : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {tx.status === 'SUCCESS'
-                          ? 'THÀNH CÔNG'
-                          : tx.status === 'REJECTED'
-                            ? 'TỪ CHỐI'
-                            : 'ĐANG XỬ LÝ'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-gray-400 max-w-[200px] truncate">
-                      {tx.adminNote || `${tx.bankName} - ${tx.bankAccountNumber}`}
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {pendingRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center opacity-40">
+                        <Wallet className="size-12 mb-3 text-gray-300" />
+                        <p className="text-sm font-medium text-gray-500">
+                          Không có yêu cầu rút tiền nào đang chờ xử lý.
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  pendingRequests.map((req) => {
+                    const kind = getWithdrawOwnerKind(req)
+                    return (
+                      <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">
+                              {getWithdrawOwnerLabel(req)}
+                            </span>
+                            <span className="text-xs text-gray-400">Ví ID: {req.walletId} · YC #{req.id}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 text-xs font-bold rounded-md ${getWithdrawKindBadgeClass(kind)}`}
+                          >
+                            {kind}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-bold text-gray-900">
+                            {(req.amount || 0).toLocaleString('vi-VN')}{' '}
+                            <span className="font-normal">đ</span>
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-xs leading-tight">
+                            <p className="font-bold text-gray-700">
+                              {req.bankAccountNumber || '...'}
+                            </p>
+                            <p className="text-gray-400 uppercase">
+                              {req.bankName || 'Chưa cung cấp'}
+                            </p>
+                            {req.bankAccountName && (
+                              <p className="text-gray-600 font-semibold uppercase">{req.bankAccountName}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-500 font-medium">
+                          {req.createdAt ? new Date(req.createdAt).toLocaleString('vi-VN') : 'Đang chờ'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleApprove(req.id)}
+                              disabled={isProcessing}
+                              className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              DUYỆT
+                            </button>
+                            <button
+                              onClick={() => handleOpenReject(req.id)}
+                              disabled={isProcessing}
+                              className="px-4 py-2 bg-white border border-red-100 text-red-600 text-xs font-bold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              TỪ CHỐI
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-xs text-gray-400 font-medium">
-            Hiển thị {filteredHistory.length} / {history.length} giao dịch
-          </span>
-        </div>
+        {/* TAB 2: PROCESSED HISTORY */}
+        {activeWithdrawTab === 'HISTORY' && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Mã / Chủ ví
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Phân loại
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Số tiền
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Thông tin ngân hàng
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Thời gian xử lý
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Ghi chú / Chứng từ
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center opacity-40">
+                        <CheckCircle2 className="size-12 mb-3 text-gray-300" />
+                        <p className="text-sm font-medium text-gray-500">
+                          Chưa có lịch sử rút tiền nào.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredHistory.map((tx) => {
+                    const kind = getWithdrawOwnerKind(tx)
+                    return (
+                      <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">
+                              {getWithdrawOwnerLabel(tx)}
+                            </span>
+                            <span className="text-xs text-gray-400">YC #{tx.id} · Ví: {tx.walletId}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 text-xs font-bold rounded-md ${getWithdrawKindBadgeClass(kind)}`}
+                          >
+                            {kind}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right text-xs font-bold text-gray-900 whitespace-nowrap">
+                          {tx.status === 'SUCCESS' ? '-' : ''}
+                          {(tx.amount || 0).toLocaleString('vi-VN')}&nbsp;đ
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-xs leading-tight">
+                            <p className="font-bold text-gray-700">
+                              {tx.bankAccountNumber || '...'}
+                            </p>
+                            <p className="text-gray-400 uppercase">
+                              {tx.bankName || 'Chưa cung cấp'}
+                            </p>
+                            {tx.bankAccountName && (
+                              <p className="text-gray-600 font-semibold uppercase">{tx.bankAccountName}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-400">
+                          {tx.processedAt || tx.createdAt
+                            ? new Date((tx.processedAt || tx.createdAt) as string).toLocaleString('vi-VN')
+                            : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-bold ${
+                              tx.status === 'SUCCESS'
+                                ? 'bg-green-50 text-green-600'
+                                : tx.status === 'REJECTED'
+                                  ? 'bg-red-50 text-red-600'
+                                  : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {tx.status === 'SUCCESS'
+                              ? 'THÀNH CÔNG'
+                              : tx.status === 'REJECTED'
+                                ? 'TỪ CHỐI'
+                                : 'ĐANG XỬ LÝ'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-500 max-w-[200px] truncate">
+                          {tx.adminNote || tx.note || '—'}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* QR Code Modal */}
@@ -605,7 +634,7 @@ const AdminWallet: React.FC = () => {
                 </p>
                 <p className="text-sm text-gray-700">
                   <span className="font-bold">Số tiền:</span>{' '}
-                  {(qrRequest.receiveAmount ?? qrRequest.amount).toLocaleString('vi-VN')} đ
+                  <span className="font-bold whitespace-nowrap">{(qrRequest.receiveAmount ?? qrRequest.amount).toLocaleString('vi-VN')}&nbsp;đ</span>
                 </p>
                 <p className="text-sm text-gray-700">
                   <span className="font-bold">Tài khoản:</span> {qrRequest.bankAccountNumber}

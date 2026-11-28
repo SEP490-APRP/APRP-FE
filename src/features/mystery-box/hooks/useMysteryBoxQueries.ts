@@ -1,21 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { mysteryBoxService, type MysteryBoxCreationRequest } from '@/services'
+import { mysteryBoxService, type MysteryBoxCreationRequest, type MysteryBoxUpdateRequest } from '@/services'
 
 export const mysteryBoxKeys = {
   all: ['mystery-boxes'] as const,
   forBuyer: () => [...mysteryBoxKeys.all, 'for-buyer'] as const,
+  shop: (shopId: number) => [...mysteryBoxKeys.all, 'shop', shopId] as const,
   myShop: (page = 1, size = 10) => [...mysteryBoxKeys.all, 'my-shop', page, size] as const,
 }
 
 /** Túi mù đang bán của một shop. */
 export function useShopMysteryBoxes(shopId: number) {
   return useQuery({
-    queryKey: mysteryBoxKeys.forBuyer(),
+    queryKey: mysteryBoxKeys.shop(shopId),
     queryFn: async () => {
-      const page = await mysteryBoxService.getForBuyer()
-      return page?.content ?? []
+      const page = await mysteryBoxService.getForBuyer({ shopId, size: 50 })
+      const rawList = page?.content ?? (page as any)?.result?.content ?? []
+      return rawList.map((box: any) => ({
+        ...box,
+        id: box.mysteryId ?? box.id,
+        mysteryId: box.mysteryId ?? box.id,
+      }))
     },
-    select: (boxes) => boxes.filter((b) => (b.shopId ? b.shopId === shopId : b.shopOwnerId === shopId)),
+    select: (boxes) =>
+      boxes.filter((b: any) =>
+        b.shopId ? b.shopId === shopId : (b.shopOwnerId ? b.shopOwnerId === shopId : (b.shop?.id ? b.shop.id === shopId : true)),
+      ),
   })
 }
 
@@ -32,6 +41,32 @@ export function useCreateMysteryBox() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: MysteryBoxCreationRequest) => mysteryBoxService.createMysteryBox(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mysteryBoxKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
+/** Mutation cập nhật Túi Mù (gọi API thật BE PUT /mystery-boxes/{id}) */
+export function useUpdateMysteryBox() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: MysteryBoxUpdateRequest }) =>
+      mysteryBoxService.updateMysteryBox(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mysteryBoxKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
+/** Mutation bật/tắt Túi Mù (gọi API thật BE PATCH /mystery-boxes/{id}/status) */
+export function useToggleMysteryBoxStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      mysteryBoxService.toggleStatus(id, isActive),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mysteryBoxKeys.all })
       queryClient.invalidateQueries({ queryKey: ['products'] })

@@ -10,6 +10,8 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Banknote,
+  Flame,
+  Warehouse,
   BarChart3,
   Bell,
   Gavel,
@@ -40,6 +42,8 @@ import { Drawer } from '@/components/ui/Drawer'
 import { Skeleton, TableSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/StateViews'
 import { cn } from '@/utils'
+import { useNewProposalBadge } from '@/features/campaign/hooks/useNewProposalBadge'
+import { useHubArrivalBadge } from '@/features/campaign/hooks/useHubArrivalBadge'
 
 /* ------------------------------------------------------------------ */
 /* Tách code theo tab: người mua không phải tải ~250KB code admin       */
@@ -57,10 +61,9 @@ const TABS = {
     page: lazy(() => import('./UserReport')),
   },
   kyc: {
-    name: 'Duyệt hồ sơ KYC',
+    name: 'Duyệt hồ sơ',
     icon: ShieldCheck,
     page: lazy(() => import('./KYCApproval')),
-    badge: 'Mới',
   },
   products: {
     name: 'Duyệt nông sản',
@@ -68,9 +71,9 @@ const TABS = {
     page: lazy(() => import('./ProductApproval')),
   },
   disputes: { name: 'Khiếu nại & Hoàn tiền', icon: Gavel, page: lazy(() => import('./Disputes')) },
-  shops: { name: 'Giám sát Shop', icon: Store, page: lazy(() => import('./ShopMonitoring')) },
+  shops: { name: 'Giám sát Cửa hàng', icon: Store, page: lazy(() => import('./ShopMonitoring')) },
   shippers: {
-    name: 'Quản lý Shipper',
+    name: 'Quản lý Giao hàng',
     icon: Truck,
     page: lazy(() => import('./ShipperManagement')),
   },
@@ -80,16 +83,26 @@ const TABS = {
     page: lazy(() => import('./BadBuyers')),
   },
   cod: {
-    name: 'Đối soát COD Shipper',
+    name: 'Đối soát COD Giao hàng',
     icon: Banknote,
     page: lazy(() => import('./CodSettlement')),
   },
+  campaigns: {
+    name: 'Chiến dịch giải cứu',
+    icon: Flame,
+    page: lazy(() => import('./AdminCampaigns')),
+    badge: 'Mới',
+  },
+  hubs: {
+    name: 'Điểm trung chuyển (Hub)',
+    icon: Warehouse,
+    page: lazy(() => import('./AdminHubs')),
+  },
   wallet: { name: 'Ví sàn & Rút tiền', icon: Wallet, page: lazy(() => import('./AdminWallet')) },
   vouchers: {
-    name: 'Voucher toàn sàn',
+    name: 'Mã giảm giá',
     icon: Ticket,
     page: lazy(() => import('./VoucherManagement')),
-    badge: 'Mới',
   },
   news: { name: 'Quản lý tin tức', icon: Newspaper, page: lazy(() => import('./NewsManagement')) },
   notifications: {
@@ -118,6 +131,7 @@ const SECTIONS: { title: string; items: AdminTabId[] }[] = [
   { title: 'Tổng quan & Báo cáo', items: ['overview', 'user-report'] },
   { title: 'Kiểm duyệt & Đánh giá', items: ['kyc', 'products', 'disputes', 'reviews'] },
   { title: 'Thành viên', items: ['shops', 'shippers', 'bad-buyers'] },
+  { title: 'Chiến dịch', items: ['campaigns', 'hubs'] },
   { title: 'Tài chính & Đối soát', items: ['cod', 'wallet', 'vouchers'] },
   { title: 'Truyền thông & CSKH', items: ['news', 'notifications', 'messages'] },
 ]
@@ -143,6 +157,10 @@ type AdminPortalProps = {
 export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPortalProps) {
   const { user: storeUser, token } = useAuth()
   const { unreadTotal, loadConversations, loadUnreadCount, initRealtime } = useChatStore()
+  // Số đề xuất chiến dịch mới từ shop, admin mở tab xem rồi thì mất
+  const { count: newProposals } = useNewProposalBadge()
+  // Số đơn xe tải đã giao tới hub đang chờ xác nhận
+  const { count: newArrivals } = useHubArrivalBadge()
   const { unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen } = useNotificationStore()
   const routerNavigate = useNavigate()
   const routerLocation = useLocation()
@@ -236,14 +254,22 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
                       <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
                         {unreadTotal}
                       </span>
-                    ) : 'badge' in item && item.badge ? (
+                    ) : id === 'campaigns' && newProposals > 0 ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newProposals} đề xuất mới từ shop`}>
+                        {newProposals}
+                      </span>
+                    ) : id === 'hubs' && newArrivals > 0 ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newArrivals} đơn chờ hub xác nhận`}>
+                        {newArrivals}
+                      </span>
+                    ) : 'badge' in item && (item as { badge?: React.ReactNode }).badge ? (
                       <span
                         className={cn(
                           'rounded-full px-2 py-0.5 text-caption font-bold',
                           active ? 'bg-white/20' : 'bg-leaf-100 text-leaf-800',
                         )}
                       >
-                        {item.badge}
+                        {(item as { badge?: React.ReactNode }).badge}
                       </span>
                     ) : null}
                   </a>
@@ -256,11 +282,19 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
     </nav>
   )
 
-  const initials = activeUser.name
-    .split(/\s+/)
-    .slice(-2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('')
+  const displayName =
+    !activeUser.name || activeUser.name.toLowerCase() === 'admin'
+      ? 'Quản trị viên'
+      : activeUser.name
+
+  const initials =
+    !activeUser.name || activeUser.name.toLowerCase() === 'admin'
+      ? 'QTV'
+      : activeUser.name
+          .split(/\s+/)
+          .slice(-2)
+          .map((w) => w[0]?.toUpperCase())
+          .join('')
 
   return (
     <div className="flex h-dvh bg-paper text-ink">
@@ -278,14 +312,14 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
         <div className="flex-1 overflow-y-auto p-4">{nav}</div>
         <div className="flex items-center gap-3 border-t border-line p-4">
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf-800 text-caption font-bold text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf-800 text-caption font-bold text-white shadow-xs"
             aria-hidden
           >
-            {initials || 'AD'}
+            {initials || 'QTV'}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{activeUser.name}</p>
-            <p className="text-caption text-ink-muted">Quản trị viên</p>
+            <p className="truncate text-sm font-bold">{displayName}</p>
+            <p className="text-caption text-ink-muted">Toàn quyền hệ thống</p>
           </div>
           {onLogout && (
             <Button variant="ghost" size="icon" onClick={onLogout} aria-label="Đăng xuất">
@@ -357,14 +391,14 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
             {/* Profile Admin tóm tắt */}
             <div className="hidden sm:flex items-center gap-2.5 pl-1 border-l border-line">
               <div className="text-right">
-                <p className="text-xs font-bold text-ink leading-tight">{activeUser.name || 'Admin Hệ Thống'}</p>
-                <p className="text-[10px] font-semibold text-leaf-700 leading-tight">Root Access</p>
+                <p className="text-xs font-bold text-ink leading-tight">{displayName}</p>
+                <p className="text-[10px] font-semibold text-leaf-700 leading-tight">Quản trị viên tối cao</p>
               </div>
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf-800 text-caption font-bold text-white shadow-xs"
                 aria-hidden
               >
-                {initials || 'AD'}
+                {initials || 'QTV'}
               </span>
             </div>
           </div>

@@ -13,8 +13,8 @@ export const OrderTrackingCard: React.FC<OrderTrackingCardProps> = ({ tracking }
   const toggleOpen = useChatbotStore((s) => s.toggleOpen)
 
   const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+    if (!val) return '0\u00A0đ'
+    return new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
   }
 
   // Xác định tab phù hợp trên trang /orders theo đúng trạng thái đơn
@@ -147,9 +147,9 @@ export const OrderTrackingCard: React.FC<OrderTrackingCardProps> = ({ tracking }
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-1 border-t border-[#e5e2da]">
-          <span className="text-[11px] text-[#5f6b57]">Tổng thanh toán:</span>
-          <span className="text-sm font-bold text-[#326318]">
+        <div className="flex items-center justify-between pt-1 border-t border-[#e5e2da] gap-2">
+          <span className="text-[11px] text-[#5f6b57] whitespace-nowrap">Tổng thanh toán:</span>
+          <span className="text-sm font-bold text-[#326318] whitespace-nowrap shrink-0">
             {formatPrice(tracking.totalAmount)}
           </span>
         </div>

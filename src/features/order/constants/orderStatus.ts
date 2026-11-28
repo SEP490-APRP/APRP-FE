@@ -18,7 +18,9 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Hoàn thành',
   PAID: 'Đã thanh toán',
   CANCELLED: 'Đã hủy',
-  FAILED: 'Thất bại',
+  FAILED: 'Giao thất bại',
+  RETURNING_TO_SHOP: 'Giao thất bại · Đang hoàn về',
+  RETURNED_TO_SHOP: 'Giao thất bại · Đã hoàn về',
   REFUND_REQUESTED: 'Yêu cầu trả hàng',
   REFUNDED: 'Đã hoàn tiền',
 }
@@ -50,6 +52,8 @@ export function getOrderStatusBadgeClass(status?: string | null): string {
       return 'bg-amber-50 text-amber-700 border-amber-200'
     case 'CANCELLED':
     case 'FAILED':
+    case 'RETURNING_TO_SHOP':
+    case 'RETURNED_TO_SHOP':
     case 'QUALITY_REJECTED':
       return 'bg-rose-50 text-rose-700 border-rose-200'
     default:

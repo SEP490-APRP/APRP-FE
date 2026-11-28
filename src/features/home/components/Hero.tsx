@@ -52,14 +52,14 @@ export default function Hero() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
             <a
               className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-primary-container hover:bg-primary text-white font-bold text-sm sm:text-base transition-all transform hover:-translate-y-0.5 shadow-lg shadow-primary-container/30 min-h-[46px]"
-              href="/giai-cuu-hom-nay"
+              href="#giai-cuu-hom-nay"
             >
               <ShoppingBasket size={20} aria-hidden />
               <span>Mua ngay hôm nay</span>
             </a>
             <a
               className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-full bg-white/15 hover:bg-white/25 text-surface-bright border border-white/25 backdrop-blur-md font-bold text-sm sm:text-base transition-all min-h-[46px]"
-              href="/cong-nghe-ai"
+              href="#cong-nghe-ai"
             >
               <PlayCircle size={20} aria-hidden />
               <span>Xem cách hoạt động</span>
@@ -70,26 +70,26 @@ export default function Hero() {
           <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-5 mt-2 sm:mt-4 border-t border-white/20">
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-tertiary-fixed-dim font-extrabold tracking-tight">
-                12.000+
+                100%
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Đơn giải cứu
+                Thu hoạch trong ngày
               </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-primary-fixed font-extrabold tracking-tight">
-                500+
+                2–4 Giờ
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Nông dân liên kết
+                Giao hàng xanh
               </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl lg:text-3xl text-surface-bright font-extrabold tracking-tight">
-                30 Tấn
+                5.0 ★
               </span>
               <span className="text-caption sm:text-sm text-surface-container-highest mt-0.5">
-                Tránh lãng phí
+                Đánh giá chất lượng
               </span>
             </div>
           </div>

@@ -3,16 +3,18 @@ import {
   Categories,
   CombosTeaser,
   FarmerStory,
-  Hero,
+  HeroCarousel,
   Newsletter,
   RescueProcess,
   Testimonials,
   TodayRescue,
 } from '@/features/home'
-import type { Cart } from '@/mocks/catalog'
+import { CampaignSpotlight } from '@/features/campaign/components/CampaignSpotlight'
+
+type Cart = Record<string, number>
 
 type HomeProps = {
-  onAdd: (id: string) => void
+  onAdd: (id: string | number, itemType?: string) => void
   onInfo: (title: string) => void
   cart?: Cart
 }
@@ -25,7 +27,7 @@ type HomeProps = {
 export default function Home({ onAdd, onInfo, cart }: HomeProps) {
   return (
     <>
-      <Hero />
+      <HeroCarousel />
       <Categories />
       <TodayRescue onAdd={onAdd} cart={cart} />
       <CombosTeaser onAdd={onAdd} />
@@ -34,6 +36,7 @@ export default function Home({ onAdd, onInfo, cart }: HomeProps) {
       <FarmerStory />
       <Testimonials />
       <Newsletter onInfo={onInfo} />
+      <CampaignSpotlight />
     </>
   )
 }

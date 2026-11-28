@@ -28,13 +28,13 @@ describe('NotificationDropdown Component', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('hiển thị trạng thái trống khi không có thông báo', () => {
+  it('hiển thị trạng thái trống khi không có thông báo', async () => {
     render(
       <MemoryRouter>
         <NotificationDropdown isOpen={true} onClose={vi.fn()} />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Chưa có thông báo nào')).toBeDefined()
+    expect(await screen.findByText('Chưa có thông báo nào')).toBeDefined()
   })
 
   it('hiển thị danh sách thông báo và tương tác markAsRead, markAllAsRead, deleteNotification', () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from 'react'
+import React, { useEffect, useMemo, useCallback, useRef } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { useAuth } from '@/stores'
 import { useChatStore } from '@/stores/useChatStore'
@@ -21,6 +21,7 @@ export interface ChatWorkspaceProps {
 }
 
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
+  currentUserRole,
   canModerateAnyMessage = false,
   targetChatId,
   storageKeyPrefix = 'chat',
@@ -30,6 +31,11 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   sidebarWidthClass = 'w-72 sm:w-80',
 }) => {
   const { user, token } = useAuth()
+  const resolvedUserRole = (currentUserRole || user?.role?.toUpperCase() || 'BUYER') as
+    | 'BUYER'
+    | 'SHOP'
+    | 'ADMIN'
+  const appliedTargetChatIdRef = useRef<string | null>(null)
   const {
     conversations,
     activeConversation,
@@ -73,20 +79,27 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   useEffect(() => {
     if (conversations.length === 0) return
 
-    // 1. Ưu tiên targetChatId nếu được truyền vào
-    if (targetChatId) {
+    // 1. Ưu tiên targetChatId nếu được truyền vào (chỉ tự động áp dụng 1 lần cho mỗi targetChatId)
+    if (targetChatId && appliedTargetChatIdRef.current !== targetChatId) {
       const found = conversations.find(
         (c) => String(c.id) === targetChatId || String(c.otherUserId) === targetChatId,
       )
       if (found) {
-        selectConversation(found)
+        appliedTargetChatIdRef.current = targetChatId
+        if (
+          !activeConversation ||
+          (Number(activeConversation.id) !== Number(found.id) &&
+            Number(activeConversation.otherUserId) !== Number(found.otherUserId))
+        ) {
+          selectConversation(found)
+        }
         return
       }
     }
 
-    // 2. Kiểm tra sessionStorage
-    const savedConvId = sessionStorage.getItem(`${storageKeyPrefix}_selected_chat_id`)
+    // 2. Kiểm tra sessionStorage khi chưa có hội thoại nào đang mở
     if (!activeConversation) {
+      const savedConvId = sessionStorage.getItem(`${storageKeyPrefix}_selected_chat_id`)
       if (savedConvId) {
         const found = conversations.find(
           (c) => String(c.id) === savedConvId || String(c.otherUserId) === savedConvId,
@@ -187,11 +200,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             <ChatMessageList
               messages={currentMessages}
               currentUserId={user?.id || '0'}
+              currentUserRole={resolvedUserRole}
               activeConversation={activeConversation}
               isLoading={isLoadingMessages}
               isOtherTyping={isOtherTyping}
               canModerateAnyMessage={canModerateAnyMessage}
               onDeleteMessage={handleDeleteMessage}
+              onQuickReply={(text) => void handleSendMessage(text, 'TEXT')}
             />
 
             {/* Thanh nhập tin nhắn */}

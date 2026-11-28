@@ -10,11 +10,40 @@ import type {
   ProductResponse,
   ProductUpdateRequest,
 } from './product.types'
-import { mockBuyerProducts, mockPendingProducts } from '@/mocks/product.mock'
 import { axiosInstance } from './api/axiosInstance'
-import { ENV } from '@/utils'
 
 export type * from './product.types'
+
+/** Chuẩn hóa định dạng ngày từ Backend (mảng Jackson [YYYY, MM, DD], chuỗi YYYY-MM-DD, chuỗi nén YYYYMMDD) thành YYYY-MM-DD */
+export function normalizeExpiryDate(val: any): string | undefined {
+  if (!val) return undefined
+  if (Array.isArray(val) && val.length >= 3) {
+    const y = String(val[0]).padStart(4, '0')
+    const m = String(val[1]).padStart(2, '0')
+    const d = String(val[2]).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  if (typeof val === 'number') {
+    const numStr = String(val)
+    if (numStr.length === 8 && /^\d{8}$/.test(numStr)) {
+      return `${numStr.substring(0, 4)}-${numStr.substring(4, 6)}-${numStr.substring(6, 8)}`
+    }
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (trimmed.includes(',')) {
+      const parts = trimmed.split(',')
+      if (parts.length >= 3) {
+        return `${parts[0].trim().padStart(4, '0')}-${parts[1].trim().padStart(2, '0')}-${parts[2].trim().padStart(2, '0')}`
+      }
+    }
+    if (trimmed.length === 8 && /^\d{8}$/.test(trimmed)) {
+      return `${trimmed.substring(0, 4)}-${trimmed.substring(4, 6)}-${trimmed.substring(6, 8)}`
+    }
+    return trimmed.split('T')[0]
+  }
+  return undefined
+}
 
 /** Chuẩn hóa ProductResponse từ BE để tương thích 100% với UI FE cũ và mới */
 function normalizeProduct(p: any): ProductResponse {
@@ -25,6 +54,9 @@ function normalizeProduct(p: any): ProductResponse {
   const primaryImg = p.images?.find((img: any) => img.isPrimary)?.imageUrl
   const firstImg = p.images?.[0]?.imageUrl
   const imageUrl = primaryImg ?? firstImg ?? p.imageUrl ?? p.image ?? ''
+  const shopId = Number(p.shop?.id ?? p.shopId ?? p.shopOwnerId ?? 0)
+  const shopName = p.shop?.shopName ?? p.shop?.fullName ?? p.shopName ?? ''
+  const expiryDate = normalizeExpiryDate(p.expiryDate)
 
   return {
     ...p,
@@ -39,36 +71,25 @@ function normalizeProduct(p: any): ProductResponse {
     imageUrl,
     image: imageUrl,
     primaryImageUrl: primaryImg ?? imageUrl,
+    shopId,
+    shopOwnerId: shopId,
+    shopName,
+    expiryDate,
   }
 }
 
-// In-memory mock store cho farmer products khi chạy offline/mock
-let localFarmerProducts: ProductResponse[] = [...mockBuyerProducts]
-
 export const productService = {
-  async getAll(params?: { categoryId?: number; keyword?: string; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
+  async getAll(params?: { categoryId?: number; keyword?: string; shopId?: number; page?: number; size?: number }): Promise<ApiResponse<ProductResponse[]>> {
     try {
       const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products', {
-        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 50, ...params },
+        params: { status: 'ACTIVE', page: params?.page ?? 1, size: params?.size ?? 100, ...params },
       })
       const items = (res.data.result?.content ?? []).map(normalizeProduct)
-      if (items.length > 0) {
-        return { code: 1000, result: items }
-      }
+      return { code: 1000, result: items }
     } catch (e) {
-      console.warn('Cannot fetch products from backend API, using local mock fallback:', e)
+      console.warn('Cannot fetch products from backend API:', e)
+      return { code: 1000, result: [] }
     }
-
-    // Fallback to local mock
-    let list = [...localFarmerProducts]
-    if (params?.categoryId) {
-      list = list.filter((p: any) => p.categoryId === params.categoryId || p.category?.categoryId === params.categoryId)
-    }
-    if (params?.keyword) {
-      const kw = params.keyword.toLowerCase()
-      list = list.filter((p: any) => (p.name || p.productName || '').toLowerCase().includes(kw))
-    }
-    return { code: 1000, result: list }
   },
 
   async getAllProducts(): Promise<ApiResponse<ProductResponse[]>> {
@@ -89,42 +110,15 @@ export const productService = {
         }
       }
     } catch (e) {
-      console.warn(`Cannot fetch product id ${id} from backend API, using local mock:`, e)
+      console.warn(`Cannot fetch product id ${id} from backend API:`, e)
     }
-
-    const found = localFarmerProducts.find((p) => p.id === id)
-    return { code: 1000, result: found ? normalizeProduct(found) : null }
+    return { code: 1000, result: null }
   },
 
   /** Lấy danh sách sản phẩm của nông dân/gian hàng hiện tại (hỗ trợ lọc status, phân trang) */
   async getMyProducts(
     params: GetMyProductsParams = {},
   ): Promise<ApiResponse<PageResponse<ProductResponse>>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      let filtered = [...localFarmerProducts]
-      if (params.status && params.status !== 'ALL') {
-        filtered = filtered.filter((p) => p.status === params.status)
-      }
-      const page = params.page ?? 1
-      const size = params.size ?? 20
-      const start = (page - 1) * size
-      const paged = filtered.slice(start, start + size)
-
-      return {
-        code: 1000,
-        result: {
-          page,
-          size,
-          totalElements: filtered.length,
-          totalPages: Math.ceil(filtered.length / size) || 1,
-          first: page === 1,
-          last: start + size >= filtered.length,
-          content: paged.map(normalizeProduct),
-        },
-      }
-    }
-
     const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products/my-shop', {
       params: {
         status: params.status && params.status !== 'ALL' ? params.status : undefined,
@@ -153,28 +147,6 @@ export const productService = {
 
   /** Nông dân tạo mới nông sản */
   async createProduct(request: ProductCreationRequest): Promise<ApiResponse<ProductResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 200))
-      const newId = Date.now()
-      const newProd: ProductResponse = {
-        id: newId,
-        productId: newId,
-        productName: request.productName,
-        name: request.productName,
-        price: request.sellingPrice,
-        sellingPrice: request.sellingPrice,
-        stock: request.stockQuantity,
-        stockQuantity: request.stockQuantity,
-        unit: request.unit,
-        description: request.description,
-        status: 'PENDING',
-        expiryDate: request.expiryDate,
-        createdAt: new Date().toISOString(),
-      }
-      localFarmerProducts.unshift(newProd)
-      return { code: 1000, result: newProd }
-    }
-
     const res = await axiosInstance.post<ApiResponse<any>>('/products', request)
     return {
       code: res.data.code ?? 1000,
@@ -188,27 +160,6 @@ export const productService = {
     id: number,
     request: ProductUpdateRequest,
   ): Promise<ApiResponse<ProductResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 200))
-      const idx = localFarmerProducts.findIndex((p) => p.id === id)
-      if (idx !== -1) {
-        localFarmerProducts[idx] = {
-          ...localFarmerProducts[idx],
-          productName: request.productName,
-          name: request.productName,
-          price: request.sellingPrice,
-          sellingPrice: request.sellingPrice,
-          stock: request.stockQuantity,
-          stockQuantity: request.stockQuantity,
-          unit: request.unit,
-          description: request.description,
-          expiryDate: request.expiryDate,
-          status: (request.status as any) || 'PENDING',
-        }
-        return { code: 1000, result: localFarmerProducts[idx] }
-      }
-    }
-
     const res = await axiosInstance.put<ApiResponse<any>>(`/products/${id}`, request)
     return {
       code: res.data.code ?? 1000,
@@ -219,39 +170,12 @@ export const productService = {
 
   /** Nông dân xóa/tạm ngưng nông sản */
   async deleteProduct(id: number): Promise<ApiResponse<void>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      localFarmerProducts = localFarmerProducts.filter((p) => p.id !== id)
-      return { code: 1000, message: 'Đã xóa sản phẩm' }
-    }
-
     const res = await axiosInstance.delete<ApiResponse<void>>(`/products/${id}`)
     return res.data
   },
 
   /** Lấy danh sách ảnh trong gallery của sản phẩm */
   async getImages(productId: number): Promise<ApiResponse<ProductImageResponse[]>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 100))
-      const found = localFarmerProducts.find((p) => p.id === productId)
-      if (found?.images && found.images.length > 0) {
-        return { code: 1000, result: found.images }
-      }
-      return {
-        code: 1000,
-        result: [
-          {
-            id: 1,
-            imageUrl:
-              found?.imageUrl ||
-              'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?auto=format&fit=crop&w=600&q=80',
-            isPrimary: true,
-            displayOrder: 1,
-          },
-        ],
-      }
-    }
-
     const res = await axiosInstance.get<ApiResponse<ProductImageResponse[]>>(
       `/products/${productId}/images`,
     )
@@ -263,25 +187,6 @@ export const productService = {
     productId: number,
     request: ProductImageCreationRequest,
   ): Promise<ApiResponse<ProductImageResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 200))
-      const newImg: ProductImageResponse = {
-        id: Date.now(),
-        imageUrl: request.imageUrl,
-        isPrimary: request.isPrimary ?? false,
-        displayOrder: request.displayOrder ?? 0,
-      }
-      const prod = localFarmerProducts.find((p) => p.id === productId)
-      if (prod) {
-        if (!prod.images) prod.images = []
-        if (newImg.isPrimary) {
-          prod.images.forEach((img) => (img.isPrimary = false))
-        }
-        prod.images.push(newImg)
-      }
-      return { code: 1000, result: newImg }
-    }
-
     const res = await axiosInstance.post<ApiResponse<ProductImageResponse>>(
       `/products/${productId}/images`,
       request,
@@ -294,23 +199,6 @@ export const productService = {
     productId: number,
     imageId: number,
   ): Promise<ApiResponse<ProductImageResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      const prod = localFarmerProducts.find((p) => p.id === productId)
-      let targetImg: ProductImageResponse | undefined
-      if (prod?.images) {
-        prod.images.forEach((img) => {
-          if (img.id === imageId) {
-            img.isPrimary = true
-            targetImg = img
-          } else {
-            img.isPrimary = false
-          }
-        })
-      }
-      return { code: 1000, result: targetImg }
-    }
-
     const res = await axiosInstance.patch<ApiResponse<ProductImageResponse>>(
       `/products/${productId}/images/${imageId}/primary`,
     )
@@ -319,15 +207,6 @@ export const productService = {
 
   /** Xóa ảnh khỏi gallery sản phẩm */
   async deleteImage(productId: number, imageId: number): Promise<ApiResponse<void>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      const prod = localFarmerProducts.find((p) => p.id === productId)
-      if (prod?.images) {
-        prod.images = prod.images.filter((img) => img.id !== imageId)
-      }
-      return { code: 1000, message: 'Đã xóa ảnh' }
-    }
-
     const res = await axiosInstance.delete<ApiResponse<void>>(
       `/products/${productId}/images/${imageId}`,
     )
@@ -335,10 +214,6 @@ export const productService = {
   },
 
   async getPendingProducts(): Promise<ApiResponse<ProductResponse[]>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      return { code: 1000, result: mockPendingProducts.filter((p) => p.status === 'PENDING') }
-    }
     const res = await axiosInstance.get<ApiResponse<PageResponse<any>>>('/products', {
       params: { status: 'PENDING', page: 1, size: 50 },
     })
@@ -349,12 +224,6 @@ export const productService = {
   },
 
   async approveProduct(productId: number): Promise<ApiResponse<ProductResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 200))
-      const p = mockPendingProducts.find((item) => item.id === productId)
-      if (p) p.status = 'APPROVED'
-      return { code: 1000, result: p as any, message: 'Duyệt sản phẩm thành công' }
-    }
     const res = await axiosInstance.patch<ApiResponse<any>>(`/products/${productId}/approve`)
     return {
       code: 1000,
@@ -364,15 +233,6 @@ export const productService = {
   },
 
   async rejectProduct(productId: number, reason: string): Promise<ApiResponse<ProductResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 200))
-      const p = mockPendingProducts.find((item) => item.id === productId)
-      if (p) {
-        p.status = 'REJECTED'
-        p.defectReason = reason
-      }
-      return { code: 1000, result: p as any, message: 'Đã từ chối duyệt sản phẩm' }
-    }
     const res = await axiosInstance.patch<ApiResponse<any>>(`/products/${productId}/reject`, {
       reason,
     })
@@ -388,20 +248,6 @@ export const productService = {
     productId: number,
     imageId: number,
   ): Promise<ApiResponse<ProductImageResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 150))
-      return {
-        code: 1000,
-        result: {
-          id: imageId,
-          imageUrl: '',
-          isApproved: true,
-          isFlagged: false,
-        },
-        message: 'Đã phê duyệt ảnh sản phẩm',
-      }
-    }
-
     const res = await axiosInstance.patch<ApiResponse<ProductImageResponse>>(
       `/products/${productId}/images/${imageId}/approve`,
     )
@@ -412,22 +258,6 @@ export const productService = {
   async suggestDescription(
     request: AiDescriptionSuggestionRequest,
   ): Promise<ApiResponse<AiDescriptionSuggestionResponse>> {
-    if (ENV.USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 800))
-      return {
-        code: 1000,
-        result: {
-          suggestedDescription: `Nông sản tươi ngon ${request.productName} được thu hoạch trực tiếp từ vùng trồng ${request.origin || 'Đà Lạt'}. Tuy hình dáng có chút tự nhiên méo mó mộc mạc của nông sản giải cứu nhưng giữ trọn vị ngọt thanh mát, độ tươi giòn và giàu dưỡng chất tự nhiên.`,
-          keyHighlights: [
-            'Thu hoạch tươi ngon trực tiếp tại vườn',
-            'Canh tác an toàn, đảm bảo chất lượng',
-            'Chung tay giải cứu nông sản địa phương',
-          ],
-          generatedSource: 'MOCK_GEMINI',
-        },
-      }
-    }
-
     const res = await axiosInstance.post<ApiResponse<AiDescriptionSuggestionResponse>>(
       '/products/ai-suggest-description',
       request,

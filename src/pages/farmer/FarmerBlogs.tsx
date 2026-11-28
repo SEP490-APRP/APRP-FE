@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { BookOpen, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { ShopPageHeader } from '@/features/shop'
 import {
   useMyBlogs,
   useDeleteShopBlog,
@@ -74,28 +75,22 @@ export const FarmerBlogs: React.FC<FarmerBlogsProps> = ({ onInfo }) => {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+    <div className="space-y-6 animate-fadeIn pb-12">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-[#1c2216] flex items-center gap-2">
-            <BookOpen className="text-[#326318]" size={26} />
-            <span>Quản Lý Bài Viết &amp; Câu Chuyện Nhà Vườn</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-[#666f60] mt-1">
-            Chia sẻ quá trình canh tác, nhật ký mùa vụ và kết nối tình cảm với hàng ngàn khách mua.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleOpenCreate}
-          className="px-5 py-3 rounded-2xl bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
-        >
-          <Plus size={18} />
-          <span>Viết bài chia sẻ mới</span>
-        </button>
-      </div>
+      <ShopPageHeader
+        title="Quản Lý Bài Viết & Câu Chuyện Nhà Vườn"
+        subtitle="Chia sẻ quá trình canh tác, nhật ký mùa vụ và kết nối tình cảm với hàng ngàn khách mua"
+        actions={
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="px-4 py-2 rounded-lg bg-[#2b5619] hover:bg-[#1f3f12] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+          >
+            <Plus size={15} />
+            <span>Viết bài chia sẻ mới</span>
+          </button>
+        }
+      />
 
       {/* 2. Thống kê */}
       <BlogStatsCards

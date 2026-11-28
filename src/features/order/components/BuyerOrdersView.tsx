@@ -12,18 +12,24 @@ import {
   Star,
   RotateCcw,
   PackageCheck,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
+import Modal from '@/components/ui/Modal'
 import { OrderStatusBadge } from './OrderStatusBadge'
 import { PaymentQrModal } from './PaymentQrModal'
 import { ResumePaymentModal } from './ResumePaymentModal'
 import { BatchCheckoutGroupCard } from './BatchCheckoutGroupCard'
 import { CancelOrderModal } from './CancelOrderModal'
 import { ReturnRequestModal } from './ReturnRequestModal'
+import { BuyerOrderDetailModal } from './BuyerOrderDetailModal'
 import { GoogleMapTrackingModal } from '@/components/map/GoogleMapTrackingModal'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 import { ReviewModal } from '@/features/review'
-import { orderService, paymentService } from '@/services'
+import { orderService, paymentService, campaignService, productService, reviewService } from '@/services'
+import type { PreOrderResponse, ReviewResponse } from '@/services'
+import { PreOrderCard, PRE_ORDER_TAB_STATUSES } from './PreOrderCard'
 import type { OrderResponse, OrderStatus, OrderItem } from '@/types/order.types'
 import type { PaymentResponse, ResumePaymentOptionsResponse } from '@/types/payment.types'
 import { useAuth } from '@/stores'
@@ -37,12 +43,19 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'SHIPPING', label: 'Đang vận chuyển' },
   { key: 'COMPLETED', label: 'Đã hoàn thành' },
   { key: 'REFUND', label: 'Trả hàng / Hoàn tiền' },
-  { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'CANCELLED', label: 'Đã hủy / Thất bại' },
 ]
 
 type OrderDisplayItem =
   | { kind: 'batch'; batchId: number; orders: OrderResponse[] }
   | { kind: 'single'; order: OrderResponse }
+  | { kind: 'pre'; preOrder: PreOrderResponse }
+
+const itemTime = (it: OrderDisplayItem): number => {
+  const raw = it.kind === 'pre' ? it.preOrder.createdAt : it.kind === 'batch' ? it.orders[0]?.createdAt : it.order.createdAt
+  const t = raw ? new Date(raw).getTime() : 0
+  return Number.isNaN(t) ? 0 : t
+}
 
 export const BuyerOrdersView: React.FC = () => {
   const { user } = useAuth()
@@ -53,6 +66,9 @@ export const BuyerOrdersView: React.FC = () => {
   const orderIdParam = searchParams.get('orderId')
   const [searchKeyword, setSearchKeyword] = useState(orderIdParam || '')
   const [orders, setOrders] = useState<OrderResponse[]>([])
+  // Đơn đặt trước của chiến dịch giải cứu: hiển thị chung danh sách, gắn mác "Chiến dịch"
+  const [preOrders, setPreOrders] = useState<PreOrderResponse[]>([])
+  const [cancellingPreOrderId, setCancellingPreOrderId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<number | null>(null)
@@ -87,11 +103,59 @@ export const BuyerOrdersView: React.FC = () => {
   const [reviewModalItem, setReviewModalItem] = useState<OrderItem | null>(null)
   const [reviewModalOrderId, setReviewModalOrderId] = useState<number | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [myReviewsMap, setMyReviewsMap] = useState<Record<number, ReviewResponse>>({})
+  const [viewingReview, setViewingReview] = useState<{ item: OrderItem; review: ReviewResponse } | null>(null)
 
   // Return & Refund Modal State
   const [returnModalItem, setReturnModalItem] = useState<OrderItem | null>(null)
   const [returnModalOrderId, setReturnModalOrderId] = useState<number | null>(null)
+  const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<number | null>(null)
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false)
+
+  const handleProductClick = async (it: OrderItem, shopId?: number) => {
+    if (it.productId) {
+      navigate(`/san-pham/${it.productId}`)
+      return
+    }
+
+    if (it.itemType === 'MYSTERY_BOX' || it.mysteryBoxId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    if (it.itemType === 'BUILD_COMBO' || it.buildComboId) {
+      navigate('/combo-tui-mu')
+      return
+    }
+
+    const name = it.itemName || it.productName
+    if (name) {
+      try {
+        const res = await productService.getAll({ keyword: name })
+        const products = res.result || []
+        const matched =
+          products.find(
+            (p) =>
+              (p.productName || p.name || '').trim().toLowerCase() === name.trim().toLowerCase() ||
+              (p.productName || p.name || '').toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes((p.productName || p.name || '').toLowerCase())
+          ) || products[0]
+
+        if (matched?.id || matched?.productId) {
+          navigate(`/san-pham/${matched.id || matched.productId}`)
+          return
+        }
+      } catch (err) {
+        console.warn('Fallback tìm kiếm sản phẩm thất bại:', err)
+      }
+    }
+
+    if (shopId) {
+      navigate(`/cua-hang/${shopId}`)
+    } else {
+      navigate(`/nong-san-tuoi${name ? `?search=${encodeURIComponent(name)}` : ''}`)
+    }
+  }
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -108,18 +172,35 @@ export const BuyerOrdersView: React.FC = () => {
       } else if (currentTab === 'REFUND') {
         statuses = ['REFUND_REQUESTED', 'REFUNDED']
       } else if (currentTab === 'CANCELLED') {
-        statuses = ['CANCELLED', 'FAILED']
+        statuses = ['CANCELLED', 'FAILED', 'RETURNING_TO_SHOP', 'RETURNED_TO_SHOP']
       }
 
-      const res = await orderService.fetchMyOrders({
-        page: 0,
-        size: 50,
-        statuses: statuses,
-      })
+      const [res, pre, myReviewsRes] = await Promise.all([
+        orderService.fetchMyOrders({
+          page: 0,
+          size: 50,
+          statuses: statuses,
+        }),
+        campaignService.getMyPreOrders(0, 50).catch((err) => {
+          console.error('Lỗi khi tải đơn đặt trước:', err)
+          return null
+        }),
+        reviewService.getMyReviews().catch(() => ({ code: 500, result: [] as ReviewResponse[] })),
+      ])
       setOrders(res.content || [])
+      const preStatuses = PRE_ORDER_TAB_STATUSES[currentTab]
+      setPreOrders((pre?.content ?? []).filter((p) => !preStatuses || preStatuses.includes(p.status)))
+      const map: Record<number, ReviewResponse> = {}
+      for (const rv of myReviewsRes?.result || []) {
+        if (rv.orderDetailId) {
+          map[rv.orderDetailId] = rv
+        }
+      }
+      setMyReviewsMap(map)
     } catch (err) {
       console.error('Lỗi khi tải danh sách đơn hàng:', err)
       setOrders([])
+      setPreOrders([])
     } finally {
       setIsLoading(false)
     }
@@ -160,6 +241,29 @@ export const BuyerOrdersView: React.FC = () => {
         (o.items && o.items.some((it) => it.productName && it.productName.toLowerCase().includes(kw))),
     )
   }, [orders, searchKeyword])
+
+  const filteredPreOrders = useMemo(() => {
+    if (!searchKeyword.trim()) return preOrders
+    const kw = searchKeyword.trim().toLowerCase()
+    return preOrders.filter(
+      (p) => p.code.toLowerCase().includes(kw) || (p.campaignTitle || '').toLowerCase().includes(kw) || 'chiến dịch'.includes(kw),
+    )
+  }, [preOrders, searchKeyword])
+
+  const handleCancelPreOrder = async (p: PreOrderResponse) => {
+    const agreed = await globalShowConfirm(`Hủy đơn đặt trước ${p.code}?`, 'Đơn chưa cọc nên bạn không mất tiền.', { danger: true, confirmText: 'Hủy đơn', cancelText: 'Giữ đơn' })
+    if (!agreed) return
+    setCancellingPreOrderId(p.preOrderId)
+    try {
+      await campaignService.cancelPreOrder(p.preOrderId)
+      await fetchOrders()
+    } catch (err) {
+      console.error('Lỗi khi hủy đơn đặt trước:', err)
+      globalShowAlert('Không hủy được đơn đặt trước. Vui lòng thử lại.', 'Lỗi', 'error')
+    } finally {
+      setCancellingPreOrderId(null)
+    }
+  }
 
   // Gom các đơn thuộc cùng 1 checkout batch đang chờ thanh toán (nhiều shop)
   const displayItems = useMemo<OrderDisplayItem[]>(() => {
@@ -202,8 +306,14 @@ export const BuyerOrdersView: React.FC = () => {
       result.push({ kind: 'single', order })
     }
 
+    if (filteredPreOrders.length === 0) return result
+    for (const preOrder of filteredPreOrders) result.push({ kind: 'pre', preOrder })
+    // Xen đơn đặt trước với đơn thường theo thời gian tạo, mới nhất lên đầu
     return result
-  }, [filteredOrders])
+      .map((it, i) => ({ it, i, t: itemTime(it) }))
+      .sort((a, b) => b.t - a.t || a.i - b.i)
+      .map((x) => x.it)
+  }, [filteredOrders, filteredPreOrders])
 
   // Xử lý mở modal lựa chọn thanh toán checkout (Thanh toán tất cả hoặc từng đơn)
   const handleResumeBatchPayment = async (batchId: number, triggerOrderId: number) => {
@@ -227,7 +337,7 @@ export const BuyerOrdersView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Lỗi khi mở tùy chọn thanh toán:', err)
-      alert(err?.message || 'Có lỗi khi mở thanh toán checkout.')
+      globalShowAlert(err?.message || 'Có lỗi khi mở thanh toán checkout.', 'Lỗi thanh toán', 'error')
     } finally {
       setIsLoadingResumeOptions(false)
     }
@@ -261,11 +371,11 @@ export const BuyerOrdersView: React.FC = () => {
         setQrModalData(res)
         setIsQrModalOpen(true)
       } else {
-        alert('Không thể tạo mã QR thanh toán. Vui lòng thử lại sau.')
+        globalShowAlert('Không thể tạo mã QR thanh toán. Vui lòng thử lại sau.', 'Lỗi thanh toán', 'error')
       }
     } catch (err: any) {
       console.error('Lỗi thanh toán:', err)
-      alert(err?.message || 'Có lỗi khi kết nối cổng thanh toán PayOS.')
+      globalShowAlert(err?.message || 'Có lỗi khi kết nối cổng thanh toán PayOS.', 'Lỗi thanh toán', 'error')
     } finally {
       setPayingOrderId(null)
     }
@@ -276,7 +386,7 @@ export const BuyerOrdersView: React.FC = () => {
     const target =
       typeof orderOrId === 'number'
         ? orders.find((o) => (o.orderId || o.id) === orderOrId) ||
-          ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
+        ({ id: orderOrId, orderId: orderOrId } as OrderResponse)
         : orderOrId
     setCancelModalState({
       isOpen: true,
@@ -343,7 +453,8 @@ export const BuyerOrdersView: React.FC = () => {
   const handleCompleteOrder = async (order: OrderResponse) => {
     const id = order.orderId || order.id
     if (!id) return
-    if (!window.confirm(`Xác nhận bạn đã nhận đủ hàng của đơn #${id}? Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.`)) {
+    const received = await globalShowConfirm(`Bạn đã nhận đủ hàng của đơn #${id}?`, 'Sau bước này tiền sẽ được chuyển cho nhà vườn và shipper.', { warning: true, confirmText: 'Đã nhận đủ hàng', cancelText: 'Chưa' })
+    if (!received) {
       return
     }
     setCompleteError(null)
@@ -366,7 +477,7 @@ export const BuyerOrdersView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="w-full min-w-0 max-w-5xl mx-auto px-4 py-8">
       {/* Tiêu đề & Làm mới */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -394,11 +505,10 @@ export const BuyerOrdersView: React.FC = () => {
             onClick={() => {
               setSearchParams(tab.key === 'ALL' ? {} : { tab: tab.key })
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              currentTab === tab.key
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${currentTab === tab.key
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-ink-muted hover:text-ink hover:bg-neutral-50'
+              }`}
           >
             {tab.label}
           </button>
@@ -472,6 +582,21 @@ export const BuyerOrdersView: React.FC = () => {
               )
             }
 
+            if (item.kind === 'pre') {
+              return (
+                <PreOrderCard
+                  key={`pre-${item.preOrder.preOrderId}`}
+                  p={item.preOrder}
+                  onCancel={handleCancelPreOrder}
+                  cancelling={cancellingPreOrderId === item.preOrder.preOrderId}
+                  onChanged={(msg) => {
+                    globalShowAlert(msg, 'Thông báo', 'success')
+                    fetchOrders()
+                  }}
+                />
+              )
+            }
+
             // Render Card đơn hàng đơn lẻ
             const order = item.order
             const orderId = order.orderId || order.id || 0
@@ -482,11 +607,10 @@ export const BuyerOrdersView: React.FC = () => {
             return (
               <div
                 key={`single-${orderId}`}
-                className={`bg-white rounded-3xl border transition-all overflow-hidden ${
-                  isUnpaid
-                    ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
-                    : 'border-line hover:border-neutral-300 shadow-sm'
-                }`}
+                className={`bg-white rounded-3xl border transition-all overflow-hidden ${isUnpaid
+                  ? 'border-amber-300 shadow-md ring-1 ring-amber-200'
+                  : 'border-line hover:border-neutral-300 shadow-sm'
+                  }`}
               >
                 {/* Header đơn: Shop & Trạng thái */}
                 <div className="px-6 py-4 bg-neutral-50/70 border-b border-line flex flex-wrap items-center justify-between gap-3">
@@ -523,72 +647,116 @@ export const BuyerOrdersView: React.FC = () => {
                 </div>
 
                 {/* Danh sách items */}
-                <div className="p-6 divide-y divide-line/60">
+                <div className="p-6 divide-line/60 divide-y">
                   {order.items && order.items.length > 0 ? (
-                    order.items.map((it, idx) => (
-                      <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center gap-4">
-                        <img
-                          src={it.imageUrl || '/images/default-produce.png'}
-                          alt={it.productName || 'Sản phẩm'}
-                          className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-ink truncate">
-                            {it.productName || it.mysteryBoxType || 'Sản phẩm nông sản'}
-                          </h4>
-                          <p className="text-xs text-ink-muted mt-0.5">
-                            Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
-                          <p className="text-sm font-bold text-emerald-700">
-                            {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
-                          </p>
-                          {(order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'REFUND_REQUESTED') && (
-                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                              {it.isRequestedReturn ? (
-                                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                                  ↺ Đang yêu cầu trả hàng
+                    order.items.map((it, idx) => {
+                      const name = it.productName || it.itemName || it.mysteryBoxType || 'Sản phẩm nông sản'
+                      return (
+                        <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleProductClick(it, order.shopId)}
+                            className="flex items-center gap-4 flex-1 min-w-0 group cursor-pointer select-none"
+                            title="Nhấn để xem chi tiết sản phẩm"
+                          >
+                            <img
+                              src={it.imageUrl || '/images/default-produce.png'}
+                              alt={name}
+                              className="w-16 h-16 rounded-xl object-cover border border-line shrink-0 bg-neutral-50 transition-all duration-200 group-hover:scale-105 group-hover:border-emerald-400 group-hover:shadow-xs"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-semibold text-sm text-ink truncate group-hover:text-emerald-700 transition-colors">
+                                  {name}
+                                </h4>
+                                <span className="text-[10px] text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity font-semibold shrink-0">
+                                  Xem chi tiết &rarr;
                                 </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReturnModalItem(it)
-                                    setReturnModalOrderId(orderId)
-                                    setIsReturnModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
-                                >
-                                  <RotateCcw size={11} />
-                                  <span>Trả hàng</span>
-                                </button>
-                              )}
-
-                              {it.isReviewed ? (
-                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                  ✓ Đã đánh giá
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReviewModalItem(it)
-                                    setReviewModalOrderId(orderId)
-                                    setIsReviewModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
-                                >
-                                  <Star size={12} className="fill-white" />
-                                  <span>Đánh giá</span>
-                                </button>
-                              )}
+                              </div>
+                              <p className="text-xs text-ink-muted mt-0.5">
+                                Số lượng: <span className="font-bold text-ink">{it.quantity}</span>
+                              </p>
                             </div>
-                          )}
+                          </div>
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                            <p className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                              {Number(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
+                            </p>
+                            {(order.status === 'DELIVERED' ||
+                              order.status === 'COMPLETED' ||
+                              order.status === 'REFUND_REQUESTED' ||
+                              (order.status === 'REFUNDED' && Boolean(order.deliveredAt))) && (
+                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                {it.isRequestedReturn ? (
+                                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                    ↺ Đang yêu cầu trả hàng
+                                  </span>
+                                ) : (
+                                  order.status !== 'REFUNDED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setReturnModalItem(it)
+                                        setReturnModalOrderId(orderId)
+                                        setIsReturnModalOpen(true)
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
+                                    >
+                                      <RotateCcw size={11} />
+                                      <span>Trả hàng</span>
+                                    </button>
+                                  )
+                                )}
+
+                                {it.isReviewed ? (
+                                  (() => {
+                                    const myReview = it.orderDetailId ? myReviewsMap[it.orderDetailId] : undefined
+                                    if (!myReview) {
+                                      return (
+                                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                          ✓ Đã đánh giá
+                                        </span>
+                                      )
+                                    }
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingReview({ item: it, review: myReview })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-200 transition-colors cursor-pointer"
+                                        title="Xem đánh giá và phản hồi từ nhà vườn"
+                                      >
+                                        <span>✓ Đã đánh giá</span>
+                                        {myReview.replyFromShop && (
+                                          <span className="inline-flex items-center gap-0.5 text-emerald-800 font-extrabold">
+                                            · <MessageSquare size={11} /> Có phản hồi
+                                          </span>
+                                        )}
+                                      </button>
+                                    )
+                                  })()
+                                ) : (
+                                  !it.isRequestedReturn && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setReviewModalItem(it)
+                                        setReviewModalOrderId(orderId)
+                                        setIsReviewModalOpen(true)
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                                    >
+                                      <Star size={12} className="fill-white" />
+                                      <span>Đánh giá</span>
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  ) : (
+                      )
+                    })) : (
                     <div className="py-2 text-xs text-ink-muted italic">
                       Chi tiết sản phẩm đang được cập nhật
                     </div>
@@ -599,17 +767,23 @@ export const BuyerOrdersView: React.FC = () => {
                 <div className="px-6 py-4 bg-neutral-50/40 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink-muted">
                     <div>
-                      Phương thức: <span className="font-bold text-ink">{order.paymentMethod || 'COD'}</span>
+                      Phương thức: <span className="font-bold text-ink">
+                        {order.paymentMethod === 'WALLET'
+                          ? 'Ví CapNong'
+                          : order.paymentMethod === 'PAYOS'
+                          ? 'Chuyển khoản PayOS'
+                          : 'Thanh toán khi nhận hàng (COD)'}
+                      </span>
                     </div>
                     {order.shippingFee !== undefined && (
-                      <div>
-                        Phí ship: <span className="font-bold text-ink">{Number(order.shippingFee).toLocaleString('vi-VN')} đ</span>
+                      <div className="whitespace-nowrap">
+                        Phí ship: <span className="font-bold text-ink whitespace-nowrap shrink-0">{Number(order.shippingFee).toLocaleString('vi-VN')}&nbsp;đ</span>
                       </div>
                     )}
-                    <div className="text-sm">
-                      Tổng thanh toán:{' '}
-                      <span className="font-black text-emerald-700 text-base">
-                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')} đ
+                    <div className="text-sm whitespace-nowrap flex items-center gap-1">
+                      <span>Tổng thanh toán:</span>{' '}
+                      <span className="font-black text-emerald-700 text-base whitespace-nowrap shrink-0">
+                        {Number(order.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </span>
                     </div>
                   </div>
@@ -668,12 +842,13 @@ export const BuyerOrdersView: React.FC = () => {
                     )}
 
                     {/* Xem chi tiết kết quả */}
-                    <Link
-                      to={`/payment/result?orderId=${orderId}&method=${order.paymentMethod}`}
-                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailOrderId(orderId)}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl text-ink-muted hover:text-ink hover:bg-neutral-100 transition-colors cursor-pointer"
                     >
                       Chi tiết
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -721,6 +896,26 @@ export const BuyerOrdersView: React.FC = () => {
         />
       )}
 
+      {/* Modal Chi Tiết Đơn Hàng Chuẩn TMĐT (100% Real API, Không Mock Data) */}
+      <BuyerOrderDetailModal
+        isOpen={selectedDetailOrderId !== null}
+        orderId={selectedDetailOrderId}
+        onClose={() => setSelectedDetailOrderId(null)}
+        onPayNow={(ord) => handlePayNow(ord)}
+        onCancelOrder={(ord) => handleOpenCancelModal(ord)}
+        onCompleteOrder={(ord) => handleCompleteOrder(ord)}
+        onReviewItem={(it, ordId) => {
+          setReviewModalItem(it)
+          setReviewModalOrderId(ordId)
+          setIsReviewModalOpen(true)
+        }}
+        onReturnItem={(it, ordId) => {
+          setReturnModalItem(it)
+          setReturnModalOrderId(ordId)
+          setIsReturnModalOpen(true)
+        }}
+      />
+
       {/* Modal Xác Nhận Hủy Đơn Hàng (Đơn lẻ & Toàn bộ Checkout) */}
       <CancelOrderModal
         isOpen={cancelModalState.isOpen}
@@ -755,6 +950,88 @@ export const BuyerOrdersView: React.FC = () => {
           fetchOrders()
         }}
       />
+
+      {/* Modal Xem lại đánh giá & Phản hồi từ Nhà vườn */}
+      {viewingReview && (
+        <Modal
+          title="Đánh giá của bạn"
+          onClose={() => setViewingReview(null)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-50 border border-line">
+              {viewingReview.item.imageUrl && (
+                <img
+                  src={viewingReview.item.imageUrl}
+                  alt={viewingReview.item.itemName || viewingReview.item.productName || 'Sản phẩm'}
+                  className="w-12 h-12 rounded-xl object-cover shrink-0 border border-line"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-ink truncate">
+                  {viewingReview.item.itemName || viewingReview.item.productName || viewingReview.item.mysteryBoxType || 'Sản phẩm'}
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      className={
+                        s <= Number(viewingReview.review.ratingStar || 0)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-stone-300'
+                      }
+                    />
+                  ))}
+                  <span className="text-xs font-bold text-stone-600 ml-1">
+                    {viewingReview.review.ratingStar}/5
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {viewingReview.review.comment && (
+              <div className="text-sm text-ink whitespace-pre-line bg-white p-3.5 rounded-2xl border border-line">
+                {viewingReview.review.comment}
+              </div>
+            )}
+
+            {((viewingReview.review.imageUrls && viewingReview.review.imageUrls.length > 0) ||
+              viewingReview.review.evidence) && (
+              <div className="flex flex-wrap gap-2">
+                {(viewingReview.review.imageUrls?.length
+                  ? viewingReview.review.imageUrls
+                  : viewingReview.review.evidence
+                    ? [viewingReview.review.evidence]
+                    : []
+                ).map((url, idx) => (
+                  <img
+                    key={idx}
+                    src={url}
+                    alt={`Ảnh đánh giá ${idx + 1}`}
+                    className="w-20 h-20 rounded-xl object-cover border border-line"
+                  />
+                ))}
+              </div>
+            )}
+
+            {viewingReview.review.replyFromShop ? (
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-800">
+                  <Store size={14} />
+                  <span>Phản hồi từ Nhà vườn</span>
+                </div>
+                <p className="text-sm text-emerald-950 whitespace-pre-line">
+                  {viewingReview.review.replyFromShop}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-stone-500 italic px-1">
+                Nhà vườn chưa phản hồi đánh giá này.
+              </p>
+            )}
+          </div>
+        </Modal>
+      )}
 
       {/* Modal Yêu cầu Trả hàng / Hoàn tiền */}
       <ReturnRequestModal

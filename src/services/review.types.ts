@@ -52,3 +52,9 @@ export interface ReviewShopReport {
   twoStarNumber: number
   oneStarNumber: number
 }
+
+export interface ReviewFeaturedResponse {
+  platformAverageRating: number
+  platformTotalReviews: number
+  reviews: ReviewResponse[]
+}

@@ -57,6 +57,36 @@ const RETURN_STATUS_CONFIG: Record<
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
     icon: AlertTriangle,
   },
+  PENDING: {
+    label: 'Chờ duyệt',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    icon: Clock,
+  },
+  SHOP_APPROVED: {
+    label: 'Shop đã duyệt',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: CheckCircle2,
+  },
+  ADMIN_APPROVED: {
+    label: 'Admin đã duyệt',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: CheckCircle2,
+  },
+  APPROVED: {
+    label: 'Đã duyệt',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: CheckCircle2,
+  },
+  REJECTED: {
+    label: 'Từ chối trả hàng',
+    badgeClass: 'bg-stone-100 text-stone-700 border-stone-200',
+    icon: XCircle,
+  },
+  CANCELLED: {
+    label: 'Đã hủy',
+    badgeClass: 'bg-stone-100 text-stone-500 border-stone-200',
+    icon: XCircle,
+  },
 }
 
 export const ShipperReturnOrders: React.FC = () => {
@@ -246,11 +276,10 @@ export const ShipperReturnOrders: React.FC = () => {
           <button
             type="button"
             onClick={() => setSubTab('AVAILABLE')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
-              subTab === 'AVAILABLE'
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${subTab === 'AVAILABLE'
                 ? 'bg-[#1a4d2e] text-white shadow-md shadow-[#1a4d2e]/20'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
+              }`}
           >
             <Package size={15} />
             <span>Đơn hoàn đang chờ ({availableReturns.length})</span>
@@ -258,11 +287,10 @@ export const ShipperReturnOrders: React.FC = () => {
           <button
             type="button"
             onClick={() => setSubTab('MY_RETURNS')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
-              subTab === 'MY_RETURNS'
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${subTab === 'MY_RETURNS'
                 ? 'bg-[#1a4d2e] text-white shadow-md shadow-[#1a4d2e]/20'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
+              }`}
           >
             <Truck size={15} />
             <span>Đơn hoàn tôi nhận ({myReturns.length})</span>
@@ -340,24 +368,23 @@ export const ShipperReturnOrders: React.FC = () => {
                           )}
                           <div className="min-w-0">
                             <h4 className="text-sm font-black text-gray-900 truncate">{item.productName}</h4>
-                            <p className="text-[11px] text-gray-500">
-                              Hoàn tiền: <strong className="text-rose-600">{Number(item.refundAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                            <p className="text-[11px] text-gray-500 whitespace-nowrap">
+                              Hoàn tiền: <strong className="text-rose-600 whitespace-nowrap">{Number(item.refundAmount || 0).toLocaleString('vi-VN')}&nbsp;đ</strong>
                             </p>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">Cước ship hoàn</span>
-                          <span className="text-base font-black text-emerald-600">
-                            +{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')} đ
+                          <span className="text-[10px] font-bold text-gray-400 uppercase block whitespace-nowrap">Cước ship hoàn</span>
+                          <span className="text-base font-black text-emerald-600 whitespace-nowrap shrink-0">
+                            +{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')}&nbsp;đ
                           </span>
                         </div>
                       </div>
 
                       {/* Thông báo thanh toán COD vs Ví */}
-                      <div className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
-                        isCod ? 'bg-amber-50 text-amber-900 border border-amber-200' : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-                      }`}>
+                      <div className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${isCod ? 'bg-amber-50 text-amber-900 border border-amber-200' : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                        }`}>
                         <DollarSign size={15} className="shrink-0" />
                         <span className="text-[11px] font-bold">
                           {isCod
@@ -405,7 +432,7 @@ export const ShipperReturnOrders: React.FC = () => {
                       ) : (
                         <>
                           <CheckCircle2 size={16} />
-                          <span>Nhận đơn giao hoàn (+{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')} đ)</span>
+                          <span className="whitespace-nowrap">Nhận đơn giao hoàn (+{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')}&nbsp;đ)</span>
                         </>
                       )}
                     </button>
@@ -480,9 +507,9 @@ export const ShipperReturnOrders: React.FC = () => {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">Cước ship</span>
-                          <span className="text-base font-black text-emerald-600">
-                            +{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')} đ
+                          <span className="text-[10px] font-bold text-gray-400 uppercase block whitespace-nowrap">Cước ship</span>
+                          <span className="text-base font-black text-emerald-600 whitespace-nowrap shrink-0">
+                            +{Number(item.returnShippingFee || 20000).toLocaleString('vi-VN')}&nbsp;đ
                           </span>
                         </div>
                       </div>

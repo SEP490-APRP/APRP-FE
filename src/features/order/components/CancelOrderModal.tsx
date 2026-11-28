@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import type { OrderResponse } from '@/types/order.types'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface CancelOrderModalProps {
   isOpen: boolean
@@ -172,8 +173,8 @@ export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
                           Số lượng: <strong className="text-stone-700">{it.quantity}</strong>
                         </p>
                       </div>
-                      <div className="text-right text-xs font-bold text-[#326318]">
-                        {Number(it.unitPrice || 0).toLocaleString('vi-VN')} đ
+                      <div className="text-right text-xs font-bold text-[#326318] whitespace-nowrap shrink-0">
+                        {Number(it.unitPrice || 0).toLocaleString('vi-VN')}&nbsp;đ
                       </div>
                     </div>
                   ))
@@ -195,8 +196,8 @@ export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
                 <span className="text-stone-500 font-medium">
                   Phương thức: <strong className="text-stone-800">{order.paymentMethod || 'COD'}</strong>
                 </span>
-                <span className="text-sm font-black text-[#1c2216]">
-                  Tổng tiền: <span className="text-rose-600">{totalAmount.toLocaleString('vi-VN')} đ</span>
+                <span className="text-sm font-black text-[#1c2216] whitespace-nowrap">
+                  Tổng tiền: <span className="text-rose-600 whitespace-nowrap shrink-0">{totalAmount.toLocaleString('vi-VN')}&nbsp;đ</span>
                 </span>
               </div>
             </div>
@@ -212,13 +213,13 @@ export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
                 {batchOrders.map((bo, idx) => (
                   <li key={idx} className="truncate">
                     <strong>#{bo.orderId || bo.id}</strong> — {bo.shopName || 'Cửa hàng'} (
-                    {Number(bo.totalAmount || 0).toLocaleString('vi-VN')} đ)
+                    <span className="whitespace-nowrap">{Number(bo.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ</span>)
                   </li>
                 ))}
               </ul>
-              <div className="pt-2 border-t border-violet-200 flex justify-between font-bold text-violet-950">
-                <span>Tổng giá trị đợt checkout:</span>
-                <span className="text-sm text-rose-600">{totalAmount.toLocaleString('vi-VN')} đ</span>
+              <div className="pt-2 border-t border-violet-200 flex justify-between items-center font-bold text-violet-950 gap-2">
+                <span className="whitespace-nowrap">Tổng giá trị đợt checkout:</span>
+                <span className="text-sm text-rose-600 whitespace-nowrap shrink-0">{totalAmount.toLocaleString('vi-VN')}&nbsp;đ</span>
               </div>
             </div>
           )}
@@ -232,19 +233,14 @@ export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
               <span>Vui lòng chọn lý do hủy đơn:</span>
               <span className="text-[10px] text-stone-400 font-normal">Bắt buộc</span>
             </label>
-            <select
+            <CustomSelect
               id="cancel-reason-select"
               value={selectedReason}
-              onChange={(e) => setSelectedReason(e.target.value)}
+              onChange={(val) => setSelectedReason(String(val))}
               disabled={isCancelling}
-              className="w-full p-2.5 bg-stone-50 hover:bg-stone-100/80 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
-            >
-              {CANCEL_REASONS.map((r, i) => (
-                <option key={i} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              options={CANCEL_REASONS.map((r) => ({ value: r, label: r }))}
+              placeholder="Chọn lý do hủy đơn"
+            />
 
             {selectedReason === 'Lý do khác' && (
               <div className="pt-1.5 animate-fadeIn">

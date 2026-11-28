@@ -3,6 +3,7 @@ import { QrCode, ExternalLink, CheckCircle, ShieldAlert, Loader2 } from 'lucide-
 import { QRCodeSVG } from 'qrcode.react'
 import Modal from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { globalShowAlert } from '@/components/common/Popup'
 import { paymentService } from '@/services'
 
 interface PaymentQrModalProps {
@@ -34,13 +35,13 @@ export const PaymentQrModal: React.FC<PaymentQrModalProps> = ({
       val.startsWith('https://') ||
       val.startsWith('data:image/')
     ) && (
-      val.includes('.png') ||
-      val.includes('.jpg') ||
-      val.includes('.jpeg') ||
-      val.includes('.svg') ||
-      val.includes('vietqr.io') ||
-      val.startsWith('data:image/')
-    )
+        val.includes('.png') ||
+        val.includes('.jpg') ||
+        val.includes('.jpeg') ||
+        val.includes('.svg') ||
+        val.includes('vietqr.io') ||
+        val.startsWith('data:image/')
+      )
   }
 
   // Giá trị mã QR để sinh hình ảnh (VietQR payload hoặc link thanh toán)
@@ -75,10 +76,18 @@ export const PaymentQrModal: React.FC<PaymentQrModalProps> = ({
         onConfirmed()
       } else {
         // Vẫn chưa nhận được tiền hoặc đang xử lý
-        alert('Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.')
+        globalShowAlert(
+          'Giao dịch chưa được ghi nhận trên cổng thanh toán. Nếu bạn vừa chuyển tiền, vui lòng chờ trong giây lát hệ thống sẽ tự động cập nhật.',
+          'Chưa ghi nhận thanh toán',
+          'info',
+        )
       }
     } catch {
-      alert('Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.')
+      globalShowAlert(
+        'Chưa nhận được giao dịch. Vui lòng kiểm tra lại ứng dụng ngân hàng của bạn.',
+        'Chưa ghi nhận thanh toán',
+        'warning',
+      )
     } finally {
       setIsVerifying(false)
     }
@@ -120,10 +129,10 @@ export const PaymentQrModal: React.FC<PaymentQrModalProps> = ({
         </div>
 
         <div className="w-full bg-gray-50 rounded-xl p-3 mb-4 text-left border border-gray-100">
-          <div className="flex justify-between items-center text-sm py-1 border-b border-gray-200/60">
-            <span className="text-gray-500">Số tiền:</span>
-            <span className="font-bold text-emerald-700 text-base">
-              {amount.toLocaleString('vi-VN')} đ
+          <div className="flex justify-between items-center text-sm py-1 border-b border-gray-200/60 gap-2">
+            <span className="text-gray-500 whitespace-nowrap">Số tiền:</span>
+            <span className="font-bold text-emerald-700 text-base whitespace-nowrap shrink-0">
+              {amount.toLocaleString('vi-VN')}&nbsp;đ
             </span>
           </div>
           <div className="flex justify-between items-center text-sm py-1 border-b border-gray-200/60">

@@ -13,3 +13,8 @@ export function absoluteUrl(route: string): string {
   const cleanRoute = route.startsWith('/') ? route : `/${route}`
   return `${window.location.origin}${cleanRoute}`
 }
+
+/** Định dạng số tiền sang chuẩn tiền tệ Việt Nam (VD: 35.000đ) */
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
+}

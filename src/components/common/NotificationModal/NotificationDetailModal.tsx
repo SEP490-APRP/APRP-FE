@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
-import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck } from 'lucide-react'
-import { useNotificationStore } from '@/stores'
+import { Bell, Calendar, User, ExternalLink, Trash2, X, CheckCheck, Truck, Wallet, Tag, AlertTriangle, Package } from 'lucide-react'
+import { router } from '@/app/router'
+import { useNotificationStore, useAuth } from '@/stores'
 
 export function formatNotificationDate(dateValue?: any): string {
   if (!dateValue) return 'Vừa xong'
@@ -70,6 +71,16 @@ export function getSafeLink(rawUrl?: string): { isSafe: boolean; href: string } 
 }
 
 export const NotificationDetailModal: React.FC = () => {
+  const { user } = useAuth()
+  const userRole = (user?.role || '').toLowerCase()
+
+  const navigate = (path: string) => {
+    try {
+      void router.navigate(path)
+    } catch {
+      window.location.href = path
+    }
+  }
   const {
     selectedNotification,
     isDetailOpen,
@@ -92,6 +103,160 @@ export const NotificationDetailModal: React.FC = () => {
   if (!isDetailOpen || !selectedNotification) return null
 
   const noti = selectedNotification
+
+  const textContent = `${noti.title ?? ''} ${noti.message ?? ''} ${noti.evidence ?? ''}`.toLowerCase()
+  const rawTitleAndMsg = `${noti.title ?? ''} ${noti.message ?? ''}`
+  const type = (noti.type ?? '').toUpperCase()
+
+  const isProductRelated =
+    type.includes('PRODUCT') ||
+    (!type.includes('ORDER') &&
+      !type.includes('RETURN') &&
+      !type.includes('DISPUTE') &&
+      !type.includes('DISPATCH') &&
+      !textContent.includes('đơn hàng') &&
+      !textContent.includes('đơn hoàn') &&
+      (textContent.includes('nông sản') ||
+        textContent.includes('sản phẩm') ||
+        textContent.includes('phê duyệt') ||
+        textContent.includes('từ chối duyệt')))
+
+  const productNameMatch = isProductRelated ? rawTitleAndMsg.match(/["'“]([^"'“”]+)["'”]/) : null
+  const targetProductName = productNameMatch?.[1]?.trim() || null
+  const productIdMatch = isProductRelated ? rawTitleAndMsg.match(/#(\d+)/) : null
+  const targetProductId: number | null = isProductRelated
+    ? (noti.referenceId ?? (productIdMatch?.[1] ? parseInt(productIdMatch[1], 10) : null))
+    : null
+
+  const isDisputeRelated =
+    !isProductRelated &&
+    (type.includes('RETURN') ||
+      type.includes('DISPUTE') ||
+      type.includes('ADMIN_APPROVED') ||
+      textContent.includes('khiếu nại') ||
+      textContent.includes('hoàn trả') ||
+      textContent.includes('trả hàng') ||
+      textContent.includes('hoàn tiền'))
+
+  const isOrderTypeOrText =
+    !isProductRelated &&
+    (type.includes('ORDER') ||
+      type.includes('DISPATCH') ||
+      textContent.includes('đơn hàng') ||
+      textContent.includes('đơn #'))
+
+  let targetOrderId: number | null =
+    isDisputeRelated || isOrderTypeOrText ? (noti.referenceId ?? null) : null
+  if (!targetOrderId && (isDisputeRelated || isOrderTypeOrText)) {
+    const match = textContent.match(/đơn(?:\s*hàng|\s*hoàn(?:\s*trả)?)?.*?#?(\d+)/i)
+    if (match && match[1]) {
+      targetOrderId = parseInt(match[1], 10)
+    }
+  }
+
+  const isOrderRelated = isOrderTypeOrText || (Boolean(targetOrderId) && !isDisputeRelated)
+  const isWalletRelated =
+    textContent.includes('ví tiền') ||
+    textContent.includes('rút tiền') ||
+    textContent.includes('nạp tiền') ||
+    textContent.includes('ký quỹ')
+  const isVoucherRelated = textContent.includes('voucher') || textContent.includes('khuyến mãi')
+
+  const hasSmartAction =
+    isDisputeRelated || isProductRelated || isOrderRelated || isWalletRelated || isVoucherRelated
+
+  let smartActionTitle = 'Xem chi tiết'
+  let SmartActionIcon = Bell
+
+  if (isDisputeRelated) {
+    SmartActionIcon = AlertTriangle
+    if (userRole === 'shop') {
+      smartActionTitle = 'Đến mục Khiếu nại & Trợ giúp'
+    } else if (userRole === 'admin') {
+      smartActionTitle = 'Đến Trung tâm khiếu nại Admin'
+    } else {
+      smartActionTitle = targetOrderId ? `Xem đơn hàng #${targetOrderId}` : 'Xem đơn hàng của tôi'
+    }
+  } else if (isProductRelated) {
+    SmartActionIcon = Package
+    if (userRole === 'shop') {
+      smartActionTitle = targetProductName
+        ? `Xem nông sản "${targetProductName}" trong kho`
+        : targetProductId
+        ? `Xem nông sản #${targetProductId} trong kho`
+        : 'Đến kho nông sản'
+    } else if (userRole === 'admin') {
+      smartActionTitle = 'Đến trang kiểm duyệt nông sản'
+    } else {
+      smartActionTitle = targetProductId ? `Xem nông sản #${targetProductId}` : 'Xem nông sản tươi'
+    }
+  } else if (targetOrderId) {
+    smartActionTitle = `Xem chi tiết đơn hàng #${targetOrderId}`
+    SmartActionIcon = Truck
+  } else if (isOrderRelated) {
+    smartActionTitle = userRole === 'shop' ? 'Đến quản lý đơn hàng' : 'Đến danh sách đơn hàng'
+    SmartActionIcon = Truck
+  } else if (isWalletRelated) {
+    smartActionTitle = userRole === 'shop' ? 'Đến ví nhà vườn' : 'Đến ví của tôi'
+    SmartActionIcon = Wallet
+  } else if (isVoucherRelated) {
+    smartActionTitle = userRole === 'shop' ? 'Quản lý voucher' : 'Xem kho voucher của tôi'
+    SmartActionIcon = Tag
+  }
+
+  const handlePrimaryAction = () => {
+    closeDetail()
+    if (isDisputeRelated) {
+      if (userRole === 'shop') {
+        navigate(targetOrderId ? `/shop?tab=disputes&search=${targetOrderId}` : '/shop?tab=disputes')
+      } else if (userRole === 'admin') {
+        navigate(targetOrderId ? `/admin/disputes?search=${targetOrderId}` : '/admin/disputes')
+      } else {
+        navigate(targetOrderId ? `/orders?search=${targetOrderId}` : '/orders')
+      }
+    } else if (isProductRelated) {
+      if (userRole === 'shop') {
+        const searchVal = targetProductName || (targetProductId ? String(targetProductId) : '')
+        navigate(searchVal ? `/shop?tab=products&search=${encodeURIComponent(searchVal)}` : '/shop?tab=products')
+      } else if (userRole === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate(targetProductId ? `/san-pham/${targetProductId}` : '/nong-san-tuoi')
+      }
+    } else if (targetOrderId) {
+      if (userRole === 'shop') {
+        navigate(`/shop?tab=orders&search=${targetOrderId}`)
+      } else if (userRole === 'admin') {
+        navigate(`/admin/orders?search=${targetOrderId}`)
+      } else if (userRole === 'shipper') {
+        navigate('/shipper')
+      } else {
+        navigate(`/orders?search=${targetOrderId}`)
+      }
+    } else if (isOrderRelated) {
+      if (userRole === 'shop') {
+        navigate('/shop?tab=orders')
+      } else if (userRole === 'admin') {
+        navigate('/admin/orders')
+      } else if (userRole === 'shipper') {
+        navigate('/shipper')
+      } else {
+        navigate('/orders')
+      }
+    } else if (isWalletRelated) {
+      if (userRole === 'shop') {
+        navigate('/shop?tab=wallet')
+      } else {
+        navigate('/my-wallet')
+      }
+    } else if (isVoucherRelated) {
+      if (userRole === 'shop') {
+        navigate('/shop?tab=vouchers')
+      } else {
+        navigate('/my-vouchers')
+      }
+    }
+  }
 
   const handleDelete = () => {
     deleteNotification(noti.id)
@@ -168,33 +333,57 @@ export const NotificationDetailModal: React.FC = () => {
             {noti.message}
           </div>
 
-          {/* Evidence / Attach Link */}
+          {/* Evidence / Attach Link / Image */}
           {noti.evidence && (() => {
+            const isImage =
+              /\.(jpeg|jpg|png|webp|gif)($|\?)/i.test(noti.evidence) ||
+              noti.evidence.includes('cloudinary.com')
             const safe = getSafeLink(noti.evidence)
             return (
-              <div className="p-3 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">Liên kết đính kèm</p>
-                  <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+              <div className="p-3.5 rounded-xl bg-[#f2f8ed] border border-[#dcebd3] space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-[#2a5015] uppercase tracking-wide">
+                      {isImage ? 'Hình ảnh đính kèm' : 'Liên kết đính kèm'}
+                    </p>
+                    <p className="text-xs text-[#4c5c44] truncate mt-0.5">{noti.evidence}</p>
+                  </div>
+                  {safe.isSafe && (
+                    <a
+                      href={safe.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
+                    >
+                      <span>{isImage ? 'Xem ảnh gốc' : 'Mở link'}</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
-                {safe.isSafe ? (
-                  <a
-                    href={safe.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#326318] text-white text-xs font-bold hover:bg-[#254a11] transition-colors shadow-xs"
-                  >
-                    <span>Mở link</span>
-                    <ExternalLink size={12} />
-                  </a>
-                ) : (
-                  <span className="shrink-0 px-2.5 py-1 rounded bg-gray-100 text-[10px] text-gray-500 font-medium">
-                    Liên kết không an toàn
-                  </span>
+                {isImage && (
+                  <div className="rounded-xl overflow-hidden border border-[#dcebd3] max-h-60 bg-white flex items-center justify-center p-1">
+                    <img
+                      src={noti.evidence}
+                      alt="evidence"
+                      className="max-h-56 w-auto object-contain rounded-lg"
+                    />
+                  </div>
                 )}
               </div>
             )
           })()}
+
+          {/* Smart CTA Action */}
+          {hasSmartAction && (
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+            >
+              <SmartActionIcon size={14} />
+              <span>{smartActionTitle}</span>
+            </button>
+          )}
         </div>
 
         {/* Footer Actions */}

@@ -438,7 +438,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
             [convId]: sorted,
           },
         }))
-        await get().markAsRead(convId)
+        const currentUserId = Number(useAuthStore.getState().user?.id || 0)
+        const hasUnreadInMessages = sorted.some(
+          (m) => !m.isRead && Number(m.senderId) !== currentUserId,
+        )
+        if ((conv.unreadCount ?? 0) > 0 || hasUnreadInMessages) {
+          await get().markAsRead(convId)
+        }
       } catch (err) {
         console.error('[useChatStore] Failed to load conversation messages:', err)
       } finally {
@@ -603,6 +609,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await chatApi.markAsRead(conversationId)
 
       set((state) => {
+        const target = state.conversations.find((c) => Number(c.id) === conversationId)
+        if (target && (target.unreadCount || 0) === 0) {
+          return state
+        }
         const updatedConversations = state.conversations.map((c) =>
           Number(c.id) === conversationId ? { ...c, unreadCount: 0 } : c,
         )
@@ -672,10 +682,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setChatViewActive: (active: boolean) => {
     set({ isChatViewActive: active })
-    // Nếu vừa kích hoạt lại view chat và đang có activeConversation, đánh dấu đã đọc
+    // Nếu vừa kích hoạt lại view chat và đang có activeConversation còn tin chưa đọc, đánh dấu đã đọc
     if (active) {
       const conv = get().activeConversation
-      if (conv && Number(conv.id) > 0) {
+      if (conv && Number(conv.id) > 0 && (conv.unreadCount ?? 0) > 0) {
         get().markAsRead(Number(conv.id))
       }
     }

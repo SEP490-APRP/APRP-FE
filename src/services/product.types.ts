@@ -33,6 +33,7 @@ export interface ModerationLabelResponse {
 export interface ModerationResultResponse {
   id: number
   isFlagged?: boolean
+  flagReason?: string
   overallConfidence?: number
   checkedAt?: string
   moderationLabels?: ModerationLabelResponse[]
@@ -92,6 +93,7 @@ export interface ProductCreationRequest {
   discountPercent?: number
   discountStartDate?: string
   discountEndDate?: string
+  origin?: string
 }
 
 export interface ProductUpdateRequest {
@@ -106,6 +108,7 @@ export interface ProductUpdateRequest {
   discountPercent?: number
   discountStartDate?: string
   discountEndDate?: string
+  origin?: string
 }
 
 export interface GetMyProductsParams {
@@ -151,6 +154,7 @@ export interface ProductResponse {
   primaryImageUrl?: string
   moderationResult?: ModerationResultResponse
   region?: string
+  origin?: string
   updatedAt?: string
   createdAt?: string
 }

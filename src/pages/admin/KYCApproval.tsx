@@ -74,10 +74,10 @@ const KYCApproval: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-black font-display text-gray-900 uppercase">
-            Duyệt Hồ Sơ (KYC)
+            Duyệt Hồ Sơ
           </h2>
           <p className="text-gray-400 font-medium text-sm mt-1">
-            Xác minh danh tính người bán và shipper để đảm bảo chất lượng hệ thống.
+            Xác minh danh tính người bán và người giao hàng để đảm bảo chất lượng hệ thống.
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -317,7 +317,7 @@ const KYCApproval: React.FC = () => {
             </div>
             <div className="flex-1">
               <h4 className="text-2xl font-black text-gray-900 uppercase tracking-tight">
-                Quy trình xác minh (KYC)
+                Quy trình xác minh hồ sơ
               </h4>
               <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
                 HƯỚNG DẪN CHO ADMIN

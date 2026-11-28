@@ -14,26 +14,33 @@ import {
   PauseCircle,
   ChevronDown,
   Check,
+  PlayCircle,
+  RotateCcw,
 } from 'lucide-react'
 import type { FarmerProduct } from './types'
-import { comboService, mysteryBoxService, type ProductResponse } from '@/services'
+import { comboService, mysteryBoxService, normalizeExpiryDate, type ProductResponse } from '@/services'
+import { formatMealType } from '@/services/combo.types'
 import { getErrorMessage } from '@/utils'
 import {
   useMyProducts,
   useDeleteProduct,
+  useUpdateProduct,
   useMyCombos,
+  useUpdateComboStatus,
   useDeleteCombo,
 } from '@/features/product'
-import { useCategories } from '@/features/product/hooks/useCategoryQueries'
-import { useMyMysteryBoxes, useDeleteMysteryBox } from '@/features/mystery-box'
+import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
+import { useMyMysteryBoxes, useToggleMysteryBoxStatus, useDeleteMysteryBox } from '@/features/mystery-box'
 import { ProductImageGalleryModal } from '@/features/product/components/ProductImageGalleryModal'
 import { EditProductModal, DeleteProductModal } from '@/features/product'
+import { ShopPageHeader } from '@/features/shop'
 import Pagination from '@/components/ui/Pagination/Pagination'
+import { globalShowAlert, globalShowConfirm } from '@/components/common/Popup'
 
 interface ProductsProps {
   products?: FarmerProduct[]
   onOpenAddProduct: () => void
-  onOpenBlindBoxTool: () => void
+  onOpenBlindBoxTool: (box?: any) => void
   onOpenComboBuilder?: (combo?: any) => void
   onInfo?: (msg: string) => void
   initialSearchQuery?: string
@@ -44,12 +51,11 @@ export type ProductTypeFilter = 'ALL' | 'SINGLE' | 'MYSTERY_BOX' | 'COMBO'
 
 export function isBlindBoxItem(p: any): boolean {
   if (p?.isBlindBox) return true
+  if (p?.category?.categoryId === 9998) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('hộp mù') ||
@@ -58,27 +64,22 @@ export function isBlindBoxItem(p: any): boolean {
     catLower.includes('mystery') ||
     nameLower.includes('túi mù') ||
     nameLower.includes('hộp mù') ||
-    nameLower.includes('blind box') ||
-    unitLower === 'hộp'
+    nameLower.includes('blind box')
   )
 }
 
 export function isComboItem(p: any): boolean {
   if (p?.isCombo) return true
   if (isBlindBoxItem(p)) return false
+  if (p?.category?.categoryId === 9999) return true
   const cat = typeof p.category === 'object' && p.category !== null ? p.category.name : String(p.category || '')
   const name = String(p.productName || p.name || '')
-  const unit = String(p.unit || '')
   const catLower = cat.toLowerCase()
   const nameLower = name.toLowerCase()
-  const unitLower = unit.toLowerCase()
 
   return (
     catLower.includes('combo') ||
-    nameLower.includes('combo') ||
-    unitLower === 'combo' ||
-    unitLower === 'phần' ||
-    unitLower === 'set'
+    nameLower.includes('combo')
   )
 }
 
@@ -153,10 +154,14 @@ export default function Products({
   const { data: myBoxesData, isLoading: isLoadingBoxes } = useMyMysteryBoxes(1, 100)
 
   const isLoading = isLoadingProducts || isLoadingCombos || isLoadingBoxes
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const selectedCategory = categories.find((c) => c.categoryId === categoryFilter)
   const deleteMutation = useDeleteProduct()
+  const updateProductMutation = useUpdateProduct()
+  const updateComboStatusMutation = useUpdateComboStatus()
   const deleteComboMutation = useDeleteCombo()
+  const toggleMysteryBoxStatusMutation = useToggleMysteryBoxStatus()
   const deleteMysteryBoxMutation = useDeleteMysteryBox()
 
   // Map Combo từ BE sang ProductResponse
@@ -170,8 +175,8 @@ export default function Products({
     stockQuantity: c.totalQuantity,
     stock: c.totalQuantity,
     unit: 'combo',
-    status: (c.status || 'PENDING') as any,
-    category: { categoryId: 9999, name: `Combo · ${c.type || 'Set món'}` } as any,
+    status: (c.status || 'ACTIVE') as any,
+    category: { categoryId: 9999, name: `Combo · ${formatMealType(c.type || c.mealType)}` } as any,
     categoryId: 9999,
     imageUrl: c.imageUrl,
     image: c.imageUrl,
@@ -181,6 +186,8 @@ export default function Products({
     mealType: c.mealType,
     type: c.type,
     region: c.region,
+    soldQuantity: c.soldQuantity ?? 0,
+    cookingSuggestion: c.cookingSuggestion,
     items: c.items,
     rawCombo: c,
   }))
@@ -196,13 +203,18 @@ export default function Products({
     stockQuantity: b.totalQuantity || 0,
     stock: b.totalQuantity || 0,
     unit: 'hộp',
-    status: (b.isActive ? 'ACTIVE' : 'PENDING') as any,
+    status: (b.isActive ? 'ACTIVE' : 'INACTIVE') as any,
     category: { categoryId: 9998, name: 'Hộp mù nông sản' } as any,
     categoryId: 9998,
     imageUrl: b.imageUrl,
     image: b.imageUrl,
     images: b.imageUrl ? [{ imageId: 1, imageUrl: b.imageUrl, isPrimary: true }] : [],
     description: b.description,
+    note: b.note,
+    soldQuantity: b.soldQuantity ?? 0,
+    isActive: b.isActive,
+    items: b.items,
+    rawBox: b,
     isBlindBox: true,
   }))
 
@@ -285,6 +297,18 @@ export default function Products({
     return true
   })
 
+  // Sắp xếp: ưu tiên thời gian cập nhật/từ chối gần nhất (updatedAt DESC), sau đó đến productId DESC
+  filtered.sort((a, b) => {
+    const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    if (timeB !== timeA) {
+      return timeB - timeA
+    }
+    const idA = Number(a.productId ?? a.id ?? 0)
+    const idB = Number(b.productId ?? b.id ?? 0)
+    return idB - idA
+  })
+
   // Phân trang: dùng filtered.length để phản ánh tổng cả Nông sản lẻ + Combo + Túi mù
   const totalPages = Math.ceil(filtered.length / pageSize) || 1
   const totalElements = filtered.length
@@ -337,6 +361,65 @@ export default function Products({
     }
   }
 
+  const handleResumeProduct = async (p: any) => {
+    const prodId = Number(p.id ?? p.productId)
+    const prodName = p.productName || p.name || 'Sản phẩm'
+
+    if (isComboItem(p)) {
+      if (!(await globalShowConfirm(`Mở bán lại combo "${prodName}"?`))) return
+      try {
+        await updateComboStatusMutation.mutateAsync({ id: prodId, status: 'ACTIVE' })
+        void globalShowAlert(`Đã mở bán lại combo "${prodName}"!`, 'Thành công', 'success')
+        onInfo?.(`Đã mở bán lại combo: ${prodName}`)
+      } catch (err: any) {
+        void globalShowAlert(getErrorMessage(err, 'Không thể mở bán lại combo'), 'Lỗi', 'error')
+      }
+      return
+    }
+
+    if (isBlindBoxItem(p)) {
+      if (!(await globalShowConfirm(`Mở bán lại túi mù "${prodName}"?`))) return
+      try {
+        await toggleMysteryBoxStatusMutation.mutateAsync({ id: prodId, isActive: true })
+        void globalShowAlert(`Đã mở bán lại túi mù "${prodName}"!`, 'Thành công', 'success')
+        onInfo?.(`Đã mở bán lại túi mù: ${prodName}`)
+      } catch (err: any) {
+        void globalShowAlert(getErrorMessage(err, 'Không thể mở bán lại túi mù'), 'Lỗi', 'error')
+      }
+      return
+    }
+
+    const isRejected = p.status?.toUpperCase() === 'REJECTED'
+
+    const confirmMsg = isRejected
+      ? `Gửi lại nông sản "${prodName}" vào hàng chờ duyệt để Admin kiểm tra lại?`
+      : `Mở bán lại nông sản "${prodName}"? (Sản phẩm sẽ được gửi Admin thẩm định duyệt lại)`
+
+    if (!(await globalShowConfirm(confirmMsg))) return
+
+    try {
+      await updateProductMutation.mutateAsync({
+        id: prodId,
+        request: {
+          productName: prodName,
+          categoryId: typeof p.category === 'object' && p.category !== null ? p.category.categoryId : (p.categoryId || 1),
+          unit: 'kg',
+          sellingPrice: Number(p.sellingPrice ?? p.price ?? 0),
+          stockQuantity: Number(p.stockQuantity ?? p.stock ?? 0),
+          description: p.description || '',
+          expiryDate: p.expiryDate || new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
+          discountPercent: p.discountPercent || 0,
+          status: 'PENDING',
+          origin: p.origin || (p as any).region,
+        },
+      })
+      void globalShowAlert(`Đã gửi sản phẩm "${prodName}" vào hàng chờ duyệt!`, 'Thành công', 'success')
+      onInfo?.(`Đã gửi duyệt lại sản phẩm: ${prodName}`)
+    } catch (err: any) {
+      void globalShowAlert(getErrorMessage(err, 'Lỗi khi kích hoạt lại sản phẩm'), 'Lỗi', 'error')
+    }
+  }
+
   const renderStatusBadge = (status: string, rejectReason?: string) => {
     const s = status?.toUpperCase()
     if (s === 'PENDING') {
@@ -377,184 +460,190 @@ export default function Products({
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#f1f4ed]">
-        <div>
-          <h3 className="text-2xl font-black text-[#1c2216]">Kho Nông Sản Của Bạn</h3>
-          <p className="text-xs text-[#7e8779]">
-            Quản lý nông sản thu hoạch, tải ảnh kiểm duyệt AI Google Vision và thiết lập giá bán
-          </p>
-        </div>
+      <ShopPageHeader
+        title="Kho Nông Sản Của Bạn"
+        subtitle="Quản lý nông sản thu hoạch, tải ảnh kiểm duyệt AI Google Vision và thiết lập giá bán"
+        actions={
+          <>
+            {onOpenComboBuilder && (
+              <button
+                id="tour-products-combo-btn"
+                type="button"
+                onClick={() => onOpenComboBuilder?.()}
+                className="px-3.5 py-2 rounded-lg bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
+              >
+                Tạo Combo Nông Sản
+              </button>
+            )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenComboBuilder && (
             <button
-              id="tour-products-combo-btn"
+              id="tour-products-blindbox-btn"
               type="button"
-              onClick={() => onOpenComboBuilder?.()}
-              className="px-4 py-2 rounded-full bg-[#edf6f7] border border-[#cae4e7] hover:bg-[#deeff0] text-[#195962] font-bold text-xs uppercase cursor-pointer transition-colors"
+              onClick={() => onOpenBlindBoxTool()}
+              className="px-3.5 py-2 rounded-lg bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
             >
-              Tạo Combo Nông Sản
+              Tạo Túi Mù
             </button>
-          )}
 
-          <button
-            id="tour-products-blindbox-btn"
-            type="button"
-            onClick={onOpenBlindBoxTool}
-            className="px-4 py-2 rounded-full bg-[#fdf5eb] border border-[#f5ddbd] hover:bg-[#faeedd] text-[#8a4e1d] font-bold text-xs uppercase cursor-pointer transition-colors"
-          >
-            Tạo Túi Mù
-          </button>
-
-          <button
-            id="tour-products-add-btn"
-            type="button"
-            onClick={onOpenAddProduct}
-            className="px-4 py-2 rounded-full bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-sm flex items-center gap-1 cursor-pointer transition-all"
-          >
-            <span>Đăng Bán Nông Sản</span>
-          </button>
-        </div>
-      </div>
+            <button
+              id="tour-products-add-btn"
+              type="button"
+              onClick={onOpenAddProduct}
+              className="px-3.5 py-2 rounded-lg bg-[#326318] hover:bg-[#254b12] text-white font-extrabold text-xs uppercase shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <span>Đăng Bán Nông Sản</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Filter Tabs, Categories & Search */}
-      <div className="bg-white rounded-3xl border border-[#e8ece3] shadow-sm overflow-hidden">
-        {/* Status Filter Tabs */}
-        <div className="p-4 border-b border-[#f1f4ed] flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white rounded-xl border border-[#e8ece3] shadow-2xs overflow-hidden">
+        {/* Tầng 1: Tabs phân loại mặt hàng chính (Segmented Tabs chuẩn Enterprise) */}
+        <div className="flex items-center border-b border-[#e8ece3] px-3 bg-[#fafcf9] overflow-x-auto scrollbar-none">
+          <button
+            type="button"
+            onClick={() => handleTypeChange('ALL')}
+            className={`px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              typeFilter === 'ALL'
+                ? 'border-[#2b5619] text-[#2b5619] bg-[#2b5619]/5'
+                : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
+            }`}
+          >
+            Tất Cả Mặt Hàng ({displayItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('SINGLE')}
+            className={`px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              typeFilter === 'SINGLE'
+                ? 'border-[#2b5619] text-[#2b5619] bg-[#2b5619]/5'
+                : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
+            }`}
+          >
+            Nông Sản Tươi ({itemsByStatus.filter((p) => !isBlindBoxItem(p) && !isComboItem(p)).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('COMBO')}
+            className={`px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              typeFilter === 'COMBO'
+                ? 'border-[#195962] text-[#195962] bg-[#195962]/5'
+                : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
+            }`}
+          >
+            Combo Món ({itemsByStatus.filter(isComboItem).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('MYSTERY_BOX')}
+            className={`px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              typeFilter === 'MYSTERY_BOX'
+                ? 'border-[#8a4e1d] text-[#8a4e1d] bg-[#8a4e1d]/5'
+                : 'border-transparent text-[#7e8779] hover:text-[#1c2216]'
+            }`}
+          >
+            Túi Mù ({itemsByStatus.filter(isBlindBoxItem).length})
+          </button>
+        </div>
+
+        {/* Tầng 2: Thanh công cụ lọc trạng thái kiểm duyệt, tìm kiếm và danh mục */}
+        <div className="p-3.5 bg-white border-b border-[#f1f4ed] flex flex-wrap items-center justify-between gap-3">
+          {/* Lọc Trạng thái duyệt */}
           <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-[#717a6c] mr-1 hidden sm:inline">
+              Trạng thái:
+            </span>
             <button
               type="button"
               onClick={() => handleStatusChange('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ALL'
-                  ? 'bg-[#1c2216] text-white shadow-sm'
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all ${
+                statusFilter === 'ALL'
+                  ? 'bg-[#1c2216] text-white shadow-xs'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-                }`}
+              }`}
             >
               Tất cả
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('ACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'ACTIVE'
-                  ? 'bg-[#326318] text-white shadow-sm'
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all ${
+                statusFilter === 'ACTIVE'
+                  ? 'bg-[#2b5619] text-white shadow-xs'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-                }`}
+              }`}
             >
               Đang bán
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('PENDING')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'PENDING'
-                  ? 'bg-amber-600 text-white shadow-sm'
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all ${
+                statusFilter === 'PENDING'
+                  ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-                }`}
+              }`}
             >
               Chờ duyệt
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('REJECTED')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'REJECTED'
-                  ? 'bg-red-600 text-white shadow-sm'
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all ${
+                statusFilter === 'REJECTED'
+                  ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-                }`}
+              }`}
             >
               Từ chối
             </button>
             <button
               type="button"
               onClick={() => handleStatusChange('INACTIVE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${statusFilter === 'INACTIVE'
-                  ? 'bg-gray-600 text-white shadow-sm'
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all ${
+                statusFilter === 'INACTIVE'
+                  ? 'bg-gray-600 text-white shadow-xs'
                   : 'bg-[#f4f7f1] text-[#5b6454] hover:bg-[#e8eee3]'
-                }`}
+              }`}
             >
               Tạm dừng
             </button>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full sm:w-64">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#929a8c]" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Tìm kiếm nông sản..."
-              className="w-full pl-9 pr-3 py-2 bg-[#f4f7f1] rounded-full text-xs text-[#1e2319] outline-none border border-transparent focus:border-[#326318] focus:bg-white transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Filter Type & Category Dropdown */}
-        <div className="px-4 py-2 bg-[#fafcf9] border-b border-[#f1f4ed] flex items-center justify-between gap-2.5 text-xs">
-          {/* Phân loại Loại hình */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-            <span className="text-[11px] font-bold text-[#7e8779] shrink-0 mr-1">
-              Phân loại:
-            </span>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('ALL')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'ALL'
-                  ? 'bg-[#1c2216] text-white'
-                  : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-                }`}
-            >
-              Tất cả ({itemsByStatus.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('SINGLE')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'SINGLE'
-                  ? 'bg-[#326318] text-white'
-                  : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-                }`}
-            >
-              Nông sản lẻ ({itemsByStatus.filter((p) => !isBlindBoxItem(p) && !isComboItem(p)).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('MYSTERY_BOX')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'MYSTERY_BOX'
-                  ? 'bg-[#8a4e1d] text-white'
-                  : 'bg-white border border-[#f5ddbd] text-[#8a4e1d] hover:bg-[#fdf5eb]'
-                }`}
-            >
-              Túi mù ({itemsByStatus.filter(isBlindBoxItem).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('COMBO')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${typeFilter === 'COMBO'
-                  ? 'bg-[#195962] text-white'
-                  : 'bg-white border border-[#cae4e7] text-[#195962] hover:bg-[#edf6f7]'
-                }`}
-            >
-              Combo ({itemsByStatus.filter(isComboItem).length})
-            </button>
-          </div>
-
-          {/* Icon/Dropdown Bộ lọc Danh mục gọn gàng (chống tràn viền) */}
-          <div className="relative shrink-0" ref={categoryDropdownRef}>
-            <button
-              id="tour-products-category-filter-btn"
-              type="button"
-              onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${categoryFilter !== 'ALL'
-                  ? 'bg-[#326318] text-white border-[#326318] shadow-xs'
-                  : 'bg-white border border-[#e2e8dc] text-[#5b6454] hover:bg-[#f4f7f1]'
-                }`}
-              title="Lọc danh mục nông sản"
-            >
-              <Filter size={12} />
-              <span>{selectedCategory ? selectedCategory.name : 'Danh mục'}</span>
-              <ChevronDown
-                size={11}
-                className={`transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`}
+          {/* Search Box & Category Dropdown */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-56">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#929a8c]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Tìm kiếm nông sản..."
+                className="w-full pl-9 pr-3 py-1.5 bg-[#f4f7f1] rounded-lg text-xs text-[#1e2319] outline-none border border-transparent focus:border-[#2b5619] focus:bg-white transition-all"
               />
-            </button>
+            </div>
+
+            {/* Icon/Dropdown Bộ lọc Danh mục */}
+            <div className="relative shrink-0" ref={categoryDropdownRef}>
+              <button
+                id="tour-products-category-filter-btn"
+                type="button"
+                onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 ${
+                  categoryFilter !== 'ALL'
+                    ? 'bg-[#2b5619] text-white border-[#2b5619] shadow-xs'
+                    : 'bg-[#f4f7f1] hover:bg-[#eaf0e6] text-[#4b5563] border-[#d6dcce]'
+                }`}
+              >
+                <Filter size={13} />
+                <span>
+                  {categoryFilter === 'ALL'
+                    ? 'Danh mục'
+                    : (selectedCategory?.name || 'Đã chọn')}
+                </span>
+                <ChevronDown size={13} className={`transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
             {/* Dropdown Menu popover */}
             {isCategoryDropdownOpen && (
@@ -617,15 +706,16 @@ export default function Products({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Product Items List */}
+      {/* Product Items List */}
         <div className="divide-y divide-[#f1f4ed]">
           {isLoading ? (
             <div className="p-8 space-y-4">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="flex items-center justify-between gap-4 animate-pulse">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-[#f0f4ec]" />
+                    <div className="w-14 h-14 rounded-lg bg-[#f0f4ec]" />
                     <div className="space-y-2">
                       <div className="w-32 h-4 bg-[#f0f4ec] rounded" />
                       <div className="w-24 h-3 bg-[#f0f4ec] rounded" />
@@ -661,7 +751,7 @@ export default function Products({
                       <img
                         src={imgUrl}
                         alt={prodName}
-                        className="w-14 h-14 rounded-2xl object-cover border border-[#e4ebd9]"
+                        className="w-13 h-13 rounded-lg object-cover border border-[#e4ebd9]"
                       />
                       {!isBlindBoxItem(p) && !isComboItem(p) && (
                         <button
@@ -674,7 +764,7 @@ export default function Products({
                             })
                           }
                           title="Quản lý ảnh (Gallery)"
-                          className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer"
+                          className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer"
                         >
                           <Images size={16} />
                         </button>
@@ -706,7 +796,7 @@ export default function Products({
                         ) : isComboItem(p) ? (
                           <>Set nguyên liệu bữa ăn · Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span></>
                         ) : (
-                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${p.expiryDate}`}</>
+                          <>Tồn kho: <span className="font-bold text-[#1c2216]">{stock} {unit}</span>{p.expiryDate && ` · HSD: ${normalizeExpiryDate(p.expiryDate) || p.expiryDate}`}</>
                         )}
                       </span>
                     </div>
@@ -742,33 +832,54 @@ export default function Products({
                         </button>
                       )}
 
-                      {/* Nút Chỉnh sửa */}
+                      {/* Nút Chỉnh sửa rõ ràng có nhãn chữ */}
                       <button
                         type="button"
                         onClick={() => {
                           if (isComboItem(p)) {
                             onOpenComboBuilder?.(p)
                           } else if (isBlindBoxItem(p)) {
-                            onOpenBlindBoxTool?.()
+                            onOpenBlindBoxTool?.(p)
                           } else {
                             setEditModalState({ isOpen: true, product: p })
                           }
                         }}
-                        title="Chỉnh sửa thông tin"
-                        className="p-2 rounded-xl hover:bg-[#f0f4ec] text-[#616a5b] hover:text-[#326318] cursor-pointer transition-colors"
+                        title="Chỉnh sửa thông tin nông sản"
+                        className="px-2.5 py-1.5 rounded-xl border border-[#dce3d5] hover:border-[#2b5619] hover:bg-[#f0f4ec] text-[#2b5619] text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                       >
-                        <Edit3 size={16} />
+                        <Edit3 size={13} />
+                        <span>Sửa</span>
                       </button>
 
-                      {/* Nút Xóa / Tạm dừng */}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(p)}
-                        title="Tạm dừng / Gỡ sản phẩm"
-                        className="p-2 rounded-xl hover:bg-red-50 text-[#929a8c] hover:text-red-600 cursor-pointer transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {/* Nút Khôi phục / Mở bán lại nếu đang Tạm dừng, Chờ duyệt (dữ liệu cũ), hoặc Bị từ chối */}
+                      {(!isBlindBoxItem(p) && !isComboItem(p) && (p.status === 'INACTIVE' || p.status === 'REJECTED')) ||
+                      ((isBlindBoxItem(p) || isComboItem(p)) && (p.status === 'INACTIVE' || p.status === 'PENDING')) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleResumeProduct(p)}
+                          title={
+                            isBlindBoxItem(p) || isComboItem(p)
+                              ? 'Mở bán lại'
+                              : p.status === 'REJECTED'
+                                ? 'Gửi Admin duyệt lại'
+                                : 'Mở bán lại (gửi Admin duyệt)'
+                          }
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#2b5619] text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          {p.status === 'REJECTED' ? <RotateCcw size={13} /> : <PlayCircle size={13} />}
+                          <span>Mở bán</span>
+                        </button>
+                      ) : (
+                        /* Nút Xóa / Tạm dừng (Có khoảng cách an toàn, viền tinh tế) */
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          title="Tạm dừng / Gỡ sản phẩm này"
+                          className="p-1.5 rounded-xl border border-transparent hover:border-rose-200 hover:bg-rose-50 text-[#929a8c] hover:text-rose-600 cursor-pointer transition-colors ml-1"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -776,7 +887,7 @@ export default function Products({
             })
           ) : (
             <div className="p-12 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-[#f4f7f1] text-[#7e8779] flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-lg bg-[#f4f7f1] text-[#7e8779] flex items-center justify-center mx-auto mb-3">
                 <AlertCircle size={24} />
               </div>
               <h4 className="text-sm font-extrabold text-[#1c2216]">Chưa tìm thấy nông sản nào</h4>
@@ -824,6 +935,7 @@ export default function Products({
       {/* Edit Product Modal */}
       {editModalState.product && (
         <EditProductModal
+          key={editModalState.product.id ?? editModalState.product.productId}
           product={editModalState.product}
           isOpen={editModalState.isOpen}
           onClose={() => setEditModalState({ isOpen: false, product: null })}

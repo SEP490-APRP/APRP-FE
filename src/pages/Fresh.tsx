@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
-  Leaf,
-  MapPin,
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  Truck,
   X,
 } from 'lucide-react'
-import { filterProducts, type Cart } from '@/mocks/catalog'
 import freshFarmerBanner from '../assets/fresh-farmer-banner.jpg'
 import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
+import Pagination from '@/components/ui/Pagination'
 import {
-  AI_SCORES,
   CATEGORIES,
   DEFAULT_FILTERS,
   FilterPanel,
@@ -24,16 +21,140 @@ import {
   filtersFromHash,
   ProductGrid,
   useAllProducts,
+  useCategories,
   type Filters,
 } from '@/features/product'
-import { cn } from '@/utils'
+
+type Cart = {
+  items?: Readonly<Record<string, number>>
+}
+
+function getProduceRegion(address?: string): string {
+  if (!address) return ''
+  const a = address.toLowerCase()
+  if (a.includes('đà lạt') || a.includes('lâm đồng')) return 'Đà Lạt'
+  if (a.includes('tiền giang') || a.includes('bến tre') || a.includes('đồng tháp') || a.includes('miền tây') || a.includes('cần thơ')) return 'Miền Tây'
+  if (a.includes('đắk lắk') || a.includes('gia lai') || a.includes('tây nguyên')) return 'Tây Nguyên'
+  if (a.includes('đồng nai') || a.includes('hồ chí minh') || a.includes('bình dương') || a.includes('đông nam')) return 'Đông Nam Bộ'
+  return address.split(',').pop()?.trim() || ''
+}
+
+function removeDiacritics(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
+function stripProducePrefix(raw: string): string {
+  let s = raw.trim().toLowerCase()
+  if (s.includes('/')) {
+    s = s.split('/')[0].trim()
+  }
+  for (const prefix of ['quả ', 'trái ', 'cây ', 'củ ', 'rau ', 'lá ', 'hạt ']) {
+    if (s.startsWith(prefix) && s.length > prefix.length) {
+      return s.slice(prefix.length).trim()
+    }
+  }
+  return s
+}
+
+const PRODUCE_SYNONYM_GROUPS: string[][] = [
+  ['nhàu', 'nhau', 'quả nhàu', 'trái nhàu', 'noni'],
+  ['dứa', 'thơm', 'khóm'],
+  ['bắp', 'ngô', 'bắp mỹ', 'bắp nếp'],
+  ['khổ qua', 'mướp đắng'],
+  ['dưa leo', 'dưa chuột'],
+  ['dưa lưới', 'dưa gang', 'dưa vàng', 'dưa hoàng kim', 'dưa hami'],
+  ['dưa lê', 'dưa bở'],
+  ['bí đao', 'bí xanh'],
+  ['cải bó xôi', 'rau chân vịt'],
+  ['bông cải', 'súp lơ'],
+  ['chanh dây', 'chanh leo'],
+  ['mãng cầu', 'mãng cầu ta', 'mãng cầu xiêm', 'trái na', 'quả na'],
+  ['hồng xiêm', 'sa pô chê', 'sapoche'],
+  ['đậu phộng', 'lạc', 'củ lạc'],
+  ['đậu que', 'đậu cô ve'],
+  ['khoai mì', 'củ sắn', 'sắn'],
+  ['khoai mỡ', 'khoai từ', 'củ từ'],
+  ['củ đậu', 'củ sắn nước'],
+  ['củ sen', 'ngó sen', 'hạt sen'],
+  ['ngò rí', 'ngò', 'rau mùi'],
+  ['ngò gai', 'mùi tàu'],
+  ['bạc hà', 'húng lủi'],
+  ['xà lách xoong', 'cải xoong'],
+  ['cải thìa', 'cải chíp'],
+  ['cải xanh', 'cải bẹ xanh'],
+  ['mồng tơi', 'mùng tơi', 'rau mồng tơi'],
+  ['tắc', 'quất', 'trái tắc', 'quả quất'],
+  ['mận', 'quả roi', 'trái roi', 'mận an phước', 'mận hậu'],
+  ['hành boa rô', 'boa rô', 'tỏi tây'],
+  ['hành tím', 'hành hương'],
+  ['cherry', 'anh đào'],
+]
+
+function matchesProduceSearch(productName: string, categoryName: string, rawQuery: string): boolean {
+  const qRaw = rawQuery.trim().toLowerCase()
+  if (!qRaw) return true
+
+  const nameLower = productName.toLowerCase()
+  const catLower = categoryName.toLowerCase()
+  if (nameLower.includes(qRaw) || catLower.includes(qRaw)) return true
+
+  const coreQuery = stripProducePrefix(qRaw)
+  const candidates = new Set<string>([qRaw, coreQuery])
+
+  // Mở rộng từ đồng nghĩa vùng miền
+  for (const group of PRODUCE_SYNONYM_GROUPS) {
+    if (group.some((term) => term === coreQuery || term === qRaw || removeDiacritics(term) === removeDiacritics(coreQuery))) {
+      for (const term of group) {
+        candidates.add(term)
+      }
+    }
+  }
+
+  const nameAsciiTokens = removeDiacritics(nameLower).split(/[^a-z0-9]+/).filter(Boolean)
+  const nameAsciiFull = ` ${nameAsciiTokens.join(' ')} `
+
+  for (const cand of candidates) {
+    if (!cand) continue
+    if (nameLower.includes(cand) || catLower.includes(cand)) {
+      // Tránh "bắp" khớp nhầm "bắp cải" hoặc "dừa" khớp nhầm "dưa"
+      if ((cand === 'bắp' || cand === 'bap') && nameLower.includes('bắp cải')) continue
+      return true
+    }
+
+    const candAscii = removeDiacritics(cand)
+    if (!candAscii) continue
+
+    // So khớp không dấu theo ranh giới từ (word boundary) để "nhàu" khớp "Nhau tươi", nhưng "bơ" không khớp nhầm "dưa bở" nếu tên có dấu khác
+    if (candAscii.includes(' ')) {
+      if (nameAsciiFull.includes(` ${candAscii} `)) {
+        if (candAscii === 'bap' && nameAsciiFull.includes(' bap cai ')) continue
+        return true
+      }
+    } else if (candAscii.length >= 3) {
+      if (nameAsciiTokens.includes(candAscii)) {
+        if (candAscii === 'bap' && nameAsciiFull.includes(' bap cai ')) continue
+        if (candAscii === 'dua' && (nameLower.includes('dưa') && (cand === 'dừa' || cand === 'dứa'))) continue
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const PAGE_SIZE = 16
 
 const SORT_OPTIONS = [
-  { id: 'featured', label: 'Nổi bật' },
-  { id: 'best-selling', label: 'Bán chạy' },
-  { id: 'price-asc', label: 'Giá tăng dần' },
-  { id: 'price-desc', label: 'Giá giảm dần' },
-  { id: 'name-asc', label: 'Tên A-Z' },
+  { id: 'featured', label: 'Phổ biến nhất' },
+  { id: 'harvested', label: 'Mới thu hoạch' },
+  { id: 'price-asc', label: 'Giá: Thấp đến Cao' },
+  { id: 'price-desc', label: 'Giá: Cao đến Thấp' },
 ] as const
 type SortId = (typeof SORT_OPTIONS)[number]['id']
 
@@ -46,101 +167,159 @@ type FreshProps = {
   cart?: Cart
 }
 
-const HIGHLIGHTS = [
-  {
-    icon: Leaf,
-    title: 'AI thẩm định độ tươi',
-    text: 'Minh bạch điểm độ tươi trên từng lô hàng.',
-    tone: 'bg-leaf-50 text-leaf-600',
-  },
-  {
-    icon: MapPin,
-    title: 'Trực tiếp từ nhà vườn',
-    text: 'Biết rõ người trồng và nhật ký canh tác.',
-    tone: 'bg-sun-100 text-soil-600',
-  },
-  {
-    icon: Truck,
-    title: 'Giao nhanh 2–4 giờ',
-    text: 'Đóng thùng tái chế, giữ trọn độ giòn ngọt.',
-    tone: 'bg-sky-50 text-sky-700',
-  },
-] as const
-
 export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshProps) {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { data: apiCategories = [] } = useCategories()
   const [filters, setFilters] = useState<Filters>(() => filtersFromHash())
 
-  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL
+  // Bấm danh mục khác ở trang chủ/menu khi đang ở trang này: cập nhật bộ lọc theo URL & searchParams
   useEffect(() => {
+    const kw = searchParams.get('keyword')
+    if (kw && kw !== query) {
+      setQuery(kw)
+    }
+
+    const catId = searchParams.get('categoryId')
+    const danhMuc = searchParams.get('danh-muc')
+
+    if (catId) {
+      const catIdNum = Number(catId)
+      const foundCat = apiCategories.find((c) => c.categoryId === catIdNum)
+      if (foundCat) {
+        setFilters((prev) => ({ ...prev, category: foundCat.name }))
+      }
+    } else if (danhMuc) {
+      const match = CATEGORIES.find((c) => c.slug === danhMuc)
+      if (match) setFilters((prev) => ({ ...prev, category: match.id }))
+    }
+
     const sync = () => {
       if (location.hash.includes('danh-muc=')) setFilters(filtersFromHash())
     }
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
-  }, [])
+  }, [searchParams, apiCategories])
+
   const [sort, setSort] = useState<SortId>('featured')
+  const [currentPage, setCurrentPage] = useState(0)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const { data: apiProducts, isLoading: isProductsLoading } = useAllProducts()
+  const {
+    data: apiProducts = [],
+    isLoading: isProductsLoading,
+    error: productsError,
+    refetch,
+  } = useAllProducts()
+
+  // Tự động quay về trang 1 khi thay đổi bộ lọc, từ khóa tìm kiếm hoặc kiểu sắp xếp
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [filters, sort, query])
 
   const items = useMemo(() => {
     const range = PRICE_RANGES.find((r) => r.id === filters.price)
     const min = range && 'min' in range ? range.min : 0
     const max = range && 'max' in range ? range.max : Number.POSITIVE_INFINITY
 
-    if (apiProducts && apiProducts.length > 0) {
-      let filtered = apiProducts.map((p) => {
-        const price = p.sellingPrice ?? p.price ?? 0
-        const original = p.discountPercent
-          ? Math.round(price / (1 - p.discountPercent / 100))
-          : price
-        const image = p.primaryImageUrl || p.imageUrl || p.image || ''
-        return {
-          id: String(p.productId || p.id),
-          name: p.productName || p.name || 'Nông sản',
-          price,
-          original,
-          image,
-          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
-          farm: p.shop?.shopName || 'Nhà vườn CapNong',
-          region: 'Đà Lạt',
-          flaw: 'Ngoại hình tự nhiên',
-          score: 96,
-          stock: p.stockQuantity ?? p.stock ?? 100,
-          rescued: 50,
-          unit: p.unit || 'kg',
-        }
-      })
-
-      if (query.trim()) {
-        const q = query.toLowerCase()
-        filtered = filtered.filter((p) => p.name.toLowerCase().includes(q))
-      }
-
-      if (filters.category && filters.category !== 'Tất cả') {
-        filtered = filtered.filter(
-          (p) =>
-            p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
-            filters.category.toLowerCase().includes(p.category.toLowerCase()),
-        )
-      }
-
-      filtered = filtered.filter((p) => p.price >= min && p.price <= max)
-
-      if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
-      else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
-      else if (sort === 'name-asc') filtered.sort((a, b) => a.name.localeCompare(b.name))
-
-      return filtered
+    if (!apiProducts || apiProducts.length === 0) {
+      return []
     }
 
-    return filterProducts(query, filters.category, sort).filter(
-      (p) =>
-        p.price >= min &&
-        p.price <= max &&
-        (filters.region === 'all' || p.region.includes(filters.region)) &&
-        p.score >= filters.minScore,
-    )
+    let filtered = apiProducts.map((p) => {
+      const price = p.sellingPrice ?? p.price ?? 0
+      const original = p.discountPercent
+        ? Math.round(price / (1 - p.discountPercent / 100))
+        : price
+      const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+      const catName =
+        typeof p.category === 'object' && p.category
+          ? p.category.name
+          : typeof p.category === 'string'
+            ? p.category
+            : ''
+
+      return {
+        id: String(p.productId || p.id),
+        name: p.productName || p.name || '',
+        price,
+        original,
+        image,
+        category: catName,
+        farm: p.shop?.shopName || p.shopName || '',
+        region: getProduceRegion(p.shop?.address),
+        flaw: p.defectReason || '',
+        score: 0,
+        stock: p.stockQuantity ?? p.stock ?? 0,
+        rescued: 0,
+        unit: p.unit || 'kg',
+      }
+    })
+
+    let visualMatchedIds: string[] = []
+    if (query.trim()) {
+      try {
+        const rawVisual = sessionStorage.getItem('capnong_visual_search_match')
+        if (rawVisual) {
+          const parsed = JSON.parse(rawVisual)
+          if (
+            parsed &&
+            typeof parsed.keyword === 'string' &&
+            parsed.keyword.trim().toLowerCase() === query.trim().toLowerCase() &&
+            Array.isArray(parsed.productIds)
+          ) {
+            visualMatchedIds = parsed.productIds.map((id: any) => String(id))
+          }
+        }
+      } catch {
+        // Ignore malformed sessionStorage data
+      }
+
+      const visualIdSet = new Set(visualMatchedIds)
+      filtered = filtered.filter(
+        (p) => visualIdSet.has(p.id) || matchesProduceSearch(p.name, p.category, query),
+      )
+    }
+
+    if (filters.category && filters.category !== 'Tất cả') {
+      filtered = filtered.filter(
+        (p) =>
+          p.category.toLowerCase().includes(filters.category.toLowerCase()) ||
+          filters.category.toLowerCase().includes(p.category.toLowerCase()),
+      )
+    }
+
+    filtered = filtered.filter((p) => p.price >= min && p.price <= max)
+
+    if (filters.region !== 'all') {
+      filtered = filtered.filter(
+        (p) => p.region === filters.region || p.region.includes(filters.region),
+      )
+    }
+
+    if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price)
+    else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price)
+    else if (sort === 'harvested') filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    else if (sort === 'featured') {
+      filtered.sort((a, b) => {
+        if (visualMatchedIds.length > 0) {
+          const idxA = visualMatchedIds.indexOf(a.id)
+          const idxB = visualMatchedIds.indexOf(b.id)
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB
+          if (idxA !== -1) return -1
+          if (idxB !== -1) return 1
+        }
+        return (b.rescued ?? 0) - (a.rescued ?? 0)
+      })
+    }
+
+    return filtered
   }, [query, filters, sort, apiProducts])
+
+  const totalPages = Math.ceil(items.length / PAGE_SIZE)
+  const pagedItems = useMemo(() => {
+    const start = currentPage * PAGE_SIZE
+    return items.slice(start, start + PAGE_SIZE)
+  }, [items, currentPage])
 
   const category =
     CATEGORIES.find((c) => c.id === filters.category) ?? {
@@ -155,24 +334,21 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
     setFilters(DEFAULT_FILTERS)
     setSort('featured')
     setQuery('')
+    setCurrentPage(0)
   }
 
   // Chip cho từng bộ lọc đang bật, bấm để gỡ riêng lẻ
-  const chips = [
-    filters.category !== 'Tất cả' && { key: 'category', label: category.label },
-    filters.price !== 'all' && {
-      key: 'price',
-      label: PRICE_RANGES.find((r) => r.id === filters.price)?.label,
-    },
-    filters.region !== 'all' && {
-      key: 'region',
-      label: REGIONS.find((r) => r.id === filters.region)?.label,
-    },
-    filters.minScore !== 0 && {
-      key: 'minScore',
-      label: `AI ${AI_SCORES.find((s) => s.id === filters.minScore)?.label}`,
-    },
-  ].filter((c): c is { key: keyof Filters; label: string } => Boolean(c && c.label))
+  type ChipItem = { key: keyof Filters; label: string }
+  const chips: ChipItem[] = []
+  if (filters.category !== 'Tất cả') chips.push({ key: 'category', label: category.label })
+  if (filters.price !== 'all') {
+    const pLabel = PRICE_RANGES.find((r) => r.id === filters.price)?.label
+    if (pLabel) chips.push({ key: 'price', label: pLabel })
+  }
+  if (filters.region !== 'all') {
+    const rLabel = REGIONS.find((r) => r.id === filters.region)?.label
+    if (rLabel) chips.push({ key: 'region', label: rLabel })
+  }
 
   return (
     <div className="min-h-screen bg-paper">
@@ -197,12 +373,12 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
           >
             <ol className="flex items-center gap-2">
               <li>
-                <a
-                  href="/"
+                <Link
+                  to="/"
                   className="rounded hover:text-sun-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sun-300"
                 >
                   Trang chủ
-                </a>
+                </Link>
               </li>
               <li aria-hidden>›</li>
               <li aria-current="page" className="font-bold text-sun-300">
@@ -224,7 +400,7 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
         <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8">
           {/* Sidebar chỉ hiện từ lg trở lên; mobile/tablet dùng Drawer */}
           <aside aria-label="Bộ lọc sản phẩm" className="hidden lg:block">
-            <div className="sticky top-24 rounded-panel border border-line bg-white p-5 shadow-card">
+            <div className="sticky top-[88px] max-h-[calc(100vh-104px)] overflow-y-auto rounded-xl border border-line bg-white p-5 shadow-card">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-ink">Bộ lọc</h2>
                 {activeCount > 0 && (
@@ -242,75 +418,103 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
             </div>
           </aside>
 
-          <section aria-labelledby="fresh-results" className="flex min-w-0 flex-col gap-4 sm:gap-6">
-            {/* Toolbar: bộ lọc và sắp xếp */}
-            <div className="sticky top-16 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white sm:p-3 sm:shadow-card lg:static">
-              <div
-                className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none]"
-                role="group"
-                aria-label="Sắp xếp"
-              >
-                <ArrowUpDown size={15} className="shrink-0 text-leaf-600" aria-hidden />
-                {SORT_OPTIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-pressed={sort === s.id}
-                    onClick={() => setSort(s.id)}
-                    className={cn(
-                      'h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-caption font-bold transition-colors',
-                      sort === s.id
-                        ? 'border-leaf-700 bg-leaf-700 text-white shadow-xs'
-                        : 'border-line bg-white text-ink-muted hover:border-leaf-600 hover:text-leaf-700',
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+          <section id="fresh-results-section" aria-labelledby="fresh-results" className="flex min-w-0 flex-col gap-4 sm:gap-6">
+            {/* Toolbar trên lưới sản phẩm: Bên trái là Số lượng + Chips; Bên phải là Dropdown Sắp xếp theo */}
+            <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+              {/* Bên trái: Số lượng kết quả + Tag bộ lọc đang áp dụng + Nút xóa tất cả */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div id="fresh-results" className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <span>Tìm thấy</span>
+                  <strong className="text-base font-extrabold text-[#326318]">{items.length}</strong>
+                  <span>nông sản phù hợp</span>
+                </div>
+
+                {chips.length > 0 && (
+                  <>
+                    <div className="hidden h-4 w-px bg-line/80 sm:block mx-0.5" aria-hidden />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {chips.map((chip) => (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          onClick={() =>
+                            setFilters((f) => ({ ...f, [chip.key]: DEFAULT_FILTERS[chip.key] }))
+                          }
+                          className="inline-flex h-7 items-center gap-1 rounded-full border border-leaf-200 bg-leaf-50 pl-2.5 pr-1.5 text-[11px] font-bold text-leaf-800 transition-colors hover:bg-leaf-100"
+                          aria-label={`Bỏ lọc ${chip.label}`}
+                        >
+                          {chip.label}
+                          <X size={12} aria-hidden />
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={resetAll}
+                        className="ml-1 cursor-pointer text-[11px] font-semibold text-ink-muted underline hover:text-[#326318]"
+                      >
+                        Xóa tất cả
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <Button
-                variant="secondary"
-                size="sm"
-                className="shrink-0 lg:hidden"
-                onClick={() => setFiltersOpen(true)}
-                leftIcon={<SlidersHorizontal size={15} aria-hidden />}
-                aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
-              >
-                <span>Bộ lọc</span>
-                {activeCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-leaf-700 px-1 text-caption text-white">
-                    {activeCount}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="fresh-results" className="mr-auto text-sm text-ink-muted" aria-live="polite">
-                <strong className="text-ink">{items.length}</strong> nông sản phù hợp
-              </h2>
-              {chips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() =>
-                    setFilters((f) => ({ ...f, [chip.key]: DEFAULT_FILTERS[chip.key] }))
-                  }
-                  className="inline-flex h-8 items-center gap-1 rounded-full border border-leaf-200 bg-leaf-50 pl-3 pr-2 text-caption font-bold text-leaf-800 hover:bg-leaf-100"
-                  aria-label={`Bỏ lọc ${chip.label}`}
+              {/* Bên phải: Nút mở bộ lọc mobile & Dropdown Sắp xếp theo */}
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 lg:hidden"
+                  onClick={() => setFiltersOpen(true)}
+                  leftIcon={<SlidersHorizontal size={14} aria-hidden />}
+                  aria-label={`Mở bộ lọc${activeCount ? `, ${activeCount} đang bật` : ''}`}
                 >
-                  {chip.label}
-                  <X size={13} aria-hidden />
-                </button>
-              ))}
+                  <span>Bộ lọc</span>
+                  {activeCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-leaf-700 px-1 text-[10px] text-white">
+                      {activeCount}
+                    </span>
+                  )}
+                </Button>
+
+                <div className="ml-auto flex items-center gap-2 sm:ml-0">
+                  <label
+                    htmlFor="sort-select"
+                    className="hidden whitespace-nowrap text-xs font-medium text-ink-muted sm:inline-block"
+                  >
+                    Sắp xếp theo:
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="sort-select"
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortId)}
+                      className="h-9 cursor-pointer appearance-none rounded-lg border border-line bg-white pl-3.5 pr-8 text-xs font-bold text-ink shadow-2xs hover:border-leaf-600 focus:border-leaf-600 focus:outline-none focus:ring-1 focus:ring-leaf-600"
+                    >
+                      {SORT_OPTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ArrowUpDown
+                      size={13}
+                      className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <ProductGrid
-              products={items}
+              products={pagedItems}
               onAdd={onAdd}
-              status={isProductsLoading ? 'loading' : 'success'}
-              cart={cart}
+              columns="wide"
+              status={isProductsLoading ? 'loading' : productsError ? 'error' : 'success'}
+              error={productsError ? 'Không thể kết nối máy chủ để tải nông sản. Vui lòng bấm thử lại.' : undefined}
+              onRetry={() => refetch()}
+              cart={cart?.items}
               priorityCount={4}
               empty={{
                 title: 'Không tìm thấy nông sản phù hợp',
@@ -325,7 +529,34 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               }}
             />
 
-            <aside className="relative mt-4 flex flex-col items-center justify-between gap-5 overflow-hidden rounded-panel bg-gradient-to-r from-leaf-800 to-leaf-900 p-6 text-center text-white shadow-card sm:flex-row sm:p-8 sm:text-left">
+            {/* Phân trang: Giới hạn 16 sản phẩm/trang (lưới 4x4) */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-line bg-white p-4 shadow-xs sm:flex-row">
+                <p className="text-xs text-ink-muted sm:text-sm">
+                  Hiển thị{' '}
+                  <strong className="font-bold text-ink">
+                    {currentPage * PAGE_SIZE + 1}–
+                    {Math.min((currentPage + 1) * PAGE_SIZE, items.length)}
+                  </strong>{' '}
+                  trong tổng số <strong className="font-bold text-ink">{items.length}</strong> nông sản
+                </p>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => {
+                    setCurrentPage(page)
+                    const el = document.getElementById('fresh-results-section')
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    } else {
+                      window.scrollTo({ top: 380, behavior: 'smooth' })
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            <aside className="relative mt-4 flex flex-col items-center justify-between gap-5 overflow-hidden rounded-xl bg-gradient-to-r from-leaf-800 to-leaf-900 p-6 text-center text-white shadow-card sm:flex-row sm:p-8 sm:text-left">
               <div className="flex flex-col gap-1.5">
                 <span className="mx-auto inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-caption font-bold text-sun-300 sm:mx-0">
                   <Sparkles size={13} aria-hidden /> Trợ lý thực đơn AI
@@ -340,35 +571,12 @@ export default function Fresh({ query, setQuery, onAdd, onInfo, cart }: FreshPro
               <Button
                 variant="accent"
                 size="lg"
-                onClick={() => onInfo('AI gợi ý thực đơn')}
+                onClick={() => navigate('/ke-hoach-an-uong')}
                 leftIcon={<Sparkles size={16} aria-hidden />}
               >
                 AI gợi ý thực đơn
               </Button>
             </aside>
-
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-              {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
-                <li
-                  key={title}
-                  className="flex items-start gap-3 rounded-card border border-line bg-white p-4 shadow-card"
-                >
-                  <span
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                      tone,
-                    )}
-                    aria-hidden
-                  >
-                    <Icon size={20} />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-ink">{title}</h3>
-                    <p className="mt-0.5 text-caption leading-relaxed text-ink-muted">{text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
       </div>

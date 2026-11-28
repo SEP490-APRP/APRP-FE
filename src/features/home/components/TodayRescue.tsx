@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Flame, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import promoImg from '@/assets/fresh-veg-promo.png'
-import { money, type Cart, type Product as StorefrontProduct } from '@/mocks/catalog'
 import { ProductGrid, useHomeProducts } from '@/features/product'
-import { LinkButton } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/Button'
+import { formatCurrency } from '@/utils'
+
+type StorefrontProduct = Parameters<typeof ProductGrid>[0]['products'][number]
 
 const BENEFITS = [
   { icon: CheckCircle2, text: 'Không chất bảo quản' },
@@ -11,7 +14,7 @@ const BENEFITS = [
   { icon: ShieldCheck, text: 'Đổi trả 1-1 nhanh chóng' },
 ] as const
 
-export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Cart }) {
+export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => void; cart?: Record<string, number> }) {
   // Trang chủ chỉ hiện 8 sản phẩm (4 trên, 4 dưới); xem thêm ở trang Nông sản tươi
   const { data: apiProducts, isLoading } = useHomeProducts(8)
 
@@ -23,19 +26,22 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
           ? Math.round(price / (1 - p.discountPercent / 100))
           : price
         const image = p.primaryImageUrl || p.imageUrl || p.image || ''
+        const rawAddress = p.shop?.address || p.origin || ''
+        const region = rawAddress ? rawAddress.split(',').pop()?.trim() || rawAddress : ''
+        const stock = p.stockQuantity ?? p.stock ?? 0
         return {
           id: String(p.productId || p.id),
-          name: p.productName || p.name || 'Nông sản',
+          name: p.productName || p.name || '',
           price,
           original,
           image,
-          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : 'Rau củ'),
-          farm: p.shop?.shopName || 'Nhà vườn CapNong',
-          region: 'Đà Lạt',
-          flaw: 'Ngoại hình tự nhiên',
-          score: 96,
-          stock: p.stockQuantity ?? p.stock ?? 100,
-          rescued: 50,
+          category: (typeof p.category === 'object' && p.category ? p.category.name : typeof p.category === 'string' ? p.category : ''),
+          farm: p.shop?.shopName || p.shopName || '',
+          region,
+          flaw: p.defectReason || '',
+          score: 0,
+          stock,
+          rescued: 0,
           unit: p.unit || 'kg',
         }
       })
@@ -67,12 +73,12 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
               Giải cứu hôm nay
             </h2>
           </div>
-          <a
-            href="/nong-san-tuoi"
+          <Link
+            to="/nong-san-tuoi"
             className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-leaf-700 hover:text-leaf-800"
           >
             Xem tất cả nông sản <ArrowRight size={17} aria-hidden />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -106,7 +112,7 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-2xl sm:text-3xl font-black text-sun-300 tracking-tight">
-                    Chỉ từ {money(lowestPrice)}
+                    Chỉ từ {formatCurrency(lowestPrice)}
                   </span>
                   <span className="text-caption text-white/80">/kg</span>
                 </div>
@@ -121,14 +127,16 @@ export default function TodayRescue({ onAdd, cart }: { onAdd: (id: string) => vo
                 ))}
               </ul>
 
-              <LinkButton
-                href="/nong-san-tuoi"
-                variant="secondary"
-                size="lg"
-                className="w-full border-0 sm:w-fit font-bold shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 mt-1"
+              <Link
+                to="/nong-san-tuoi"
+                className={buttonClasses({
+                  variant: 'secondary',
+                  size: 'lg',
+                  className: 'w-full border-0 sm:w-fit font-bold shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 mt-1 text-center',
+                })}
               >
                 Khám phá ngay <ArrowRight size={16} aria-hidden />
-              </LinkButton>
+              </Link>
             </div>
 
             <div className="relative z-10 pt-4 mt-auto flex items-center justify-center">

@@ -7,6 +7,15 @@ export const categoryKeys = {
   detail: (id: number) => [...categoryKeys.all, 'detail', id] as const,
 }
 
+export function isBundleCategory(category: Pick<CategoryResponse, 'name'>): boolean {
+  const lower = (category.name || '').toLowerCase()
+  return lower.includes('combo') || lower.includes('túi mù') || lower.includes('tui mu')
+}
+
+export function filterFreshCategories(categories: CategoryResponse[]): CategoryResponse[] {
+  return categories.filter((c) => !isBundleCategory(c))
+}
+
 export function useCategories() {
   return useQuery<CategoryResponse[]>({
     queryKey: categoryKeys.list(),

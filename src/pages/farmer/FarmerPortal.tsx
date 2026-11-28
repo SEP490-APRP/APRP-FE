@@ -17,6 +17,7 @@ import {
   HelpCircle,
   AlertTriangle,
   BookOpen,
+  Flame,
 } from 'lucide-react'
 import type { AuthUser } from '@/features/auth'
 import type {
@@ -47,7 +48,9 @@ import ComboBuilder from './ComboBuilder'
 import FarmerDisputes from './FarmerDisputes'
 import FarmerBlogs from './FarmerBlogs'
 import FarmerMessages from './FarmerMessages'
+import FarmerCampaigns from './Campaigns'
 import OnboardingTour from './OnboardingTour'
+import ShopQuickSearch from './ShopQuickSearch'
 import { STORAGE_KEYS } from '@/utils'
 import logoIcon from '@/assets/logo-icon.png'
 
@@ -100,6 +103,7 @@ export default function FarmerPortal({
   const [searchParams, setSearchParams] = useSearchParams()
   const validTabs = [
     'overview',
+    'revenue-report',
     'products',
     'orders',
     'disputes',
@@ -110,13 +114,16 @@ export default function FarmerPortal({
     'profile',
     'wallet',
     'messages',
+    'campaigns',
   ]
   const tabParam = searchParams.get('tab')
-  const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
+  const normalizedTabParam = tabParam === 'revenue_report' ? 'revenue-report' : tabParam
+  const initialTab = normalizedTabParam && validTabs.includes(normalizedTabParam) ? normalizedTabParam : 'overview'
   const [currentTab, setCurrentTab] = useState<string>(initialTab)
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
+    const rawTab = searchParams.get('tab')
+    const tab = rawTab === 'revenue_report' ? 'revenue-report' : rawTab
     if (tab && validTabs.includes(tab)) {
       setCurrentTab(tab)
       setSelectedOrderIdForPrep(null)
@@ -132,10 +139,16 @@ export default function FarmerPortal({
     } else if (action === 'withdraw' || action === 'rut-tien') {
       setShowWithdrawModal(true)
     }
+
+    const searchParam = searchParams.get('search')
+    if ((tab === 'products' || (!tab && currentTab === 'products')) && searchParam !== null) {
+      setProductSearchQuery(searchParam)
+    }
   }, [searchParams])
   const [shopActive, setShopActive] = useState<boolean>(true)
-  const [searchQuery, setSearchQuery] = useState<string>('')
-  const [productSearchQuery, setProductSearchQuery] = useState<string>('')
+  const [productSearchQuery, setProductSearchQuery] = useState<string>(() =>
+    searchParams.get('tab') === 'products' ? (searchParams.get('search') || '') : ''
+  )
   const [selectedOrderIdForPrep, setSelectedOrderIdForPrep] = useState<string | null>(null)
 
   const handleNavigateToProductInventory = (productName?: string) => {
@@ -171,6 +184,7 @@ export default function FarmerPortal({
       (prev) => {
         const next = new URLSearchParams(prev)
         next.set('tab', tabId)
+        next.delete('search')
         return next
       },
       { replace: true },
@@ -221,6 +235,7 @@ export default function FarmerPortal({
   // Modals state
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showBlindBoxTool, setShowBlindBoxTool] = useState(false)
+  const [blindBoxToEdit, setBlindBoxToEdit] = useState<any | null>(null)
   const [showComboBuilder, setShowComboBuilder] = useState(false)
   const [comboToEdit, setComboToEdit] = useState<any | null>(null)
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false)
@@ -482,6 +497,7 @@ export default function FarmerPortal({
     { name: 'Báo cáo doanh thu', icon: BarChart3, id: 'revenue-report' },
     { name: 'Sản phẩm', icon: Package, id: 'products' },
     { name: 'Đơn hàng', icon: ShoppingCart, id: 'orders' },
+    { name: 'Chiến dịch giải cứu', icon: Flame, id: 'campaigns' },
     { name: 'Khiếu nại & Trợ giúp', icon: AlertTriangle, id: 'disputes' },
     { name: 'Đánh giá', icon: MessageSquare, id: 'reviews' },
     { name: 'Bài viết & Bảng tin', icon: BookOpen, id: 'blogs' },
@@ -588,12 +604,15 @@ export default function FarmerPortal({
               </div>
               <div className="overflow-hidden min-w-0 flex-1">
                 <div
-                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1 ${currentTab === 'profile' && !selectedOrderIdForPrep
+                  className={`text-[11px] font-black truncate transition-colors flex items-center gap-1.5 ${currentTab === 'profile' && !selectedOrderIdForPrep
                     ? 'text-[#326318]'
                     : 'text-[#1c2216] group-hover:text-[#326318]'
                     }`}
                 >
                   <span className="truncate">{displayShopName}</span>
+                  <span className="bg-[#eef8ea] text-[#2b5619] text-[9px] font-black px-1.5 py-0.5 rounded border border-[#cbe5c4] shrink-0">
+                    VietGAP
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -630,7 +649,11 @@ export default function FarmerPortal({
       {/* ========================================================================= */}
       {/* 2. MAIN CONTENT                                                           */}
       {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto">
+      <main
+        className={`flex-1 flex flex-col h-full ${
+          currentTab === 'messages' && !selectedOrderIdForPrep ? 'overflow-hidden' : 'overflow-y-auto'
+        }`}
+      >
         <header className="bg-white border-b border-[#e8ece3] px-8 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
           <div>
             <h2 className="text-2xl font-black text-[#1c2216] tracking-tight">
@@ -648,26 +671,28 @@ export default function FarmerPortal({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#929a8c]"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm nhanh..."
-                className="pl-9 pr-4 py-2 bg-[#f4f7f1] rounded-full text-xs text-[#1e2319] placeholder-[#8e9688] outline-none focus:bg-white focus:ring-1 focus:ring-[#326318] w-56 transition-all"
-              />
-            </div>
+            <ShopQuickSearch
+              products={realProductsList.length > 0 ? realProductsList : products}
+              orders={realShopOrders}
+              onSelectProduct={(name) => handleNavigateToProductInventory(name)}
+              onSelectOrder={(orderId) => {
+                handleTabChange('orders')
+                setSelectedOrderIdForPrep(orderId)
+              }}
+              onNavigateTab={(tab) => handleTabChange(tab)}
+              onOpenAddProduct={() => setShowAddProductModal(true)}
+              onOpenComboBuilder={() => {
+                setComboToEdit(null)
+                setShowComboBuilder(true)
+              }}
+              onOpenBlindBoxTool={() => setShowBlindBoxTool(true)}
+            />
 
 
             <button
               type="button"
               onClick={() => {
-                setCurrentTab('notifications')
-                setSelectedOrderIdForPrep(null)
+                handleTabChange('notifications')
               }}
               className="w-10 h-10 rounded-full bg-[#f4f7f1] hover:bg-[#eaf0e6] flex items-center justify-center text-[#555d4e] relative transition-colors cursor-pointer"
               title="Thông báo hệ thống"
@@ -684,7 +709,7 @@ export default function FarmerPortal({
               type="button"
               onClick={() => {
                 setShowTour(true)
-                setCurrentTab('overview')
+                handleTabChange('overview')
               }}
               title="Xem lại hướng dẫn cho nông dân"
               className="px-3.5 py-2 rounded-full bg-[#f4f7f1] hover:bg-[#e4ede0] text-xs font-bold text-[#326318] flex items-center gap-1.5 transition-colors cursor-pointer border border-[#d6dcce]"
@@ -696,7 +721,13 @@ export default function FarmerPortal({
         </header>
 
         {/* Dynamic Modular Subpages Body */}
-        <div className="p-8 space-y-8 flex-1">
+        <div
+          className={`flex-1 min-h-0 ${
+            currentTab === 'messages' && !selectedOrderIdForPrep
+              ? 'p-4 sm:p-6 h-[calc(100vh-73px)] max-h-[calc(100vh-73px)] flex flex-col overflow-hidden'
+              : 'p-8 pb-32 space-y-8'
+          }`}
+        >
           {selectedOrderIdForPrep ? (
             <OrderPreparation
               orderId={selectedOrderIdForPrep}
@@ -707,6 +738,7 @@ export default function FarmerPortal({
             <Dashboard
               onNavigate={(tab) => handleTabChange(tab)}
               onOpenAddProduct={() => setShowAddProductModal(true)}
+              onInfo={handleInfo}
             />
           ) : currentTab === 'revenue-report' ? (
             <RevenueReport />
@@ -714,7 +746,14 @@ export default function FarmerPortal({
             <Products
               products={realProductsList.length > 0 ? realProductsList : products}
               onOpenAddProduct={() => setShowAddProductModal(true)}
-              onOpenBlindBoxTool={() => setShowBlindBoxTool(true)}
+              onOpenBlindBoxTool={(box?: any) => {
+                const isEvent =
+                  box &&
+                  typeof box === 'object' &&
+                  ('nativeEvent' in box || 'target' in box || 'bubbles' in box)
+                setBlindBoxToEdit(isEvent ? null : box || null)
+                setShowBlindBoxTool(true)
+              }}
               onOpenComboBuilder={(combo?: any) => {
                 const isEvent = combo && typeof combo === 'object' && ('nativeEvent' in combo || 'target' in combo || 'bubbles' in combo)
                 setComboToEdit(isEvent ? null : (combo || null))
@@ -728,6 +767,8 @@ export default function FarmerPortal({
               onOpenOrderPrep={(ordId) => setSelectedOrderIdForPrep(ordId)}
               onInfo={handleInfo}
             />
+          ) : currentTab === 'campaigns' ? (
+            <FarmerCampaigns onInfo={handleInfo} />
           ) : currentTab === 'disputes' ? (
             <FarmerDisputes />
           ) : currentTab === 'blogs' ? (
@@ -740,7 +781,14 @@ export default function FarmerPortal({
           ) : currentTab === 'vouchers' ? (
             <Vouchers onInfo={handleInfo} />
           ) : currentTab === 'notifications' ? (
-            <Notifications />
+            <Notifications
+              onOpenOrderPrep={(orderId) => {
+                handleTabChange('orders')
+                setSelectedOrderIdForPrep(orderId)
+              }}
+              onNavigateTab={(tab) => handleTabChange(tab)}
+              onNavigateToProducts={(name) => handleNavigateToProductInventory(name)}
+            />
           ) : currentTab === 'profile' ? (
             <Profile user={user} shopProfile={shopProfile} onInfo={handleInfo} />
           ) : currentTab === 'wallet' ? (
@@ -750,7 +798,11 @@ export default function FarmerPortal({
           )}
 
           {/* Duy trì phân hệ Tin nhắn luôn mounted để không làm mất tiến trình tải video/ảnh khi chuyển tab */}
-          <div className={!selectedOrderIdForPrep && currentTab === 'messages' ? 'block' : 'hidden'}>
+          <div
+            className={`h-full flex-1 flex flex-col min-h-0 ${
+              !selectedOrderIdForPrep && currentTab === 'messages' ? 'block' : 'hidden'
+            }`}
+          >
             <FarmerMessages />
           </div>
         </div>
@@ -795,8 +847,12 @@ export default function FarmerPortal({
 
       {showBlindBoxTool && (
         <BlindBoxTool
+          initialBox={blindBoxToEdit}
           onAddBox={handleAddNewProduct}
-          onClose={() => setShowBlindBoxTool(false)}
+          onClose={() => {
+            setShowBlindBoxTool(false)
+            setBlindBoxToEdit(null)
+          }}
           onInfo={handleInfo}
         />
       )}

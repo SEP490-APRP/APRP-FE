@@ -40,40 +40,43 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <img
               src={activeConversation.otherUserAvatar}
               alt={activeConversation.otherUserName}
-              className="size-9 rounded-full object-cover border border-black/10"
+              className="size-10 rounded-full object-cover border border-[#dce3d5]"
               onError={(e) => {
                 ;(e.target as HTMLElement).style.display = 'none'
               }}
             />
           ) : (
             <div
-              className={`size-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${badgeInfo.avatarClass}`}
+              className={`size-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${badgeInfo.avatarClass}`}
             >
               {(activeConversation.otherUserName || 'U').charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+          <span className="absolute bottom-0 right-0 size-3 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400/40" />
         </div>
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="font-extrabold text-xs text-[#1c2216] truncate">
+            <h2 className="font-black text-sm text-[#1c2216] truncate">
               {activeConversation.otherUserName}
             </h2>
             <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${badgeInfo.badgeClass}`}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${badgeInfo.badgeClass}`}
             >
               {badgeInfo.label}
             </span>
           </div>
-          <p className="text-[11px] text-gray-500 font-normal mt-0.5 flex items-center gap-1.5">
+          <p className="text-[11px] text-[#6e7868] font-normal mt-0.5 flex items-center gap-1.5">
             {isOtherTyping ? (
               <span className="text-emerald-600 font-semibold italic flex items-center gap-1">
                 <span className="inline-block size-1.5 rounded-full bg-emerald-500 animate-bounce" />
                 Đang soạn tin nhắn...
               </span>
             ) : (
-              'Trực tuyến'
+              <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                Đang trực tuyến
+              </span>
             )}
           </p>
         </div>

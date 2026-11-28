@@ -6,12 +6,35 @@ import type { NotificationItem } from '@/services/notification.types'
 
 export type NotificationReceivedCallback = (notification: NotificationItem) => void
 
+/**
+ * Tin nhắn điều phối gửi riêng cho Shipper qua /user/queue/shipper-offers.
+ * NEW_ORDER: có đơn mới gần bạn. ORDER_TAKEN: đơn đã có người nhận, gỡ khỏi danh sách.
+ */
+export interface ShipperOfferMessage {
+  type: 'NEW_ORDER' | 'ORDER_TAKEN'
+  orderId: number
+  shopName?: string
+  shopAddress?: string
+  shippingAddress?: string
+  distanceToShopKm?: number | null
+  distanceKm?: number | null
+  shippingFee?: number
+  totalAmount?: number
+  paymentMethod?: string
+  /** Số tiền phải ký quỹ nếu là đơn COD */
+  codAmount?: number
+  wave?: number
+}
+
+export type ShipperOfferCallback = (offer: ShipperOfferMessage) => void
+
 class NotificationSocketService {
   private client: Client | null = null
   private isConnected: boolean = false
   private currentUserId: string | number | null = null
   private subscriptions: StompSubscription[] = []
   private listeners = new Set<NotificationReceivedCallback>()
+  private offerListeners = new Set<ShipperOfferCallback>()
 
   private getAuthToken(): string | null {
     try {
@@ -118,6 +141,21 @@ class NotificationSocketService {
       }
     }
 
+    // Kênh điều phối đơn cho Shipper (user khác không nhận được gì trên kênh này)
+    try {
+      const subOffers = this.client.subscribe('/user/queue/shipper-offers', (message: IMessage) => {
+        try {
+          const offer = JSON.parse(message.body) as ShipperOfferMessage
+          if (offer?.orderId) this.offerListeners.forEach((listener) => listener(offer))
+        } catch (err) {
+          console.error('[WS Notification] Error parsing shipper offer:', err)
+        }
+      })
+      this.subscriptions.push(subOffers)
+    } catch (e) {
+      console.warn('[WS Notification] Failed to subscribe to shipper offers:', e)
+    }
+
     // 1. Kênh public queue theo userId: /queue/notifications.{userId}
     try {
       const subDirect = this.client.subscribe(`/queue/notifications.${userId}`, handleMessage)
@@ -139,6 +177,14 @@ class NotificationSocketService {
     this.listeners.add(callback)
     return () => {
       this.listeners.delete(callback)
+    }
+  }
+
+  /** Nghe đơn mới / đơn đã có người nhận (chỉ Shipper). Trả về hàm huỷ đăng ký */
+  public onShipperOffer(callback: ShipperOfferCallback): () => void {
+    this.offerListeners.add(callback)
+    return () => {
+      this.offerListeners.delete(callback)
     }
   }
 

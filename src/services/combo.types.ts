@@ -1,5 +1,17 @@
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 
+export const MEAL_TYPE_LABELS: Record<string, string> = {
+  BREAKFAST: 'Bữa sáng',
+  LUNCH: 'Bữa trưa',
+  DINNER: 'Bữa tối',
+  SNACK: 'Ăn nhẹ',
+}
+
+export function formatMealType(type?: string): string {
+  if (!type) return 'Set món ăn'
+  return MEAL_TYPE_LABELS[type.toUpperCase()] || type
+}
+
 export interface ProductComboItemRequest {
   productId: number
   productQuantity: number

@@ -43,7 +43,6 @@ export const ChatbotInput: React.FC = () => {
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Hỏi về nông sản, chính sách, hoặc gõ 'Mua 2kg cà chua'..."
-        disabled={isLoading}
         className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#d6d3c9] focus:outline-none focus:border-[#326318] focus:ring-2 focus:ring-[#326318]/15 text-xs sm:text-sm text-[#1c2216] placeholder:text-[#5f6b57] bg-[#f8faf6] focus:bg-white transition-all disabled:opacity-50"
       />
       <button

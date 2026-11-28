@@ -43,8 +43,8 @@ export const OrderCancelCard: React.FC<OrderCancelCardProps> = ({ orderCancel })
   }
 
   const formatPrice = (val?: number) => {
-    if (!val) return '0 đ'
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ'
+    if (!val) return '0\u00A0đ'
+    return new Intl.NumberFormat('vi-VN').format(val) + '\u00A0đ'
   }
 
   return (
@@ -72,7 +72,7 @@ export const OrderCancelCard: React.FC<OrderCancelCardProps> = ({ orderCancel })
 
       {orderCancel.refundAmount && orderCancel.refundAmount > 0 && orderCancel.canCancel && (
         <div className="text-[11px] bg-white p-2.5 rounded-lg border border-rose-200 flex items-center justify-between shadow-2xs">
-          <span className="text-[#5f6b57]">Số tiền sẽ hoàn vào ví:</span>
+          <span className="text-[#5f6b57]">Số tiền đã thanh toán:</span>
           <span className="font-bold text-rose-700">{formatPrice(orderCancel.refundAmount)}</span>
         </div>
       )}

@@ -1,17 +1,36 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Images, Loader2, Sparkles } from 'lucide-react'
+import { X, Images, Loader2, Sparkles, AlertTriangle } from 'lucide-react'
 import {
   productFormSchema,
   type ProductFormInput,
   type ProductFormValues,
 } from '../schemas/productForm.schema'
-import { useCategories } from '../hooks/useCategoryQueries'
+import { useCategories, filterFreshCategories } from '../hooks/useCategoryQueries'
 import { useUpdateProduct, useAiSuggestDescription } from '../hooks/useProductQueries'
-import type { ProductResponse } from '@/services'
+import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { CustomSelect } from '@/components/common/CustomSelect'
+import { globalShowAlert } from '@/components/common/Popup'
+
+const PRESET_REGIONS = [
+  'Đà Lạt (Lâm Đồng)',
+  'Gia Lai',
+  'Bến Tre',
+  'Đắk Lắk',
+  'Mộc Châu (Sơn La)',
+  'Tiền Giang',
+  'Đồng Nai',
+  'Bình Thuận',
+  'Miền Tây',
+]
+
+const REGION_OPTIONS = [
+  ...PRESET_REGIONS.map((r) => ({ value: r, label: r })),
+  { value: 'KHAC', label: 'Vùng khác (Tự nhập...)' },
+]
 
 interface EditProductModalProps {
   product: ProductResponse
@@ -41,16 +60,21 @@ export function EditProductModal({
   onOpenGallery,
   onInfo,
 }: EditProductModalProps) {
-  const { data: categories = [] } = useCategories()
+  const { data: rawCategories = [] } = useCategories()
+  const categories = filterFreshCategories(rawCategories)
   const updateMutation = useUpdateProduct()
 
-  const defaultCategoryId =
+  const rawCategoryId =
     typeof product.category === 'object' && product.category !== null
       ? (product.category as any).categoryId
-      : (product.categoryId ?? (categories[0]?.categoryId || 1))
+      : product.categoryId
+  const defaultCategoryId =
+    rawCategoryId && categories.some((c) => c.categoryId === rawCategoryId)
+      ? rawCategoryId
+      : (categories[0]?.categoryId || 1)
 
-  const defaultExpiry =
-    product.expiryDate ||
+  const formattedExpiry =
+    normalizeExpiryDate(product.expiryDate) ||
     (() => {
       const d = new Date()
       d.setDate(d.getDate() + 7)
@@ -65,6 +89,8 @@ export function EditProductModal({
     handleSubmit,
     setValue,
     getValues,
+    watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -73,20 +99,50 @@ export function EditProductModal({
       categoryId: defaultCategoryId,
       price: product.sellingPrice || product.price || 0,
       stock: product.stockQuantity || product.stock || 0,
-      unit: product.unit || 'kg',
-      expiryDate: defaultExpiry,
+      unit: 'kg',
+      expiryDate: formattedExpiry,
       description: product.description || '',
       discountPercent: product.discountPercent || 0,
-      region: product.region || 'Đà Lạt & Lâm Đồng',
+      region: product.origin || product.region || 'Đà Lạt (Lâm Đồng)',
     },
   })
+
+  const currentRegion = watch('region') || 'Đà Lạt (Lâm Đồng)'
+  const [isCustomRegion, setIsCustomRegion] = useState(false)
+
+  // Đồng bộ lại toàn bộ Form khi product thay đổi hoặc khi modal mở ra
+  useEffect(() => {
+    if (isOpen && product) {
+      const reg = product.origin || product.region || 'Đà Lạt (Lâm Đồng)'
+      setIsCustomRegion(!PRESET_REGIONS.includes(reg) && reg !== '')
+      const currentExpiry =
+        normalizeExpiryDate(product.expiryDate) ||
+        (() => {
+          const d = new Date()
+          d.setDate(d.getDate() + 7)
+          return d.toISOString().split('T')[0]
+        })()
+
+      reset({
+        name: product.productName || product.name || '',
+        categoryId: defaultCategoryId,
+        price: product.sellingPrice || product.price || 0,
+        stock: product.stockQuantity || product.stock || 0,
+        unit: 'kg',
+        expiryDate: currentExpiry,
+        description: product.description || '',
+        discountPercent: product.discountPercent || 0,
+        region: reg,
+      })
+    }
+  }, [product, isOpen, reset, defaultCategoryId])
 
   if (!isOpen) return null
 
   const handleAiSuggestDescription = async () => {
     const name = getValues('name')?.trim()
     if (!name) {
-      alert('Vui lòng nhập tên sản phẩm trước để AI có thể gợi ý mô tả!')
+      void globalShowAlert('Vui lòng nhập tên sản phẩm trước để AI có thể gợi ý mô tả!', 'warning')
       return
     }
 
@@ -117,24 +173,32 @@ export function EditProductModal({
 
   const onSubmit = async (values: ProductFormValues) => {
     try {
+      const nextStatus = (product.status === 'REJECTED' || product.status === 'INACTIVE')
+        ? 'PENDING'
+        : product.status
+
       await updateMutation.mutateAsync({
         id: product.id,
         request: {
           productName: values.name,
           categoryId: values.categoryId,
-          unit: values.unit,
+          unit: 'kg',
           sellingPrice: values.price,
           stockQuantity: values.stock,
           description: values.description,
           expiryDate: values.expiryDate,
           discountPercent: values.discountPercent,
-          status: product.status,
+          status: nextStatus,
+          origin: values.region,
         },
       })
-      onInfo?.(`Đã cập nhật sản phẩm: ${values.name}`)
+      const isResubmitting = product.status === 'REJECTED' || product.status === 'INACTIVE'
+      onInfo?.(isResubmitting
+        ? `Đã cập nhật và gửi duyệt lại nông sản: ${values.name}`
+        : `Đã cập nhật sản phẩm: ${values.name}`)
       onClose()
     } catch (err) {
-      alert(getErrorMessage(err) || 'Không thể cập nhật sản phẩm')
+      void globalShowAlert(getErrorMessage(err) || 'Không thể cập nhật sản phẩm', 'error')
     }
   }
 
@@ -174,6 +238,17 @@ export function EditProductModal({
             Mã sản phẩm: <span className="font-bold">#{product.id}</span> · Trạng thái:{' '}
             <span className="font-bold">{product.status}</span>
           </p>
+
+          {/* Banner lý do bị từ chối nếu có */}
+          {Boolean(product.rejectReason) && (
+            <div className="mt-3 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs">
+              <div className="font-bold flex items-center gap-1.5 mb-1 text-red-900">
+                <AlertTriangle size={15} className="text-red-600 shrink-0" />
+                <span>Lý do Admin từ chối:</span>
+              </div>
+              <p className="text-red-700 pl-5 leading-relaxed">{product.rejectReason}</p>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Form */}
@@ -199,17 +274,17 @@ export function EditProductModal({
               <label htmlFor="edit-category" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Danh mục *
               </label>
-              <select
+              <CustomSelect
                 id="edit-category"
-                {...register('categoryId', { valueAsNumber: true })}
-                className={SELECT_CLASS}
-              >
-                {categories.map((c) => (
-                  <option key={c.categoryId} value={c.categoryId}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                value={watch('categoryId') ?? defaultCategoryId}
+                onChange={(val) => setValue('categoryId', Number(val), { shouldValidate: true, shouldDirty: true })}
+                options={categories.map((c) => ({
+                  value: c.categoryId,
+                  label: c.name,
+                }))}
+                placeholder="Chọn danh mục"
+                error={!!errors.categoryId}
+              />
               <FieldError message={errors.categoryId?.message} />
             </div>
 
@@ -217,22 +292,21 @@ export function EditProductModal({
               <label htmlFor="edit-unit" className="block text-xs font-bold text-[#353d2f] mb-1">
                 Đơn vị tính *
               </label>
-              <select id="edit-unit" {...register('unit')} className={SELECT_CLASS}>
-                <option value="kg">kg (Kilogram)</option>
-                <option value="hộp">hộp</option>
-                <option value="bó">bó</option>
-                <option value="túi">túi</option>
-                <option value="trái">trái / quả</option>
-                <option value="thùng">thùng</option>
-              </select>
-              <FieldError message={errors.unit?.message} />
+              <input
+                id="edit-unit"
+                type="text"
+                value="kg (Kilogram)"
+                readOnly
+                disabled
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#eef2e9] border border-[#dce4d5] text-xs font-bold text-[#326318] outline-none cursor-not-allowed"
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="edit-price" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Giá bán (đồng) *
+                Giá bán (đồng / kg) *
               </label>
               <input
                 id="edit-price"
@@ -247,7 +321,7 @@ export function EditProductModal({
 
             <div>
               <label htmlFor="edit-stock" className="block text-xs font-bold text-[#353d2f] mb-1">
-                Tồn kho *
+                Tồn kho (kg) *
               </label>
               <input
                 id="edit-stock"
@@ -290,6 +364,39 @@ export function EditProductModal({
                 className={INPUT_CLASS}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="edit-region" className="block text-xs font-bold text-[#353d2f] mb-1">
+              Vùng trồng / Xuất xứ *
+            </label>
+            <CustomSelect
+              id="edit-region"
+              value={isCustomRegion ? 'KHAC' : currentRegion}
+              onChange={(val) => {
+                if (val === 'KHAC') {
+                  setIsCustomRegion(true)
+                  setValue('region', '', { shouldValidate: true, shouldDirty: true })
+                } else {
+                  setIsCustomRegion(false)
+                  setValue('region', String(val), { shouldValidate: true, shouldDirty: true })
+                }
+              }}
+              options={REGION_OPTIONS}
+              placeholder="Chọn vùng trồng"
+              error={!!errors.region}
+            />
+            {isCustomRegion && (
+              <input
+                type="text"
+                value={watch('region') || ''}
+                onChange={(e) => setValue('region', e.target.value, { shouldValidate: true, shouldDirty: true })}
+                placeholder="Nhập tên vùng trồng / tỉnh thành cụ thể (VD: Đức Trọng, Lâm Đồng)"
+                className={`${INPUT_CLASS} mt-2`}
+                autoFocus
+              />
+            )}
+            <FieldError message={errors.region?.message} />
           </div>
 
           <div>
@@ -357,7 +464,11 @@ export function EditProductModal({
               {(isSubmitting || updateMutation.isPending) && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              <span>Lưu Thay Đổi</span>
+              <span>
+                {product.status === 'REJECTED' || product.status === 'INACTIVE'
+                  ? 'Lưu & Gửi Duyệt Lại'
+                  : 'Lưu Thay Đổi'}
+              </span>
             </button>
           </div>
         </form>

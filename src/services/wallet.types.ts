@@ -49,9 +49,33 @@ export interface MyWalletResponse {
   totalWithdrawn: number
   /** Chỉ ví sàn */
   commissionEarned?: number | null
-  /** Chỉ ví Shipper */
+  /** Chỉ ví Shipper: tiền mặt COD của đơn luồng cũ chưa nộp về sàn */
   codCashHolding?: number | null
+  /** Tiền đang ký quỹ cho đơn COD đang giao */
+  codReserved?: number | null
+  /** Số dư khả dụng = balance - codReserved (dùng để nhận đơn COD và rút tiền) */
+  availableBalance?: number | null
   updatedAt?: BackendDateTime
+}
+
+export type WalletTopupStatus = 'PENDING' | 'PAID' | 'CANCELLED'
+
+/** Lệnh nạp ví qua PayOS (POST /wallets/topups) */
+export interface WalletTopupResponse {
+  id: number
+  amount: number
+  status: WalletTopupStatus
+  orderCode: string
+  /** Chỉ có khi còn PENDING */
+  checkoutUrl?: string | null
+  createdAt?: BackendDateTime
+  paidAt?: BackendDateTime
+}
+
+export interface WalletTopupCreateRequest {
+  amount: number
+  returnUrl?: string
+  cancelUrl?: string
 }
 
 export type WalletTransactionType =
@@ -70,6 +94,28 @@ export type WalletTransactionType =
   | 'HOLD_CANCELLED'
   | 'WITHDRAW_REQUESTED'
   | 'WITHDRAW_REFUNDED'
+  | 'COD_RESERVED'
+  | 'COD_RESERVE_RELEASED'
+  | 'TOP_UP'
+  | 'BUYER_REFUND'
+  | 'SHOP_REFUND_DEDUCT'
+  | 'PLATFORM_REFUND_DEDUCT'
+  | 'SHOP_RETURN_SHIPPING_DEDUCT'
+  | 'SHOP_RETURN_SHIPPING_REFUND'
+  | 'ORDER_WALLET_PAYMENT'
+  | 'ORDER_WALLET_REFUND'
+  | 'CAMPAIGN_DEPOSIT_HOLD'
+  | 'CAMPAIGN_DEPOSIT_RELEASED'
+  | 'CAMPAIGN_DEPOSIT_REFUNDED'
+  | 'CAMPAIGN_REMAINING_COLLECTED'
+  | 'CAMPAIGN_FARM_INCOME'
+  | 'CAMPAIGN_FARM_PAYOUT'
+  | 'CAMPAIGN_SHIPPER_PAYOUT'
+  | 'CAMPAIGN_DEPOSIT_WALLET_PAID'
+  | 'CAMPAIGN_DEPOSIT_WALLET_REFUND'
+  | 'CAMPAIGN_DAMAGE_COMPENSATION'
+  | 'CAMPAIGN_DAMAGE_REFUND'
+  | 'REFERRAL_COMMISSION'
 
 export interface WalletTransactionResponse {
   id: number
@@ -85,6 +131,8 @@ export interface WalletTransactionResponse {
   frozenAfter?: number | null
   /** true = bút toán tiền tạm giữ, không đổi số dư rút được */
   hold?: boolean
+  /** true = giữ chỗ / gỡ ký quỹ COD: amount là thay đổi số dư khả dụng, số dư không đổi */
+  reserve?: boolean
   description?: string
   createdAt?: BackendDateTime
 }

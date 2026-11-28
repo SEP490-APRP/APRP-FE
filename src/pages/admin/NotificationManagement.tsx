@@ -13,12 +13,17 @@ import {
   ChevronRight,
   Search,
   X,
+  Upload,
+  Loader2,
+  Image as ImageIcon,
 } from 'lucide-react'
+import { uploadService } from '@/services'
 import { useNotificationsPaged, useSendNotification } from '@/features/notification'
 import Pagination, { PageInfo } from '@/components/ui/Pagination'
 import { useNotificationStore } from '@/stores'
 import { formatNotificationDate } from '@/components/common/NotificationModal/NotificationDetailModal'
 import type { NotificationItem } from '@/services/notification.types'
+import { globalShowAlert } from '@/components/common/Popup'
 
 type TargetOption = 'all' | 'buyer' | 'farmer' | 'shipper'
 
@@ -46,7 +51,7 @@ function getReceiverBadge(item: NotificationItem) {
     return { label: 'Nông dân', color: 'bg-emerald-50 text-emerald-700 border-emerald-200/70' }
   }
   if (upper.includes('SHIPPER') && !upper.includes('BUYER') && !upper.includes('SHOP')) {
-    return { label: 'Shipper', color: 'bg-amber-50 text-amber-700 border-amber-200/70' }
+    return { label: 'Người giao hàng', color: 'bg-amber-50 text-amber-700 border-amber-200/70' }
   }
   return { label: 'Tất cả đối tượng', color: 'bg-purple-50 text-purple-700 border-purple-200/70' }
 }
@@ -56,6 +61,9 @@ const NotificationManagement: React.FC = () => {
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [evidence, setEvidence] = useState('')
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
 
@@ -116,6 +124,34 @@ const NotificationManagement: React.FC = () => {
     [page, totalElements, totalPages],
   )
 
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setSelectedImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+      setUploadingImage(true)
+      try {
+        const res = await uploadService.uploadImage(file, 'notifications')
+        if (res.result?.url) {
+          setEvidence(res.result.url)
+        }
+      } catch (err) {
+        console.error('Lỗi tải ảnh:', err)
+        void globalShowAlert('Tải ảnh thất bại, vui lòng thử lại!', 'error')
+        setSelectedImageFile(null)
+        setImagePreview(null)
+      } finally {
+        setUploadingImage(false)
+      }
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null)
+    setImagePreview(null)
+    setEvidence('')
+  }
+
   const handleSend = async () => {
     const trimmedTitle = title.trim()
     const trimmedMessage = message.trim()
@@ -131,6 +167,8 @@ const NotificationManagement: React.FC = () => {
       setTitle('')
       setMessage('')
       setEvidence('')
+      setSelectedImageFile(null)
+      setImagePreview(null)
       setFilterRole('all')
       setSearchKeyword('')
       setPage(0) // Đưa về trang đầu để thấy thông báo mới
@@ -194,7 +232,7 @@ const NotificationManagement: React.FC = () => {
                   { id: 'all', name: 'Tất cả', icon: Users },
                   { id: 'buyer', name: 'Người mua', icon: User },
                   { id: 'farmer', name: 'Nông dân', icon: Sprout },
-                  { id: 'shipper', name: 'Shipper', icon: Truck },
+                  { id: 'shipper', name: 'Người giao hàng', icon: Truck },
                 ].map((t) => {
                   const active = target === t.id
                   return (
@@ -249,25 +287,92 @@ const NotificationManagement: React.FC = () => {
               />
             </div>
 
-            {/* Evidence / Link Input */}
-            <div className="flex flex-col gap-1.5">
+            {/* Evidence / Image Upload Input */}
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                  Link liên kết / Bằng chứng <span className="text-gray-400 font-normal">(Tùy chọn)</span>
+                  Hình ảnh / Tài liệu đính kèm <span className="text-gray-400 font-normal">(Tùy chọn)</span>
                 </label>
-                {evidence.length > 0 && (
-                  <span className={`text-[11px] font-medium ${evidence.length >= 500 ? 'text-red-600 font-bold' : 'text-gray-400'}`}>
-                    {evidence.length}/500 ký tự
-                  </span>
+                {(imagePreview || evidence) && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-[11px] text-red-500 hover:underline font-bold cursor-pointer"
+                  >
+                    Gỡ bỏ ảnh
+                  </button>
                 )}
               </div>
+
+              {imagePreview || (evidence && /\.(jpeg|jpg|png|webp|gif)($|\?)/i.test(evidence)) ? (
+                <div className="relative rounded-2xl border border-gray-200 p-3 bg-gray-50 flex items-center gap-3">
+                  <div className="size-16 rounded-xl overflow-hidden bg-gray-200 border border-gray-200 shrink-0">
+                    <img
+                      src={imagePreview || evidence}
+                      alt="preview"
+                      className="size-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-gray-800 truncate">
+                      {selectedImageFile?.name || 'Ảnh đã đính kèm'}
+                    </p>
+                    <p className="text-[11px] text-emerald-600 font-semibold truncate mt-0.5">
+                      {uploadingImage ? 'Đang tải lên hệ thống...' : 'Đã tải lên sẵn sàng gửi kèm thông báo'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 cursor-pointer"
+                    title="Xóa"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => document.getElementById('notif-image-upload')?.click()}
+                  className="border-2 border-dashed border-gray-200 hover:border-primary/50 hover:bg-primary/5 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-center gap-3.5 text-center sm:text-left cursor-pointer transition-all bg-gray-50/50 group"
+                >
+                  <div className="size-11 rounded-xl bg-white shadow-2xs border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors shrink-0">
+                    {uploadingImage ? (
+                      <Loader2 className="size-5 animate-spin text-primary" />
+                    ) : (
+                      <Upload className="size-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 group-hover:text-primary">
+                      {uploadingImage ? 'Đang tải ảnh lên...' : 'Bấm vào đây để chọn ảnh từ máy tính'}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Hỗ trợ JPG, PNG, WEBP (Hình ảnh thông báo, bằng chứng, ưu đãi)
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <input
-                value={evidence}
-                maxLength={500}
-                onChange={(e) => setEvidence(e.target.value)}
-                placeholder="https://... hoặc đường dẫn bài viết, chính sách liên quan"
-                className="w-full px-3.5 py-2.5 bg-gray-50/70 hover:bg-gray-50 focus:bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-normal text-gray-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-gray-400"
+                id="notif-image-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
               />
+
+              {/* Tùy chọn dán link nếu không tải ảnh */}
+              {!imagePreview && (
+                <div className="mt-0.5">
+                  <input
+                    value={evidence}
+                    maxLength={500}
+                    onChange={(e) => setEvidence(e.target.value)}
+                    placeholder="Hoặc dán đường dẫn web/bài viết (https://...)"
+                    className="w-full px-3.5 py-2 bg-gray-50/70 hover:bg-gray-50 focus:bg-white border border-gray-200 rounded-xl text-xs font-normal text-gray-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-gray-400"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Warning Box */}
@@ -348,7 +453,7 @@ const NotificationManagement: React.FC = () => {
                 { id: 'all', name: 'Tất cả' },
                 { id: 'BUYER', name: 'Người mua' },
                 { id: 'SHOP', name: 'Nông dân' },
-                { id: 'SHIPPER', name: 'Shipper' },
+                { id: 'SHIPPER', name: 'Người giao hàng' },
               ].map((r) => {
                 const active = filterRole === r.id
                 return (

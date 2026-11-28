@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   MapPin,
   CreditCard,
@@ -27,6 +28,7 @@ import {
   PackageX,
   ShoppingCart,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -52,6 +54,7 @@ import {
   useCreatePayment,
 } from '../hooks/useBuyerOrder'
 import { useMyCart } from '@/features/cart/hooks/useCartQueries'
+import { useMyWallet } from '@/features/wallet/hooks/useWalletQueries'
 import { PaymentQrModal } from './PaymentQrModal'
 import type { OrderItemRequest, OrderResponse } from '@/types/order.types'
 import type { PaymentResponse } from '@/types/payment.types'
@@ -178,6 +181,10 @@ export const CheckoutView: React.FC = () => {
   const [createdOrderCode, setCreatedOrderCode] = useState<string>('')
 
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  // Ví người mua: trừ ví trước, phần còn lại trả bằng PayOS / COD
+  const [useWalletPay, setUseWalletPay] = useState(false)
+  const { data: myWallet } = useMyWallet(user?.role === 'buyer')
   const MAX_SAVED_ADDRESSES = 10
   const QUICK_LABELS = ['Nhà', 'Công ty', 'Nhà bố mẹ', 'Trường học']
 
@@ -605,32 +612,22 @@ export const CheckoutView: React.FC = () => {
     return checkoutItems.reduce((sum, it) => sum + it.quantity, 0)
   }, [checkoutItems])
 
-  // Tải danh sách voucher trong ví người mua VÀ voucher công khai của toàn sàn/shop
+  // Chỉ tải danh sách voucher ĐÃ LƯU trong ví của người mua (không hiển thị voucher chưa lưu)
   useEffect(() => {
     let isMounted = true
-    Promise.all([
-      voucherService.getMyVouchers().catch(() => []),
-      voucherService.getPublicVouchers().catch(() => []),
-    ]).then(([mine, publics]) => {
-      if (!isMounted) return
-      const map = new Map<string, VoucherResponse & { isCollected?: boolean }>()
-      // Thêm voucher công khai toàn sàn/shop trước (loại bỏ hoàn toàn voucher user đã dùng hết lượt: !v.isUsed)
-      ;(publics || []).forEach((v) => {
-        if (v?.voucherCode && !v.isUsed) {
-          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: Boolean(v.isCollected) })
-        }
+    voucherService
+      .getMyVouchers()
+      .then((mine) => {
+        if (!isMounted) return
+        const list = (mine || [])
+          .filter((v) => v?.voucherCode && !v.isUsed)
+          .map((v) => ({ ...v, isCollected: true }))
+        setMyVouchers(list)
       })
-      // Đè bằng voucher trong ví của user (chỉ lấy voucher còn hiệu lực: !v.isUsed)
-      ;(mine || []).forEach((v) => {
-        if (v?.voucherCode && !v.isUsed) {
-          map.set(v.voucherCode.toUpperCase(), { ...v, isCollected: true })
-        }
+      .catch((err) => {
+        console.error('Lỗi tải danh sách voucher trong ví:', err)
+        if (isMounted) setMyVouchers([])
       })
-      setMyVouchers(Array.from(map.values()))
-    }).catch((err) => {
-      console.error('Lỗi tải danh sách voucher:', err)
-      if (isMounted) setMyVouchers([])
-    })
     return () => {
       isMounted = false
     }
@@ -820,25 +817,35 @@ export const CheckoutView: React.FC = () => {
     triggerPreview(shippingAddress, selectedVoucherCodes)
   }, [checkoutItems.length, shippingAddress, selectedVoucherCodes])
 
-  // Tự động phát hiện lỗi tồn kho ngay khi preview thất bại
+  // Tự động phát hiện lỗi tồn kho hoặc voucher khi preview thất bại
   useEffect(() => {
-    if (previewMutation.isError && isStockShortageError(previewMutation.error)) {
-      const parsed = resolveStockShortages(previewMutation.error)
-      const errorMsg =
-        (previewMutation.error as any)?.data?.message ||
-        (previewMutation.error as any)?.response?.data?.message ||
-        (previewMutation.error as any)?.message ||
-        'Một số mặt hàng trong kho không đủ số lượng.'
-      setOrderSubmitError(errorMsg)
-      setStockErrorModal({
-        isOpen: true,
-        title:
-          parsed.length > 1
-            ? `Có ${parsed.length} mặt hàng không đủ tồn kho`
-            : 'Số lượng tồn kho không đủ',
-        message: errorMsg,
-        items: parsed,
-      })
+    if (previewMutation.isError) {
+      if (isStockShortageError(previewMutation.error)) {
+        const parsed = resolveStockShortages(previewMutation.error)
+        const errorMsg =
+          (previewMutation.error as any)?.data?.message ||
+          (previewMutation.error as any)?.response?.data?.message ||
+          (previewMutation.error as any)?.message ||
+          'Một số mặt hàng trong kho không đủ số lượng.'
+        setOrderSubmitError(errorMsg)
+        setStockErrorModal({
+          isOpen: true,
+          title:
+            parsed.length > 1
+              ? `Có ${parsed.length} mặt hàng không đủ tồn kho`
+              : 'Số lượng tồn kho không đủ',
+          message: errorMsg,
+          items: parsed,
+        })
+      } else {
+        const errorMsg =
+          (previewMutation.error as any)?.data?.message ||
+          (previewMutation.error as any)?.response?.data?.message ||
+          (previewMutation.error as any)?.message
+        if (errorMsg) {
+          setVoucherError(errorMsg)
+        }
+      }
     }
   }, [previewMutation.isError, previewMutation.error, resolveStockShortages])
 
@@ -857,9 +864,11 @@ export const CheckoutView: React.FC = () => {
         voucherCodes: selectedVoucherCodes,
         items: checkoutItems.map((i) => i.itemReq),
         cartItemIds: checkoutItems.map((i) => i.cartItemId),
+        useWallet: useWalletPay && walletBalance > 0,
       })
 
       if (!orders || orders.length === 0) return
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
 
       // Tự động tải lại sổ địa chỉ mới nhất từ Backend
       getSavedAddresses().then((list) => {
@@ -876,6 +885,12 @@ export const CheckoutView: React.FC = () => {
         totalAmount,
         paymentMethod: values.paymentMethod,
       })
+
+      // 0. Ví đã trả đủ mọi đơn -> không cần PayOS / COD
+      if (orders.every((o) => o.status === 'PAID')) {
+        navigate(`/payment/result?orderId=${firstOrder.orderId}&status=PAID&method=WALLET`)
+        return
+      }
 
       // 1. Nếu là COD: Đơn ở trạng thái PENDING -> Chuyển thẳng trang kết quả
       if (values.paymentMethod === 'COD') {
@@ -944,10 +959,23 @@ export const CheckoutView: React.FC = () => {
   }
 
   const previewData = previewMutation.data
-  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? 0
-  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? 0
+  const isCodAllowed = previewData?.codAllowed !== false
+  const codRestrictionReason = previewData?.codRestrictionReason
+
+  // Tự động chuyển về PayOS nếu COD bị tước do bom hàng
+  useEffect(() => {
+    if (previewData && previewData.codAllowed === false && selectedPaymentMethod === 'COD') {
+      setValue('paymentMethod', 'PAYOS', { shouldValidate: true })
+    }
+  }, [previewData?.codAllowed, selectedPaymentMethod, setValue])
+  const goodsAmount = previewData?.totalGoodsAmount ?? previewData?.subtotal ?? cartSummary.totalGoods
+  const shippingFee = previewData?.totalShippingFee ?? previewData?.shippingFee ?? (previewMutation.isError ? cartSummary.estimatedShipping : 0)
   const discount = previewData?.totalVoucherDiscount ?? previewData?.discount ?? 0
-  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? (goodsAmount + shippingFee - discount)
+  const finalTotal = previewData?.finalTotalAmount ?? previewData?.totalAmount ?? Math.max(0, goodsAmount + shippingFee - discount)
+  const walletBalance = Math.max(0, Math.floor(Number(myWallet?.balance ?? 0) - Number(myWallet?.frozenBalance ?? 0)))
+  const walletUse = useWalletPay ? Math.min(walletBalance, Math.max(0, finalTotal)) : 0
+  const amountAfterWallet = Math.max(0, finalTotal - walletUse)
+  const walletCoversAll = useWalletPay && finalTotal > 0 && amountAfterWallet === 0
   const voucherBreakdown = React.useMemo(() => {
     const entries = new Map<string, number>()
 
@@ -960,10 +988,13 @@ export const CheckoutView: React.FC = () => {
       })
     }
 
-    addBreakdown(previewData?.voucherDiscountsDetail)
-    previewData?.shopOrders?.forEach((order) => {
-      addBreakdown(order.voucherDiscountsDetail)
-    })
+    if (previewData?.voucherDiscountsDetail && Object.keys(previewData.voucherDiscountsDetail).length > 0) {
+      addBreakdown(previewData.voucherDiscountsDetail)
+    } else {
+      previewData?.shopOrders?.forEach((order) => {
+        addBreakdown(order.voucherDiscountsDetail)
+      })
+    }
 
     return Array.from(entries.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [previewData])
@@ -1007,19 +1038,19 @@ export const CheckoutView: React.FC = () => {
               <span className="text-ink-muted">Số lượng shop:</span>
               <span className="font-bold text-ink">{createdOrderSummary.orders.length} shop</span>
             </div>
-            <div className="flex justify-between items-center text-sm pt-2 border-t border-line">
-              <span className="text-ink-muted">Tổng tiền thanh toán:</span>
-              <span className="text-lg font-black text-emerald-700">
-                {createdOrderSummary.totalAmount.toLocaleString('vi-VN')} đ
+            <div className="flex justify-between items-center text-sm pt-2 border-t border-line gap-2">
+              <span className="text-ink-muted whitespace-nowrap">Tổng tiền thanh toán:</span>
+              <span className="text-lg font-black text-emerald-700 whitespace-nowrap shrink-0">
+                {createdOrderSummary.totalAmount.toLocaleString('vi-VN')}&nbsp;đ
               </span>
             </div>
 
             <div className="pt-2 border-t border-line space-y-2">
               <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Chi tiết đơn theo từng shop:</span>
               {createdOrderSummary.orders.map((o) => (
-                <div key={o.orderId} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-xl border border-line">
-                  <span className="font-semibold text-ink">Đơn #{o.orderId} - {o.shopName || 'Shop'}</span>
-                  <span className="font-bold text-emerald-600">{Number(o.totalAmount || 0).toLocaleString('vi-VN')} đ</span>
+                <div key={o.orderId} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-xl border border-line gap-2">
+                  <span className="font-semibold text-ink truncate">Đơn #{o.orderId} - {o.shopName || 'Shop'}</span>
+                  <span className="font-bold text-emerald-600 whitespace-nowrap shrink-0">{Number(o.totalAmount || 0).toLocaleString('vi-VN')}&nbsp;đ</span>
                 </div>
               ))}
             </div>
@@ -1098,7 +1129,7 @@ export const CheckoutView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header quay lại */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -1307,8 +1338,8 @@ export const CheckoutView: React.FC = () => {
                               type="button"
                               onClick={() => setCheckoutAddressLabel(lbl)}
                               className={`text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${checkoutAddressLabel === lbl
-                                  ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
-                                  : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
+                                ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                                : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
                                 }`}
                             >
                               {lbl}
@@ -1336,12 +1367,51 @@ export const CheckoutView: React.FC = () => {
                 Phương thức thanh toán
               </div>
 
-              <div className="space-y-3">
+              {/* Dùng số dư ví CapNong trước */}
+              <label
+                className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all ${walletBalance > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${useWalletPay
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-line hover:border-gray-300'
+                  }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={useWalletPay}
+                  disabled={walletBalance <= 0}
+                  onChange={(e) => setUseWalletPay(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-emerald-600"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2 font-semibold text-sm text-ink">
+                    <span className="flex items-center gap-2">
+                      <Wallet size={16} className="text-emerald-600" />
+                      Dùng số dư ví CapNong
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700">
+                      Số dư {walletBalance.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                    {walletBalance <= 0
+                      ? 'Ví của bạn chưa có số dư (tiền hoàn đơn sẽ được cộng vào đây).'
+                      : useWalletPay
+                        ? walletCoversAll
+                          ? `Ví trả đủ ${walletUse.toLocaleString('vi-VN')} đ, bạn không cần trả thêm.`
+                          : `Trừ ví ${walletUse.toLocaleString('vi-VN')} đ, còn ${amountAfterWallet.toLocaleString('vi-VN')} đ trả bằng phương thức bên dưới.`
+                        : 'Trừ ví trước, nếu không đủ phần còn lại trả bằng chuyển khoản hoặc tiền mặt.'}
+                  </p>
+                </div>
+              </label>
+
+              <div className={`space-y-3 ${walletCoversAll ? 'opacity-50 pointer-events-none' : ''}`}>
+                {walletCoversAll && (
+                  <p className="text-xs font-semibold text-emerald-700">Ví đã trả đủ, không cần chọn phương thức thanh toán.</p>
+                )}
                 {/* Lựa chọn 1: PAYOS QR */}
                 <label
                   className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'PAYOS'
-                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                      : 'border-line hover:border-gray-300'
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-line hover:border-gray-300'
                     }`}
                 >
                   <input
@@ -1365,25 +1435,40 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Lựa chọn 2: COD */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${selectedPaymentMethod === 'COD'
-                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                      : 'border-line hover:border-gray-300'
-                    }`}
+                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 transition-all ${
+                    !isCodAllowed
+                      ? 'border-gray-200 bg-gray-50/70 opacity-70 cursor-not-allowed'
+                      : selectedPaymentMethod === 'COD'
+                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs cursor-pointer'
+                      : 'border-line hover:border-gray-300 cursor-pointer'
+                  }`}
                 >
                   <input
                     type="radio"
                     value="COD"
+                    disabled={!isCodAllowed}
                     {...register('paymentMethod')}
-                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 disabled:opacity-40"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 font-semibold text-sm text-ink">
-                      <Banknote size={16} className="text-amber-600" />
-                      <span>Thanh toán khi nhận hàng (COD)</span>
+                      <Banknote size={16} className={!isCodAllowed ? 'text-gray-400' : 'text-amber-600'} />
+                      <span className={!isCodAllowed ? 'text-gray-500 line-through' : ''}>Thanh toán khi nhận hàng (COD)</span>
+                      {!isCodAllowed && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                          Bị hạn chế
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-ink-muted mt-1 leading-relaxed">
                       Thanh toán bằng tiền mặt trực tiếp cho nhân viên giao hàng khi nhận được nông sản.
                     </p>
+                    {!isCodAllowed && (
+                      <div className="mt-2 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-start gap-2">
+                        <AlertTriangle size={15} className="shrink-0 mt-0.5 text-rose-600" />
+                        <span>{codRestrictionReason || 'Tài khoản của bạn đã bị tước quyền thanh toán COD do có từ 3 lần giao hàng thất bại (bom hàng). Vui lòng chọn thanh toán trực tuyến qua PayOS.'}</span>
+                      </div>
+                    )}
                   </div>
                 </label>
               </div>
@@ -1484,8 +1569,8 @@ export const CheckoutView: React.FC = () => {
 
                           {/* Đơn giá & Số lượng */}
                           <div className="text-right shrink-0">
-                            <div className="text-xs text-ink-muted">
-                              {item.unitPrice.toLocaleString('vi-VN')} đ
+                            <div className="text-xs text-ink-muted whitespace-nowrap">
+                              {item.unitPrice.toLocaleString('vi-VN')}&nbsp;đ
                             </div>
                             <div className="text-xs font-semibold text-ink mt-0.5">
                               x{item.quantity}
@@ -1494,8 +1579,8 @@ export const CheckoutView: React.FC = () => {
 
                           {/* Thành tiền */}
                           <div className="text-right shrink-0 min-w-[95px]">
-                            <span className="text-sm font-bold text-emerald-700">
-                              {(item.unitPrice * item.quantity).toLocaleString('vi-VN')} đ
+                            <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
+                              {(item.unitPrice * item.quantity).toLocaleString('vi-VN')}&nbsp;đ
                             </span>
                           </div>
                         </div>
@@ -1504,7 +1589,7 @@ export const CheckoutView: React.FC = () => {
 
                     {/* Vận chuyển & Tạm tính của Shop */}
                     <div className="bg-[#fafbf9] px-5 py-3 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-center gap-2 text-ink-muted">
+                      <div className="flex items-center gap-2 text-ink-muted flex-wrap">
                         <Truck size={15} className="text-emerald-600 shrink-0" />
                         <span>
                           Vận chuyển:{' '}
@@ -1512,12 +1597,12 @@ export const CheckoutView: React.FC = () => {
                             Giao tiêu chuẩn (Xe lạnh bảo quản tươi)
                           </strong>
                         </span>
-                        <span className="text-emerald-700 font-semibold ml-1">
-                          +{shopShippingFee.toLocaleString('vi-VN')} đ
+                        <span className="text-emerald-700 font-semibold ml-1 whitespace-nowrap">
+                          +{shopShippingFee.toLocaleString('vi-VN')}&nbsp;đ
                         </span>
                         {shopPreview?.voucherDiscount && shopPreview.voucherDiscount > 0 ? (
-                          <span className="text-emerald-700 font-bold ml-1">
-                            · Giảm voucher: -{shopPreview.voucherDiscount.toLocaleString('vi-VN')} đ
+                          <span className="text-red-600 font-bold ml-1 whitespace-nowrap">
+                            · Giảm voucher: -{shopPreview.voucherDiscount.toLocaleString('vi-VN')}&nbsp;đ
                           </span>
                         ) : null}
                       </div>
@@ -1527,7 +1612,7 @@ export const CheckoutView: React.FC = () => {
                           {Object.entries(shopPreview.voucherDiscountsDetail).map(([code, value]) => (
                             <span
                               key={`${shop.shopId}-${code}`}
-                              className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                              className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 whitespace-nowrap"
                             >
                               {code}: -{Number(value || 0).toLocaleString('vi-VN')}đ
                             </span>
@@ -1535,10 +1620,10 @@ export const CheckoutView: React.FC = () => {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-end gap-2 text-ink">
+                      <div className="flex items-center justify-end gap-2 text-ink shrink-0 whitespace-nowrap">
                         <span>Tạm tính shop:</span>
-                        <strong className="text-sm font-bold text-emerald-700">
-                          {shopFinalTotal.toLocaleString('vi-VN')} đ
+                        <strong className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                          {shopFinalTotal.toLocaleString('vi-VN')}&nbsp;đ
                         </strong>
                       </div>
                     </div>
@@ -1661,28 +1746,28 @@ export const CheckoutView: React.FC = () => {
               </h3>
 
               <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between text-ink-muted">
-                  <span>Tiền hàng:</span>
-                  <span className="font-semibold text-ink">
-                    {goodsAmount.toLocaleString('vi-VN')} đ
+                <div className="flex justify-between items-center text-ink-muted gap-2">
+                  <span className="whitespace-nowrap">Tiền hàng:</span>
+                  <span className="font-semibold text-ink whitespace-nowrap shrink-0">
+                    {goodsAmount.toLocaleString('vi-VN')}&nbsp;đ
                   </span>
                 </div>
 
-                <div className="flex justify-between text-ink-muted">
-                  <span>Phí vận chuyển:</span>
-                  <span className="font-semibold text-ink">
+                <div className="flex justify-between items-center text-ink-muted gap-2">
+                  <span className="whitespace-nowrap">Phí vận chuyển:</span>
+                  <span className="font-semibold text-ink whitespace-nowrap shrink-0">
                     {previewMutation.isPending ? (
                       <Loader2 size={14} className="animate-spin inline" />
                     ) : (
-                      `${shippingFee.toLocaleString('vi-VN')} đ`
+                      `${shippingFee.toLocaleString('vi-VN')}\u00A0đ`
                     )}
                   </span>
                 </div>
 
                 {discount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
-                    <span>Giảm giá voucher:</span>
-                    <span className="font-semibold">-{discount.toLocaleString('vi-VN')} đ</span>
+                  <div className="flex justify-between items-center text-red-600 gap-2">
+                    <span className="whitespace-nowrap">Giảm giá voucher:</span>
+                    <span className="font-semibold whitespace-nowrap shrink-0">-{discount.toLocaleString('vi-VN')}&nbsp;đ</span>
                   </div>
                 )}
 
@@ -1692,21 +1777,35 @@ export const CheckoutView: React.FC = () => {
                       Chi tiết mã giảm giá
                     </div>
                     {voucherBreakdown.map(([code, value]) => (
-                      <div key={code} className="flex justify-between items-center gap-2 text-[11px] text-emerald-700">
-                        <span className="font-semibold">{code}</span>
-                        <span>-{Number(value || 0).toLocaleString('vi-VN')} đ</span>
+                      <div key={code} className="flex justify-between items-center gap-2 text-[11px] text-red-600">
+                        <span className="font-semibold truncate">{code}</span>
+                        <span className="whitespace-nowrap shrink-0">-{Number(value || 0).toLocaleString('vi-VN')}&nbsp;đ</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-line flex justify-between items-baseline">
-                <span className="font-bold text-ink">Tổng thanh toán:</span>
-                <span className="text-xl font-black text-emerald-700">
-                  {finalTotal.toLocaleString('vi-VN')} đ
+              <div className="pt-3 border-t border-line flex justify-between items-baseline gap-2">
+                <span className="font-bold text-ink whitespace-nowrap">Tổng thanh toán:</span>
+                <span className={`font-black whitespace-nowrap shrink-0 ${walletUse > 0 ? 'text-base text-ink' : 'text-xl text-emerald-700'}`}>
+                  {finalTotal.toLocaleString('vi-VN')}&nbsp;đ
                 </span>
               </div>
+              {walletUse > 0 && (
+                <div className="space-y-1.5 rounded-xl bg-emerald-50/60 p-3 text-sm">
+                  <div className="flex justify-between text-emerald-700">
+                    <span className="flex items-center gap-1.5"><Wallet size={14} /> Trừ ví CapNong:</span>
+                    <span className="font-semibold">-{walletUse.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-ink">
+                      {walletCoversAll ? 'Còn phải trả:' : selectedPaymentMethod === 'PAYOS' ? 'Chuyển khoản thêm:' : 'Trả tiền mặt khi nhận:'}
+                    </span>
+                    <span className="text-xl font-black text-emerald-700">{amountAfterWallet.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                </div>
+              )}
 
               {orderSubmitError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex flex-col gap-2 animate-in fade-in">
@@ -1751,7 +1850,11 @@ export const CheckoutView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {selectedPaymentMethod === 'PAYOS' ? 'Thanh toán qua PayOS' : 'Đặt hàng (COD)'}
+                    {walletCoversAll
+                      ? 'Thanh toán bằng ví'
+                      : selectedPaymentMethod === 'PAYOS'
+                        ? walletUse > 0 ? `Trừ ví & chuyển khoản ${amountAfterWallet.toLocaleString('vi-VN')} đ` : 'Thanh toán qua PayOS'
+                        : walletUse > 0 ? 'Trừ ví & đặt hàng (COD)' : 'Đặt hàng (COD)'}
                     <ArrowRight size={16} />
                   </>
                 )}
@@ -1836,8 +1939,8 @@ export const CheckoutView: React.FC = () => {
                         type="button"
                         onClick={() => setFormLabel(lbl)}
                         className={`text-xs px-3 py-1 rounded-xl border transition-all cursor-pointer ${formLabel === lbl
-                            ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
-                            : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
+                          : 'bg-white text-stone-600 border-gray-200 hover:border-emerald-300'
                           }`}
                       >
                         {lbl}
@@ -1993,8 +2096,8 @@ export const CheckoutView: React.FC = () => {
                           key={addr.id}
                           onClick={() => handleSelectSavedAddress(addr)}
                           className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${isSelected
-                              ? 'border-emerald-600 bg-emerald-50/30 shadow-xs'
-                              : 'border-line hover:border-gray-300'
+                            ? 'border-emerald-600 bg-emerald-50/30 shadow-xs'
+                            : 'border-line hover:border-gray-300'
                             }`}
                         >
                           <div className="flex items-start gap-3 flex-1">
@@ -2150,14 +2253,14 @@ export const CheckoutView: React.FC = () => {
               )}
             </div>
 
-            {/* Danh sách Voucher theo 2 phân nhóm: Freeship & Giảm giá */}
+            {/* Danh sách Voucher theo 2 phân nhóm: Freeship & Giảm giá (Chỉ hiển thị voucher đã lưu trong ví) */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
-              {myVouchers.length === 0 ? (
+              {myVouchers.filter((v) => Boolean(v.isCollected)).length === 0 ? (
                 <div className="text-center py-12 text-ink-muted text-xs space-y-2.5">
                   <Ticket size={40} className="mx-auto text-gray-300" />
                   <p className="font-bold text-stone-700 text-sm">Ví voucher của bạn đang trống</p>
                   <p className="max-w-xs mx-auto text-gray-500">
-                    Bạn chưa sở hữu mã giảm giá nào. Hãy ghé thăm trang Cửa hàng để bấm "Lưu Voucher" trước khi quay lại áp dụng thanh toán.
+                    Bạn chưa có mã giảm giá nào trong ví. Hãy ghé thăm trang Cửa hàng để bấm "Lưu Voucher" trước khi quay lại áp dụng thanh toán.
                   </p>
                   {checkoutShops.length > 0 && (
                     <div className="pt-2">
@@ -2195,8 +2298,10 @@ export const CheckoutView: React.FC = () => {
                       v.voucherType === 'FREE_SHIPPING' ||
                       Boolean(v.voucherCode?.toUpperCase().includes('FREESHIP'))
 
-                    const freeshipList = myVouchers.filter(isFreeshipVoucher)
-                    const discountList = myVouchers.filter((v) => !isFreeshipVoucher(v))
+                    // Chỉ lọc những voucher đã lưu vào ví
+                    const savedList = myVouchers.filter((v) => Boolean(v.isCollected))
+                    const freeshipList = savedList.filter(isFreeshipVoucher)
+                    const discountList = savedList.filter((v) => !isFreeshipVoucher(v))
 
                     return (
                       <>
@@ -2237,13 +2342,12 @@ export const CheckoutView: React.FC = () => {
                                 return (
                                   <div
                                     key={vc.voucherId || vc.voucherCode}
-                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
-                                      isSelected
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${isSelected
                                         ? 'border-blue-600 bg-blue-50/40 shadow-xs'
                                         : isExpired || (!isCollected && isOutOfStock) || (isCollected && !isEligible)
                                           ? 'border-gray-200 bg-gray-50 opacity-60'
                                           : 'border-line hover:border-blue-300 bg-white'
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -2270,6 +2374,7 @@ export const CheckoutView: React.FC = () => {
                                         {vc.voucherType === 'PERCENTAGE'
                                           ? `Giảm ${vc.discountValue}% phí vận chuyển`
                                           : `Miễn phí vận chuyển ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
+                                        {vc.voucherType === 'PERCENTAGE' && vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
                                       </p>
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
@@ -2318,13 +2423,12 @@ export const CheckoutView: React.FC = () => {
                                         type="button"
                                         disabled={isExpired || !isEligible}
                                         onClick={() => handleToggleVoucherCode(vc.voucherCode)}
-                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-                                          isSelected
+                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${isSelected
                                             ? 'bg-blue-600 text-white shadow-xs cursor-pointer'
                                             : isExpired || !isEligible
                                               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                               : 'bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer'
-                                        }`}
+                                          }`}
                                       >
                                         {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
                                       </button>
@@ -2374,13 +2478,12 @@ export const CheckoutView: React.FC = () => {
                                 return (
                                   <div
                                     key={vc.voucherId || vc.voucherCode}
-                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${
-                                      isSelected
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex items-start justify-between gap-3 ${isSelected
                                         ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
                                         : isExpired || (!isCollected && isOutOfStock) || (isCollected && !isEligible)
                                           ? 'border-gray-200 bg-gray-50 opacity-60'
                                           : 'border-line hover:border-emerald-200 bg-white'
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -2388,11 +2491,10 @@ export const CheckoutView: React.FC = () => {
                                           {vc.voucherCode}
                                         </span>
                                         <span
-                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                            isPlatform
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPlatform
                                               ? 'bg-purple-100 text-purple-700'
                                               : 'bg-amber-100 text-amber-800'
-                                          }`}
+                                            }`}
                                         >
                                           {isPlatform ? 'Toàn sàn' : 'Voucher Shop'}
                                         </span>
@@ -2410,7 +2512,7 @@ export const CheckoutView: React.FC = () => {
                                         {isPercent
                                           ? `Giảm ${vc.discountValue}%`
                                           : `Giảm ${Number(vc.discountValue).toLocaleString('vi-VN')}đ`}
-                                        {vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
+                                        {isPercent && vc.maxDiscount ? ` (Tối đa ${Number(vc.maxDiscount).toLocaleString('vi-VN')}đ)` : ''}
                                       </p>
                                       <p className="text-[11px] text-ink-muted mt-0.5">
                                         Đơn tối thiểu {Number(vc.minOrderValue || 0).toLocaleString('vi-VN')}đ
@@ -2459,13 +2561,12 @@ export const CheckoutView: React.FC = () => {
                                         type="button"
                                         disabled={isExpired || !isEligible}
                                         onClick={() => handleToggleVoucherCode(vc.voucherCode)}
-                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-                                          isSelected
+                                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 ${isSelected
                                             ? 'bg-emerald-600 text-white shadow-xs cursor-pointer'
                                             : isExpired || !isEligible
                                               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                               : 'bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 cursor-pointer'
-                                        }`}
+                                          }`}
                                       >
                                         {isSelected ? 'Đang dùng' : isExpired ? 'Hết hạn' : isEligible ? 'Áp dụng' : 'Không đủ điều kiện'}
                                       </button>
@@ -2579,10 +2680,10 @@ export const CheckoutView: React.FC = () => {
                           <div className="flex items-center gap-1.5 flex-wrap mb-1">
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.itemType === 'MYSTERY_BOX'
-                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                  : item.itemType === 'BUILD_COMBO'
-                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : item.itemType === 'BUILD_COMBO'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 }`}
                             >
                               {item.itemType === 'MYSTERY_BOX' && '🎁 Hộp bí ẩn'}
@@ -2605,8 +2706,8 @@ export const CheckoutView: React.FC = () => {
                             {item.availableQuantity !== undefined && (
                               <span
                                 className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${isOutOfStock
-                                    ? 'bg-rose-100 text-rose-700 border-rose-300'
-                                    : 'bg-amber-100 text-amber-800 border-amber-300'
+                                  ? 'bg-rose-100 text-rose-700 border-rose-300'
+                                  : 'bg-amber-100 text-amber-800 border-amber-300'
                                   }`}
                               >
                                 {isOutOfStock ? 'Hết hàng (0)' : `Kho chỉ còn: ${item.availableQuantity}`}

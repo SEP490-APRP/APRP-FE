@@ -1,6 +1,6 @@
 import React from 'react'
 import { Minus, Plus, ShoppingBasket, Trash2, Loader2 } from 'lucide-react'
-import { money } from '@/mocks/catalog'
+import { formatCurrency as money } from '@/utils'
 import type { CartItemResponse } from '@/types/cart.types'
 
 interface CartItemRowProps {
@@ -49,7 +49,7 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
 
       {/* Ảnh sản phẩm */}
       <div
-        className={`rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#e8ece3] ${
+        className={`rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-[#e8ece3] ${
           compact ? 'w-14 h-14' : 'w-13 h-13 sm:w-14 sm:h-14'
         }`}
       >
@@ -71,8 +71,12 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
         <h4 className="font-semibold text-[#1c2e17] leading-snug line-clamp-2">
           {item.itemName || item.name}
         </h4>
-        <div className="text-[#6e6656] text-[11px] mt-0.5">
-          {money(item.unitPrice)}
+        <div className="text-[#6e6656] text-[11px] mt-0.5 flex items-center gap-1">
+          <span>{money(item.unitPrice)}</span>
+          <span className="text-stone-300">/</span>
+          <span className="text-stone-500 font-medium">
+            {(item as any).unit || (item.itemType === 'BUILD_COMBO' || item.itemType === 'MYSTERY_BOX' ? 'combo' : 'kg')}
+          </span>
         </div>
         {!isAvailable && (
           <span className="inline-block text-[10px] text-red-500 font-medium mt-0.5">
@@ -121,13 +125,13 @@ export const CartItemRow: React.FC<CartItemRowProps> = React.memo(({
       </div>
 
       {/* Thành tiền & Nút xóa */}
-      <div className="text-right flex flex-col items-end gap-1.5 shrink-0">
-        <strong className="text-xs text-[#326318] font-bold">
+      <div className="text-right flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
+        <strong className="text-xs sm:text-sm text-[#326318] font-bold">
           {money(item.unitPrice * item.quantity)}
         </strong>
         <button
           type="button"
-          className="text-stone-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50 cursor-pointer"
+          className="text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors p-1.5 rounded-lg cursor-pointer"
           aria-label={`Xóa ${item.itemName || item.name}`}
           onClick={() => onRemove(item)}
           title="Xóa món"

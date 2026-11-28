@@ -4,6 +4,7 @@ import { useAiSuggestDescription, useMyProducts, useCreateCombo, useUpdateCombo 
 import type { FarmerProduct } from './types'
 import { comboService, uploadService, type MealType, type ProductComboItemRequest } from '@/services'
 import { getErrorMessage } from '@/utils'
+import { CustomSelect } from '@/components/common/CustomSelect'
 
 interface ComboBuilderProps {
   initialCombo?: any
@@ -25,6 +26,18 @@ const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'LUNCH', label: 'Bữa trưa nhanh & tiện lợi' },
   { value: 'BREAKFAST', label: 'Bữa sáng dinh dưỡng' },
   { value: 'SNACK', label: 'Ăn nhẹ & tráng miệng' },
+]
+
+const COMBO_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Món Canh / Súp', label: 'Món Canh / Súp' },
+  { value: 'Món Xào', label: 'Món Xào' },
+  { value: 'Món Kho / Hầm', label: 'Món Kho / Hầm' },
+  { value: 'Món Hấp / Luộc', label: 'Món Hấp / Luộc' },
+  { value: 'Món Lẩu', label: 'Món Lẩu' },
+  { value: 'Món Chay', label: 'Món Chay' },
+  { value: 'Salad Eat Clean', label: 'Salad Eat Clean' },
+  { value: 'Nước Ép / Sinh Tố', label: 'Nước Ép / Sinh Tố' },
+  { value: 'Tráng Miệng', label: 'Tráng Miệng' },
 ]
 
 export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo, onClose, onInfo }: ComboBuilderProps) {
@@ -50,7 +63,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
     String(initialCombo?.stockQuantity || initialCombo?.totalQuantity || initialCombo?.stock || '20'),
   )
   const [mealType, setMealType] = useState<MealType>(initialCombo?.mealType || 'DINNER')
-  const [type, setType] = useState(initialCombo?.type || 'Món lẩu & xào')
+  const [type, setType] = useState(initialCombo?.type || 'Món Lẩu')
+  const comboTypeOptions =
+    type && !COMBO_TYPE_OPTIONS.some((opt) => opt.value === type)
+      ? [{ value: type, label: type }, ...COMBO_TYPE_OPTIONS]
+      : COMBO_TYPE_OPTIONS
   const [region, setRegion] = useState(initialCombo?.region || 'Đà Lạt & Lâm Đồng')
   const [description, setDescription] = useState(initialCombo?.description || '')
   const [imageUrl, setImageUrl] = useState(
@@ -89,25 +106,11 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
   })
   const availableProducts = myProductsData?.content || []
 
-  // Đồng bộ hoặc lấy chi tiết nguyên liệu thành phần khi ở chế độ chỉnh sửa combo
+  // Tải chi tiết nguyên liệu thành phần một lần khi mở chế độ chỉnh sửa nếu chưa có sẵn items
   useEffect(() => {
     const comboId = Number(initialCombo?.id || initialCombo?.comboId || initialCombo?.productId)
     if (!comboId) return
-
     if (initialCombo?.items && Array.isArray(initialCombo.items) && initialCombo.items.length > 0) {
-      setSelectedItems((prev) =>
-        initialCombo.items.map((it: any) => {
-          const matched = availableProducts.find((p) => (p.productId || p.id) === it.productId)
-          const existingInState = prev.find((p) => p.productId === Number(it.productId))
-          return {
-            productId: Number(it.productId),
-            productName: it.productName || matched?.productName || `Sản phẩm #${it.productId}`,
-            unit: it.unit || matched?.unit || 'kg',
-            stockAvailable: matched?.stockQuantity ?? 999,
-            quantity: existingInState?.quantity ?? Number(it.productQuantity || it.quantity || 1),
-          }
-        }),
-      )
       return
     }
 
@@ -117,18 +120,14 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
       .then((res: any) => {
         const items = res.result?.items || res.items
         if (isCancelled || !items) return
-        setSelectedItems((prev) =>
-          items.map((it: any) => {
-            const matched = availableProducts.find((p) => (p.productId || p.id) === it.productId)
-            const existingInState = prev.find((p) => p.productId === Number(it.productId))
-            return {
-              productId: Number(it.productId),
-              productName: it.productName || matched?.productName || `Sản phẩm #${it.productId}`,
-              unit: it.unit || matched?.unit || 'kg',
-              stockAvailable: matched?.stockQuantity ?? 999,
-              quantity: existingInState?.quantity ?? Number(it.productQuantity || 1),
-            }
-          }),
+        setSelectedItems(
+          items.map((it: any) => ({
+            productId: Number(it.productId),
+            productName: it.productName || `Sản phẩm #${it.productId}`,
+            unit: it.unit || 'kg',
+            stockAvailable: 999,
+            quantity: Number(it.productQuantity || 1),
+          })),
         )
       })
       .catch((err) => {
@@ -138,7 +137,30 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
     return () => {
       isCancelled = true
     }
-  }, [initialCombo, availableProducts])
+  }, [initialCombo])
+
+  // Bổ sung tồn kho thực tế từ danh sách nông sản đang tải mà không ghi đè lựa chọn đang sửa của người dùng
+  useEffect(() => {
+    if (availableProducts.length === 0) return
+    setSelectedItems((prev) => {
+      if (prev.length === 0) return prev
+      let changed = false
+      const next = prev.map((item) => {
+        const matched = availableProducts.find((p) => (p.productId || p.id) === item.productId)
+        if (!matched) return item
+        const realStock = matched.stockQuantity ?? 0
+        if (item.stockAvailable === realStock) return item
+        changed = true
+        return {
+          ...item,
+          productName: item.productName || matched.productName,
+          unit: item.unit || matched.unit || 'kg',
+          stockAvailable: realStock,
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [availableProducts])
 
 
   // Hooks
@@ -211,8 +233,8 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('Dung lượng ảnh không được vượt quá 5MB')
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('Dung lượng ảnh không được vượt quá 10MB')
       return
     }
 
@@ -320,7 +342,7 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
           imageUrl: imageUrl.trim() || undefined,
           items: itemsPayload,
         })
-        onInfo?.(`Đã gửi duyệt và tạo thành công Combo: ${comboName.trim()}`)
+        onInfo?.(`Đã tạo và đăng bán thành công Combo: ${comboName.trim()}`)
       }
       onClose()
     } catch (err: any) {
@@ -431,27 +453,19 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
               <label className="block font-bold text-[#353d2f] mb-1">
                 Kiểu bữa ăn (Meal Type) *
               </label>
-              <select
+              <CustomSelect
                 value={mealType}
-                onChange={(e) => setMealType(e.target.value as MealType)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none cursor-pointer"
-              >
-                {MEAL_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setMealType(val as MealType)}
+                options={MEAL_TYPE_OPTIONS}
+              />
             </div>
             <div>
               <label className="block font-bold text-[#353d2f] mb-1">Thể loại combo</label>
-              <input
-                type="text"
-                maxLength={50}
+              <CustomSelect
                 value={type}
-                onChange={(e) => setType(e.target.value)}
-                placeholder="VD: Món lẩu, Nấu canh..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#f4f7f1] border border-transparent focus:border-[#326318] focus:bg-white text-xs text-[#1e2319] outline-none"
+                onChange={(val) => setType(String(val))}
+                options={comboTypeOptions}
+                placeholder="Chọn thể loại combo..."
               />
             </div>
           </div>
@@ -499,7 +513,7 @@ export default function ComboBuilder({ initialCombo: rawInitialCombo, onAddCombo
               <div className="flex items-center gap-2">
                 {imageUrl && (
                   <div className="relative shrink-0 w-9 h-9 rounded-xl overflow-hidden border border-[#e4ebd9] bg-[#f4f7f1]">
-                    <img src={imageUrl} alt="Combo preview" className="w-full h-full object-cover" />
+                    <img src={imageUrl} alt="Xem trước combo" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <input
