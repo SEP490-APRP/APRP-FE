@@ -6,16 +6,12 @@ export type * from './category.types'
 
 export const categoryService = {
   async getAll(): Promise<ApiResponse<CategoryResponse[]>> {
-    try {
-      const response = await axiosInstance.get<ApiResponse<CategoryResponse[]>>('/categories')
-      const result = response.data.result
-      if (Array.isArray(result)) {
-        return response.data
-      }
-    } catch (e) {
-      console.warn('Cannot fetch categories from backend API:', e)
+    const response = await axiosInstance.get<ApiResponse<CategoryResponse[]>>('/categories')
+    const result = response.data.result
+    return {
+      ...response.data,
+      result: Array.isArray(result) ? result : [],
     }
-    return { code: 1000, result: [] }
   },
 
   /** Chỉ lấy danh mục thật trong DB (không dùng dữ liệu mẫu): dùng ở form cần lưu categoryId */

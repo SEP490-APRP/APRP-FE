@@ -324,13 +324,17 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           }
         }
 
-        if (!primarySucceeded || uploadedCount === 0) {
+        if (!primarySucceeded || uploadedCount === 0 || failedImages.length > 0) {
           try {
             await deleteMutation.mutateAsync(newProductId)
           } catch (deleteErr) {
             console.error('Lỗi khi rollback sản phẩm chưa có ảnh hợp lệ:', deleteErr)
           }
-          setAiError(`❌ Ảnh bị từ chối: ${failedImages[0] || 'Vui lòng chọn ảnh nông sản rõ nét hơn.'}`)
+          setAiError(
+            failedImages.length > 1
+              ? `❌ Có ${failedImages.length} ảnh bị AI từ chối: ${failedImages.join(' · ')}. Vui lòng xóa hoặc thay bằng ảnh nông sản hợp lệ rồi thử lại.`
+              : `❌ Ảnh bị từ chối: ${failedImages[0] || 'Vui lòng chọn ảnh nông sản rõ nét hơn.'}`,
+          )
           return
         }
       }
@@ -356,18 +360,12 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
         })
       }
 
-      if (failedImages.length > 0) {
-        const warnMsg = `Đã tạo "${values.name}" với ${uploadedCount} ảnh hợp lệ. Một số ảnh bị bỏ qua: ${failedImages.join('; ')}`
-        onInfo?.(warnMsg)
-        void globalShowAlert(warnMsg, 'Tạo sản phẩm thành công (có ảnh bị từ chối)', 'warning')
-      } else {
-        onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
-        void globalShowAlert(
-          `Đăng bán nông sản "${values.name}" thành công với ${uploadedCount} ảnh! Sản phẩm đã được gửi và đang chờ Admin duyệt.`,
-          'Thành công',
-          'success',
-        )
-      }
+      onInfo?.(`Đã gửi yêu cầu đăng bán: ${values.name}. Sản phẩm đang chờ Admin duyệt!`)
+      void globalShowAlert(
+        `Đăng bán nông sản "${values.name}" thành công với ${uploadedCount} ảnh! Sản phẩm đã được gửi và đang chờ Admin duyệt.`,
+        'Thành công',
+        'success',
+      )
       onClose()
     } catch (err) {
       setAiError(getErrorMessage(err) || 'Không thể tạo sản phẩm. Vui lòng thử lại.')
