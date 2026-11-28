@@ -422,7 +422,7 @@ export default function VoucherManagement() {
             className="px-5 py-2.5 bg-[#15803d] hover:bg-[#166534] text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-sm transition-all cursor-pointer active:scale-95"
           >
             <Plus className="size-4" />
-            <span>+ Tạo mã giảm giá</span>
+            <span>Tạo mã giảm giá</span>
           </button>
         </div>
       </div>

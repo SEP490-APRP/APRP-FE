@@ -14,6 +14,7 @@ import {
   Warehouse,
   BarChart3,
   Bell,
+  ChevronDown,
   Gavel,
   LayoutDashboard,
   LogIn,
@@ -167,7 +168,27 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
   const tab = tabFromUrl(routerLocation.pathname, routerLocation.hash)
   const [navOpen, setNavOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('capnong_admin_collapsed_sections')
+      return saved ? (JSON.parse(saved) as Record<string, boolean>) : {}
+    } catch {
+      return {}
+    }
+  })
   const activeUser = user ?? storeUser
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections((prev) => {
+      const next = { ...prev, [title]: !prev[title] }
+      try {
+        localStorage.setItem('capnong_admin_collapsed_sections', JSON.stringify(next))
+      } catch {
+        // Ignore storage errors in restricted environments
+      }
+      return next
+    })
+  }
 
   const totalAlerts = (unreadCount || 0) + (unreadTotal || 0)
   const [isBellRinging, setIsBellRinging] = useState(false)
@@ -220,65 +241,88 @@ export default function AdminPortal({ user, onLogout, onNavigateStore }: AdminPo
   }
 
   const nav = (
-    <nav aria-label="Menu quản trị" className="flex flex-col gap-6">
-      {SECTIONS.map((section) => (
-        <div key={section.title}>
-          <p className="mb-2 px-3 text-caption font-bold uppercase tracking-wider text-ink-subtle">
-            {section.title}
-          </p>
-          <ul className="flex flex-col gap-1">
-            {section.items.map((id) => {
-              const item: (typeof TABS)[AdminTabId] = TABS[id]
-              const Icon = item.icon
-              const active = id === tab
-              return (
-                <li key={id}>
-                  <a
-                    href={`/admin/${id}`}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      navigateTab(id)
-                    }}
-                    aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600',
-                      active
-                        ? 'bg-leaf-700 text-white'
-                        : 'text-ink-muted hover:bg-leaf-50 hover:text-ink',
-                    )}
-                  >
-                    <Icon size={18} className="shrink-0" aria-hidden />
-                    <span className="flex-1 truncate">{item.name}</span>
-                    {id === 'messages' && unreadTotal > 0 ? (
-                      <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
-                        {unreadTotal}
-                      </span>
-                    ) : id === 'campaigns' && newProposals > 0 ? (
-                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newProposals} đề xuất mới từ shop`}>
-                        {newProposals}
-                      </span>
-                    ) : id === 'hubs' && newArrivals > 0 ? (
-                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newArrivals} đơn chờ hub xác nhận`}>
-                        {newArrivals}
-                      </span>
-                    ) : 'badge' in item && (item as { badge?: React.ReactNode }).badge ? (
-                      <span
+    <nav aria-label="Menu quản trị" className="flex flex-col gap-3">
+      {SECTIONS.map((section) => {
+        const isCollapsed = Boolean(collapsedSections[section.title])
+        const hasActiveChild = section.items.includes(tab)
+        return (
+          <div key={section.title}>
+            <button
+              type="button"
+              onClick={() => toggleSection(section.title)}
+              aria-expanded={!isCollapsed}
+              className={cn(
+                'flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-caption font-bold uppercase tracking-wider transition-colors cursor-pointer',
+                'hover:bg-neutral-50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600',
+                hasActiveChild && isCollapsed ? 'text-leaf-700' : 'text-ink-subtle',
+              )}
+            >
+              <span>{section.title}</span>
+              <ChevronDown
+                size={14}
+                aria-hidden
+                className={cn(
+                  'shrink-0 transition-transform duration-200',
+                  isCollapsed && '-rotate-90',
+                )}
+              />
+            </button>
+            {!isCollapsed && (
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {section.items.map((id) => {
+                  const item: (typeof TABS)[AdminTabId] = TABS[id]
+                  const Icon = item.icon
+                  const active = id === tab
+                  return (
+                    <li key={id}>
+                      <a
+                        href={`/admin/${id}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          navigateTab(id)
+                        }}
+                        aria-current={active ? 'page' : undefined}
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-caption font-bold',
-                          active ? 'bg-white/20' : 'bg-leaf-100 text-leaf-800',
+                          'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600',
+                          active
+                            ? 'bg-leaf-700 text-white'
+                            : 'text-ink-muted hover:bg-leaf-50 hover:text-ink',
                         )}
                       >
-                        {(item as { badge?: React.ReactNode }).badge}
-                      </span>
-                    ) : null}
-                  </a>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+                        <Icon size={18} className="shrink-0" aria-hidden />
+                        <span className="flex-1 truncate">{item.name}</span>
+                        {id === 'messages' && unreadTotal > 0 ? (
+                          <span className="rounded-full px-2 py-0.5 text-caption font-bold bg-rose-500 text-white animate-pulse">
+                            {unreadTotal}
+                          </span>
+                        ) : id === 'campaigns' && newProposals > 0 ? (
+                          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newProposals} đề xuất mới từ shop`}>
+                            {newProposals}
+                          </span>
+                        ) : id === 'hubs' && newArrivals > 0 ? (
+                          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-caption font-bold text-white" aria-label={`${newArrivals} đơn chờ hub xác nhận`}>
+                            {newArrivals}
+                          </span>
+                        ) : 'badge' in item && (item as { badge?: React.ReactNode }).badge ? (
+                          <span
+                            className={cn(
+                              'rounded-full px-2 py-0.5 text-caption font-bold',
+                              active ? 'bg-white/20' : 'bg-leaf-100 text-leaf-800',
+                            )}
+                          >
+                            {(item as { badge?: React.ReactNode }).badge}
+                          </span>
+                        ) : null}
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
     </nav>
   )
 

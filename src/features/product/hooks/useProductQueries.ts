@@ -200,24 +200,30 @@ export function useProductImages(productId: number | undefined) {
   })
 }
 
-/** Upload ảnh lên Cloudinary và gắn vào gallery của sản phẩm */
+/** Upload ảnh lên Cloudinary (hoặc dùng URL đã pre-upload) và gắn vào gallery của sản phẩm */
 export function useUploadProductImage() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
       productId,
       file,
+      uploadedUrl,
       isPrimary = false,
       displayOrder = 0,
     }: {
       productId: number
-      file: File
+      file?: File
+      uploadedUrl?: string
       isPrimary?: boolean
       displayOrder?: number
     }) => {
-      // 1. Tải ảnh lên Cloudinary qua Backend
-      const uploadRes = await uploadService.uploadImage(file, 'products')
-      const imageUrl = uploadRes.result?.url
+      // 1. Dùng URL đã pre-upload hoặc tải ảnh mới lên Cloudinary qua Backend
+      let imageUrl = uploadedUrl
+      if (!imageUrl) {
+        if (!file) throw new Error('Thiếu file hoặc URL ảnh để tải lên')
+        const uploadRes = await uploadService.uploadImage(file, 'products')
+        imageUrl = uploadRes.result?.url
+      }
       if (!imageUrl) throw new Error('Không nhận được URL ảnh từ server')
 
       // 2. Gắn URL vào sản phẩm và kích hoạt kiểm duyệt AI ngầm tại backend
