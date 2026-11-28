@@ -12,6 +12,7 @@ import {
   Star,
   Sparkles,
   ShieldCheck,
+  Search,
 } from 'lucide-react'
 import { normalizeExpiryDate, type ProductResponse } from '@/services'
 import {
@@ -30,6 +31,8 @@ const ProductApproval: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectingProductId, setRejectingProductId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [aiFilter, setAiFilter] = useState<'all' | 'flagged' | 'clean'>('all')
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null)
   // Ảnh đang xem gắn với sản phẩm: đổi sản phẩm thì tự quay về ảnh đầu.
   const [preview, setPreview] = useState<{ productId?: number; idx: number }>({ idx: 0 })
 
@@ -52,8 +55,8 @@ const ProductApproval: React.FC = () => {
   }
 
   const products = pendingQuery.data ?? []
-  // Giống bản cũ: hiện màn tải cả khi bấm "Tải lại" và khi tải lại sau duyệt/từ chối.
-  const isLoading = pendingQuery.isFetching
+  const isLoading = pendingQuery.isLoading
+  const isRefreshing = pendingQuery.isFetching && !pendingQuery.isLoading
   const error = pendingQuery.isError ? 'Mất kết nối tải dữ liệu. Vui lòng thử lại sau.' : null
   const isProcessing = approve.isPending || reject.isPending
   const galleryImages = galleryQuery.data ?? []
@@ -91,11 +94,26 @@ const ProductApproval: React.FC = () => {
     }
   }
 
-  const filtered = products.filter(
-    (p) =>
-      p.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.id.toString().includes(searchQuery),
-  )
+  const getAiStatus = (product: ProductResponse): 'flagged' | 'clean' | 'unscanned' => {
+    if (product.moderationResult == null) return 'unscanned'
+    return product.moderationResult.isFlagged ? 'flagged' : 'clean'
+  }
+
+  const flaggedCount = products.filter((p) => getAiStatus(p) === 'flagged').length
+  const cleanCount = products.filter((p) => getAiStatus(p) === 'clean').length
+
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filtered = products.filter((p) => {
+    if (aiFilter === 'flagged' && getAiStatus(p) !== 'flagged') return false
+    if (aiFilter === 'clean' && getAiStatus(p) !== 'clean') return false
+    if (!normalizedQuery) return true
+    const shopText = (p.shopName || `Shop #${p.shopOwnerId || p.shopId || ''}`).toLowerCase()
+    return (
+      p.productName.toLowerCase().includes(normalizedQuery) ||
+      p.id.toString().includes(normalizedQuery) ||
+      shopText.includes(normalizedQuery)
+    )
+  })
 
   if (isLoading) {
     return (
@@ -109,60 +127,140 @@ const ProductApproval: React.FC = () => {
   }
 
   if (selectedProduct) {
+    const categoryLabel =
+      typeof selectedProduct.category === 'string'
+        ? selectedProduct.category
+        : selectedProduct.category?.name
+    const shopLabel =
+      selectedProduct.shopName ||
+      `#${selectedProduct.shopOwnerId || selectedProduct.shopId || '?'}`
+    const currentPreviewUrl =
+      galleryImages[previewIdx]?.imageUrl ||
+      selectedProduct.imageUrl ||
+      'https://picsum.photos/seed/product/400/400'
+    const isAiFlagged = Boolean(
+      selectedProduct.moderationResult?.isFlagged ||
+        galleryImages.some((img) => img.isFlagged || img.isApproved === false),
+    )
+    const confidenceVal = Number(selectedProduct.moderationResult?.overallConfidence ?? 100)
+
     return (
-      <div className="flex flex-col gap-8 p-8 animate-in fade-in duration-500">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setSelectedProduct(null)}
-            className="size-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all shadow-sm"
-          >
-            <ArrowLeft className="size-5" />
-          </button>
-          <div>
-            <h2 className="text-3xl font-black font-display text-gray-900">Chi Tiết Sản Phẩm</h2>
-            <p className="text-gray-400 font-medium text-sm mt-1">
-              Duyệt hoặc từ chối sản phẩm này
-            </p>
+      <div className="flex flex-col gap-6 p-6 lg:p-8 pb-24 animate-in fade-in duration-300">
+        {/* Top Action Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-gray-200/80">
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="size-3.5" />
+                <span>Quay lại danh sách</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap mt-0.5">
+              <h2 className="text-2xl font-black font-display text-slate-900 tracking-tight">
+                {selectedProduct.productName}
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Chờ duyệt
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500 font-medium">
+              <span>
+                Mã <strong className="text-slate-700 font-semibold">#{selectedProduct.id}</strong>
+              </span>
+              {categoryLabel && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    Danh mục:{' '}
+                    <strong className="text-slate-700 font-semibold">{categoryLabel}</strong>
+                  </span>
+                </>
+              )}
+              <span aria-hidden="true">·</span>
+              <span>
+                Cửa hàng: <strong className="text-slate-700 font-semibold">{shopLabel}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => {
+                setRejectingProductId(selectedProduct.id)
+                setShowRejectModal(true)
+              }}
+              className="px-4 py-2.5 bg-white text-red-600 text-xs font-bold rounded-xl uppercase tracking-wider hover:bg-red-50 transition-colors flex items-center justify-center gap-2 border border-red-200 cursor-pointer disabled:opacity-50"
+            >
+              <X className="size-4" /> Từ Chối
+            </button>
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => handleApprove(selectedProduct)}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4" />
+              )}
+              Duyệt Sản Phẩm
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
-              {/* Gallery preview */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Sticky Column: Gallery + Compact Metadata */}
+          <div className="lg:col-span-5 lg:sticky lg:top-6">
+            <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-5 space-y-5">
               {galleryLoading ? (
-                <div className="w-full h-64 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-6">
+                <div className="w-full aspect-square rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">
                   <Loader2 className="size-8 text-primary animate-spin" />
                 </div>
               ) : galleryImages.length > 0 ? (
-                <div className="mb-6">
-                  {/* Main preview */}
-                  <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 mb-3">
+                <div className="space-y-3">
+                  <div
+                    onClick={() => setZoomImageUrl(currentPreviewUrl)}
+                    title="Nhấn để phóng to ảnh"
+                    className="group relative w-full aspect-square rounded-xl overflow-hidden border border-gray-200 bg-slate-50 cursor-zoom-in"
+                  >
                     <img
-                      src={galleryImages[previewIdx]?.imageUrl}
+                      src={currentPreviewUrl}
                       alt={selectedProduct.productName}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                     {galleryImages[previewIdx]?.isPrimary && (
-                      <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-primary text-white text-[10px] font-black px-2 py-1 rounded-full">
+                      <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-primary text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
                         <Star className="size-3 fill-white" /> Ảnh chính
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 bg-black/40 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-                      {previewIdx + 1}/{galleryImages.length}
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                      <span className="bg-black/55 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+                        {previewIdx + 1}/{galleryImages.length}
+                      </span>
+                      <span className="bg-black/55 text-white p-1.5 rounded-full backdrop-blur-xs opacity-80 group-hover:opacity-100">
+                        <Eye className="size-3.5" />
+                      </span>
                     </div>
                   </div>
-                  {/* Thumbnail strip */}
                   {galleryImages.length > 1 && (
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="grid grid-cols-5 gap-2">
                       {galleryImages.map((img, idx) => (
                         <button
+                          type="button"
                           key={img.id}
                           onClick={() => setPreviewIdx(idx)}
-                          className={`relative size-14 rounded-xl overflow-hidden border-2 transition-all ${
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                             idx === previewIdx
-                              ? 'border-primary'
-                              : 'border-transparent opacity-60 hover:opacity-100'
+                              ? 'border-primary ring-2 ring-primary/20'
+                              : 'border-transparent opacity-65 hover:opacity-100'
                           }`}
                         >
                           <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
@@ -172,7 +270,7 @@ const ProductApproval: React.FC = () => {
                             </div>
                           )}
                           {(img.isApproved === false || img.isFlagged) && (
-                            <div className="absolute top-0 right-0 p-1 bg-amber-500 rounded-bl-lg text-white">
+                            <div className="absolute top-0 right-0 p-1 bg-amber-500 rounded-bl-md text-white">
                               <AlertTriangle className="size-2.5" />
                             </div>
                           )}
@@ -182,197 +280,183 @@ const ProductApproval: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <img
-                  src={selectedProduct.imageUrl || 'https://picsum.photos/seed/product/400/400'}
-                  alt={selectedProduct.productName}
-                  className="w-full h-64 rounded-2xl object-cover mb-6 border border-gray-100 bg-gray-50"
-                />
+                <div
+                  onClick={() => setZoomImageUrl(currentPreviewUrl)}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-slate-50 cursor-zoom-in"
+                >
+                  <img
+                    src={currentPreviewUrl}
+                    alt={selectedProduct.productName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               )}
-              <div className="space-y-3">
-                <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
-                  <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mb-1">
-                    TRẠNG THÁI
-                  </p>
-                  <p className="text-sm font-black text-yellow-700">Chờ duyệt</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">
-                    ID SẢN PHẨM
-                  </p>
-                  <p className="text-sm font-bold text-gray-900">#{selectedProduct.id}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">
-                    SHOP
-                  </p>
-                  <p className="text-sm font-bold text-gray-900">
-                    {selectedProduct.shopName ||
-                      `#${selectedProduct.shopOwnerId || selectedProduct.shopId || '?'}`}
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
-              <h3 className="text-xl font-black text-gray-900 mb-6">Thông Tin Sản Phẩm</h3>
-              <div className="space-y-5">
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                    Tên sản phẩm
-                  </label>
-                  <p className="text-lg font-black text-gray-900">{selectedProduct.productName}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                      Giá bán
-                    </label>
-                    {selectedProduct.discountPercent != null &&
-                    selectedProduct.discountPercent > 0 ? (
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-red-500 line-through font-semibold">
-                            {(selectedProduct.sellingPrice || 0).toLocaleString('vi-VN')}đ
-                          </span>
-                          <span className="bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full">
-                            -{selectedProduct.discountPercent}%
-                          </span>
-                        </div>
-                        <p className="text-lg font-black text-primary">
-                          {(
-                            selectedProduct.salePrice ??
-                            Math.round(
-                              ((selectedProduct.pricePerKg ?? selectedProduct.sellingPrice) || 0) *
-                                (1 - selectedProduct.discountPercent / 100),
-                            )
-                          ).toLocaleString('vi-VN')}
-                          đ / kg
-                        </p>
-                        {selectedProduct.discountEndDate && (
-                          <p className="text-[10px] text-primary font-bold">
-                            Còn đến{' '}
-                            {new Date(selectedProduct.discountEndDate).toLocaleDateString('vi-VN')}
-                          </p>
-                        )}
+          {/* Right Column: Product Info + AI Moderation */}
+          <div className="lg:col-span-7 flex flex-col gap-5">
+            <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-6">
+              <h3 className="text-base font-extrabold text-slate-900 mb-4">Thông Tin Sản Phẩm</h3>
+
+              {/* 2x2 Key Specs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">Giá bán</p>
+                  {selectedProduct.discountPercent != null &&
+                  selectedProduct.discountPercent > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-500 line-through font-semibold">
+                          {(selectedProduct.sellingPrice || 0).toLocaleString('vi-VN')}đ
+                        </span>
+                        <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          -{selectedProduct.discountPercent}%
+                        </span>
                       </div>
-                    ) : (
-                      <p className="text-lg font-black text-primary">
+                      <p className="text-lg font-extrabold text-primary">
                         {(
-                          (selectedProduct.pricePerKg ?? selectedProduct.sellingPrice) ||
-                          0
+                          selectedProduct.salePrice ??
+                          Math.round(
+                            ((selectedProduct.pricePerKg ?? selectedProduct.sellingPrice) || 0) *
+                              (1 - selectedProduct.discountPercent / 100),
+                          )
                         ).toLocaleString('vi-VN')}
                         đ / kg
                       </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                      Tồn kho
-                    </label>
-                    <p className="text-lg font-black text-gray-900">
+                      {selectedProduct.discountEndDate && (
+                        <p className="text-[11px] text-primary font-semibold">
+                          Còn đến{' '}
+                          {new Date(selectedProduct.discountEndDate).toLocaleDateString('vi-VN')}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-lg font-extrabold text-primary">
                       {(
-                        (selectedProduct.stockKg ??
-                          selectedProduct.stockQuantity ??
-                          selectedProduct.stock) ||
+                        (selectedProduct.pricePerKg ?? selectedProduct.sellingPrice) ||
                         0
-                      ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
-                      kg
+                      ).toLocaleString('vi-VN')}
+                      đ / kg
                     </p>
-                  </div>
+                  )}
                 </div>
-                {selectedProduct.expiryDate && (
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                      Hạn sử dụng
-                    </label>
-                    <p className="text-sm font-bold text-gray-900">
-                      {normalizeExpiryDate(selectedProduct.expiryDate) || String(selectedProduct.expiryDate)}
-                    </p>
-                  </div>
-                )}
-                {selectedProduct.origin && (
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                      Vùng trồng / Xuất xứ
-                    </label>
-                    <p className="text-sm font-bold text-gray-900">
-                      {selectedProduct.origin}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                    Mô tả
-                  </label>
-                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                    {selectedProduct.description || '—'}
+
+                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">Tồn kho</p>
+                  <p className="text-lg font-extrabold text-slate-900">
+                    {(
+                      (selectedProduct.stockKg ??
+                        selectedProduct.stockQuantity ??
+                        selectedProduct.stock) ||
+                      0
+                    ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
+                    kg
                   </p>
                 </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">Hạn sử dụng</p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {selectedProduct.expiryDate
+                      ? normalizeExpiryDate(selectedProduct.expiryDate) ||
+                        String(selectedProduct.expiryDate)
+                      : '—'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1">
+                    Vùng trồng / Xuất xứ
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">
+                    {selectedProduct.origin || '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-semibold text-slate-500 mb-1.5">Mô tả sản phẩm</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50/50 rounded-xl p-4 border border-slate-100">
+                  {selectedProduct.description || '—'}
+                </p>
               </div>
             </div>
 
             {/* Thẩm định AI Google Cloud Vision */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-6">
+              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="size-5 text-primary" />
-                  <h3 className="text-lg font-black text-gray-900">Thẩm Định AI (Google Cloud Vision)</h3>
+                  <Sparkles className="size-4 text-primary" />
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Thẩm Định AI (Google Cloud Vision)
+                  </h3>
                 </div>
                 {selectedProduct.moderationResult == null ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-black bg-gray-100 text-gray-600 flex items-center gap-1 border border-gray-200">
-                    <AlertTriangle size={12} className="text-gray-400" /> Chưa có dữ liệu AI
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 flex items-center gap-1.5 border border-slate-200">
+                    <AlertTriangle size={12} className="text-slate-500" /> Chưa có dữ liệu AI
                   </span>
-                ) : selectedProduct.moderationResult.isFlagged || galleryImages.some(img => img.isFlagged || img.isApproved === false) ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 flex items-center gap-1">
+                ) : isAiFlagged ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 flex items-center gap-1.5">
                     <AlertTriangle size={12} /> Cần Admin soi mắt
                   </span>
                 ) : (
-                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1.5">
                     <ShieldCheck size={12} /> Nông sản đạt chuẩn
                   </span>
                 )}
               </div>
 
-              {/* Hộp thoại cảnh báo nổi bật nếu có cờ nghi ngờ lệch loại hoặc ảnh lỗi */}
-              {(selectedProduct.moderationResult?.isFlagged || galleryImages.some(img => img.isFlagged || img.isApproved === false)) && (
-                <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
-                  <div className="flex items-center gap-2 font-bold text-amber-800">
-                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+              {isAiFlagged && (
+                <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-amber-900">
+                    <AlertTriangle size={15} className="text-amber-600 shrink-0" />
                     <span>Cảnh Báo Từ Hệ Thống AI:</span>
                   </div>
                   <p className="font-semibold text-amber-800 pl-6">
                     {selectedProduct.moderationResult?.flagReason ||
-                     galleryImages.find(img => img.isFlagged || img.flagReason)?.flagReason ||
-                     'Ảnh sản phẩm có dấu hiệu bất thường hoặc nghi ngờ lệch loại nông sản. Đề nghị Admin kiểm tra kỹ trước khi duyệt.'}
+                      galleryImages.find((img) => img.isFlagged || img.flagReason)?.flagReason ||
+                      'Ảnh sản phẩm có dấu hiệu bất thường hoặc nghi ngờ lệch loại nông sản. Đề nghị Admin kiểm tra kỹ trước khi duyệt.'}
                   </p>
                 </div>
               )}
 
               {selectedProduct.moderationResult ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-gray-500">
-                    <span>Độ tin cậy tổng thể:</span>
-                    <span className="text-gray-900 font-black">
-                      {selectedProduct.moderationResult.overallConfidence ?? 100}%
-                    </span>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                      <span>Độ tin cậy tổng thể</span>
+                      <span className="text-slate-900 font-extrabold">
+                        {confidenceVal.toFixed(2).replace(/\.00$/, '')}%
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          isAiFlagged ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, confidenceVal))}%` }}
+                      />
+                    </div>
                   </div>
                   {selectedProduct.moderationResult.moderationLabels &&
                     selectedProduct.moderationResult.moderationLabels.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
-                          Nhãn AI nhận diện được ({selectedProduct.moderationResult.moderationLabels.length} nhãn)
+                        <p className="text-[11px] font-semibold text-slate-500 mb-2">
+                          Nhãn AI nhận diện được (
+                          {selectedProduct.moderationResult.moderationLabels.length} nhãn)
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {selectedProduct.moderationResult.moderationLabels.map((lbl) => (
                             <span
                               key={lbl.id}
-                              className="px-2.5 py-1 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700"
+                              title={`${lbl.labelNameVi || lbl.labelName} (${lbl.labelName}): ${lbl.confidence}%`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700"
                             >
-                              {lbl.labelNameVi || lbl.labelName}{' '}
-                              <span className="text-[10px] text-gray-400">({lbl.labelName})</span>:{' '}
-                              {lbl.confidence}%
+                              <span>{lbl.labelNameVi || lbl.labelName}</span>
+                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                                {lbl.confidence}%
+                              </span>
                             </span>
                           ))}
                         </div>
@@ -380,42 +464,78 @@ const ProductApproval: React.FC = () => {
                     )}
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-xs text-gray-500">
-                  <p className="font-semibold text-gray-700">Chưa có kết quả thẩm định tự động từ Google Cloud Vision.</p>
-                  <p className="mt-0.5 text-gray-400">Sản phẩm này chưa có bản ghi cờ cảnh báo. Vui lòng kiểm tra kỹ hình ảnh và thông tin nông sản bằng mắt thường trước khi phê duyệt.</p>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600">
+                  <p className="font-bold text-slate-800">
+                    Chưa có kết quả thẩm định tự động từ Google Cloud Vision.
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    Sản phẩm này chưa có bản ghi cờ cảnh báo. Vui lòng kiểm tra kỹ hình ảnh và
+                    thông tin nông sản bằng mắt thường trước khi phê duyệt.
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
-              <h3 className="text-lg font-black text-gray-900 mb-4">Quyết Định</h3>
-              <div className="flex gap-4">
+            {/* Bottom Decision Bar (for convenience after reading bottom section) */}
+            <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Quyết Định Kiểm Duyệt</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Xác nhận niêm yết hoặc từ chối kèm lý do gửi nhà vườn.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 <button
-                  disabled={isProcessing}
-                  onClick={() => handleApprove(selectedProduct)}
-                  className="flex-1 px-6 py-4 bg-emerald-50 text-emerald-600 text-sm font-black rounded-2xl uppercase tracking-widest hover:bg-emerald-100 transition-colors flex items-center justify-center gap-3 border border-emerald-200 disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="size-5 animate-spin" />
-                  ) : (
-                    <Check className="size-5" />
-                  )}
-                  Duyệt Sản Phẩm
-                </button>
-                <button
+                  type="button"
                   disabled={isProcessing}
                   onClick={() => {
                     setRejectingProductId(selectedProduct.id)
                     setShowRejectModal(true)
                   }}
-                  className="flex-1 px-6 py-4 bg-red-50 text-red-600 text-sm font-black rounded-2xl uppercase tracking-widest hover:bg-red-100 transition-colors flex items-center justify-center gap-3 border border-red-200 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-white text-red-600 text-xs font-bold rounded-xl uppercase tracking-wider hover:bg-red-50 transition-colors flex items-center justify-center gap-2 border border-red-200 cursor-pointer disabled:opacity-50"
                 >
-                  <X className="size-5" /> Từ Chối
+                  <X className="size-4" /> Từ Chối
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => handleApprove(selectedProduct)}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Check className="size-4" />
+                  )}
+                  Duyệt Sản Phẩm
                 </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Lightbox phóng to ảnh */}
+        {zoomImageUrl && (
+          <div
+            onClick={() => setZoomImageUrl(null)}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-zoom-out"
+          >
+            <button
+              type="button"
+              onClick={() => setZoomImageUrl(null)}
+              aria-label="Đóng ảnh phóng to"
+              className="absolute top-5 right-5 size-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
+            >
+              <X className="size-5" />
+            </button>
+            <img
+              src={zoomImageUrl}
+              alt={selectedProduct.productName}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-[88vh] rounded-2xl object-contain shadow-2xl cursor-default"
+            />
+          </div>
+        )}
 
         {/* Modal từ chối duyệt khi đang xem chi tiết sản phẩm */}
         {showRejectModal && (
@@ -509,172 +629,293 @@ const ProductApproval: React.FC = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-8 p-8 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-6 p-6 lg:p-8 animate-in fade-in duration-300">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-gray-200/80">
           <div>
-            <h2 className="text-3xl font-black font-display text-gray-900">Duyệt Sản Phẩm</h2>
-            <p className="text-gray-400 font-medium text-sm mt-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl font-black font-display text-slate-900 tracking-tight">
+                Duyệt Sản Phẩm
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                {products.length} chờ duyệt
+              </span>
+            </div>
+            <p className="text-slate-500 font-medium text-sm mt-1">
               Các sản phẩm nông dân đăng lên đang chờ phê duyệt.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="bg-yellow-50 border border-yellow-100 px-5 py-3 rounded-2xl flex items-center gap-3">
-              <Package className="size-5 text-yellow-600" />
-              <div>
-                <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
-                  Chờ duyệt
-                </p>
-                <p className="text-xl font-black text-gray-900">{products.length}</p>
-              </div>
-            </div>
+          <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={fetchProducts}
-              className="size-12 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 hover:text-primary transition-colors"
+              disabled={isRefreshing}
+              aria-label="Làm mới danh sách"
+              title="Làm mới danh sách"
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer disabled:opacity-60"
             >
-              <RefreshCw className="size-5" />
+              <RefreshCw className={`size-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Làm mới</span>
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 p-6 rounded-3xl flex items-center gap-4 text-red-600 font-bold">
-            <AlertCircle className="size-6" /> {error}
+          <div className="bg-red-50 border border-red-200/80 p-4 rounded-2xl flex items-center gap-3 text-red-700 text-sm font-semibold">
+            <AlertCircle className="size-5 shrink-0" /> {error}
           </div>
         )}
 
-        <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50">
-            <input
-              type="text"
-              placeholder="Tìm theo tên sản phẩm hoặc ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full max-w-sm px-5 py-3 bg-gray-50 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-            />
+        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 sm:px-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                aria-label="Tìm theo tên, mã sản phẩm hoặc tên shop"
+                placeholder="Tìm theo tên, mã SP hoặc tên shop..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-gray-200/80 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div
+              role="tablist"
+              aria-label="Lọc theo kết quả thẩm định AI"
+              className="inline-flex items-center p-1 rounded-xl bg-slate-100/80 border border-gray-200/60 self-start md:self-auto"
+            >
+              {(
+                [
+                  { id: 'all', label: 'Tất cả', count: products.length },
+                  { id: 'flagged', label: 'Cần soi mắt', count: flaggedCount },
+                  { id: 'clean', label: 'AI đạt chuẩn', count: cleanCount },
+                ] as const
+              ).map((tab) => {
+                const active = aiFilter === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setAiFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      active
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
+                        active
+                          ? tab.id === 'flagged' && tab.count > 0
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-700'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50/50">
+              <thead className="bg-slate-50/70 border-b border-gray-100">
                 <tr>
-                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Sản phẩm
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <th className="px-4 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Shop
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                  <th className="px-4 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                     Giá / Tồn kho
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <th className="px-4 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                     Hạn SD
                   </th>
-                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+                  <th className="px-4 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                    Thẩm định AI
+                  </th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">
                     Thao tác
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-8 py-16 text-center">
-                      <Package className="size-12 text-gray-200 mx-auto mb-4" />
-                      <p className="text-gray-400 font-bold text-sm">
-                        Không có sản phẩm nào đang chờ duyệt.
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <Package className="size-10 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 font-semibold text-sm">
+                        {products.length === 0
+                          ? 'Không có sản phẩm nào đang chờ duyệt.'
+                          : 'Không tìm thấy sản phẩm phù hợp với bộ lọc hiện tại.'}
                       </p>
+                      {(searchQuery || aiFilter !== 'all') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('')
+                            setAiFilter('all')
+                          }}
+                          className="mt-3 px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50/30 transition-colors">
-                      <td className="px-8 py-5">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={product.imageUrl || 'https://picsum.photos/seed/product/80/80'}
-                            className="size-12 rounded-xl object-cover border border-gray-100 bg-gray-50"
-                            alt={product.productName}
-                          />
-                          <div>
-                            <p className="text-sm font-black text-gray-900 line-clamp-1 max-w-[200px]">
-                              {product.productName}
-                            </p>
-                            <p className="text-[10px] text-gray-400 font-bold">ID: {product.id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="text-sm font-bold text-gray-700">
-                          {product.shopName ||
-                            `Shop #${product.shopOwnerId || product.shopId || '?'}`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        {product.discountPercent != null && product.discountPercent > 0 ? (
-                          <div className="flex flex-col items-center gap-0.5">
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-red-500 line-through font-semibold">
-                                {(product.sellingPrice || 0).toLocaleString('vi-VN')}đ
-                              </span>
-                              <span className="bg-primary text-white text-[8px] font-black px-1 py-0.5 rounded-full">
-                                -{product.discountPercent}%
-                              </span>
+                  filtered.map((product) => {
+                    const rowCategory =
+                      typeof product.category === 'string'
+                        ? product.category
+                        : product.category?.name
+                    const aiStatus = getAiStatus(product)
+                    return (
+                      <tr
+                        key={product.id}
+                        onClick={() => setSelectedProduct(product)}
+                        className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3.5">
+                            <img
+                              src={product.imageUrl || 'https://picsum.photos/seed/product/80/80'}
+                              className="size-12 rounded-xl object-cover border border-gray-200/80 bg-slate-50 shrink-0"
+                              alt={product.productName}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors line-clamp-1 max-w-[220px]">
+                                {product.productName}
+                              </p>
+                              <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>#{product.id}</span>
+                                {rowCategory && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="text-slate-600">{rowCategory}</span>
+                                  </>
+                                )}
+                              </p>
                             </div>
-                            <p className="text-sm font-black text-primary">
-                              {(
-                                product.salePrice ??
-                                Math.round(
-                                  (product.sellingPrice || 0) * (1 - product.discountPercent / 100),
-                                )
-                              ).toLocaleString('vi-VN')}
-                              đ
-                            </p>
                           </div>
-                        ) : (
-                          <p className="text-sm font-black text-primary">
-                            {(product.sellingPrice || 0).toLocaleString('vi-VN')}đ
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="text-sm font-semibold text-slate-700 line-clamp-2 max-w-[190px]">
+                            {product.shopName ||
+                              `Shop #${product.shopOwnerId || product.shopId || '?'}`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {product.discountPercent != null && product.discountPercent > 0 ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-red-500 line-through font-medium">
+                                  {(product.sellingPrice || 0).toLocaleString('vi-VN')}đ
+                                </span>
+                                <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                                  -{product.discountPercent}%
+                                </span>
+                              </div>
+                              <p className="text-sm font-extrabold text-primary">
+                                {(
+                                  product.salePrice ??
+                                  Math.round(
+                                    (product.sellingPrice || 0) * (1 - product.discountPercent / 100),
+                                  )
+                                ).toLocaleString('vi-VN')}
+                                đ
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-extrabold text-primary">
+                              {(product.sellingPrice || 0).toLocaleString('vi-VN')}đ
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-500 font-medium">
+                            {(
+                              (product.stockKg ?? product.stockQuantity ?? product.stock) ||
+                              0
+                            ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
+                            kg
                           </p>
-                        )}
-                        <p className="text-[10px] text-gray-400">
-                          {(
-                            (product.stockKg ?? product.stockQuantity ?? product.stock) ||
-                            0
-                          ).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}{' '}
-                          kg
-                        </p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="text-xs font-bold text-gray-600">
-                          {normalizeExpiryDate(product.expiryDate) || '—'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedProduct(product)}
-                            className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-xl uppercase hover:bg-blue-100 transition-colors flex items-center gap-1.5"
-                          >
-                            <Eye className="size-3.5" /> Xem
-                          </button>
-                          <button
-                            disabled={isProcessing}
-                            onClick={() => handleApprove(product)}
-                            className="px-3 py-2 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-xl uppercase hover:bg-emerald-100 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            <Check className="size-3.5" /> Duyệt
-                          </button>
-                          <button
-                            disabled={isProcessing}
-                            onClick={() => {
-                              setRejectingProductId(product.id)
-                              setShowRejectModal(true)
-                            }}
-                            className="px-3 py-2 bg-red-50 text-red-600 text-[10px] font-black rounded-xl uppercase hover:bg-red-100 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            <X className="size-3.5" /> Từ chối
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-slate-600 tabular-nums whitespace-nowrap">
+                            {normalizeExpiryDate(product.expiryDate) || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {aiStatus === 'flagged' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 whitespace-nowrap">
+                              <span className="size-1.5 rounded-full bg-amber-500" />
+                              Cần soi mắt
+                            </span>
+                          ) : aiStatus === 'clean' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 whitespace-nowrap">
+                              <span className="size-1.5 rounded-full bg-emerald-500" />
+                              AI đạt chuẩn
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200/80 whitespace-nowrap">
+                              <span className="size-1.5 rounded-full bg-slate-400" />
+                              Chưa quét
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          className="px-5 py-4 text-right whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProduct(product)}
+                              className="px-2.5 py-1.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-200/80 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                            >
+                              <Eye className="size-3.5 shrink-0" /> Xem
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleApprove(product)}
+                              className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 cursor-pointer"
+                            >
+                              <Check className="size-3.5 shrink-0" /> Duyệt
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => {
+                                setRejectingProductId(product.id)
+                                setShowRejectModal(true)
+                              }}
+                              className="px-2.5 py-1.5 bg-red-50 text-red-700 border border-red-200/70 text-xs font-semibold rounded-lg hover:bg-red-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 cursor-pointer"
+                            >
+                              <X className="size-3.5 shrink-0" /> Từ chối
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

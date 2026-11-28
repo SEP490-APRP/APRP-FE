@@ -11,8 +11,6 @@ import {
   Clock,
   ArrowUpDown,
   RotateCcw,
-  ThumbsUp,
-  ThumbsDown,
   Sparkles,
   Package,
   Layers,
@@ -218,7 +216,7 @@ export default function ReviewMonitoring() {
   }, [reviews, selectedStar, selectedShop, quickFilter, searchQuery, sortOrder])
 
   return (
-    <div className="space-y-4 p-4 sm:p-5 max-w-7xl mx-auto animate-in fade-in duration-200">
+    <div className="space-y-4 p-4 sm:p-5 pb-16 max-w-7xl mx-auto animate-in fade-in duration-200">
       {/* 1. Header & Tiêu đề trang */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-line gap-3">
         <div>
@@ -295,8 +293,10 @@ export default function ReviewMonitoring() {
           )}
         >
           <div>
-            <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
-              Tiêu cực (1 - 2 ⭐)
+            <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+              <span>Tiêu cực (1 - 2</span>
+              <Star size={11} className="fill-amber-400 text-amber-400 inline-block" />
+              <span>)</span>
             </p>
             <p
               className={cn(
@@ -511,26 +511,32 @@ export default function ReviewMonitoring() {
           {/* Mức sao */}
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-[11px] font-semibold text-ink-muted mr-1">Mức sao:</span>
-            {([
-              { key: 'ALL' as const, label: 'Tất cả' },
-              { key: 5, label: '5 ⭐' },
-              { key: 4, label: '4 ⭐' },
-              { key: 3, label: '3 ⭐' },
-              { key: 2, label: '2 ⭐' },
-              { key: 1, label: '1 ⭐' },
-            ] as const).map((tab) => (
+            <button
+              type="button"
+              onClick={() => setSelectedStar('ALL')}
+              className={cn(
+                'px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer',
+                selectedStar === 'ALL'
+                  ? 'bg-ink text-white'
+                  : 'bg-neutral-50 text-ink-muted hover:bg-neutral-100 hover:text-ink border border-line/60',
+              )}
+            >
+              Tất cả
+            </button>
+            {([5, 4, 3, 2, 1] as const).map((star) => (
               <button
-                key={String(tab.key)}
+                key={star}
                 type="button"
-                onClick={() => setSelectedStar(tab.key)}
+                onClick={() => setSelectedStar(star)}
                 className={cn(
-                  'px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer',
-                  selectedStar === tab.key
+                  'px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer inline-flex items-center gap-1',
+                  selectedStar === star
                     ? 'bg-ink text-white'
                     : 'bg-neutral-50 text-ink-muted hover:bg-neutral-100 hover:text-ink border border-line/60',
                 )}
               >
-                {tab.label}
+                <span>{star}</span>
+                <Star size={11} className="fill-amber-400 text-amber-400 shrink-0" />
               </button>
             ))}
           </div>
@@ -560,7 +566,9 @@ export default function ReviewMonitoring() {
               )}
             >
               <AlertTriangle size={11} />
-              <span>Tiêu cực 1-2 ⭐ ({stats.negativeCount})</span>
+              <span>Tiêu cực 1-2</span>
+              <Star size={11} className="fill-amber-400 text-amber-400 shrink-0" />
+              <span>({stats.negativeCount})</span>
             </button>
             <button
               type="button"
@@ -756,21 +764,11 @@ export default function ReviewMonitoring() {
                   </div>
                 </div>
 
-                {/* Footer Dòng Cuối: Phân loại hàng & Lượt thích hữu ích */}
+                {/* Footer Dòng Cuối: Phân loại hàng */}
                 <div className="flex items-center justify-between text-[10px] text-ink-muted pt-1 border-t border-line/30">
                   <span className="font-semibold text-neutral-400 uppercase tracking-wider">
                     Loại: {itemTypeLabel}
                   </span>
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex items-center gap-1">
-                      <ThumbsUp size={11} className="text-neutral-400" />
-                      <span>{rev.likeCount || 0} hữu ích</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <ThumbsDown size={11} className="text-neutral-400" />
-                      <span>{rev.dislikeCount || 0}</span>
-                    </span>
-                  </div>
                 </div>
               </div>
             )

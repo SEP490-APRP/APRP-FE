@@ -10,6 +10,7 @@ import {
 } from '@/features/product'
 import { useCategories, filterFreshCategories } from '@/features/product/hooks/useCategoryQueries'
 import { useCreateProduct, useUploadProductImage, useDeleteProduct, useAiSuggestDescription } from '@/features/product/hooks/useProductQueries'
+import { uploadService } from '@/services'
 import type { FarmerProduct } from './types'
 import { getErrorMessage } from '@/utils'
 import { globalShowAlert } from '@/components/common/Popup'
@@ -45,6 +46,8 @@ interface SelectedProductImage {
   id: string
   file: File
   previewUrl: string
+  uploadedUrl?: string
+  errorReason?: string
 }
 
 type ImageCheckStatus = 'pending' | 'checking' | 'passed' | 'rejected'
@@ -79,10 +82,18 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   const [dragActive, setDragActive] = useState(false)
   const [imageStatuses, setImageStatuses] = useState<Record<string, ImageCheckStatus>>({})
   const selectedImagesRef = useRef<SelectedProductImage[]>([])
+  const mountedRef = useRef(true)
   const [aiError, setAiError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [isAiGenerated, setIsAiGenerated] = useState(false)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -164,6 +175,90 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
   }
 
+  const buildRejectedErrorMessage = (rejectedItems: { name: string; reason: string }[]) => {
+    if (rejectedItems.length === 0) return null
+    return rejectedItems.length > 1
+      ? `❌ Có ${rejectedItems.length} ảnh bị AI từ chối: ${rejectedItems.map((x) => `${x.name} (${x.reason})`).join(' · ')}. Vui lòng xóa hoặc thay bằng ảnh nông sản hợp lệ rồi thử lại.`
+      : `❌ Ảnh bị từ chối: ${rejectedItems[0].name} (${rejectedItems[0].reason}). Vui lòng xóa hoặc thay bằng ảnh nông sản hợp lệ.`
+  }
+
+  const syncRejectedBanner = (
+    images: SelectedProductImage[],
+    statuses: Record<string, ImageCheckStatus>,
+  ) => {
+    const rejectedItems = images
+      .filter((img) => statuses[img.id] === 'rejected')
+      .map((img) => ({
+        name: img.file.name,
+        reason: img.errorReason || 'Ảnh không hợp lệ',
+      }))
+    setAiError(buildRejectedErrorMessage(rejectedItems))
+  }
+
+  const moderateAndUploadItem = async (
+    item: SelectedProductImage,
+  ): Promise<{ ok: boolean; url?: string; reason?: string }> => {
+    if (!mountedRef.current) return { ok: false }
+    setImageStatuses((prev) => ({ ...prev, [item.id]: 'checking' }))
+
+    try {
+      const currentName = getValues('name')?.trim() || undefined
+      const currentCategoryId = getValues('categoryId')
+      const res = await uploadService.uploadImage(item.file, 'products', {
+        moderate: true,
+        productName: currentName,
+        categoryId: currentCategoryId,
+      })
+      const url = res.result?.url
+      if (!url) throw new Error('Không nhận được URL ảnh từ server')
+
+      if (!mountedRef.current || !selectedImagesRef.current.some((x) => x.id === item.id)) {
+        return { ok: false }
+      }
+
+      setSelectedImages((prev) =>
+        prev.map((x) => (x.id === item.id ? { ...x, uploadedUrl: url, errorReason: undefined } : x)),
+      )
+      setImageStatuses((prev) => {
+        const next: Record<string, ImageCheckStatus> = { ...prev, [item.id]: 'passed' }
+        syncRejectedBanner(selectedImagesRef.current, next)
+        return next
+      })
+      return { ok: true, url }
+    } catch (imgErr: any) {
+      const reason = mapUploadError(imgErr)
+      if (!mountedRef.current || !selectedImagesRef.current.some((x) => x.id === item.id)) {
+        return { ok: false, reason }
+      }
+      setSelectedImages((prev) =>
+        prev.map((x) => (x.id === item.id ? { ...x, uploadedUrl: undefined, errorReason: reason } : x)),
+      )
+      setImageStatuses((prev) => {
+        const next: Record<string, ImageCheckStatus> = { ...prev, [item.id]: 'rejected' }
+        const updatedList = selectedImagesRef.current.map((x) =>
+          x.id === item.id ? { ...x, errorReason: reason } : x,
+        )
+        syncRejectedBanner(updatedList, next)
+        return next
+      })
+      return { ok: false, reason }
+    }
+  }
+
+  const runPrecheckBatch = async (items: SelectedProductImage[]) => {
+    const CONCURRENCY = 3
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < items.length) {
+        const current = items[cursor++]
+        if (!current || !mountedRef.current) return
+        if (!selectedImagesRef.current.some((x) => x.id === current.id)) continue
+        await moderateAndUploadItem(current)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker()))
+  }
+
   const addImageFiles = (fileList: FileList | File[]) => {
     setAiError(null)
     const files = Array.from(fileList || [])
@@ -199,7 +294,17 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
 
     if (accepted.length > 0) {
-      setSelectedImages((prev) => [...prev, ...accepted])
+      const nextImages = [...selectedImagesRef.current, ...accepted]
+      selectedImagesRef.current = nextImages
+      setSelectedImages(nextImages)
+      setImageStatuses((prev) => {
+        const next = { ...prev }
+        accepted.forEach((item) => {
+          next[item.id] = 'pending'
+        })
+        return next
+      })
+      void runPrecheckBatch(accepted)
     }
     if (errorsList.length > 0) {
       setAiError(`Một số ảnh chưa được thêm: ${errorsList.join('; ')}.`)
@@ -216,15 +321,17 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
   const handleRemoveImage = (index: number) => {
     setSelectedImages((prev) => {
       const target = prev[index]
+      const next = prev.filter((_, idx) => idx !== index)
+      selectedImagesRef.current = next
       if (target) {
         URL.revokeObjectURL(target.previewUrl)
         setImageStatuses((s) => {
           const copy = { ...s }
           delete copy[target.id]
+          syncRejectedBanner(next, copy)
           return copy
         })
       }
-      const next = prev.filter((_, idx) => idx !== index)
       if (index === primaryIndex || primaryIndex >= next.length) {
         setPrimaryIndex(0)
       } else if (index < primaryIndex) {
@@ -262,12 +369,64 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
       return
     }
 
+    if (selectedImages.some((img) => imageStatuses[img.id] === 'checking')) {
+      setAiError('AI đang kiểm tra hình ảnh vừa chọn. Vui lòng đợi vài giây rồi thử lại.')
+      return
+    }
+
+    const preRejected = selectedImages
+      .filter((img) => imageStatuses[img.id] === 'rejected')
+      .map((img) => ({
+        name: img.file.name,
+        reason: img.errorReason || 'Ảnh không hợp lệ',
+      }))
+    if (preRejected.length > 0) {
+      setAiError(buildRejectedErrorMessage(preRejected))
+      return
+    }
+
     setSubmitting(true)
     setAiError(null)
     setUploadProgress(null)
 
     try {
-      // 1. Tạo bản ghi sản phẩm ở Backend (Trạng thái ban đầu PENDING)
+      // 1. Sắp xếp ảnh chính lên đầu; chỉ tải & kiểm duyệt những ảnh chưa có uploadedUrl
+      const orderedImages = [
+        selectedImages[primaryIndex] || selectedImages[0],
+        ...selectedImages.filter((_, idx) => idx !== primaryIndex),
+      ].filter(Boolean)
+
+      const resolvedUrls = new Map<string, string>()
+      for (const item of orderedImages) {
+        if (item.uploadedUrl) {
+          resolvedUrls.set(item.id, item.uploadedUrl)
+        }
+      }
+
+      const unverifiedImages = orderedImages.filter((item) => !resolvedUrls.has(item.id))
+      if (unverifiedImages.length > 0) {
+        const failedItems: { name: string; reason: string }[] = []
+        for (let i = 0; i < unverifiedImages.length; i++) {
+          const item = unverifiedImages[i]
+          setUploadProgress(`Đang tải & thẩm định AI ảnh ${i + 1}/${unverifiedImages.length}...`)
+          const checkRes = await moderateAndUploadItem(item)
+          if (checkRes.ok && checkRes.url) {
+            resolvedUrls.set(item.id, checkRes.url)
+          } else {
+            failedItems.push({
+              name: item.file.name,
+              reason: checkRes.reason || 'Ảnh không hợp lệ',
+            })
+          }
+        }
+        if (failedItems.length > 0) {
+          setAiError(buildRejectedErrorMessage(failedItems))
+          return
+        }
+      }
+
+      // 2. Tất cả ảnh đã qua kiểm duyệt -> mới tạo bản ghi sản phẩm ở Backend (tránh tạo/xóa rác)
+      setUploadProgress('Đang khởi tạo nông sản...')
       const res = await createMutation.mutateAsync({
         productName: values.name,
         categoryId: values.categoryId,
@@ -282,31 +441,20 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
 
       const newProductId = res.result?.productId ?? res.result?.id
 
-      // 2. Sắp xếp ảnh chính lên đầu để thẩm định AI trước, sau đó tải tuần tự các ảnh còn lại
-      const orderedImages = [
-        selectedImages[primaryIndex] || selectedImages[0],
-        ...selectedImages.filter((_, idx) => idx !== primaryIndex),
-      ].filter(Boolean)
-
       let uploadedCount = 0
       let primarySucceeded = false
       const failedImages: string[] = []
 
       if (newProductId) {
-        const initialStatuses: Record<string, ImageCheckStatus> = {}
-        orderedImages.forEach((img) => {
-          initialStatuses[img.id] = 'pending'
-        })
-        setImageStatuses(initialStatuses)
-
         for (let i = 0; i < orderedImages.length; i++) {
           const item = orderedImages[i]
-          setUploadProgress(`Đang tải & thẩm định AI ảnh ${i + 1}/${orderedImages.length}...`)
-          setImageStatuses((prev) => ({ ...prev, [item.id]: 'checking' }))
+          const cachedUrl = resolvedUrls.get(item.id)
+          setUploadProgress(`Đang lưu ảnh nông sản ${i + 1}/${orderedImages.length}...`)
           try {
             await uploadImageMutation.mutateAsync({
               productId: newProductId,
               file: item.file,
+              uploadedUrl: cachedUrl,
               isPrimary: i === 0,
               displayOrder: i,
             })
@@ -317,7 +465,6 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
             setImageStatuses((prev) => ({ ...prev, [item.id]: 'rejected' }))
             const reason = mapUploadError(imgErr)
             failedImages.push(`${item.file.name} (${reason})`)
-            // Nếu ảnh đại diện chính bị từ chối ngay đầu tiên -> rollback ngay
             if (i === 0) {
               break
             }
@@ -375,6 +522,7 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
     }
   }
 
+  const hasCheckingImages = selectedImages.some((img) => imageStatuses[img.id] === 'checking')
   const isBusy = submitting || createMutation.isPending
   const heroImage = selectedImages[primaryIndex] || selectedImages[0]
 
@@ -533,7 +681,13 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
                           <div
                             key={item.id}
                             onClick={() => !isBusy && setPrimaryIndex(idx)}
-                            title={isPrimary ? 'Đang là ảnh chính' : 'Nhấn để đặt làm ảnh chính'}
+                            title={
+                              item.errorReason
+                                ? `${item.file.name} — ${item.errorReason}`
+                                : isPrimary
+                                  ? 'Đang là ảnh chính'
+                                  : 'Nhấn để đặt làm ảnh chính'
+                            }
                             className={`relative aspect-square rounded-xl overflow-hidden border-2 bg-[#f4f7f1] transition-all ${
                               !isBusy ? 'cursor-pointer' : ''
                             } ${
@@ -811,7 +965,10 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
           {/* Fixed Footer */}
           <div className="px-6 py-4 border-t border-[#f1f4ed] bg-[#fafcf9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
             <p className="text-[11px] text-[#737c6e] font-medium">
-              {uploadProgress || 'Ảnh chính đạt kiểm duyệt AI sẽ đưa nông sản vào hàng Chờ duyệt.'}
+              {uploadProgress ||
+                (hasCheckingImages
+                  ? 'Đang kiểm duyệt AI cho các ảnh vừa chọn...'
+                  : 'Ảnh chính đạt kiểm duyệt AI sẽ đưa nông sản vào hàng Chờ duyệt.')}
             </p>
             <div className="flex items-center justify-end gap-2.5 shrink-0">
               <button
@@ -824,11 +981,13 @@ export default function AddProduct({ onAddProduct, onClose, onInfo }: AddProduct
               </button>
               <button
                 type="submit"
-                disabled={isBusy}
+                disabled={isBusy || hasCheckingImages}
                 className="px-5 py-2.5 rounded-xl bg-[#326318] hover:bg-[#254b12] text-white font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {isBusy && <Loader2 size={15} className="animate-spin" />}
-                <span>{uploadProgress || 'Đăng Bán Nông Sản'}</span>
+                {(isBusy || hasCheckingImages) && <Loader2 size={15} className="animate-spin" />}
+                <span>
+                  {uploadProgress || (hasCheckingImages ? 'Đang kiểm tra ảnh...' : 'Đăng Bán Nông Sản')}
+                </span>
               </button>
             </div>
           </div>
